@@ -1,26 +1,23 @@
 
 
+#include "VulkanRenderContext.h"
 #include <random>
+#include <vulkan/vulkan.hpp>
 #include "VulkanCommandList.h"
 #include "VulkanDevice.h"
-#include "Core/Profiler/Profile.h"
-#include "Paths/Paths.h"
-#include "Renderer/CommandList.h"
-#include "Renderer/ShaderCompiler.h"
-#include "TaskSystem/TaskSystem.h"
+#include "VulkanMacros.h"
 #include "VulkanResources.h"
 #include "VulkanSwapchain.h"
-#include "Core/Windows/Window.h"
-
-#define VMA_IMPLEMENTATION
-#include <vma/vk_mem_alloc.h>
-#include <vulkan/vulkan.hpp>
-#include "VulkanMacros.h"
 #include "Core/Engine/Engine.h"
 #include "Core/Math/Alignment.h"
-#include "VulkanRenderContext.h"
+#include "Core/Profiler/Profile.h"
+#include "Core/Windows/Window.h"
+#include "Paths/Paths.h"
+#include "Renderer/CommandList.h"
 #include "Renderer/RHIStaticStates.h"
+#include "Renderer/ShaderCompiler.h"
 #include "src/VkBootstrap.h"
+#include "TaskSystem/TaskSystem.h"
 
 namespace Lumina
 {

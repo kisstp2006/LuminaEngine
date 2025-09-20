@@ -1,9 +1,11 @@
 ﻿#include "VulkanDevice.h"
-
+#define VMA_IMPLEMENTATION
+#include "vk_mem_alloc.h"
 #include "VulkanMacros.h"
 #include "VulkanRenderContext.h"
 #include "VulkanResources.h"
 #include "Core/Profiler/Profile.h"
+
 
 namespace Lumina
 {

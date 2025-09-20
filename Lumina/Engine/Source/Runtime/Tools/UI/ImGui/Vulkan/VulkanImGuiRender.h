@@ -1,6 +1,6 @@
 #pragma once
 
-#include <vulkan/vulkan_core.h>
+#include <vulkan/vulkan.h>
 #include "Tools/UI/ImGui/ImGuiRenderer.h"
 
 namespace Lumina

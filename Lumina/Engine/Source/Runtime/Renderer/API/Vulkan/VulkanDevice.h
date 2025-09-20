@@ -1,10 +1,10 @@
 ﻿#pragma once
 
 #include <vulkan/vulkan.h>
+#include "vk_mem_alloc.h"
 #include "Containers/Array.h"
 #include "Core/Threading/Thread.h"
 #include "Memory/Memory.h"
-#include "VulkanMemoryAllocator/include/vk_mem_alloc.h"
 
 namespace Lumina
 {
