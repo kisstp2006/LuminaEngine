@@ -18,7 +18,9 @@
 
 **Lumina** is a C++ game engine powered by Vulkan, built as a hands-on learning project. Inspired by engines like Unreal and Godot, it focuses on reflection, modularity, and a clean ImGui-based editor. The goal isn’t to become the next major engine or to optimize anyone’s workflow, but to serve as a passion project, a way to explore and experiment with the architectures that make up a full-fledged game engine.
 
-> ⚠️ **Early development** – APIs and systems are in flux, and not everything is fully documented or stable yet. **THE PROJECT MOST LIKELY WON'T BUILD FOR YOU, IF YOU WOULD LIKE TO BUILD IT, PLEASE REACH OUT TO GET HELP**
+# ⚠️ DISCLAIMER
+
+> **Early development** – APIs and systems are in flux, and not everything is fully documented or stable yet. **THE PROJECT MOST LIKELY WON'T BUILD FOR YOU, IF YOU WOULD LIKE TO BUILD IT, PLEASE REACH OUT TO GET HELP**
 
 ---
 
@@ -48,7 +50,7 @@
 
 ---
 
-## 🛠️ Building Lumina (Windows Only)
+# 🛠️ Building Lumina (Windows Only, please see disclaimer near top)
 
 > ✅ MSVC 17.8+ required  
 > ❌ Linux/macOS support is not available yet
