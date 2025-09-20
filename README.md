@@ -50,7 +50,7 @@
 
 ---
 
-## 🛠️ Building Lumina (Windows Only)
+# 🛠️ Building Lumina (Windows Only, please see disclaimer near top)
 
 > ✅ MSVC 17.8+ required  
 > ❌ Linux/macOS support is not available yet
