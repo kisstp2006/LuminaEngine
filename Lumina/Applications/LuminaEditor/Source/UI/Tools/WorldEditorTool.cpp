@@ -638,7 +638,7 @@ namespace Lumina
     void FWorldEditorTool::DrawOutliner(const FUpdateContext& UpdateContext, bool bFocused)
     {
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.15f, 0.35f, 0.15f, 1.0f));
-        if (ImGui::Button("New Entity", ImVec2(ImGui::GetContentRegionAvail().x, 0.0f)))
+        if (ImGui::Button("Add", ImVec2(ImGui::GetContentRegionAvail().x, 0.0f)))
         {
             CreateEntity();
         }

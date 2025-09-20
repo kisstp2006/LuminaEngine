@@ -90,7 +90,8 @@ namespace Lumina
 
         THashMap<CObject*, FEditorTool*>                ActiveAssetTools;
         
-        FEditorModalManager                             ModalManager; 
+        FEditorModalManager                             ModalManager;
+        bool                                            bShowLuminaInfo = false;
         bool                                            bDearImGuiDemoWindowOpen = false;
         bool                                            bShowObjectDebug = false;
         bool                                            bShowRenderDebug = false;

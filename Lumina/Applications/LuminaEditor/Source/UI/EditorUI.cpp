@@ -228,6 +228,66 @@ namespace Lumina
             
         }
 
+        if (bShowLuminaInfo)
+        {
+            ImGui::SetNextWindowSize(ImVec2(700, 500), ImGuiCond_FirstUseEver);
+            ImGui::Begin("Lumina Engine Info");
+        
+            // Header
+            ImGui::TextColored(ImVec4(0.4f, 0.8f, 1.0f, 1.0f), "Lumina Engine");
+            ImGui::Separator();
+            ImGui::Spacing();
+        
+            // Table for Engine Info
+            if (ImGui::BeginTable("EngineInfoTable", 2, ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_RowBg))
+            {
+                ImGui::TableSetupColumn("Property", ImGuiTableColumnFlags_WidthFixed, 150);
+                ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
+                ImGui::TableHeadersRow();
+        
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::Text("Version");
+                ImGui::TableSetColumnIndex(1);
+                ImGui::Text("%s", LUMINA_VERSION);
+        
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::Text("RHI");
+                ImGui::TableSetColumnIndex(1);
+                ImGui::Text("Vulkan");
+        
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::Text("License");
+                ImGui::TableSetColumnIndex(1);
+                ImGui::Text("MIT License");
+        
+                ImGui::EndTable();
+            }
+        
+            ImGui::Spacing();
+        
+            // Contributors Table
+            ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "Contributors");
+            if (ImGui::BeginTable("ContributorsTable", 2, ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable))
+            {
+                ImGui::TableSetupColumn("Name");
+                ImGui::TableSetupColumn("Role");
+                ImGui::TableHeadersRow();
+        
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::Text("Dr. Elliot");
+                ImGui::TableSetColumnIndex(1);
+                ImGui::Text("Lead Developer");
+        
+                ImGui::EndTable();
+            }
+            
+            ImGui::End();
+        }
+
         if (bDearImGuiDemoWindowOpen)
         {
             ImGui::ShowDemoWindow(&bDearImGuiDemoWindowOpen);
@@ -1039,14 +1099,7 @@ namespace Lumina
         
         if (ImGui::BeginMenu("Help"))
         {
-            ImGui::Text("Engine Version: %s", LUMINA_VERSION);
-            ImGui::Text("RHI: %s", "Vulkan");
-
-            if (ImGui::BeginMenu("Contributors"))
-            {
-                ImGui::Text("Dr. Elliot");
-                ImGui::EndMenu();
-            }
+            ImGui::MenuItem("Lumina Info", nullptr, &bShowLuminaInfo, !bShowLuminaInfo);
             
             ImGui::EndMenu();
         }
