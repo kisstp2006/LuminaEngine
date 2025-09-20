@@ -178,22 +178,14 @@ namespace Lumina
                 ImGui::DockBuilderAddNode(DockspaceID, ImGuiDockNodeFlags_DockSpace);
                 ImGui::DockBuilderSetNodeSize(DockspaceID, ImGui::GetContentRegionAvail());
 
-                // Create Dock IDs
-                ImGuiID topDockID = 0, bottomDockID = 0;
-                ImGuiID bottomLeftDockID = 0, bottomRightDockID = 0;
-
-                // Split main dock into top (scene editor) and bottom (console + renderer info)
-                ImGui::DockBuilderSplitNode(DockspaceID, ImGuiDir_Down, 0.3f, &bottomDockID, &topDockID);
-
-                // Split bottom dock into left (console) and right (renderer info)
-                ImGui::DockBuilderSplitNode(bottomDockID, ImGuiDir_Left, 0.5f, &bottomLeftDockID, &bottomRightDockID);
-
+                ImGuiID TopDockID = 0, BottomDockID = 0;
+                ImGui::DockBuilderSplitNode(DockspaceID, ImGuiDir_Down, 0.3f, &BottomDockID, &TopDockID);
+                
                 ImGui::DockBuilderFinish(DockspaceID);
 
-                // Dock windows into appropriate sections
-                ImGui::DockBuilderDockWindow(WorldEditorTool->GetToolName().c_str(), topDockID);
-                ImGui::DockBuilderDockWindow(ConsoleLogTool->GetToolName().c_str(), bottomLeftDockID);
-                ImGui::DockBuilderDockWindow(ContentBrowser->GetToolName().c_str(), bottomRightDockID);
+                ImGui::DockBuilderDockWindow(WorldEditorTool->GetToolName().c_str(), TopDockID);
+                ImGui::DockBuilderDockWindow(ContentBrowser->GetToolName().c_str(), BottomDockID);
+                ImGui::DockBuilderDockWindow(ConsoleLogTool->GetToolName().c_str(), BottomDockID);
             }
 
             // Create the actual dock space
