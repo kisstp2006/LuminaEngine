@@ -266,6 +266,7 @@ struct ImGui_ImplVulkan_Data
 {
     ImGui_ImplVulkan_InitInfo   VulkanInitInfo;
     VkDeviceSize                BufferMemoryAlignment;
+    VkDeviceSize                NonCoherentAtomSize;
     VkPipelineCreateFlags       PipelineCreateFlags;
     VkDescriptorSetLayout       DescriptorSetLayout;
     VkPipelineLayout            PipelineLayout;
@@ -287,6 +288,7 @@ struct ImGui_ImplVulkan_Data
     {
         memset((void*)this, 0, sizeof(*this));
         BufferMemoryAlignment = 256;
+        NonCoherentAtomSize = 64;
     }
 };
 
@@ -780,7 +782,8 @@ void ImGui_ImplVulkan_UpdateTexture(ImTextureData* tex)
 
         VkBuffer upload_buffer;
         VkDeviceSize upload_pitch = upload_w * tex->BytesPerPixel;
-        VkDeviceSize upload_size = upload_h * upload_pitch;
+        VkDeviceSize upload_size = AlignBufferSize(upload_h * upload_pitch, bd->NonCoherentAtomSize);
+
         {
             VkBufferCreateInfo buffer_info = {};
             buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -1256,6 +1259,11 @@ bool    ImGui_ImplVulkan_Init(ImGui_ImplVulkan_InitInfo* info)
         IM_ASSERT(info->RenderPass != VK_NULL_HANDLE);
 
     bd->VulkanInitInfo = *info;
+
+    VkPhysicalDeviceProperties properties;
+    vkGetPhysicalDeviceProperties(info->PhysicalDevice, &properties);
+    bd->NonCoherentAtomSize = properties.limits.nonCoherentAtomSize;
+
 #ifdef IMGUI_IMPL_VULKAN_HAS_DYNAMIC_RENDERING
     ImGui_ImplVulkan_InitInfo* v = &bd->VulkanInitInfo;
     if (v->PipelineRenderingCreateInfo.pColorAttachmentFormats != NULL)

@@ -54,6 +54,11 @@
     #define TEXT(x) TEXT_PASTE(x)
 #endif
 
+// Forced inline functions will be inlined in debug, and thus will be stepped over by the debugger.
+#ifndef FORCEINLINE
+#define FORCEINLINE __forceinline
+#endif
+#define FORCENOINLINE __declspec(noinline)
 
 #define UTF8TEXT_PASTE(x)  u8 ## x
 #define UTF16TEXT_PASTE(x) u ## x

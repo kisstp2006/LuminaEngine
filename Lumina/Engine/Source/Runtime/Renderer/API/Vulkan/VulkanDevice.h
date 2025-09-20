@@ -1,12 +1,10 @@
 ﻿#pragma once
 
-#include <vma/vk_mem_alloc.h>
-#include <vulkan/vulkan_core.h>
-
-#include "Lumina.h"
+#include <vulkan/vulkan.h>
 #include "Containers/Array.h"
 #include "Core/Threading/Thread.h"
 #include "Memory/Memory.h"
+#include "VulkanMemoryAllocator/include/vk_mem_alloc.h"
 
 namespace Lumina
 {
@@ -34,7 +32,7 @@ namespace Lumina
         VmaAllocation GetAllocation(VkBuffer Buffer);
         VmaAllocation GetAllocation(VkImage Image);
 
-        VmaAllocator GetAllocator() const { return Allocator; }
+        VmaAllocator GetVMA() const { return Allocator; }
 
         void DestroyBuffer(VkBuffer Buffer);
         void DestroyImage(VkImage Image);

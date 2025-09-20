@@ -108,7 +108,19 @@ private: \
 public: \
     using ThisClass = TNamespace::TClass; \
     using Super = TBaseClass; \
-    inline static Lumina::CClass* StaticClass() { return GetPrivateStaticClass(); } \
+    inline static Lumina::CClass* StaticClass() \
+    { \
+        LUMINA_STATIC_HELPER(CClass*) \
+        { \
+            StaticValue = GetPrivateStaticClass(); \
+        } \
+        return StaticValue; \
+    } \
+    inline static Lumina::FName StaticName() \
+    { \
+        static FName StaticName(#TClass); \
+        return StaticName; \
+    } \
     inline static const TCHAR* StaticPackage() { return TEXT(TPackage); } \
     inline void* operator new(const size_t InSize, EInternal InMem, Lumina::FName InName = NAME_None, Lumina::EObjectFlags InSetFlags = Lumina::OF_None) \
     { \

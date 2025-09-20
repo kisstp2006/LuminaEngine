@@ -12,7 +12,6 @@
 #include "Renderer/API/Vulkan/VulkanMacros.h"
 #include "Renderer/API/Vulkan/VulkanRenderContext.h"
 #include "Renderer/API/Vulkan/VulkanSwapchain.h"
-#include "Tools/UI/UITextureCache.h"
 
 namespace Lumina
 {
@@ -167,7 +166,7 @@ namespace Lumina
 		VkPhysicalDeviceMemoryProperties memProps{};
 		vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProps);
 
-    	VmaAllocator Allocator = VulkanRenderContext->GetDevice()->GetAllocator()->GetAllocator();
+    		VmaAllocator Allocator = VulkanRenderContext->GetDevice()->GetAllocator()->GetVMA();
     	
 		ImGui::SeparatorText("Device Properties");
 	
@@ -296,9 +295,11 @@ namespace Lumina
     		{
     			const VmaDetailedStatistics& heap = stats.memoryHeap[i];
     			if (heap.statistics.blockCount == 0 && heap.statistics.allocationCount == 0)
-    				continue;
+			    {
+				    continue;
+			    }
 
-    			ImGui::TableNextRow();
+			    ImGui::TableNextRow();
     			ImGui::TableSetColumnIndex(0); ImGui::Text("Heap %u", i);
     			ImGui::TableSetColumnIndex(1); ImGui::Text("%u", heap.statistics.blockCount);
     			ImGui::TableSetColumnIndex(2); ImGui::Text("%u", heap.statistics.allocationCount);
@@ -317,8 +318,10 @@ namespace Lumina
 		ImGui::Spacing();
 	
 		if (ImGui::Button("Close"))
+		{
 			*bOpen = false;
-	
+		}
+
 		ImGui::End();
 	}
 

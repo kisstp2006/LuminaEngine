@@ -102,7 +102,7 @@ namespace Lumina
             // Frame Start
             //-------------------------------------------------------------------
             {
-                LUMINA_PROFILE_SECTION("FrameStart");
+                LUMINA_PROFILE_SECTION_COLORED("FrameStart", tracy::Color::Red);
                 UpdateContext.UpdateStage = EUpdateStage::FrameStart;
                 
                 RenderManager->FrameStart(UpdateContext);
@@ -120,7 +120,7 @@ namespace Lumina
             // Pre Physics
             //-------------------------------------------------------------------
             {
-                LUMINA_PROFILE_SECTION("Pre-Physics");
+                LUMINA_PROFILE_SECTION_COLORED("Pre-Physics", tracy::Color::Green);
                 UpdateContext.UpdateStage = EUpdateStage::PrePhysics;
 
 
@@ -134,7 +134,7 @@ namespace Lumina
             // During Physics
             //-------------------------------------------------------------------
             {
-                LUMINA_PROFILE_SECTION("During Physics");
+                LUMINA_PROFILE_SECTION_COLORED("During-Physics", tracy::Color::Blue);
                 UpdateContext.UpdateStage = EUpdateStage::DuringPhysics;
 
 
@@ -148,7 +148,7 @@ namespace Lumina
             // Post Physics
             //-------------------------------------------------------------------
             {
-                LUMINA_PROFILE_SECTION("Post Physics");
+                LUMINA_PROFILE_SECTION_COLORED("Post-Physics", tracy::Color::Yellow);
                 UpdateContext.UpdateStage = EUpdateStage::PostPhysics;
 
 
@@ -162,7 +162,7 @@ namespace Lumina
             // Paused
             //-------------------------------------------------------------------
             {
-                LUMINA_PROFILE_SECTION("Paused");
+                LUMINA_PROFILE_SECTION_COLORED("Paused", tracy::Color::Purple);
                 UpdateContext.UpdateStage = EUpdateStage::Paused;
 
                 #if WITH_DEVELOPMENT_TOOLS
@@ -175,7 +175,7 @@ namespace Lumina
             // Frame End
             //-------------------------------------------------------------------
             {
-                LUMINA_PROFILE_SECTION("Frame End");
+                LUMINA_PROFILE_SECTION_COLORED("Frame-End", tracy::Color::Coral);
                 UpdateContext.UpdateStage = EUpdateStage::FrameEnd;
 
                 #if WITH_DEVELOPMENT_TOOLS
@@ -208,12 +208,12 @@ namespace Lumina
             Application->RenderDeveloperTools(UpdateContext);
         }
     }
+    #endif
 
     entt::locator<entt::meta_ctx>::node_type FEngine::GetEngineMetaContext() const
     {
         return entt::locator<entt::meta_ctx>::handle(); 
     }
-#endif
     
     void FEngine::SetEngineViewportSize(const FIntVector2D& InSize)
     {

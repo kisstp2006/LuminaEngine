@@ -2,6 +2,8 @@
 
 
 #include "Core/DisableAllWarnings.h"
+#include "Platform/Platform.h"
+#include "Platform/GenericPlatform.h"
 
 PRAGMA_DISABLE_ALL_WARNINGS
 #ifndef REFLECTION_PARSER
@@ -12,8 +14,6 @@ PRAGMA_DISABLE_ALL_WARNINGS
 #include <ostream>
 PRAGMA_ENABLE_ALL_WARNINGS
 
-#include "Platform/WindowsPlatform.h"
-#include "Platform/GenericPlatform.h"
 
 namespace Lumina
 {

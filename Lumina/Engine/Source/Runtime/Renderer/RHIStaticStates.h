@@ -20,10 +20,10 @@ namespace Lumina
     };
     
 
-    template<bool Filter=true,
-    ESamplerAddressMode AddressU=ESamplerAddressMode::Clamp,
-    ESamplerAddressMode AddressV=ESamplerAddressMode::Clamp,
-    ESamplerAddressMode AddressW=ESamplerAddressMode::Clamp>
+    template<bool Filter = true,
+    ESamplerAddressMode AddressU = ESamplerAddressMode::Clamp,
+    ESamplerAddressMode AddressV = ESamplerAddressMode::Clamp,
+    ESamplerAddressMode AddressW = ESamplerAddressMode::Clamp>
     class TStaticRHISampler : public TStaticRHIRef<TStaticRHISampler<Filter, AddressU, AddressV, AddressW>, FRHISamplerRef>
     {
     public:

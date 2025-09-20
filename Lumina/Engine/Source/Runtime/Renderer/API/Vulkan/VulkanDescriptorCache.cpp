@@ -17,33 +17,15 @@ namespace Lumina
             return LayoutMap.at(Hash);
         }
 
-        FRHIBindingLayoutRef Layout = MakeRefCount<FVulkanBindingLayout>(Device, Desc);
-        LayoutMap.try_emplace(Hash, Layout);
+        auto Layout = MakeRefCount<FVulkanBindingLayout>(Device, Desc);
+        Layout->Bake();
+        LayoutMap.insert_or_assign(Hash, Layout);
 
         return Layout;
     }
     
-
-    FRHIBindingSetRef FVulkanDescriptorCache::GetOrCreateSet(FVulkanRenderContext* RenderContext, const FBindingSetDesc& Desc, FRHIBindingLayout* InLayout)
-    {
-        LUMINA_PROFILE_SCOPE();
-        SIZE_T Hash = Hash::GetHash(Desc);
-
-        if (SetMap.find(Hash) != SetMap.end())
-        {
-            return SetMap.at(Hash);
-        }
-
-        FRHIBindingSetRef Set = MakeRefCount<FVulkanBindingSet>(RenderContext, Desc, static_cast<FVulkanBindingLayout*>(InLayout));
-        SetMap.try_emplace(Hash, Set);
-
-        return Set;
-
-    }
-
     void FVulkanDescriptorCache::ReleaseResources()
     {
         LayoutMap.clear();
-        SetMap.clear();
     }
 }

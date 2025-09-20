@@ -14,7 +14,7 @@ namespace Lumina
     bool CMaterialInstanceFactory::DrawCreationDialogue(const FString& Path, bool& bShouldClose)
     {
         FARFilter Filter;
-        Filter.ClassNames.push_back(CMaterial::StaticClass()->GetName().ToString());
+        Filter.ClassNames.push_back(CMaterial::StaticName().ToString());
 
         bShouldClose = ImGuiX::ObjectSelector(Filter, SelectedMaterial);
 

@@ -20,6 +20,13 @@ enum class EName : uint32
     INTRINSIC_NAMES
 #undef REGISTER_NAME
 
+
+#define STRINGIFY_DETAIL(x) #x
+#define STRINGIFY(x) STRINGIFY_DETAIL(x)
+
+#define LUM_DEPRECATED(Version, Reason) [[deprecated("Deprecated since " STRINGIFY(Version) ": " Reason)]]
+
+
 #define ENUM_CLASS_FLAGS(Enum) \
 inline           Enum& operator|=(Enum& Lhs, Enum Rhs) { return Lhs = (Enum)((__underlying_type(Enum))Lhs | (__underlying_type(Enum))Rhs); } \
 inline           Enum& operator&=(Enum& Lhs, Enum Rhs) { return Lhs = (Enum)((__underlying_type(Enum))Lhs & (__underlying_type(Enum))Rhs); } \

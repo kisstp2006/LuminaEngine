@@ -21,9 +21,12 @@ namespace Lumina
             FRHIImageRef RHIImage;
             ImTextureRef ImTexture;
         };
+        
 
         FUITextureCache();
         ~FUITextureCache();
+
+        LUMINA_API static FUITextureCache& Get();
         
         LUMINA_API FRHIImageRef GetImage(const FName& Path);
         LUMINA_API ImTextureRef GetImTexture(const FName& Path);

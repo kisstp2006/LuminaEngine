@@ -3,7 +3,6 @@
 #include "Core/Object/Class.h"
 #include "TaskSystem/TaskSystem.h"
 #include "World/Entity/Components/DirtyComponent.h"
-#include "World/Entity/Components/EditorComponent.h"
 #include "World/Entity/Components/RelationshipComponent.h"
 #include "World/Entity/Components/RenderComponent.h"
 #include "World/Entity/Components/Transformcomponent.h"

@@ -19,7 +19,6 @@
 #include "Tools/Import/ImportHelpers.h"
 #include "Tools/UI/UITextureCache.h"
 #include "Tools/UI/ImGui/ImGuiMemoryEditor.h"
-#include "Tools/UI/ImGui/ImGuiRenderer.h"
 #include "Tools/UI/ImGui/ImGuiX.h"
 #include "UI/EditorUI.h"
 
@@ -71,8 +70,8 @@ namespace Lumina
             }
         }
 
-        FilterState.emplace(CObjectRedirector::StaticClass()->GetName().c_str(), false);
-        
+        FilterState.emplace(CObjectRedirector::StaticName().c_str(), false);
+
         CreateToolWindow("Content", [this] (const FUpdateContext& Contxt, bool bIsFocused)
         {
             float Left = 200.0f;
@@ -100,8 +99,7 @@ namespace Lumina
             const ImGuiPayload* Payload = ImGui::AcceptDragDropPayload(FContentBrowserTileViewItem::DragDropID, ImGuiDragDropFlags_AcceptBeforeDelivery);
             if (Payload && Payload->IsDelivery())
             {
-                uintptr_t* RawPtr = (uintptr_t*)Payload->Data;
-                auto* SourceItem = (FContentBrowserTileViewItem*)*RawPtr;
+                auto* SourceItem = reinterpret_cast<FContentBrowserTileViewItem*>(Payload->Data);
 
                 if (SourceItem == TypedDroppedItem)
                 {
@@ -350,7 +348,7 @@ namespace Lumina
         {
             for (FTreeListViewItem* Item : Items)
             {
-                FContentBrowserListViewItem* ContentItem = static_cast<FContentBrowserListViewItem*>(Item);
+                //FContentBrowserListViewItem* ContentItem = static_cast<FContentBrowserListViewItem*>(Item);
                 
             }
         };
@@ -803,7 +801,7 @@ namespace Lumina
                 }
             }
 
-            ImGui::PushID(std::distance(SelectedFSPath.begin(), it));
+            ImGui::PushID((int)std::distance(SelectedFSPath.begin(), it));
             {
                 ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4, 2));
                 ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(2, 0));

@@ -28,8 +28,6 @@ namespace Lumina
     {
     public:
         
-        friend struct SRenderComponent;
-       
         FSceneRenderer(CWorld* InWorld);
         virtual ~FSceneRenderer();
         
@@ -46,17 +44,20 @@ namespace Lumina
         
         ESceneRenderGBuffer GetGBufferDebugMode() const { return GBufferDebugMode; }
         void SetGBufferDebugMode(ESceneRenderGBuffer Mode) { GBufferDebugMode = Mode; }
-
-        void DepthPrePass(FRenderGraph& RenderGraph);
-        void GBufferPass(FRenderGraph& RenderGraph);
-        void SSAOPass(FRenderGraph& RenderGraph);
         
     protected:
         
-        FViewportState MakeViewportStateFromImage(const FRHIImage* Image);
+        /** Compiles all renderers from the world into draw commands for dispatch */
+        void CompileDrawCommands();
+        
+        void DepthPrePass(FRenderGraph& RenderGraph);
+        void GBufferPass(FRenderGraph& RenderGraph);
+        void SSAOPass(FRenderGraph& RenderGraph);
+        void EnvironmentPass(FRenderGraph& RenderGraph);
+        void DeferredLightingPass(FRenderGraph& RenderGraph);
 
-        void BuildPasses();
-        void BuildDrawCalls();
+
+        static FViewportState MakeViewportStateFromImage(const FRHIImage* Image);
 
         void InitResources();
         void InitBuffers();
@@ -122,8 +123,6 @@ namespace Lumina
 
         TRenderVector<FInstanceData>                  InstanceData;
         
-        TRenderVector<FPointLightProxy>               PointLightProxies;
-
         TRenderVector<FStaticMeshRender>              StaticMeshRenders;
         TRenderVector<FIndirectRenderBatch>           RenderBatches;
         TRenderVector<FDrawIndexedIndirectArguments>  IndirectDrawArguments;

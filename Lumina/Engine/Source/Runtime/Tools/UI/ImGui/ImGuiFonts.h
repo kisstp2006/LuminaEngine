@@ -31,15 +31,15 @@ namespace Lumina::ImGuiX::Font
     
     LUMINA_API extern ImFont* GFonts[static_cast<int32>(EFont::NumFonts)];
 
-    LUMINA_API INLINE void PushFont(EFont font) 
+    LUMINA_API FORCEINLINE void PushFont(EFont font) 
     {
         ImFont* Font = GFonts[static_cast<int8>(font)];
         ImGui::PushFont(Font); 
     }
 
-    LUMINA_API INLINE void PopFont() { ImGui::PopFont(); }
+    LUMINA_API FORCEINLINE void PopFont() { ImGui::PopFont(); }
 
-    LUMINA_API INLINE void PushFontAndColor(EFont font, ImColor& color)
+    LUMINA_API FORCEINLINE void PushFontAndColor(EFont font, ImColor& color)
     {
         ImGui::PushFont(GFonts[(int8) font] );
         //ImGui::PushStyleColor(ImGuiCol_Text, color);

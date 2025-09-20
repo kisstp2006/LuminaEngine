@@ -35,6 +35,7 @@ namespace Lumina
     void FVulkanCommandList::Open()
     {
         LUMINA_PROFILE_SCOPE();
+        
         CurrentCommandBuffer = RenderContext->GetQueue(Info.CommandQueue)->GetOrCreateCommandBuffer();
         
         VkCommandBufferBeginInfo BeginInfo = {};
@@ -443,9 +444,9 @@ namespace Lumina
     {
         LUMINA_PROFILE_SCOPE();
         
-        TVector<VmaAllocation> Allocations;
-        TVector<VkDeviceSize> Offsets;
-        TVector<VkDeviceSize> Sizes;
+        TFixedVector<VmaAllocation, 4> Allocations;
+        TFixedVector<VkDeviceSize, 4> Offsets;
+        TFixedVector<VkDeviceSize, 4> Sizes;
     
         for (auto& Pair : DynamicBufferWrites)
         {
@@ -476,8 +477,8 @@ namespace Lumina
         if (!Allocations.empty())
         {
             VK_CHECK(vmaFlushAllocations(
-                RenderContext->GetDevice()->GetAllocator()->GetAllocator(),
-                static_cast<uint32_t>(Allocations.size()),
+                RenderContext->GetDevice()->GetAllocator()->GetVMA(),
+                static_cast<uint32>(Allocations.size()),
                 Allocations.data(),
                 Offsets.data(),
                 Sizes.data()
@@ -792,8 +793,8 @@ namespace Lumina
         TracyVkZone(CurrentCommandBuffer->TracyContext, CurrentCommandBuffer->CommandBuffer, "BindBindingSet")
         
         uint32 CurrentBatchStart = UINT32_MAX;
-        TVector<VkDescriptorSet> CurrentDescriptorBatch;
-        TVector<uint32> DynamicOffsets;
+        TFixedVector<VkDescriptorSet, 4> CurrentDescriptorBatch;
+        TFixedVector<uint32, 4> DynamicOffsets;
     
         for (size_t i = 0; i < BindingSets.size(); ++i)
         {
@@ -1048,8 +1049,8 @@ namespace Lumina
     {
         LUMINA_PROFILE_SCOPE();
 
-        TFixedVector<VkImageMemoryBarrier, 4> ImageBarriers;
-        TFixedVector<VkBufferMemoryBarrier, 4> BufferBarriers;
+        TFixedVector<VkImageMemoryBarrier, 8> ImageBarriers;
+        TFixedVector<VkBufferMemoryBarrier, 8> BufferBarriers;
         VkPipelineStageFlags BeforeStageFlags = VK_PIPELINE_STAGE_FLAG_BITS_MAX_ENUM;
         VkPipelineStageFlags AfterStageFlags = VK_PIPELINE_STAGE_FLAG_BITS_MAX_ENUM;
 

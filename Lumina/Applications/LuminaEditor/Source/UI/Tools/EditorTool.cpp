@@ -3,14 +3,13 @@
 #include "imgui_internal.h"
 #include "ToolFlags.h"
 #include "EASTL/sort.h"
-#include "World/Entity/Components/CameraComponent.h"
-#include "World/Entity/Components/EditorComponent.h"
-#include "World/Entity/Components/VelocityComponent.h"
-#include "World/Subsystems/FCameraManager.h"
 #include "TaskSystem/TaskSystem.h"
 #include "Tools/UI/ImGui/ImGuiX.h"
 #include "World/WorldManager.h"
+#include "World/Entity/Components/CameraComponent.h"
+#include "World/Entity/Components/EditorComponent.h"
 #include "World/Entity/Systems/EditorEntityMovementSystem.h"
+#include "World/Subsystems/FCameraManager.h"
 
 namespace Lumina
 {
@@ -38,15 +37,10 @@ namespace Lumina
         
             World->InitializeWorld();
             EditorEntity = World->SetupEditorWorld();
-            
-            FToolWindow* NewWindow = CreateToolWindow(ViewportWindowName, [] (const FUpdateContext&, bool)
-            {
-                //... Intentionally blank.
-            });
 
-            NewWindow->bViewport = true;
+            Internal_CreateViewportTool();
         }
-
+        
         OnInitialize();
     }
 
@@ -201,7 +195,13 @@ namespace Lumina
         ImGui::PopStyleColor(5);
     }
 
-    FEditorTool::FToolWindow* FEditorTool::CreateToolWindow(const FString& InName, const TFunction<void(const FUpdateContext&, bool)>& DrawFunction, const ImVec2& WindowPadding, bool DisableScrolling)
+    void FEditorTool::Internal_CreateViewportTool()
+    {
+        FToolWindow* Tool = Internal_CreateToolWindow(ViewportWindowName, nullptr);
+        Tool->bViewport = true;
+    }
+
+    FEditorTool::FToolWindow* FEditorTool::Internal_CreateToolWindow(const FString& InName, const TFunction<void(const FUpdateContext&, bool)>& DrawFunction, const ImVec2& WindowPadding, bool DisableScrolling)
     {
         for (FToolWindow* Window : ToolWindows)
         {

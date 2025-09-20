@@ -1,7 +1,6 @@
 ﻿#pragma once
 
 #include "RenderTypes.h"
-#include "RHIFwd.h"
 #include "Memory/SmartPtr.h"
 #include "Types/BitFlags.h"
 
@@ -102,8 +101,8 @@ namespace Lumina
         void ClearBarriers() { TextureBarriers.clear(); BufferBarriers.clear(); }
 
     private:
-        THashMap<FTextureStateExtension*, std::shared_ptr<FTextureState>> TextureStates;
-        THashMap<FBufferStateExtension*, std::shared_ptr<FBufferState>> BufferStates;
+        THashMap<FTextureStateExtension*, TSharedPtr<FTextureState>> TextureStates;
+        THashMap<FBufferStateExtension*, TSharedPtr<FBufferState>> BufferStates;
 
         // Deferred transitions of textures and buffers to permanent states.
         // They are executed only when the command list is executed, not when the app calls setPermanentTextureState or setPermanentBufferState.
@@ -113,8 +112,8 @@ namespace Lumina
         TVector<FTextureBarrier> TextureBarriers;
         TVector<FBufferBarrier> BufferBarriers;
 
-        FTextureState* GetTextureStateTracking(FTextureStateExtension* texture, bool allowCreate);
-        FBufferState* GetBufferStateTracking(FBufferStateExtension* buffer, bool allowCreate);
+        FTextureState* GetTextureStateTracking(FTextureStateExtension* Texture, bool bAllowCreate);
+        FBufferState* GetBufferStateTracking(FBufferStateExtension* Buffer, bool bAllowCreate);
     };
     
 }

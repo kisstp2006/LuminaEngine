@@ -14,7 +14,8 @@ namespace Lumina
 
 namespace Lumina
 {
-
+    
+    
     //--------------------------------------------------------------------------------
     // CField
     //--------------------------------------------------------------------------------
@@ -125,7 +126,7 @@ namespace Lumina
             {
                 if (typeid(PropertyType) == typeid(*Current))
                 {
-                    Func(Current);
+                    std::forward<TFunc>(Func)(Current);
                 }
                 Current = (PropertyType*)Current->Next;
             }
@@ -139,7 +140,7 @@ namespace Lumina
         
         LUMINA_API bool IsChildOf(const CStruct* Base) const;
 
-        /** Links a derived to it's parent (if one exists) and will link properties.. */
+        /** Links a derived to it's parent (if one exists) and will link properties. */
         LUMINA_API virtual void Link();
         
     private:
@@ -222,10 +223,14 @@ namespace Lumina
     }
 
     LUMINA_API void AllocateStaticClass(const TCHAR* Package, const TCHAR* Name, CClass** OutClass, uint32 Size, uint32 Alignment, CClass* (*SuperClassFn)(), CClass::ClassConstructorType InClassConstructor);
+    
 
-
-
-
+    template<typename Class>
+    FORCEINLINE FString GetClassName()
+    {
+    	return Class::StaticClass()->GetName();
+    }
+    
     template <typename T>
     struct TBaseStructureBase
     {
@@ -259,4 +264,6 @@ namespace Lumina
     {
         static LUMINA_API CStruct* Get(); 
     };
+
+    
 }

@@ -17,7 +17,6 @@
 #include "World/Entity/Components/VelocityComponent.h"
 #include "Tools/UI/ImGui/ImGuiX.h"
 #include "World/WorldManager.h"
-#include "World/Entity/Components/DirtyComponent.h"
 #include "World/Entity/Systems/EditorEntityMovementSystem.h"
 
 
@@ -304,8 +303,11 @@ namespace Lumina
             }
             ImGui::PopItemWidth();
 
-
-            ImGui::Checkbox("Draw AABB", &SceneRenderer->GetSceneRenderSettings().bDrawAABB);
+            bool bDrawAABB = (bool)SceneRenderer->GetSceneRenderSettings().bDrawAABB;
+            if (ImGui::Checkbox("Draw AABB", &bDrawAABB))
+            {
+                SceneRenderer->GetSceneRenderSettings().bDrawAABB = bDrawAABB;
+            }
 
             ImGui::EndMenu();
         }
@@ -427,34 +429,40 @@ namespace Lumina
     {
         Super::DrawViewportToolbar(UpdateContext);
 
-        ImGui::SameLine();
-        
-        constexpr float ButtonWidth = 120;
+        if (World->GetPackage() != nullptr)
+        {
+            ImGui::SameLine();
+            constexpr float ButtonWidth = 120;
 
-        if (!bGamePreviewRunning)
-        {
-            if (ImGuiX::IconButton(LE_ICON_PLAY, "Play Map", 4278255360, ImVec2(ButtonWidth, 0)))
+            if (!bGamePreviewRunning)
             {
-                OnGamePreviewStartRequested.Broadcast();
+                if (ImGuiX::IconButton(LE_ICON_PLAY, "Play Map", 4278255360, ImVec2(ButtonWidth, 0)))
+                {
+                    OnGamePreviewStartRequested.Broadcast();
+                }
             }
-        }
-        else
-        {
-            if (ImGuiX::IconButton(LE_ICON_STOP, "Stop Playing", 4278190335, ImVec2(ButtonWidth, 0)))
+            else
             {
-                OnGamePreviewStopRequested.Broadcast();
+                if (ImGuiX::IconButton(LE_ICON_STOP, "Stop Playing", 4278190335, ImVec2(ButtonWidth, 0)))
+                {
+                    OnGamePreviewStopRequested.Broadcast();
+                }
             }
         }
     }
 
     void FWorldEditorTool::PushAddComponentModal(const Entity& Entity)
     {
-        ToolContext->PushModal("Add Component", ImVec2(600.0f, 350.0f), [this, Entity](const FUpdateContext& Context) -> bool
+        TSharedPtr<ImGuiTextFilter> Filter = MakeSharedPtr<ImGuiTextFilter>();
+        ToolContext->PushModal("Add Component", ImVec2(600.0f, 350.0f), [this, Entity, Filter](const FUpdateContext& Context) -> bool
         {
             bool bComponentAdded = false;
 
             float const tableHeight = ImGui::GetContentRegionAvail().y - ImGui::GetFrameHeightWithSpacing() - ImGui::GetStyle().ItemSpacing.y;
             ImGui::PushStyleColor(ImGuiCol_Header, IM_COL32(40, 40, 40, 255));
+
+            Filter->Draw("##Search", ImGui::GetContentRegionAvail().x);
+            
             if (ImGui::BeginTable("Options List", 1, ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_Borders | ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollY, ImVec2(ImGui::GetContentRegionAvail().x, tableHeight)))
             {
                 ImGui::PushID((int)Entity.GetHandle());
@@ -463,15 +471,25 @@ namespace Lumina
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
 
-                for(auto &&[id, type]: entt::resolve())
+                for(auto &&[_, MetaType]: entt::resolve())
                 {
                     using namespace entt::literals;
-                    FString StringName(type.info().name().data());
-                    if (ImGui::Selectable(StringName.c_str(), false, ImGuiSelectableFlags_SpanAllColumns))
+                    auto Any = MetaType.invoke("staticstruct"_hs, {});
+                    if (void** Type = Any.try_cast<void*>())
                     {
-                        void* RegistryPtr = &World->GetEntityRegistry(); // EnTT will try to make a copy if not passed by *.
-                        (void)type.invoke("addcomponent"_hs, {}, SelectedEntity.GetHandle(), RegistryPtr);
-                        bComponentAdded = true;
+                        CStruct* Struct = *(CStruct**)Type;
+                        const char* ComponentName = Struct->GetName().c_str();
+                        if (!Filter->PassFilter(ComponentName))
+                        {
+                            continue;
+                        }
+                        
+                        if (ImGui::Selectable(ComponentName, false, ImGuiSelectableFlags_SpanAllColumns))
+                        {
+                            void* RegistryPtr = &World->GetEntityRegistry(); // EnTT will try to make a copy if not passed by *.
+                            (void)MetaType.invoke("addcomponent"_hs, {}, SelectedEntity.GetHandle(), RegistryPtr);
+                            bComponentAdded = true;
+                        }
                     }
                 }
                 
@@ -658,7 +676,7 @@ namespace Lumina
             ImGui::Separator();
         
             ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.15f, 0.35f, 0.15f, 1.0f));
-            if (ImGui::Button("Add Component", ImVec2(ImGui::GetContentRegionAvail().x / 2, 0.0f)))
+            if (ImGui::Button("Add", ImVec2(ImGui::GetContentRegionAvail().x / 2, 0.0f)))
             {
                 PushAddComponentModal(SelectedEntity);
             }

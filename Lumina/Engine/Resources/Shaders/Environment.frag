@@ -13,7 +13,8 @@ layout(set = 1, binding = 0) uniform EnvironmentUBO
 } UBO;
 
 // Improved sun color calculation with proper day/night cycle
-vec3 calculateSunColor() {
+vec3 calculateSunColor() 
+{
     float sunHeight = UBO.SunDirection.y;
 
     // Define color phases
@@ -114,7 +115,7 @@ vec2 raySphereIntersect(vec3 rayOrigin, vec3 rayDir, float radius)
 // Optimized optical depth calculation
 vec2 computeOpticalDepth(vec3 rayOrigin, vec3 rayDir, float rayLength)
 {
-    const int steps = 8; // Reduced for better performance
+    const int steps = 8;
     float stepSize = rayLength / float(steps);
 
     vec2 opticalDepth = vec2(0.0);
@@ -219,7 +220,8 @@ vec3 renderSun(vec3 rayDir)
     return sunColor;
 }
 
-void main() {
+void main() 
+{
     vec3 rayDir = getViewRay(vUV);
 
     vec3 cameraPos = vec3(0.0, planetRadius + 50.0, 0.0);

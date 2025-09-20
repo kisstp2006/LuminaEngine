@@ -17,13 +17,10 @@ namespace Lumina
     public:
 
         FRHIBindingLayoutRef GetOrCreateLayout(FVulkanDevice* Device, const FBindingLayoutDesc& Desc);
-        FRHIBindingSetRef GetOrCreateSet(FVulkanRenderContext* RenderContext, const FBindingSetDesc& Desc, FRHIBindingLayout* InLayout);
-
         void ReleaseResources();
         
     private:
 
         THashMap<SIZE_T, FRHIBindingLayoutRef>  LayoutMap;
-        THashMap<SIZE_T, FRHIBindingSetRef>     SetMap;
     };
 }

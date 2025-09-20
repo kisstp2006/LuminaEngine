@@ -42,6 +42,11 @@ namespace Lumina
         Images.clear();
     }
 
+    FUITextureCache& FUITextureCache::Get()
+    {
+        return *GetEngineSystem<FRenderManager>().GetTextureCache();
+    }
+
     FRHIImageRef FUITextureCache::GetImage(const FName& Path)
     {
         FEntry* Entry = GetOrCreateGroup(Path);

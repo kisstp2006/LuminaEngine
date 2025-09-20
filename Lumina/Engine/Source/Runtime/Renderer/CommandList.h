@@ -71,12 +71,11 @@ namespace Lumina
         virtual void Open() = 0;
         virtual void Close() = 0;
         virtual void Executed(FQueue* Queue, uint64 SubmissionID) = 0;
-
-
+        
         virtual void CopyImage(FRHIImage* Src, const FTextureSlice& SrcSlice, FRHIImage* Dst, const FTextureSlice& DstSlice) = 0;
         virtual void WriteImage(FRHIImage* Dst, uint32 ArraySlice, uint32 MipLevel, const void* Data, SIZE_T RowPitch, SIZE_T DepthPitch) = 0;
         
-        NODISCARD virtual void WriteBuffer(FRHIBuffer* Buffer, const void* Data, SIZE_T Offset, SIZE_T Size) = 0;
+        virtual void WriteBuffer(FRHIBuffer* Buffer, const void* Data, SIZE_T Offset, SIZE_T Size) = 0;
         virtual void CopyBuffer(FRHIBuffer* Source, uint64 SrcOffset, FRHIBuffer* Destination, uint64 DstOffset, uint64 CopySize) = 0;
         
         virtual void SetPermanentImageState(FRHIImage* Image, EResourceStates StateBits) = 0;
@@ -108,6 +107,7 @@ namespace Lumina
         virtual void SetViewport(float MinX, float MinY, float MinZ, float MaxX, float MaxY, float MaxZ) = 0;
         virtual void SetScissorRect(uint32 MinX, uint32 MinY, uint32 MaxX, uint32 MaxY) = 0;
         virtual void SetGraphicsState(const FGraphicsState& State) = 0;
+        
         virtual void Draw(uint32 VertexCount, uint32 InstanceCount, uint32 FirstVertex, uint32 FirstInstance) = 0;
         virtual void DrawIndexed(uint32 IndexCount, uint32 InstanceCount = 1, uint32 FirstIndex = 1, int32 VertexOffset = 0, uint32 FirstInstance = 0) = 0;
         virtual void DrawIndirect(uint32 DrawCount, uint64 Offset) = 0;
@@ -117,8 +117,15 @@ namespace Lumina
 
         NODISCARD virtual const FCommandListInfo& GetCommandListInfo() const = 0;
         NODISCARD virtual FPendingCommandState& GetPendingCommandState() = 0;
-    
-    protected:
+
+
+        
+
+        template<typename T>
+        void WriteBuffer(FRHIBuffer* Buffer, const T* Data, SIZE_T Offset = 0, SIZE_T Size = sizeof(T))
+        {
+            WriteBuffer(Buffer, (const void*)Data, Offset, Size);
+        }
         
     };
 }

@@ -1,9 +1,7 @@
 ﻿
-#include "VulkanBarriers.h"
-#include "VulkanCommandList.h"
 #include "VulkanDevice.h"
 #include "Renderer/CommandList.h"
-#include "..\..\StateTracking.h"
+#include "Renderer/StateTracking.h"
 #include "Core/Profiler/Profile.h"
 #ifdef LUMINA_RENDERER_VULKAN
 

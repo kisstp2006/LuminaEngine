@@ -14,17 +14,9 @@
 namespace Lumina
 {
     class CMaterialInterface;
-}
-
-namespace Lumina
-{
     struct FVertex;
     class CMaterial;
     class CStaticMesh;
-}
-
-namespace Lumina
-{
 }
 
 namespace Lumina
@@ -87,13 +79,6 @@ namespace Lumina
         glm::vec3 SunDirection;
         uint32 Padding0;
     };
-
-    struct FSceneRegisteredMeshAsset
-    {
-        CStaticMesh* Mesh;
-        SIZE_T VertexOffset;
-        SIZE_T IndexOffset;
-    };
     
     struct FGBuffer
     {
@@ -106,7 +91,7 @@ namespace Lumina
     struct FIndirectRenderBatch
     {
         CMaterialInterface* Material = nullptr;
-        CStaticMesh*        StaticMesh = nullptr;
+        FRHIBuffer*         IndexBuffer = nullptr;
         FRHIBuffer*         VertexBuffer;
         uint32              NumDraws;
         uint32              Offset;
@@ -153,11 +138,6 @@ namespace Lumina
     {
         glm::mat4 Transform;
     };
-
-    struct FPointLightProxy
-    {
-        SIZE_T ProxyIndex;
-    };
     
     struct FSceneRenderStats
     {
@@ -177,21 +157,10 @@ namespace Lumina
 
     struct FSceneRenderSettings
     {
-        bool bDrawAABB = false;
-        bool bSSAO = false;
+        uint8 bHasEnvironment:1 = false;
+        uint8 bDrawAABB:1 = false;
+        uint8 bSSAO:1 = false;
         FSSAOSettings SSAOSettings;
         FEnvironmentSettings EnvironmentSettings;
-    };
-}
-
-namespace eastl
-{
-    template <>
-    struct hash<FSceneRegisteredMeshAsset>
-    {
-        size_t operator()(const FSceneRegisteredMeshAsset& Asset) const noexcept
-        {
-            return eastl::hash<void*>{}(Asset.Mesh);
-        }
     };
 }

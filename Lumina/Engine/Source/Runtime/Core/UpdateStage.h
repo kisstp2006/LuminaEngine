@@ -68,7 +68,7 @@ namespace Lumina
             return Priorities[(uint8) stage];
         }
 
-        FUpdatePriorityList& SetStagePriority( FUpdateStagePriority&& stagePriority )
+        FUpdatePriorityList& SetStagePriority(FUpdateStagePriority&& stagePriority)
         {
             Priorities[(uint8) stagePriority.Stage] = (uint8)stagePriority.Priority;
             return *this;
@@ -77,14 +77,14 @@ namespace Lumina
         // Set a priority for a given stage
         FUpdatePriorityList& operator<<(FUpdateStagePriority&& stagePriority)
         {
-            Priorities[(uint8) stagePriority.Stage] = (uint8)stagePriority.Priority;
+            Priorities[(uint8)stagePriority.Stage] = (uint8)stagePriority.Priority;
             return *this;
         }
 
         bool AreAllStagesDisabled() const
         {
-            static uint8 const disabledStages[(uint8) EUpdateStage::Max] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
-            static_assert( sizeof( disabledStages ) == sizeof(Priorities), "disabled stages must be the same size as the priorities list" );
+            static const uint8 disabledStages[(uint8)EUpdateStage::Max] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
+            static_assert(sizeof(disabledStages) == sizeof(Priorities), "disabled stages must be the same size as the priorities list");
             return memcmp(Priorities, disabledStages, sizeof(Priorities)) == 0;
         }
 

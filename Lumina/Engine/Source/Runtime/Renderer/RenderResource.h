@@ -1850,8 +1850,8 @@ namespace eastl
 		size_t operator()(const FGraphicsPipelineDesc& Desc) const
 		{
 			size_t hash = 0;
-			Hash::HashCombine(hash, Desc.VS ? Desc.VS->GetKey() : 0);
-			Hash::HashCombine(hash, Desc.PS ? Desc.PS->GetKey() : 0);
+			Hash::HashCombine(hash, Desc.VS ? Desc.VS->GetKey().GetID() : 0);
+			Hash::HashCombine(hash, Desc.PS ? Desc.PS->GetKey().GetID() : 0);
 			Hash::HashCombine(hash, Desc.RenderState);
 			return hash;
 		}

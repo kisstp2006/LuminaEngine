@@ -36,6 +36,10 @@ project "Lumina"
 		
 		"Engine/ThirdParty/vk-bootstrap/src/**.h",
 	    "Engine/ThirdParty/vk-bootstrap/src/**.cpp",
+
+		"Engine/ThirdParty/VulkanMemoryAllocator/include/**.h",
+		"Engine/ThirdParty/VulkanMemoryAllocator/src/**.h",
+	    "Engine/ThirdParty/VulkanMemoryAllocator/src/**.cpp",
 	    
         "Engine/ThirdParty/json/include/**.h",
         "Engine/ThirdParty/json/src/**.cpp",

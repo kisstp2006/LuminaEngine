@@ -37,6 +37,8 @@ namespace Lumina
         template<typename... TCallArgs>
         void Broadcast(TCallArgs... Args)
         {
+            LUMINA_PROFILE_SCOPE();
+            
             TFixedVector<uint32, 2> RemovalList;
 
             for (int i = 0; i < InvocationList.size(); ++i)

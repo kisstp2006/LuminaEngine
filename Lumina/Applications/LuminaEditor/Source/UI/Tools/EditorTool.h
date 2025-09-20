@@ -1,17 +1,17 @@
 ﻿#pragma once
 
 #include "imgui.h"
+#include "ImGuizmo.h"
 #include "imgui_internal.h"
 #include "ToolFlags.h"
-#include "Core/Math/Hash/Hash.h"
 #include "Containers/Array.h"
+#include "Containers/Function.h"
 #include "Containers/String.h"
 #include "Core/UpdateContext.h"
-#include "Containers/Function.h"
+#include "Core/Math/Hash/Hash.h"
 #include "Memory/RefCounted.h"
-#include "World/Entity/Entity.h"
-#include "ImGuizmo.h"
 #include "Tools/UI/ImGui/ImGuiDesignIcons.h"
+#include "World/Entity/Entity.h"
 
 namespace Lumina
 {
@@ -20,6 +20,10 @@ namespace Lumina
     class IEditorToolContext;
     class FUpdateContext;
 }
+
+
+template<typename TCallable>
+concept CDrawToolCallable = eastl::is_invocable_v<TCallable, const Lumina::FUpdateContext&, bool> && sizeof(eastl::decay_t<TCallable>) <= EASTL_FUNCTION_DEFAULT_CAPTURE_SSO_SIZE;
 
 namespace Lumina
 {
@@ -104,7 +108,7 @@ namespace Lumina
         /** Once per-frame update */
         virtual void Update(const FUpdateContext& UpdateContext) { }
         
-        /** Optionally draw a tool bar at the top of the window */
+        /** Optionally draw a toolbar at the top of the window */
         void DrawMainToolbar(const FUpdateContext& UpdateContext);
 
         /** Allows the child to draw specific menu actions */
@@ -147,26 +151,39 @@ namespace Lumina
         ImGuiID GetPrevLocationID() const    { return PrevLocationID; }
         ImGuiID GetCurrDockspaceID() const   { return CurrDockspaceID; }
         ImGuiID GetPrevDockspaceID() const   { return PrevDockspaceID; }
-
-        const ImGuiWindowClass& GetToolWindowsClass() const { return ToolWindowsClass; }
-
+        
         TVector<FToolWindow*>& GetToolWindows() { return ToolWindows; }
         
-
-
-        FToolWindow* CreateToolWindow(const FString& InName, const TFunction<void(const FUpdateContext&, bool)>& DrawFunction, const ImVec2& WindowPadding = ImVec2( -1, -1 ), bool DisableScrolling = false);
-
         /** Changes the movability of the editor camera */
         void SetEditorCameraEnabled(bool bNewEnable);
+
+        /**
+         * 
+         * @tparam TCallable Called back during a draw request of this tool, must be smaller than a sizeof(void*) * 2.
+         * @param InName Name of the tool, must be unique.
+         * @param DrawFunction Same as TCallable
+         * @param WindowPadding Padding space between the window.
+         * @param DisableScrolling Should this tool be allowed to scroll?
+         * @return 
+         */
+        template<CDrawToolCallable TCallable>
+        FToolWindow* CreateToolWindow(const FString& InName, TCallable&& DrawFunction, const ImVec2& WindowPadding = ImVec2(-1, -1), bool DisableScrolling = false)
+        {
+            return Internal_CreateToolWindow(InName, std::forward<TCallable>(DrawFunction), WindowPadding, DisableScrolling);
+        }
         
 
         static FInlineString GetToolWindowName(char const* ToolWindowName, ImGuiID InDockspaceID)
         {
-            Assert(ToolWindowName != nullptr);
+            Assert(ToolWindowName != nullptr)
             return { FInlineString::CtorSprintf(), "%s##%08X", ToolWindowName, InDockspaceID };
         }
 
     protected:
+
+        void Internal_CreateViewportTool();
+        
+        FToolWindow* Internal_CreateToolWindow(const FString& InName, const TFunction<void(const FUpdateContext&, bool)>& DrawFunction, const ImVec2& WindowPadding = ImVec2( -1, -1 ), bool DisableScrolling = false);
         
         /** Draw a help menu for this tool */
         virtual void DrawHelpMenu(const FUpdateContext& UpdateContext) { DrawHelpTextRow("No Help Available", ""); }

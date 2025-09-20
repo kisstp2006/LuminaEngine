@@ -4,8 +4,9 @@
 
 namespace Lumina
 {
+    /** A dynamic array that internally uses a free list, (non-contiguous). */
     template <typename T>
-    class TFreeListArray
+    class TSparseArray
     {
     public:
         using Index = size_t;
@@ -49,13 +50,13 @@ namespace Lumina
         
     private:
         
-        struct Slot
+        struct FSlot
         {
-            bool bOccupied = false;
+            uint8 bOccupied:1=0;
             T Value{};
         };
     
-        TVector<Slot>   Slots;
+        TVector<FSlot>  Slots;
         TBitVector      FreeList;
     };
 }

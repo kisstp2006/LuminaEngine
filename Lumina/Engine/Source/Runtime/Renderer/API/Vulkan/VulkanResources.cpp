@@ -582,7 +582,7 @@ namespace Lumina
     void* FVulkanBuffer::GetMappedMemory() const
     {
         VmaAllocationInfo Info;
-        vmaGetAllocationInfo(Device->GetAllocator()->GetAllocator(), Allocation, &Info);
+        vmaGetAllocationInfo(Device->GetAllocator()->GetVMA(), Allocation, &Info);
         return Info.pMappedData;
     }
 

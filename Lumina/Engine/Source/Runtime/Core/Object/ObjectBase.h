@@ -82,7 +82,7 @@ namespace Lumina
             return NamePrivate;
         }
 
-        /** Get the internal package this object came from (script, plugin, package, etc). */
+        /** Get the internal package this object came from (script, plugin, package, etc.). */
         CPackage* GetPackage() const
         {
             return PackagePrivate;

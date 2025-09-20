@@ -41,6 +41,7 @@
 #include "Tools/AssetEditors/MeshEditor/MeshEditorTool.h"
 #include "Tools/AssetEditors/TextureEditor/TextureEditorTool.h"
 #include "Tools/Import/ImportHelpers.h"
+#include "Tools/UI/UITextureCache.h"
 #include "Tools/UI/ImGui/ImGuiRenderer.h"
 #include "World/WorldManager.h"
 
@@ -669,7 +670,6 @@ namespace Lumina
         ImGui::PopStyleVar();
         ImGui::PopStyleColor();
         
-
         if (ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows | ImGuiFocusedFlags_DockHierarchy))
         {
             LastActiveTool = EditorTool;
@@ -740,7 +740,7 @@ namespace Lumina
                 ImGui::DockBuilderRemoveNode(Tool->PrevDockspaceID);
 
                 // Delete settings of old windows
-                // Rely on window name to ditch their .ini settings forever..
+                // Rely on window name to ditch their .ini settings forever.
                 char windowSuffix[16];
                 ImFormatString(windowSuffix, IM_ARRAYSIZE(windowSuffix), "##%08X", Tool->PrevDockspaceID);
                 size_t windowSuffixLength = strlen( windowSuffix );
@@ -752,13 +752,14 @@ namespace Lumina
                         continue;
                     }
                     
+                    
                     char const* pWindowName = settings->GetName();
-                    size_t windowNameLength = strlen( pWindowName );
-                    if ( windowNameLength >= windowSuffixLength )
+                    size_t windowNameLength = strlen(pWindowName);
+                    if (windowNameLength >= windowSuffixLength)
                     {
                         if (strcmp(pWindowName + windowNameLength - windowSuffixLength, windowSuffix) == 0) // Compare suffix
                         {
-                            ImGui::ClearWindowSettings( pWindowName );
+                            ImGui::ClearWindowSettings(pWindowName);
                         }
                     }
                 }
@@ -824,7 +825,7 @@ namespace Lumina
 
         if (Tool->IsSingleWindowTool())
         {
-            Assert(Tool->ToolWindows.size() == 1);
+            Assert(Tool->ToolWindows.size() == 1)
             Tool->ToolWindows[0]->DrawFunction(UpdateContext, bIsLastFocusedTool);
         }
         else
@@ -890,7 +891,7 @@ namespace Lumina
                 }
                 else
                 {
-                    LUMINA_PROFILE_SECTION("Draw Viewport");
+                    LUMINA_PROFILE_SECTION("Draw Tool Window");
 
                     ImGuiWindowFlags ToolWindowFlags = ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNavFocus;
 
@@ -937,7 +938,7 @@ namespace Lumina
     {
         LUMINA_PROFILE_SCOPE();
         
-        ImGui::Text(LE_ICON_GAVEL);
+        ImGui::Image(FUITextureCache::Get().GetImTexture(Paths::GetEngineResourceDirectory() + "/Textures/Lumina.png"), ImVec2(25.0f, 25.0f));
 
         ImGui::PushStyleColor(ImGuiCol_PopupBg, ImVec4(0.1f, 0.1f, 0.1f, 1.0f));
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.8f, 0.8f, 0.8f, 1.0f));
@@ -1018,7 +1019,7 @@ namespace Lumina
         
         if (ImGui::BeginMenu("Tools"))
         {
-            ImGui::MenuItem("ImGui Demo Window", nullptr, &bDearImGuiDemoWindowOpen, !bDearImGuiDemoWindowOpen);
+            ImGui::MenuItem("ImGui Demo", nullptr, &bDearImGuiDemoWindowOpen, !bDearImGuiDemoWindowOpen);
 
             ImGui::MenuItem("Renderer Info", nullptr, &bShowRenderDebug, !bShowRenderDebug);
             
@@ -1046,8 +1047,18 @@ namespace Lumina
         
         if (ImGui::BeginMenu("Help"))
         {
+            ImGui::Text("Engine Version: %s", LUMINA_VERSION);
+            ImGui::Text("RHI: %s", "Vulkan");
+
+            if (ImGui::BeginMenu("Contributors"))
+            {
+                ImGui::Text("Dr. Elliot");
+                ImGui::EndMenu();
+            }
+            
             ImGui::EndMenu();
         }
+        
         
         ImGui::PopStyleColor(2);
 

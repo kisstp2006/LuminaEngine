@@ -1,5 +1,7 @@
 #include "StateTracking.h"
 
+#include <ranges>
+
 #include "RenderResource.h"
 #include "Core/Profiler/Profile.h"
 
@@ -171,12 +173,7 @@ namespace Lumina
 
             if (transitionNecessary || uavNecessary)
             {
-                FTextureBarrier barrier;
-                barrier.Texture = texture;
-                barrier.bEntireTexture = true;
-                barrier.StateBefore = tracking->State;
-                barrier.StateAfter = state;
-                TextureBarriers.push_back(barrier);
+                TextureBarriers.emplace_back(texture, 0, 0, true, tracking->State, state);
             }
 
             tracking->State = state;
@@ -322,10 +319,7 @@ namespace Lumina
     {
         for (auto& [buffer, tracking] : BufferStates)
         {
-            if (buffer->DescRef.bKeepInitialState && 
-                !buffer->permanentState &&
-                !buffer->DescRef.Usage.IsFlagSet(EBufferUsageFlags::Dynamic) &&
-                !tracking->permanentTransition)
+            if (buffer->DescRef.bKeepInitialState && !buffer->permanentState && !buffer->DescRef.Usage.IsFlagSet(EBufferUsageFlags::Dynamic) &&!tracking->permanentTransition)
             {
                 RequireBufferState(buffer, buffer->DescRef.InitialState);
             }
@@ -336,9 +330,7 @@ namespace Lumina
     {
         for (auto& [texture, tracking] : TextureStates)
         {
-            if (texture->DescRef.bKeepInitialState && 
-                !texture->permanentState && 
-                !tracking->bPermanentTransition)
+            if (texture->DescRef.bKeepInitialState && !texture->permanentState && !tracking->bPermanentTransition)
             {
                 RequireTextureState(texture, AllSubresources, texture->DescRef.InitialState);
             }
@@ -349,7 +341,7 @@ namespace Lumina
     {
         LUMINA_PROFILE_SCOPE();
 
-        for (auto [texture, state] : PermanentTextureStates)
+        for (auto& [texture, state] : PermanentTextureStates)
         {
             if (texture->permanentState != EResourceStates::Unknown && texture->permanentState != state)
             {
@@ -365,7 +357,7 @@ namespace Lumina
         
         PermanentTextureStates.clear();
 
-        for (auto [buffer, state] : PermanentBufferStates)
+        for (auto& [buffer, state] : PermanentBufferStates)
         {
             if (buffer->permanentState != EResourceStates::Unknown && buffer->permanentState != state)
             {
@@ -381,67 +373,69 @@ namespace Lumina
         
         PermanentBufferStates.clear();
 
-        for (const auto& [texture, stateTracking] : TextureStates)
+        for (auto& [texture, State] : TextureStates)
         {
             if (texture->DescRef.bKeepInitialState && !texture->stateInitialized)
+            {
                 texture->stateInitialized = true;
+            }
         }
 
-        TextureStates.clear();
+        TextureStates.clear(); 
         BufferStates.clear();
     }
 
-    FTextureState* FCommandListResourceStateTracker::GetTextureStateTracking(FTextureStateExtension* texture, bool allowCreate)
+    FTextureState* FCommandListResourceStateTracker::GetTextureStateTracking(FTextureStateExtension* Texture, bool bAllowCreate)
     {
-        auto it = TextureStates.find(texture);
+        auto it = TextureStates.find(Texture);
 
         if (it != TextureStates.end())
         {
             return it->second.get();
         }
 
-        if (!allowCreate)
+        if (!bAllowCreate)
         {
             return nullptr;
         }
-        
-        std::shared_ptr<FTextureState> trackingRef = std::make_unique<FTextureState>();
 
-        FTextureState* tracking = trackingRef.get();
-        TextureStates.emplace(texture, std::move(trackingRef));
         
-        if (texture->DescRef.bKeepInitialState)
+        TSharedPtr<FTextureState> TrackingRef = MakeSharedPtr<FTextureState>();
+        FTextureState* TrackingPtr = TrackingRef.get();
+        TextureStates.emplace(Texture, std::move(TrackingRef));
+        
+        
+        if (Texture->DescRef.bKeepInitialState)
         {
-            tracking->State = texture->stateInitialized ? texture->DescRef.InitialState : EResourceStates::Common;
+            TrackingPtr->State = Texture->stateInitialized ? Texture->DescRef.InitialState : EResourceStates::Common;
         }
 
-        return tracking;
+        return TrackingPtr;
     }
 
-    FBufferState* FCommandListResourceStateTracker::GetBufferStateTracking(FBufferStateExtension* buffer, bool allowCreate)
+    FBufferState* FCommandListResourceStateTracker::GetBufferStateTracking(FBufferStateExtension* Buffer, bool bAllowCreate)
     {
-        auto it = BufferStates.find(buffer);
+        auto it = BufferStates.find(Buffer);
 
         if (it != BufferStates.end())
         {
             return it->second.get();
         }
 
-        if (!allowCreate)
+        if (!bAllowCreate)
         {
             return nullptr;
         }
 
-        std::shared_ptr<FBufferState> trackingRef = std::make_unique<FBufferState>();
-
-        FBufferState* tracking = trackingRef.get();
-        BufferStates.emplace(buffer, std::move(trackingRef));
-                                                   
-        if (buffer->DescRef.bKeepInitialState)
+        TSharedPtr<FBufferState> TrackingRef = MakeSharedPtr<FBufferState>();
+        FBufferState* TrackingPtr = TrackingRef.get();
+        BufferStates.emplace(Buffer, std::move(TrackingRef));
+        
+        if (Buffer->DescRef.bKeepInitialState)
         {
-            tracking->state = buffer->DescRef.InitialState;
+            TrackingPtr->state = Buffer->DescRef.InitialState;
         }
 
-        return tracking;
+        return TrackingPtr;
     }
 }

@@ -8,8 +8,6 @@
 #include "Renderer/CommandList.h"
 #include "Renderer/ShaderCompiler.h"
 #include "TaskSystem/TaskSystem.h"
-#ifdef LUMINA_RENDERER_VULKAN
-
 #include "VulkanResources.h"
 #include "VulkanSwapchain.h"
 #include "Core/Windows/Window.h"
@@ -17,7 +15,6 @@
 #define VMA_IMPLEMENTATION
 #include <vma/vk_mem_alloc.h>
 #include <vulkan/vulkan.hpp>
-
 #include "VulkanMacros.h"
 #include "Core/Engine/Engine.h"
 #include "Core/Math/Alignment.h"
@@ -551,7 +548,7 @@ namespace Lumina
             case ECommandQueue::Transfer:   return TransferCommandList;
         }
 
-        LUMINA_NO_ENTRY();
+        LUMINA_NO_ENTRY()
     }
 
     void FVulkanRenderContext::CreateDevice(vkb::Instance Instance)
@@ -712,15 +709,14 @@ namespace Lumina
         FVulkanDescriptorTable* DescriptorTable = static_cast<FVulkanDescriptorTable*>(Table);
         FVulkanBindingLayout* BindingLayout = static_cast<FVulkanBindingLayout*>(DescriptorTable->GetLayout());
 
-        TVector<VkWriteDescriptorSet> Writes;
-        TVector<VkDescriptorImageInfo> ImageWriteInfos;
-        TVector<VkDescriptorBufferInfo> BufferWriteInfos;
+        TFixedVector<VkWriteDescriptorSet, 4> Writes;
+        TFixedVector<VkDescriptorImageInfo, 4> ImageWriteInfos;
+        TFixedVector<VkDescriptorBufferInfo, 4> BufferWriteInfos;
         
         if (Binding.Slot >= DescriptorTable->GetCapacity())
         {
             return false;
         }
-
 
         auto WriteDescriptorForBinding = [&] (const VkDescriptorSetLayoutBinding& LayoutBinding)
         {
@@ -815,12 +811,8 @@ namespace Lumina
     FRHIBindingLayoutRef FVulkanRenderContext::CreateBindingLayout(const FBindingLayoutDesc& Desc)
     {
         LUMINA_PROFILE_SCOPE();
-
-        auto Layout = MakeRefCount<FVulkanBindingLayout>(VulkanDevice, Desc);
         
-        Layout->Bake();
-
-        return Layout;
+        return DescriptorCache.GetOrCreateLayout(VulkanDevice, Desc);
     }
 
     FRHIBindingLayoutRef FVulkanRenderContext::CreateBindlessLayout(const FBindlessLayoutDesc& Desc)
@@ -934,12 +926,13 @@ namespace Lumina
                 {
                     FString StringPath = Dir.path().string().c_str();
 
-                    bool bSuccess = ShaderCompiler->CompileShader(StringPath, {}, [&, Dir = Memory::Move(Dir)] (const FShaderHeader& Header)
+                    ShaderCompiler->CompileShader(StringPath, {}, [&, Dir = Memory::Move(Dir)] (const FShaderHeader& Header)
                     {
                         FString FileNameString = Dir.path().filename().string().c_str();
 
                         switch (Header.Reflection.ShaderType)
                         {
+                        case ERHIShaderType::None: break;
                         case ERHIShaderType::Vertex:
                             {
                                 FRHIVertexShaderRef Shader = CreateVertexShader(Header);
@@ -966,11 +959,6 @@ namespace Lumina
                             break;
                         }
                     });
-
-                    if (!bSuccess)
-                    {
-                        
-                    }
                 }
             }
         }
@@ -981,7 +969,6 @@ namespace Lumina
         PipelineCache.PostShaderRecompiled((IVulkanShader*)Shader);
     }
     
-
     FRHIInputLayoutRef FVulkanRenderContext::CreateInputLayout(const FVertexAttributeDesc* AttributeDesc, uint32 Count)
     {
         uint64 Hash = 0;
@@ -1022,6 +1009,3 @@ namespace Lumina
         return DebugUtils;
     }
 }
-
-
-#endif

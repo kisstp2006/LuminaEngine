@@ -66,10 +66,10 @@ namespace Lumina
         uint64                      LastSubmittedID = 0;
         uint64                      LastFinishedID = 0;
         
-        TVector<VkSemaphore>        WaitSemaphores;
-        TVector<uint64>             WaitSemaphoreValues;
-        TVector<VkSemaphore>        SignalSemaphores;
-        TVector<uint64>             SignalSemaphoreValues;
+        TFixedVector<VkSemaphore, 4>        WaitSemaphores;
+        TFixedVector<uint64, 4>             WaitSemaphoreValues;
+        TFixedVector<VkSemaphore, 4>        SignalSemaphores;
+        TFixedVector<uint64, 4>             SignalSemaphoreValues;
         
         ECommandQueue               Type;
         FMutex                      GetMutex;

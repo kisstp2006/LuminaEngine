@@ -23,9 +23,9 @@ constexpr SIZE_T MIN_ALIGNMENT = 8;
 namespace Lumina::Memory
 {
     template <typename T>
-    constexpr typename eastl::remove_reference<T>::type&& Move(T&& x) noexcept
+    constexpr eastl::remove_reference<T>::type&& Move(T&& x) noexcept
     {
-        return static_cast<typename eastl::remove_reference<T>::type&&>(std::forward<T>(x));
+        return static_cast<eastl::remove_reference<T>::type&&>(std::forward<T>(x));
     }
     
     LUMINA_API inline void Memzero(void* ptr, size_t size)

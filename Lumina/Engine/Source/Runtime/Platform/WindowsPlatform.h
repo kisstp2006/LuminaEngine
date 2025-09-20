@@ -6,11 +6,6 @@
 
 #define INLINE inline                                               /* Inline */
 
-#ifndef FORCEINLINE
-#define FORCEINLINE inline									        /* We no longer support __forceinline */
-#endif
-#define FORCENOINLINE __declspec(noinline)							/* Force code to NOT be inline */
-
 
 // DLL export and import definitions
 #define DLLEXPORT __declspec(dllexport)
