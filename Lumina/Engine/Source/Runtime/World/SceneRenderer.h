@@ -49,13 +49,15 @@ namespace Lumina
         
         /** Compiles all renderers from the world into draw commands for dispatch */
         void CompileDrawCommands();
-        
+
+        //~ Begin Render Passes
         void DepthPrePass(FRenderGraph& RenderGraph);
         void GBufferPass(FRenderGraph& RenderGraph);
         void SSAOPass(FRenderGraph& RenderGraph);
         void EnvironmentPass(FRenderGraph& RenderGraph);
         void DeferredLightingPass(FRenderGraph& RenderGraph);
-
+        void DebugDrawPass(FRenderGraph& RenderGraph);
+        //~ End Render Passes
 
         static FViewportState MakeViewportStateFromImage(const FRHIImage* Image);
 

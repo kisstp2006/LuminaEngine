@@ -1,4 +1,6 @@
-﻿#include "RenderResource.h"
+﻿#include "RenderContext.h"
+#include "RenderResource.h"
+#include "RHIGlobals.h"
 
 namespace Lumina
 {
@@ -17,6 +19,21 @@ namespace Lumina
         Assert(It != Shaders.end())
         
         Shaders.erase(It);
+    }
+
+    FRHIVertexShaderRef FShaderLibrary::GetVertexShader(const FName& Key)
+    {
+        return GRenderContext->GetShaderLibrary()->GetShader<FRHIVertexShader>(Key);
+    }
+
+    FRHIPixelShaderRef FShaderLibrary::GetPixelShader(const FName& Key)
+    {
+        return GRenderContext->GetShaderLibrary()->GetShader<FRHIPixelShader>(Key);
+    }
+
+    FRHIComputeShaderRef FShaderLibrary::GetComputeShader(const FName& Key)
+    {
+        return GRenderContext->GetShaderLibrary()->GetShader<FRHIComputeShader>(Key);
     }
 
     FRHIShaderRef FShaderLibrary::GetShader(const FName& Key)

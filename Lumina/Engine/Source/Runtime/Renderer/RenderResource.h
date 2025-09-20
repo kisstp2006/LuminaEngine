@@ -817,6 +817,10 @@ namespace Lumina
 		void AddShader(FRHIShader* Shader);
 		void RemoveShader(FName Key);
 
+		static FRHIVertexShaderRef GetVertexShader(const FName& Key);
+		static FRHIPixelShaderRef GetPixelShader(const FName& Key);
+		static FRHIComputeShaderRef GetComputeShader(const FName& Key);
+
 		template<typename T>
 		TRefCountPtr<T> GetShader(const FName& Key)
 		{

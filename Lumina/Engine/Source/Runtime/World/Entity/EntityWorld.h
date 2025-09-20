@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "Components/Component.h"
 #include "Registry/EntityRegistry.h"
 
 namespace Lumina
@@ -20,8 +21,19 @@ namespace Lumina
         {
             return Registry.view<Ts...>(std::forward<TArgs>(Args)...);
         }
-    
 
+        template<typename T, typename ... TArgs>
+        T& Emplace(TArgs&& ... Args)
+        {
+            return Registry.emplace<T>(std::forward<TArgs>(Args)...);
+        }
+
+        template<typename T>
+        void Erase(entt::entity Entt)
+        {
+            Registry.erase<T>(Entt);
+        }
+    
     private:
 
         std::atomic_bool bReadOnly{false};

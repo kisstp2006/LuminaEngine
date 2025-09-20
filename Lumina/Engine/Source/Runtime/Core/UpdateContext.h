@@ -1,7 +1,6 @@
 #pragma once
 #include "UpdateStage.h"
 #include "Platform/GenericPlatform.h"
-#include "Platform/WindowsPlatform.h"
 #include "Subsystems/Subsystem.h"
 
 

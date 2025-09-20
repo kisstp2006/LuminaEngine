@@ -102,72 +102,7 @@ namespace Lumina
         SSAOPass(RenderGraph);
         EnvironmentPass(RenderGraph);
         DeferredLightingPass(RenderGraph);
-
-        RenderGraph.AddPass<RG_Raster>(FRGEvent("Debug Draw Pass"), nullptr, [&](ICommandList& CmdList)
-        {
-            LUMINA_PROFILE_SECTION_COLORED("Debug Draw Pass", tracy::Color::Yellow3);
-            
-            FRHIVertexShaderRef VertexShader = GRenderContext->GetShaderLibrary()->GetShader<FRHIVertexShader>("SimpleElement.vert");
-            FRHIPixelShaderRef PixelShader = GRenderContext->GetShaderLibrary()->GetShader<FRHIPixelShader>("SimpleElement.frag");
-            if (!VertexShader || !PixelShader || SimpleVertices.empty())
-            {
-                return;
-            }
-            
-            FRasterState RasterState;
-            RasterState.SetCullNone();
-    
-            FBlendState BlendState;
-            FBlendState::RenderTarget RenderTarget;
-            BlendState.SetRenderTarget(0, RenderTarget);
-    
-            FDepthStencilState DepthState;
-            DepthState.EnableDepthTest();
-            DepthState.SetDepthFunc(EComparisonFunc::GreaterOrEqual);
-            DepthState.DisableDepthWrite();
-            
-            FRenderState RenderState;
-            RenderState.SetRasterState(RasterState);
-            RenderState.SetDepthStencilState(DepthState);
-            RenderState.SetBlendState(BlendState);
-            
-            FGraphicsPipelineDesc Desc;
-            Desc.SetPrimType(EPrimitiveType::LineList);
-            Desc.SetInputLayout(SimpleVertexLayoutInput);
-            Desc.SetRenderState(RenderState);
-            Desc.AddBindingLayout(SimplePassLayout);
-            Desc.SetVertexShader(VertexShader);
-            Desc.SetPixelShader(PixelShader);
-    
-            FRHIGraphicsPipelineRef Pipeline = GRenderContext->CreateGraphicsPipeline(Desc);
-
-            FGraphicsState GraphicsState;
-            GraphicsState.SetPipeline(Pipeline);
-            
-            FRenderPassBeginInfo BeginInfo; BeginInfo
-            .SetDebugName("Debug Draw Pass")
-            .AddColorAttachment(GetRenderTarget())
-            .SetColorLoadOp(ERenderLoadOp::Load)
-            .SetColorStoreOp(ERenderStoreOp::Store)
-
-            .SetDepthAttachment(DepthAttachment)
-            .SetDepthLoadOp(ERenderLoadOp::Load)
-            .SetDepthStoreOp(ERenderStoreOp::Store)
-            .SetRenderArea(GetRenderTarget()->GetExtent());
-
-            FVertexBufferBinding Binding;
-            Binding.Buffer = SimpleVertexBuffer;
-            GraphicsState.AddVertexBuffer(Binding);
-            GraphicsState.SetRenderPass(BeginInfo);
-            
-            GraphicsState.SetViewport(MakeViewportStateFromImage(GetRenderTarget()));
-
-            CmdList.SetGraphicsState(GraphicsState);
-
-            glm::mat4 ViewProjMatrix = CameraComponent.GetViewProjectionMatrix();
-            CmdList.SetPushConstants(&ViewProjMatrix, sizeof(glm::mat4));
-            CmdList.Draw((uint32)SimpleVertices.size(), 1, 0, 0); 
-        });
+        DebugDrawPass(RenderGraph);
         
 
         RenderGraph.AddPass<RG_Raster>(FRGEvent("Finalize Image State"), nullptr, [&](ICommandList& CmdList)
@@ -192,7 +127,7 @@ namespace Lumina
         {
             LUMINA_PROFILE_SECTION_COLORED("Pre-Depth Pass", tracy::Color::Orange);
             
-            FRHIVertexShaderRef VertexShader = GRenderContext->GetShaderLibrary()->GetShader<FRHIVertexShader>("DepthPrePass.vert");
+            FRHIVertexShaderRef VertexShader = FShaderLibrary::GetVertexShader("DepthPrePass.vert");
             if (!VertexShader)
             {
                 return;
@@ -366,8 +301,8 @@ namespace Lumina
             {
                 LUMINA_PROFILE_SECTION_COLORED("SSAO Pass", tracy::Color::Pink);
 
-                FRHIVertexShaderRef VertexShader = GRenderContext->GetShaderLibrary()->GetShader<FRHIVertexShader>("FullscreenQuad.vert");
-                FRHIPixelShaderRef PixelShader = GRenderContext->GetShaderLibrary()->GetShader<FRHIPixelShader>("SSAO.frag");
+                FRHIVertexShaderRef VertexShader = FShaderLibrary::GetVertexShader("FullscreenQuad.vert");
+                FRHIPixelShaderRef PixelShader = FShaderLibrary::GetPixelShader("SSAO.frag");
                 if (!VertexShader || !PixelShader)
                 {
                     return;
@@ -425,8 +360,8 @@ namespace Lumina
             {
                 LUMINA_PROFILE_SECTION_COLORED("SSAO Blur Pass", tracy::Color::Yellow);
 
-                FRHIVertexShaderRef VertexShader = GRenderContext->GetShaderLibrary()->GetShader<FRHIVertexShader>("FullscreenQuad.vert");
-                FRHIPixelShaderRef PixelShader = GRenderContext->GetShaderLibrary()->GetShader<FRHIPixelShader>("SSAOBlur.frag");
+                FRHIVertexShaderRef VertexShader = FShaderLibrary::GetVertexShader("FullscreenQuad.vert");
+                FRHIPixelShaderRef PixelShader = FShaderLibrary::GetPixelShader("SSAOBlur.frag");
                 if (!VertexShader || !PixelShader)
                 {
                     return;
@@ -490,8 +425,8 @@ namespace Lumina
             {
                 LUMINA_PROFILE_SECTION_COLORED("Environment Pass", tracy::Color::Green3);
         
-                FRHIVertexShaderRef VertexShader = GRenderContext->GetShaderLibrary()->GetShader<FRHIVertexShader>("FullscreenQuad.vert");
-                FRHIPixelShaderRef PixelShader = GRenderContext->GetShaderLibrary()->GetShader<FRHIPixelShader>("Environment.frag");
+                FRHIVertexShaderRef VertexShader = FShaderLibrary::GetVertexShader("FullscreenQuad.vert");
+                FRHIPixelShaderRef PixelShader = FShaderLibrary::GetPixelShader("Environment.frag");
                 if (!VertexShader || !PixelShader)
                 {
                     return;
@@ -556,8 +491,8 @@ namespace Lumina
         {
             LUMINA_PROFILE_SECTION_COLORED("Lighting Pass", tracy::Color::Red2);
             
-            FRHIVertexShaderRef VertexShader = GRenderContext->GetShaderLibrary()->GetShader<FRHIVertexShader>("FullscreenQuad.vert");
-            FRHIPixelShaderRef PixelShader = GRenderContext->GetShaderLibrary()->GetShader<FRHIPixelShader>("DeferredLighting.frag");
+            FRHIVertexShaderRef VertexShader = FShaderLibrary::GetVertexShader("FullscreenQuad.vert");
+            FRHIPixelShaderRef PixelShader = FShaderLibrary::GetPixelShader("DeferredLighting.frag");
             if (!VertexShader || !PixelShader)
             {
                 return;
@@ -617,6 +552,76 @@ namespace Lumina
         });
     }
 
+    void FSceneRenderer::DebugDrawPass(FRenderGraph& RenderGraph)
+    {
+        RenderGraph.AddPass<RG_Raster>(FRGEvent("Debug Draw Pass"), nullptr, [&](ICommandList& CmdList)
+        {
+            LUMINA_PROFILE_SECTION_COLORED("Debug Draw Pass", tracy::Color::Yellow3);
+            
+            FRHIVertexShaderRef VertexShader = FShaderLibrary::GetVertexShader("SimpleElement.vert");
+            FRHIPixelShaderRef PixelShader = FShaderLibrary::GetPixelShader("SimpleElement.frag");
+            if (!VertexShader || !PixelShader || SimpleVertices.empty())
+            {
+                return;
+            }
+            
+            FRasterState RasterState;
+            RasterState.SetCullNone();
+    
+            FBlendState BlendState;
+            FBlendState::RenderTarget RenderTarget;
+            BlendState.SetRenderTarget(0, RenderTarget);
+    
+            FDepthStencilState DepthState;
+            DepthState.EnableDepthTest();
+            DepthState.SetDepthFunc(EComparisonFunc::GreaterOrEqual);
+            DepthState.DisableDepthWrite();
+            
+            FRenderState RenderState;
+            RenderState.SetRasterState(RasterState);
+            RenderState.SetDepthStencilState(DepthState);
+            RenderState.SetBlendState(BlendState);
+            
+            FGraphicsPipelineDesc Desc;
+            Desc.SetPrimType(EPrimitiveType::LineList);
+            Desc.SetInputLayout(SimpleVertexLayoutInput);
+            Desc.SetRenderState(RenderState);
+            Desc.AddBindingLayout(SimplePassLayout);
+            Desc.SetVertexShader(VertexShader);
+            Desc.SetPixelShader(PixelShader);
+    
+            FRHIGraphicsPipelineRef Pipeline = GRenderContext->CreateGraphicsPipeline(Desc);
+
+            FGraphicsState GraphicsState;
+            GraphicsState.SetPipeline(Pipeline);
+            
+            FRenderPassBeginInfo BeginInfo; BeginInfo
+            .SetDebugName("Debug Draw Pass")
+            .AddColorAttachment(GetRenderTarget())
+            .SetColorLoadOp(ERenderLoadOp::Load)
+            .SetColorStoreOp(ERenderStoreOp::Store)
+
+            .SetDepthAttachment(DepthAttachment)
+            .SetDepthLoadOp(ERenderLoadOp::Load)
+            .SetDepthStoreOp(ERenderStoreOp::Store)
+            .SetRenderArea(GetRenderTarget()->GetExtent());
+
+            FVertexBufferBinding Binding;
+            Binding.Buffer = SimpleVertexBuffer;
+            GraphicsState.AddVertexBuffer(Binding);
+            GraphicsState.SetRenderPass(BeginInfo);
+            
+            GraphicsState.SetViewport(MakeViewportStateFromImage(GetRenderTarget()));
+
+            CmdList.SetGraphicsState(GraphicsState);
+
+            SCameraComponent& CameraComponent = World->GetActiveCamera();
+            glm::mat4 ViewProjMatrix = CameraComponent.GetViewProjectionMatrix();
+            CmdList.SetPushConstants(&ViewProjMatrix, sizeof(glm::mat4));
+            CmdList.Draw((uint32)SimpleVertices.size(), 1, 0, 0); 
+        });
+    }
+
     FViewportState FSceneRenderer::MakeViewportStateFromImage(const FRHIImage* Image)
     {
         float SizeY = (float)Image->GetSizeY();
@@ -629,308 +634,308 @@ namespace Lumina
         return ViewportState;
     }
     
-void FSceneRenderer::CompileDrawCommands()
-{
-    LUMINA_PROFILE_SCOPE();
-
-    ICommandList* CommandList = GRenderContext->GetCommandList(ECommandQueue::Graphics);
+    void FSceneRenderer::CompileDrawCommands()
     {
-        LUMINA_PROFILE_SECTION("Build Render Proxies");
-        
-        // Pre-allocate all containers to avoid reallocations
-        auto Group = World->GetEntityRegistry().group<SStaticMeshComponent, STransformComponent>();
-        const size_t EntityCount = Group.size();
-        
-        // Estimate capacity (entities * average surfaces per mesh)
-        const size_t EstimatedProxies = EntityCount * 2; // Conservative estimate
-        
-        TRenderVector<glm::mat4> Transforms;
-        Transforms.reserve(EstimatedProxies);
-        StaticMeshRenders.clear();
-        StaticMeshRenders.reserve(EstimatedProxies);
-        
-        THashMap<CMaterialInterface*, bool> MaterialValidityCache;
-        MaterialValidityCache.reserve(64);
-        
-        //========================================================================================================================
-        
-        Group.each([&](const SStaticMeshComponent& MeshComponent, const STransformComponent& TransformComponent)
+        LUMINA_PROFILE_SCOPE();
+    
+        ICommandList* CommandList = GRenderContext->GetCommandList(ECommandQueue::Graphics);
         {
-            CStaticMesh* Mesh = MeshComponent.StaticMesh;
-            if (!IsValid(Mesh))
+            LUMINA_PROFILE_SECTION("Build Render Proxies");
+            
+            // Pre-allocate all containers to avoid reallocations
+            auto Group = World->GetEntityRegistry().group<SStaticMeshComponent, STransformComponent>();
+            const size_t EntityCount = Group.size();
+            
+            // Estimate capacity (entities * average surfaces per mesh)
+            const size_t EstimatedProxies = EntityCount * 2; // Conservative estimate
+            
+            TRenderVector<glm::mat4> Transforms;
+            Transforms.reserve(EstimatedProxies);
+            StaticMeshRenders.clear();
+            StaticMeshRenders.reserve(EstimatedProxies);
+            
+            THashMap<CMaterialInterface*, bool> MaterialValidityCache;
+            MaterialValidityCache.reserve(64);
+            
+            //========================================================================================================================
+            
+            Group.each([&](const SStaticMeshComponent& MeshComponent, const STransformComponent& TransformComponent)
             {
-                return;
+                CStaticMesh* Mesh = MeshComponent.StaticMesh;
+                if (!IsValid(Mesh))
+                {
+                    return;
+                }
+                
+                const FMeshResource& Resource = Mesh->GetMeshResource();
+                const SIZE_T NumSurfaces = Resource.GetNumSurfaces();
+                
+                const glm::mat4 TransformMatrix = TransformComponent.GetMatrix();
+                
+                for (SIZE_T j = 0; j < NumSurfaces; ++j)
+                {
+                    if (!Resource.IsSurfaceIndexValid(j))
+                    {
+                        continue;
+                    }
+            
+                    const FGeometrySurface& Surface = Resource.GetSurface(j);
+                    CMaterialInterface* Material = MeshComponent.GetMaterialForSlot(Surface.MaterialIndex);
+                    
+                    if (!IsValid(Material))
+                    {
+                        continue;
+                    }
+                    
+                    auto CacheIt = MaterialValidityCache.find(Material);
+                    bool bMaterialReady;
+                    if (CacheIt != MaterialValidityCache.end())
+                    {
+                        bMaterialReady = CacheIt->second;
+                    }
+                    else
+                    {
+                        bMaterialReady = Material->IsReadyForRender();
+                        MaterialValidityCache[Material] = bMaterialReady;
+                    }
+                    
+                    if (!bMaterialReady)
+                    {
+                        continue;
+                    }
+                
+                    const uint32 TransformIdx = static_cast<uint32>(Transforms.size());
+                    Transforms.emplace_back(TransformMatrix);
+                    
+                    const uintptr_t MaterialPtr = reinterpret_cast<uintptr_t>(Material);
+                    const uintptr_t MeshPtr = reinterpret_cast<uintptr_t>(Mesh);
+                    
+                    const uint64 MaterialID = (MaterialPtr & 0xFFFFFull) << 44;
+                    const uint64 MeshID = (MeshPtr & 0xFFFFFull) << 24;
+                    const uint64 FirstIndex16 = (static_cast<uint64>(Surface.StartIndex) & 0xFFFFull) << 8;
+                    const uint64 IndexCount8 = eastl::min<uint32>(Surface.IndexCount, 0xFF);
+                    
+                    StaticMeshRenders.emplace_back(FStaticMeshRender
+                    {
+                        .Material = Material,
+                        .StaticMesh = Mesh,
+                        .SortKey = MaterialID | MeshID | FirstIndex16 | IndexCount8,
+                        .FirstIndex = static_cast<uint32>(Surface.StartIndex),
+                        .TransformIdx = TransformIdx,
+                        .SurfaceIndexCount = static_cast<uint16>(Surface.IndexCount),
+                    });
+                }
+            });
+            
+            {
+                LUMINA_PROFILE_SECTION("Sort Render Proxies");
+                eastl::sort(StaticMeshRenders.begin(), StaticMeshRenders.end());
             }
             
-            const FMeshResource& Resource = Mesh->GetMeshResource();
-            const SIZE_T NumSurfaces = Resource.GetNumSurfaces();
+            {   
+                LUMINA_PROFILE_SECTION("Build Indirect Draw Arguments");
+    
+                const size_t NumProxies = StaticMeshRenders.size();
+                InstanceData.clear();
+                InstanceData.reserve(NumProxies);
+                
+                IndirectDrawArguments.clear();
+                RenderBatches.clear();
+                
+                const size_t EstimatedBatches = eastl::min(NumProxies / 4, NumProxies);
+                IndirectDrawArguments.reserve(EstimatedBatches);
+                RenderBatches.reserve(EstimatedBatches);
+                
+                uint64 CurrentSortKey = ~0ull;
+                FDrawIndexedIndirectArguments* CurrentDrawArgs = nullptr;
+                
+                for (const auto& Proxy : StaticMeshRenders)
+                {
+                    if (CurrentSortKey != Proxy.SortKey)
+                    {
+                        // Start new batch
+                        CurrentSortKey = Proxy.SortKey;
+                        
+                        RenderBatches.emplace_back(FIndirectRenderBatch
+                        {
+                            .Material = Proxy.Material,
+                            .IndexBuffer =  Proxy.StaticMesh->GetMeshResource().IndexBuffer,
+                            .VertexBuffer = Proxy.StaticMesh->GetMeshResource().VertexBuffer,
+                            .NumDraws = 1,
+                            .Offset = (uint32)IndirectDrawArguments.size()
+                        });
+    
+                        IndirectDrawArguments.emplace_back(FDrawIndexedIndirectArguments{
+                            .IndexCount = Proxy.SurfaceIndexCount,
+                            .InstanceCount = 1,
+                            .StartIndexLocation = Proxy.FirstIndex,
+                            .BaseVertexLocation = 0,
+                            .StartInstanceLocation = static_cast<uint32>(InstanceData.size()),
+                        });
+                        CurrentDrawArgs = &IndirectDrawArguments.back();
+                    }
+                    else
+                    {
+                        // Add to existing batch
+                        ++CurrentDrawArgs->InstanceCount;
+                    }
+    
+                    InstanceData.emplace_back(Transforms[Proxy.TransformIdx]);
+                }
+            }
             
-            const glm::mat4 TransformMatrix = TransformComponent.GetMatrix();
-            
-            for (SIZE_T j = 0; j < NumSurfaces; ++j)
             {
-                if (!Resource.IsSurfaceIndexValid(j))
-                {
-                    continue;
-                }
-        
-                const FGeometrySurface& Surface = Resource.GetSurface(j);
-                CMaterialInterface* Material = MeshComponent.GetMaterialForSlot(Surface.MaterialIndex);
+                LUMINA_PROFILE_SECTION("Write Buffers");
                 
-                if (!IsValid(Material))
-                {
-                    continue;
-                }
+                const size_t InstanceDataSize = InstanceData.size() * sizeof(FInstanceData);
+                const size_t IndirectArgsSize = IndirectDrawArguments.size() * sizeof(FDrawIndexedIndirectArguments);
                 
-                auto CacheIt = MaterialValidityCache.find(Material);
-                bool bMaterialReady;
-                if (CacheIt != MaterialValidityCache.end())
+                if (InstanceDataSize > 0)
                 {
-                    bMaterialReady = CacheIt->second;
+                    CommandList->WriteBuffer(ModelDataBuffer, InstanceData.data(), 0, InstanceDataSize);
                 }
-                else
+                if (IndirectArgsSize > 0)
                 {
-                    bMaterialReady = Material->IsReadyForRender();
-                    MaterialValidityCache[Material] = bMaterialReady;
+                    CommandList->WriteBuffer(IndirectDrawBuffer, IndirectDrawArguments.data(), 0, IndirectArgsSize);
                 }
-                
-                if (!bMaterialReady)
-                {
-                    continue;
-                }
+            }
+        }
+    
+            //========================================================================================================================
             
-                const uint32 TransformIdx = static_cast<uint32>(Transforms.size());
-                Transforms.emplace_back(TransformMatrix);
-                
-                const uintptr_t MaterialPtr = reinterpret_cast<uintptr_t>(Material);
-                const uintptr_t MeshPtr = reinterpret_cast<uintptr_t>(Mesh);
-                
-                const uint64 MaterialID = (MaterialPtr & 0xFFFFFull) << 44;
-                const uint64 MeshID = (MeshPtr & 0xFFFFFull) << 24;
-                const uint64 FirstIndex16 = (static_cast<uint64>(Surface.StartIndex) & 0xFFFFull) << 8;
-                const uint64 IndexCount8 = eastl::min<uint32>(Surface.IndexCount, 0xFF);
-                
-                StaticMeshRenders.emplace_back(FStaticMeshRender
+            {
+                auto Group = World->GetEntityRegistry().group<FLineBatcherComponent>();
+                SimpleVertices.clear();
+                Group.each([&](auto& LineBatcherComponent)
                 {
-                    .Material = Material,
-                    .StaticMesh = Mesh,
-                    .SortKey = MaterialID | MeshID | FirstIndex16 | IndexCount8,
-                    .FirstIndex = static_cast<uint32>(Surface.StartIndex),
-                    .TransformIdx = TransformIdx,
-                    .SurfaceIndexCount = static_cast<uint16>(Surface.IndexCount),
+                    for (const FBatchedLine& Line : LineBatcherComponent.BatchedLines)
+                    {
+                        SimpleVertices.emplace_back(glm::vec4(Line.Start, 1.0f), Line.Color);
+                        SimpleVertices.emplace_back(glm::vec4(Line.End, 1.0f), Line.Color);
+                    }
+    
+                    LineBatcherComponent.Flush();
+                });
+    
+                CommandList->WriteBuffer(SimpleVertexBuffer, SimpleVertices.data(), 0, SimpleVertices.size() * sizeof(FSimpleElementVertex));
+            }
+    
+            //========================================================================================================================
+            
+            {
+                auto Group = World->GetEntityRegistry().group<SPointLightComponent>(entt::get<STransformComponent>);
+                for (uint64 i = 0; i < Group.size(); ++i)
+                {
+                    entt::entity entity = Group[i];
+                    const SPointLightComponent& PointLightComponent = Group.get<SPointLightComponent>(entity);
+                    const STransformComponent& TransformComponent = Group.get<STransformComponent>(entity);
+    
+                    FLight Light;
+                    Light.Type = LIGHT_TYPE_POINT;
+                    
+                    Light.Color = glm::vec4(PointLightComponent.LightColor, PointLightComponent.Intensity);
+                    Light.Radius = PointLightComponent.Attenuation;
+                    Light.Position = glm::vec4(TransformComponent.WorldTransform.Location, 1.0f);
+                    
+                    LightData.Lights[LightData.NumLights++] = Memory::Move(Light);
+    
+                    //Scene->DrawDebugSphere(Transform.Location, 0.25f, Light.Color);
+                }
+            }
+    
+            //========================================================================================================================
+    
+    
+            {
+                auto Group = World->GetEntityRegistry().group<>(entt::get<SCameraComponent>, entt::exclude<SEditorComponent>);
+                for (uint64 i = 0; i < Group.size(); ++i)
+                {
+                    entt::entity entity = Group[i];
+                    SCameraComponent& CameraComponent = Group.get<SCameraComponent>(entity);
+                    World->DrawArrow(CameraComponent.GetPosition(), CameraComponent.GetForwardVector(), 1.0f, FColor::Blue);
+                    World->DrawFrustum(CameraComponent.GetViewVolume().GetViewProjectionMatrix(), FColor::Green);
+                }
+            }
+    
+            //========================================================================================================================
+            
+            {
+                auto Group = World->GetEntityRegistry().group<SSpotLightComponent>(entt::get<STransformComponent>);
+                for (uint64 i = 0; i < Group.size(); ++i)
+                {
+                    entt::entity entity = Group[i];
+                    const SSpotLightComponent& SpotLightComponent = Group.get<SSpotLightComponent>(entity);
+                    const FTransform& Transform = Group.get<STransformComponent>(entity).WorldTransform;
+    
+                    FLight SpotLight;
+                    SpotLight.Type = LIGHT_TYPE_SPOT;
+                    
+                    SpotLight.Position = glm::vec4(Transform.Location, 1.0f);
+    
+                    glm::vec3 Forward = Transform.Rotation * glm::vec3(0.0f, 0.0f, -1.0f);
+                    SpotLight.Direction = glm::vec4(glm::normalize(Forward), 0.0f);
+                    
+                    SpotLight.Color = glm::vec4(SpotLightComponent.LightColor, SpotLightComponent.Intensity);
+    
+                    float InnerDegrees = SpotLightComponent.InnerConeAngle;
+                    float OuterDegrees = SpotLightComponent.OuterConeAngle;
+    
+                    float InnerCos = glm::cos(glm::radians(InnerDegrees));
+                    float OuterCos = glm::cos(glm::radians(OuterDegrees));
+                    
+                    SpotLight.Angle = glm::vec2(InnerCos, OuterCos);
+    
+                    SpotLight.Radius = SpotLightComponent.Attenuation;
+    
+                    LightData.Lights[LightData.NumLights++] = SpotLight;
+    
+                    //Scene->DrawDebugCone(SpotLight.Position, Forward, glm::radians(OuterDegrees), SpotLightComponent.Attenuation, glm::vec4(SpotLightComponent.LightColor, 1.0f));
+                    //Scene->DrawDebugCone(SpotLight.Position, Forward, glm::radians(InnerDegrees), SpotLightComponent.Attenuation, glm::vec4(SpotLightComponent.LightColor, 1.0f));
+    
+                }
+            }
+    
+            
+            //========================================================================================================================
+    
+    
+            {
+    
+                auto Group = World->GetEntityRegistry().group<SDirectionalLightComponent>();
+                Group.each([this](const SDirectionalLightComponent& DirectionalLightComponent)
+                {
+                    FLight DirectionalLight;
+                    DirectionalLight.Type = LIGHT_TYPE_DIRECTIONAL;
+                    
+                    DirectionalLight.Color = glm::vec4(DirectionalLightComponent.Color, DirectionalLightComponent.Intensity);
+                    DirectionalLight.Direction = glm::vec4(glm::normalize(DirectionalLightComponent.Direction), 1.0f);
+                    
+                    RenderSettings.EnvironmentSettings.SunDirection = DirectionalLight.Direction;
+                    
+                    LightData.Lights[LightData.NumLights++] = Memory::Move(DirectionalLight);
                 });
             }
-        });
-        
-        {
-            LUMINA_PROFILE_SECTION("Sort Render Proxies");
-            eastl::sort(StaticMeshRenders.begin(), StaticMeshRenders.end());
-        }
-        
-        {   
-            LUMINA_PROFILE_SECTION("Build Indirect Draw Arguments");
-
-            const size_t NumProxies = StaticMeshRenders.size();
-            InstanceData.clear();
-            InstanceData.reserve(NumProxies);
             
-            IndirectDrawArguments.clear();
-            RenderBatches.clear();
-            
-            const size_t EstimatedBatches = eastl::min(NumProxies / 4, NumProxies);
-            IndirectDrawArguments.reserve(EstimatedBatches);
-            RenderBatches.reserve(EstimatedBatches);
-            
-            uint64 CurrentSortKey = ~0ull;
-            FDrawIndexedIndirectArguments* CurrentDrawArgs = nullptr;
-            
-            for (const auto& Proxy : StaticMeshRenders)
+    
+            CommandList->WriteBuffer(LightDataBuffer, &LightData);
+    
+            //========================================================================================================================
+    
             {
-                if (CurrentSortKey != Proxy.SortKey)
+                RenderSettings.bHasEnvironment = false;
+                auto Group = World->GetEntityRegistry().group<SEnvironmentComponent>();
+                Group.each([this] (const SEnvironmentComponent& EnvironmentComponent)
                 {
-                    // Start new batch
-                    CurrentSortKey = Proxy.SortKey;
-                    
-                    RenderBatches.emplace_back(FIndirectRenderBatch
-                    {
-                        .Material = Proxy.Material,
-                        .IndexBuffer =  Proxy.StaticMesh->GetMeshResource().IndexBuffer,
-                        .VertexBuffer = Proxy.StaticMesh->GetMeshResource().VertexBuffer,
-                        .NumDraws = 1,
-                        .Offset = (uint32)IndirectDrawArguments.size()
-                    });
-
-                    IndirectDrawArguments.emplace_back(FDrawIndexedIndirectArguments{
-                        .IndexCount = Proxy.SurfaceIndexCount,
-                        .InstanceCount = 1,
-                        .StartIndexLocation = Proxy.FirstIndex,
-                        .BaseVertexLocation = 0,
-                        .StartInstanceLocation = static_cast<uint32>(InstanceData.size()),
-                    });
-                    CurrentDrawArgs = &IndirectDrawArguments.back();
-                }
-                else
-                {
-                    // Add to existing batch
-                    ++CurrentDrawArgs->InstanceCount;
-                }
-
-                InstanceData.emplace_back(Transforms[Proxy.TransformIdx]);
+                    RenderSettings.bHasEnvironment                      = true;
+                    RenderSettings.bSSAO                                = EnvironmentComponent.bSSAOEnabled;
+                    RenderSettings.SSAOSettings.Intensity               = EnvironmentComponent.SSAOInfo.Intensity;
+                    RenderSettings.SSAOSettings.Power                   = EnvironmentComponent.SSAOInfo.Power;
+                    RenderSettings.SSAOSettings.Radius                  = EnvironmentComponent.SSAOInfo.Radius;
+                });
             }
-        }
-        
-        {
-            LUMINA_PROFILE_SECTION("Write Buffers");
-            
-            const size_t InstanceDataSize = InstanceData.size() * sizeof(FInstanceData);
-            const size_t IndirectArgsSize = IndirectDrawArguments.size() * sizeof(FDrawIndexedIndirectArguments);
-            
-            if (InstanceDataSize > 0)
-            {
-                CommandList->WriteBuffer(ModelDataBuffer, InstanceData.data(), 0, InstanceDataSize);
-            }
-            if (IndirectArgsSize > 0)
-            {
-                CommandList->WriteBuffer(IndirectDrawBuffer, IndirectDrawArguments.data(), 0, IndirectArgsSize);
-            }
-        }
-    }
-
-        //========================================================================================================================
-        
-        {
-            auto Group = World->GetEntityRegistry().group<FLineBatcherComponent>();
-            SimpleVertices.clear();
-            Group.each([&](auto& LineBatcherComponent)
-            {
-                for (const FBatchedLine& Line : LineBatcherComponent.BatchedLines)
-                {
-                    SimpleVertices.emplace_back(glm::vec4(Line.Start, 1.0f), Line.Color);
-                    SimpleVertices.emplace_back(glm::vec4(Line.End, 1.0f), Line.Color);
-                }
-
-                LineBatcherComponent.Flush();
-            });
-
-            CommandList->WriteBuffer(SimpleVertexBuffer, SimpleVertices.data(), 0, SimpleVertices.size() * sizeof(FSimpleElementVertex));
-        }
-
-        //========================================================================================================================
-        
-        {
-            auto Group = World->GetEntityRegistry().group<SPointLightComponent>(entt::get<STransformComponent>);
-            for (uint64 i = 0; i < Group.size(); ++i)
-            {
-                entt::entity entity = Group[i];
-                const SPointLightComponent& PointLightComponent = Group.get<SPointLightComponent>(entity);
-                const STransformComponent& TransformComponent = Group.get<STransformComponent>(entity);
-
-                FLight Light;
-                Light.Type = LIGHT_TYPE_POINT;
-                
-                Light.Color = glm::vec4(PointLightComponent.LightColor, PointLightComponent.Intensity);
-                Light.Radius = PointLightComponent.Attenuation;
-                Light.Position = glm::vec4(TransformComponent.WorldTransform.Location, 1.0f);
-                
-                LightData.Lights[LightData.NumLights++] = Memory::Move(Light);
-
-                //Scene->DrawDebugSphere(Transform.Location, 0.25f, Light.Color);
-            }
-        }
-
-        //========================================================================================================================
-
-
-        {
-            auto Group = World->GetEntityRegistry().group<>(entt::get<SCameraComponent>, entt::exclude<SEditorComponent>);
-            for (uint64 i = 0; i < Group.size(); ++i)
-            {
-                entt::entity entity = Group[i];
-                SCameraComponent& CameraComponent = Group.get<SCameraComponent>(entity);
-                World->DrawArrow(CameraComponent.GetPosition(), CameraComponent.GetForwardVector(), 1.0f, FColor::Blue);
-                World->DrawFrustum(CameraComponent.GetViewVolume().GetViewProjectionMatrix(), FColor::Green);
-            }
-        }
-
-        //========================================================================================================================
-        
-        {
-            auto Group = World->GetEntityRegistry().group<SSpotLightComponent>(entt::get<STransformComponent>);
-            for (uint64 i = 0; i < Group.size(); ++i)
-            {
-                entt::entity entity = Group[i];
-                const SSpotLightComponent& SpotLightComponent = Group.get<SSpotLightComponent>(entity);
-                const FTransform& Transform = Group.get<STransformComponent>(entity).WorldTransform;
-
-                FLight SpotLight;
-                SpotLight.Type = LIGHT_TYPE_SPOT;
-                
-                SpotLight.Position = glm::vec4(Transform.Location, 1.0f);
-
-                glm::vec3 Forward = Transform.Rotation * glm::vec3(0.0f, 0.0f, -1.0f);
-                SpotLight.Direction = glm::vec4(glm::normalize(Forward), 0.0f);
-                
-                SpotLight.Color = glm::vec4(SpotLightComponent.LightColor, SpotLightComponent.Intensity);
-
-                float InnerDegrees = SpotLightComponent.InnerConeAngle;
-                float OuterDegrees = SpotLightComponent.OuterConeAngle;
-
-                float InnerCos = glm::cos(glm::radians(InnerDegrees));
-                float OuterCos = glm::cos(glm::radians(OuterDegrees));
-                
-                SpotLight.Angle = glm::vec2(InnerCos, OuterCos);
-
-                SpotLight.Radius = SpotLightComponent.Attenuation;
-
-                LightData.Lights[LightData.NumLights++] = SpotLight;
-
-                //Scene->DrawDebugCone(SpotLight.Position, Forward, glm::radians(OuterDegrees), SpotLightComponent.Attenuation, glm::vec4(SpotLightComponent.LightColor, 1.0f));
-                //Scene->DrawDebugCone(SpotLight.Position, Forward, glm::radians(InnerDegrees), SpotLightComponent.Attenuation, glm::vec4(SpotLightComponent.LightColor, 1.0f));
-
-            }
-        }
-
-        
-        //========================================================================================================================
-
-
-        {
-
-            auto Group = World->GetEntityRegistry().group<SDirectionalLightComponent>();
-            Group.each([this](const SDirectionalLightComponent& DirectionalLightComponent)
-            {
-                FLight DirectionalLight;
-                DirectionalLight.Type = LIGHT_TYPE_DIRECTIONAL;
-                
-                DirectionalLight.Color = glm::vec4(DirectionalLightComponent.Color, DirectionalLightComponent.Intensity);
-                DirectionalLight.Direction = glm::vec4(glm::normalize(DirectionalLightComponent.Direction), 1.0f);
-                
-                RenderSettings.EnvironmentSettings.SunDirection = DirectionalLight.Direction;
-                
-                LightData.Lights[LightData.NumLights++] = Memory::Move(DirectionalLight);
-            });
-        }
-        
-
-        CommandList->WriteBuffer(LightDataBuffer, &LightData);
-
-        //========================================================================================================================
-
-        {
-            RenderSettings.bHasEnvironment = false;
-            auto Group = World->GetEntityRegistry().group<SEnvironmentComponent>();
-            Group.each([this] (const SEnvironmentComponent& EnvironmentComponent)
-            {
-                RenderSettings.bHasEnvironment                      = true;
-                RenderSettings.bSSAO                                = EnvironmentComponent.bSSAOEnabled;
-                RenderSettings.SSAOSettings.Intensity               = EnvironmentComponent.SSAOInfo.Intensity;
-                RenderSettings.SSAOSettings.Power                   = EnvironmentComponent.SSAOInfo.Power;
-                RenderSettings.SSAOSettings.Radius                  = EnvironmentComponent.SSAOInfo.Radius;
-            });
-        }
-
-        CommandList->WriteBuffer(SSAOSettingsBuffer, &RenderSettings.SSAOSettings);
-        CommandList->WriteBuffer(EnvironmentBuffer, &RenderSettings.EnvironmentSettings);
+    
+            CommandList->WriteBuffer(SSAOSettingsBuffer, &RenderSettings.SSAOSettings);
+            CommandList->WriteBuffer(EnvironmentBuffer, &RenderSettings.EnvironmentSettings);
     }
     
 
