@@ -9,6 +9,7 @@ IncludeDir["glfw"]	 = 	                "%{LuminaEngineDirectory}/Lumina/Engine/T
 IncludeDir["glm"]	 = 	                "%{LuminaEngineDirectory}/Lumina/Engine/ThirdParty/GLM/"
 IncludeDir["imgui"]	 = 	                "%{LuminaEngineDirectory}/Lumina/Engine/ThirdParty/imgui/"
 IncludeDir["vkbootstrap"] =             "%{LuminaEngineDirectory}/Lumina/Engine/ThirdParty/vk-bootstrap/"
+IncludeDir["VulkanMemoryAllocator"] =   "%{LuminaEngineDirectory}/Lumina/Engine/ThirdParty/VulkanMemoryAllocator/include"
 IncludeDir["fastgltf"] =                "%{LuminaEngineDirectory}/Lumina/Engine/ThirdParty/fastgltf/include"
 IncludeDir["stb"] =                     "%{LuminaEngineDirectory}/Lumina/Engine/ThirdParty/stb/"
 IncludeDir["vulkan"] =                  "%{VULKAN_SDK}/Include/"
