@@ -4,9 +4,13 @@
 #include "Containers/SparseArray.h"
 #include "Renderer/RenderResource.h"
 #include "Renderer/RenderTypes.h"
-#include "Entity/Components/RenderComponent.h"
+#include "World/Scene/SceneInterface.h"
 
 
+namespace Lumina
+{
+    struct FStaticMeshPrimitive;
+}
 
 namespace Lumina
 {
@@ -24,12 +28,12 @@ namespace Lumina
 {
     template<typename T> using TRenderVector = TFixedVector<T, 2024>;
     
-    class FSceneRenderer
+    class FRenderScene : public ISceneInterface
     {
     public:
         
-        FSceneRenderer(CWorld* InWorld);
-        virtual ~FSceneRenderer();
+        FRenderScene(CWorld* InWorld);
+        virtual ~FRenderScene();
         
         void RenderScene(FRenderGraph& RenderGraph);
     
@@ -44,6 +48,8 @@ namespace Lumina
         
         ESceneRenderGBuffer GetGBufferDebugMode() const { return GBufferDebugMode; }
         void SetGBufferDebugMode(ESceneRenderGBuffer Mode) { GBufferDebugMode = Mode; }
+
+        void AddStaticMeshPrimitive(FStaticMeshPrimitive* Primitive);
         
     protected:
         
@@ -120,15 +126,22 @@ namespace Lumina
         FRHIImageRef                        NoiseImage;
         FRHIImageRef                        SSAOImage;
         FRHIImageRef                        SSAOBlur;
-
+        
+        
+        
         ESceneRenderGBuffer                           GBufferDebugMode = ESceneRenderGBuffer::RenderTarget;
 
+        /** Packed array of per-instance data */
         TRenderVector<FInstanceData>                  InstanceData;
+
+        
+
         
         TRenderVector<FStaticMeshRender>              StaticMeshRenders;
         TRenderVector<FIndirectRenderBatch>           RenderBatches;
         TRenderVector<FDrawIndexedIndirectArguments>  IndirectDrawArguments;
 
+        TVector<FMeshBatch>                           MeshBatches;
     };
     
 }

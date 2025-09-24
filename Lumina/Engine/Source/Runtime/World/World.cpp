@@ -84,7 +84,7 @@ namespace Lumina
         LUM_ASSERT(SceneRenderer == nullptr)
         
         CameraManager = Memory::New<FCameraManager>();
-        SceneRenderer = Memory::New<FSceneRenderer>(this);
+        SceneRenderer = Memory::New<FRenderScene>(this);
 
         TVector<TObjectHandle<CEntitySystem>> Systems;
         CEntitySystemRegistry::Get().GetRegisteredSystems(Systems);

@@ -930,7 +930,7 @@ namespace Lumina
                 
                     if (DrawViewportWindow)
                     {
-                        FSceneRenderer* SceneRenderer = Tool->GetWorld()->GetRenderer();
+                        FRenderScene* SceneRenderer = Tool->GetWorld()->GetRenderer();
                         ImTextureRef ViewportTexture = ImGuiX::ToImTextureRef(SceneRenderer->GetRenderTarget());
                         
                         Tool->bViewportFocused = ImGui::IsWindowFocused();

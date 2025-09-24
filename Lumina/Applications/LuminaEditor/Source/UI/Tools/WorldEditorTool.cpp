@@ -269,7 +269,7 @@ namespace Lumina
 
         if (ImGui::BeginMenu(LE_ICON_DEBUG_STEP_INTO " Render Debug"))
         {
-            FSceneRenderer* SceneRenderer = World->GetRenderer();
+            FRenderScene* SceneRenderer = World->GetRenderer();
             const FSceneRenderStats& Stats = SceneRenderer->GetSceneRenderStats();
 
             ImGui::TextColored(ImVec4(1.0f, 0.78f, 0.16f, 1.0f), "Scene Statistics");

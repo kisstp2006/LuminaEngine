@@ -130,8 +130,6 @@ namespace Lumina
         
         FRHIBufferRef               VertexBuffer;
         FRHIBufferRef               IndexBuffer;
-
-        uint64                      IndirectOffset;
     };
     
     struct FInstanceData

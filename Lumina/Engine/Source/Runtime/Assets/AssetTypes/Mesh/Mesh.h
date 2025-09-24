@@ -46,8 +46,8 @@ namespace Lumina
         
         const FAABB& GetAABB() const { return BoundingBox; }
 
-        template<typename TLambda>
-        void ForEachSurface(TLambda&& Lambda)
+        template<typename TCallable>
+        void ForEachSurface(TCallable&& Lambda)
         {
             for (const FGeometrySurface& Surface : MeshResources.GeometrySurfaces)
             {

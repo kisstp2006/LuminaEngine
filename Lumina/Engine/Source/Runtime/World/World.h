@@ -14,7 +14,7 @@ namespace Lumina
     struct SRenderComponent;
     class FCameraManager;
     struct FLineBatcherComponent;
-    class FSceneRenderer;
+    class FRenderScene;
     class CEntitySystem;
     class Entity;
 }
@@ -89,7 +89,7 @@ namespace Lumina
 
         static CWorld* DuplicateWorldForPIE(CWorld* OwningWorld);
 
-        FSceneRenderer* GetRenderer() const { return SceneRenderer; }
+        FRenderScene* GetRenderer() const { return SceneRenderer; }
 
         const TVector<TObjectHandle<CEntitySystem>>& GetSystemsForUpdateStage(EUpdateStage Stage);
 
@@ -114,7 +114,7 @@ namespace Lumina
         FLineBatcherComponent*                          LineBatcherComponent = nullptr;
 
         FCameraManager*                                 CameraManager = nullptr;
-        FSceneRenderer*                                 SceneRenderer = nullptr;
+        FRenderScene*                                 SceneRenderer = nullptr;
         
         TVector<TObjectHandle<CEntitySystem>>           SystemUpdateList[(int32)EUpdateStage::Max];
 

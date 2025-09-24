@@ -1,26 +1,20 @@
-#include "SceneRenderer.h"
+#include "RenderScene.h"
 
 #include "Assets/AssetRegistry/AssetRegistry.h"
 #include "Assets/AssetTypes/Mesh/StaticMesh/StaticMesh.h"
 #include "Core/Windows/Window.h"
-#include "Entity/Components/CameraComponent.h"
-#include "Entity/Entity.h"
 #include "Renderer/RHIIncl.h"
 #define GLM_ENABLE_EXPERIMENTAL
 #include <execution>
+#include <variant>
 
-#include "World.h"
+#include "ScenePrimitives.h"
 #include "Assets/AssetTypes/Material/Material.h"
 #include "Assets/AssetTypes/Textures/Texture.h"
-#include "glm/gtx/quaternion.hpp"
 #include "Core/Engine/Engine.h"
 #include "Core/Profiler/Profile.h"
 #include "EASTL/sort.h"
-#include "Entity/Components/EditorComponent.h"
-#include "entity/components/EnvironmentComponent.h"
-#include "Entity/Components/LightComponent.h"
-#include "Entity/Components/LineBatcherComponent.h"
-#include "Entity/Components/StaticMeshComponent.h"
+#include "glm/gtx/quaternion.hpp"
 #include "Paths/Paths.h"
 #include "Renderer/RenderContext.h"
 #include "Renderer/RHIStaticStates.h"
@@ -29,11 +23,20 @@
 #include "Renderer/RenderGraph/RenderGraphDescriptor.h"
 #include "TaskSystem/TaskSystem.h"
 #include "Tools/Import/ImportHelpers.h"
+#include "World/World.h"
+#include "World/Entity/Entity.h"
+#include "World/Entity/Components/CameraComponent.h"
+#include "World/Entity/Components/EditorComponent.h"
+#include "world/entity/components/environmentcomponent.h"
+#include "world/entity/components/lightcomponent.h"
+#include "World/Entity/Components/LineBatcherComponent.h"
+#include "world/entity/components/staticmeshcomponent.h"
+#include "World/Entity/Components/TransformComponent.h"
 
 namespace Lumina
 {
     
-    FSceneRenderer::FSceneRenderer(CWorld* InWorld)
+    FRenderScene::FRenderScene(CWorld* InWorld)
         : World(InWorld)
         , SceneRenderStats()
         , SceneGlobalData()
@@ -50,14 +53,14 @@ namespace Lumina
         InitResources();
     }
 
-    FSceneRenderer::~FSceneRenderer()
+    FRenderScene::~FRenderScene()
     {
         GRenderContext->WaitIdle();
         
         LOG_TRACE("Shutting down scene renderer");
     }
     
-    void FSceneRenderer::RenderScene(FRenderGraph& RenderGraph)
+    void FRenderScene::RenderScene(FRenderGraph& RenderGraph)
     {
         LUMINA_PROFILE_SCOPE();
         SceneRenderStats = {};
@@ -116,12 +119,12 @@ namespace Lumina
         });
     }
 
-    void FSceneRenderer::OnSwapchainResized()
+    void FRenderScene::OnSwapchainResized()
     {
         CreateImages();
     }
 
-    void FSceneRenderer::DepthPrePass(FRenderGraph& RenderGraph)
+    void FRenderScene::DepthPrePass(FRenderGraph& RenderGraph)
     {
         RenderGraph.AddPass<RG_Raster>(FRGEvent("Pre-Depth Pass"), nullptr, [&] (ICommandList& CmdList)
         {
@@ -185,7 +188,7 @@ namespace Lumina
         });
     }
 
-    void FSceneRenderer::GBufferPass(FRenderGraph& RenderGraph)
+    void FRenderScene::GBufferPass(FRenderGraph& RenderGraph)
     {
         RenderGraph.AddPass<RG_Raster>(FRGEvent("GBuffer Pass"), nullptr, [&](ICommandList& CmdList)
         {
@@ -293,7 +296,7 @@ namespace Lumina
         });
     }
 
-    void FSceneRenderer::SSAOPass(FRenderGraph& RenderGraph)
+    void FRenderScene::SSAOPass(FRenderGraph& RenderGraph)
     {
         if (RenderSettings.bSSAO)
         {
@@ -417,7 +420,7 @@ namespace Lumina
         }
     }
 
-    void FSceneRenderer::EnvironmentPass(FRenderGraph& RenderGraph)
+    void FRenderScene::EnvironmentPass(FRenderGraph& RenderGraph)
     {
         if (RenderSettings.bHasEnvironment)
         {
@@ -485,7 +488,7 @@ namespace Lumina
         }
     }
 
-    void FSceneRenderer::DeferredLightingPass(FRenderGraph& RenderGraph)
+    void FRenderScene::DeferredLightingPass(FRenderGraph& RenderGraph)
     {
         RenderGraph.AddPass<RG_Raster>(FRGEvent("Lighting Pass"), nullptr, [&](ICommandList& CmdList)
         {
@@ -552,7 +555,7 @@ namespace Lumina
         });
     }
 
-    void FSceneRenderer::DebugDrawPass(FRenderGraph& RenderGraph)
+    void FRenderScene::DebugDrawPass(FRenderGraph& RenderGraph)
     {
         RenderGraph.AddPass<RG_Raster>(FRGEvent("Debug Draw Pass"), nullptr, [&](ICommandList& CmdList)
         {
@@ -622,7 +625,7 @@ namespace Lumina
         });
     }
 
-    FViewportState FSceneRenderer::MakeViewportStateFromImage(const FRHIImage* Image)
+    FViewportState FRenderScene::MakeViewportStateFromImage(const FRHIImage* Image)
     {
         float SizeY = (float)Image->GetSizeY();
         float SizeX = (float)Image->GetSizeX();
@@ -633,8 +636,20 @@ namespace Lumina
 
         return ViewportState;
     }
-    
-    void FSceneRenderer::CompileDrawCommands()
+
+    void FRenderScene::AddStaticMeshPrimitive(FStaticMeshPrimitive* Primitive)
+    {
+        LUM_ASSERT(Primitive->StaticMesh)
+        LUM_ASSERT(Primitive->Material)
+        
+        Primitive->StaticMesh->ForEachSurface([&](FGeometrySurface& Surface)
+        {
+            
+            
+        });
+    }
+
+    void FRenderScene::CompileDrawCommands()
     {
         LUMINA_PROFILE_SCOPE();
     
@@ -939,7 +954,7 @@ namespace Lumina
     }
     
 
-    void FSceneRenderer::InitResources()
+    void FRenderScene::InitResources()
     {
         {
             FVertexAttributeDesc VertexDesc[4];
@@ -1079,7 +1094,7 @@ namespace Lumina
         return a + f * (b - a);
     }
 
-    void FSceneRenderer::InitBuffers()
+    void FRenderScene::InitBuffers()
     {
         {
             FRHIBufferDesc BufferDesc;
@@ -1229,7 +1244,7 @@ namespace Lumina
         }
     }
     
-    void FSceneRenderer::CreateImages()
+    void FRenderScene::CreateImages()
     {
         FIntVector2D Extent = Windowing::GetPrimaryWindowHandle()->GetExtent();
 

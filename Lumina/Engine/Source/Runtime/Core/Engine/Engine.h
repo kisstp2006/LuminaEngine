@@ -21,7 +21,7 @@ namespace Lumina
     class FInputSubsystem;
     class FApplication;
     class FWindow;
-    class FSceneRenderer;
+    class FRenderScene;
 }
 
 namespace Lumina
