@@ -52,7 +52,7 @@ namespace Lumina
     public:
         FUploadManager(FVulkanRenderContext* Ctx, uint64 InDefaultChunkSize, uint64 InMemoryLimit, bool bInIsScratchBuffer);
 
-        TSharedPtr<FBufferChunk> CreateChunk(uint64 Size) const;
+        FBufferChunk* CreateChunk(uint64 Size);
 
         bool SuballocateBuffer(uint64 Size, FRHIBuffer** Buffer, uint64* Offset, void** CpuVA, uint64 CurrentVersion, uint32 Alignment = 256);
         void SubmitChunks(uint64 CurrentVersion, uint64_t submittedVersion);
@@ -65,8 +65,9 @@ namespace Lumina
         uint64 AllocatedMemory = 0;
         bool bIsScratchBuffer = false;
 
-        TList<TSharedPtr<FBufferChunk>>     ChunkPool;
-        TSharedPtr<FBufferChunk>            CurrentChunk;
+        FBlockLinearAllocator           ChunkAllocator;
+        TFixedList<FBufferChunk*, 8>    ChunkPool;
+        FBufferChunk*                   CurrentChunk = nullptr;
     };
     
     class FVulkanEventQuery : public IEventQuery
@@ -136,13 +137,13 @@ namespace Lumina
 
     private:
 
-        ECommandQueue               LastUseQueue = ECommandQueue::Graphics;
-        uint64                      LastUseCommandListID = 0;
+        ECommandQueue                       LastUseQueue = ECommandQueue::Graphics;
+        uint64                              LastUseCommandListID = 0;
 
-        TVector<FBufferVersionItem> VersionTracking;
-        uint32                      VersionSearchStart = 0;
-        VmaAllocation               Allocation = nullptr;
-        VkBuffer                    Buffer = VK_NULL_HANDLE;
+        TFixedVector<FBufferVersionItem, 4> VersionTracking;
+        uint32                              VersionSearchStart = 0;
+        VmaAllocation                       Allocation = nullptr;
+        VkBuffer                            Buffer = VK_NULL_HANDLE;
 
     };
 
@@ -309,9 +310,9 @@ namespace Lumina
         void* GetAPIResourceImpl(EAPIResourceType Type) override;
         
         
-        TVector<FVertexAttributeDesc> InputDesc;
-        TVector<VkVertexInputBindingDescription> BindingDesc;
-        TVector<VkVertexInputAttributeDescription> AttributeDesc;
+        TFixedVector<FVertexAttributeDesc, 4> InputDesc;
+        TFixedVector<VkVertexInputBindingDescription, 4> BindingDesc;
+        TFixedVector<VkVertexInputAttributeDescription, 4> AttributeDesc;
         
         uint32 GetNumAttributes() const override;
         const FVertexAttributeDesc* GetAttributeDesc(uint32 index) const override;
@@ -339,8 +340,8 @@ namespace Lumina
         bool                                    bBindless = false;
         
         VkDescriptorSetLayout                   DescriptorSetLayout;
-        TVector<VkDescriptorSetLayoutBinding>   Bindings;
-        TVector<VkDescriptorPoolSize>           PoolSizes;
+        TFixedVector<VkDescriptorSetLayoutBinding, 4>   Bindings;
+        TFixedVector<VkDescriptorPoolSize, 4>           PoolSizes;
     };
 
     // Contains a VkDescriptorSet
@@ -357,13 +358,13 @@ namespace Lumina
         FRHIBindingLayout* GetLayout() const override { return Layout; }
         void* GetAPIResourceImpl(EAPIResourceType Type) override;
 
-        TVector<FRHIBufferRef>              DynamicBuffers;
-        TVector<uint32>                     BindingsRequiringTransitions;
-        TVector<FRHIResourceRef>            Resources;
-        TRefCountPtr<FVulkanBindingLayout>  Layout;
-        FBindingSetDesc                     Desc;
-        VkDescriptorPool                    DescriptorPool;
-        VkDescriptorSet                     DescriptorSet;
+        TFixedVector<FRHIBufferRef, 4>              DynamicBuffers;
+        TFixedVector<uint32, 8>                     BindingsRequiringTransitions;
+        TFixedVector<FRHIResourceRef, 8>            Resources;
+        TRefCountPtr<FVulkanBindingLayout>          Layout;
+        FBindingSetDesc                             Desc;
+        VkDescriptorPool                            DescriptorPool;
+        VkDescriptorSet                             DescriptorSet;
     };
 
     class FVulkanDescriptorTable : public FRHIDescriptorTable, public IDeviceChild
@@ -403,7 +404,7 @@ namespace Lumina
         {
         }
         
-        void CreatePipelineLayout(TVector<FRHIBindingLayoutRef> BindingLayouts, VkShaderStageFlags& OutStageFlags);
+        void CreatePipelineLayout(TFixedVector<FRHIBindingLayoutRef, 4> BindingLayouts, VkShaderStageFlags& OutStageFlags);
         
         VkPipelineLayout            PipelineLayout;
         VkPipeline                  Pipeline;

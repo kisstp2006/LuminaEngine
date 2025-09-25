@@ -201,6 +201,7 @@ namespace Lumina
 
     void IImGuiRenderer::EndFrame(const FUpdateContext& UpdateContext)
     {
+        LUMINA_PROFILE_SCOPE();
 		
     	ImGuiIO& Io = ImGui::GetIO();
     	Io.DisplaySize.x = (float)GEngine->GetEngineViewport()->GetSize().X;

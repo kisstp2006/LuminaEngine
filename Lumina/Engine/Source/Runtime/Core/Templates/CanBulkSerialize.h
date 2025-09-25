@@ -3,5 +3,6 @@
 template <typename T>
 struct TCanBulkSerialize
 {
-	enum { Value = eastl::is_arithmetic_v<T> };
+	static constexpr bool Value = std::is_trivially_constructible_v<T> && std::is_standard_layout_v<T>;
 };
+

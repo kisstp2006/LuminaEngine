@@ -254,6 +254,23 @@ namespace Lumina
         Name = FName(MutableName);
     }
 
+    bool IsValid(const CObjectBase* Obj)
+    {
+        LUMINA_PROFILE_SCOPE();
+        
+        if (Obj == nullptr)
+        {
+            return false;
+        }
+
+        if (Obj->HasAnyFlag(OF_NeedsLoad | OF_MarkedGarbage))
+        {
+            return false;
+        }
+
+        return true;
+    }
+
     bool IsValid(CObjectBase* Obj)
     {
         LUMINA_PROFILE_SCOPE();

@@ -1,416 +1,531 @@
-#include "RenderScene.h"
+    #include "RenderScene.h"
 
-#include "Assets/AssetRegistry/AssetRegistry.h"
-#include "Assets/AssetTypes/Mesh/StaticMesh/StaticMesh.h"
-#include "Core/Windows/Window.h"
-#include "Renderer/RHIIncl.h"
-#define GLM_ENABLE_EXPERIMENTAL
-#include <execution>
-#include <variant>
+    #include "Assets/AssetRegistry/AssetRegistry.h"
+    #include "Assets/AssetTypes/Mesh/StaticMesh/StaticMesh.h"
+    #include "Core/Windows/Window.h"
+    #include "Renderer/RHIIncl.h"
+    #define GLM_ENABLE_EXPERIMENTAL
+    #include <execution>
+    #include <variant>
 
-#include "ScenePrimitives.h"
-#include "Assets/AssetTypes/Material/Material.h"
-#include "Assets/AssetTypes/Textures/Texture.h"
-#include "Core/Engine/Engine.h"
-#include "Core/Profiler/Profile.h"
-#include "EASTL/sort.h"
-#include "glm/gtx/quaternion.hpp"
-#include "Paths/Paths.h"
-#include "Renderer/RenderContext.h"
-#include "Renderer/RHIStaticStates.h"
-#include "Renderer/ShaderCompiler.h"
-#include "Renderer/RenderGraph/RenderGraph.h"
-#include "Renderer/RenderGraph/RenderGraphDescriptor.h"
-#include "TaskSystem/TaskSystem.h"
-#include "Tools/Import/ImportHelpers.h"
-#include "World/World.h"
-#include "World/Entity/Entity.h"
-#include "World/Entity/Components/CameraComponent.h"
-#include "World/Entity/Components/EditorComponent.h"
-#include "world/entity/components/environmentcomponent.h"
-#include "world/entity/components/lightcomponent.h"
-#include "World/Entity/Components/LineBatcherComponent.h"
-#include "world/entity/components/staticmeshcomponent.h"
-#include "World/Entity/Components/TransformComponent.h"
+    #include "MeshBatch.h"
+    #include "Assets/AssetTypes/Material/Material.h"
+    #include "Assets/AssetTypes/Textures/Texture.h"
+    #include "Core/Engine/Engine.h"
+    #include "Core/Profiler/Profile.h"
+    #include "EASTL/sort.h"
+    #include "glm/gtx/quaternion.hpp"
+    #include "Paths/Paths.h"
+    #include "Renderer/RenderContext.h"
+    #include "Renderer/RHIStaticStates.h"
+    #include "Renderer/ShaderCompiler.h"
+    #include "Renderer/RenderGraph/RenderGraph.h"
+    #include "Renderer/RenderGraph/RenderGraphDescriptor.h"
+    #include "TaskSystem/TaskSystem.h"
+    #include "Tools/Import/ImportHelpers.h"
+    #include "World/World.h"
+    #include "World/Entity/Entity.h"
+    #include "World/Entity/Components/CameraComponent.h"
+    #include "World/Entity/Components/EditorComponent.h"
+    #include "world/entity/components/environmentcomponent.h"
+    #include "world/entity/components/lightcomponent.h"
+    #include "World/Entity/Components/LineBatcherComponent.h"
+    #include "world/entity/components/staticmeshcomponent.h"
+    #include "World/Entity/Components/TransformComponent.h"
 
-namespace Lumina
-{
-    
-    FRenderScene::FRenderScene(CWorld* InWorld)
-        : World(InWorld)
-        , SceneRenderStats()
-        , SceneGlobalData()
+    namespace Lumina
     {
-        SceneViewport = GRenderContext->CreateViewport(Windowing::GetPrimaryWindowHandle()->GetExtent());
         
-        LOG_TRACE("Initializing Scene Renderer");
-        
-        // Wait for shader tasks.
-        while (GRenderContext->GetShaderCompiler()->HasPendingRequests()) {}
-        
-        InitBuffers();
-        CreateImages();
-        InitResources();
-    }
-
-    FRenderScene::~FRenderScene()
-    {
-        GRenderContext->WaitIdle();
-        
-        LOG_TRACE("Shutting down scene renderer");
-    }
-    
-    void FRenderScene::RenderScene(FRenderGraph& RenderGraph)
-    {
-        LUMINA_PROFILE_SCOPE();
-        SceneRenderStats = {};
-        
-        SCameraComponent& CameraComponent = World->GetActiveCamera();
-        STransformComponent& CameraTransform = World->GetActiveCameraEntity().GetComponent<STransformComponent>();
-
-        glm::vec3 UpdatedForward = CameraTransform.Transform.Rotation * glm::vec3(0.0f, 0.0f, -1.0f);
-        glm::vec3 UpdatedUp      = CameraTransform.Transform.Rotation * glm::vec3(0.0f, 1.0f,  0.0f);
-    
-        CameraComponent.SetView(CameraTransform.Transform.Location, CameraTransform.Transform.Location + UpdatedForward, UpdatedUp);
-
-        SceneGlobalData.CameraData.Location =           glm::vec4(CameraComponent.GetPosition(), 1.0f);
-        SceneGlobalData.CameraData.View =               CameraComponent.GetViewMatrix();
-        SceneGlobalData.CameraData.InverseView =        CameraComponent.GetViewVolume().GetInverseViewMatrix();
-        SceneGlobalData.CameraData.Projection =         CameraComponent.GetProjectionMatrix();
-        SceneGlobalData.CameraData.InverseProjection =  CameraComponent.GetViewVolume().GetInverseProjectionMatrix();
-        SceneGlobalData.Time =                          (float)World->GetTimeSinceWorldCreation();
-        SceneGlobalData.DeltaTime =                     (float)World->GetWorldDeltaTime();
-        SceneGlobalData.FarPlane =                      1000.0f;
-        SceneGlobalData.NearPlane =                     0.01f;
-        
-        SceneViewport->SetViewVolume(CameraComponent.GetViewVolume());
-
-        RenderGraph.AddPass<RG_Transfer>(FRGEvent("Write Scene Buffer"), nullptr, [&](ICommandList& CmdList)
+        FRenderScene::FRenderScene(CWorld* InWorld)
+            : World(InWorld)
+            , SceneRenderStats()
+            , SceneGlobalData()
         {
-            LUMINA_PROFILE_SECTION_COLORED("Write Scene Buffer", tracy::Color::Orange4);
-
-            CmdList.WriteBuffer(SceneDataBuffer, &SceneGlobalData, 0, sizeof(FSceneGlobalData));
-        });
-
-        RenderBatches.clear();
-        StaticMeshRenders.clear();
-        IndirectDrawArguments.clear();
-        InstanceData.clear();
-        LightData.NumLights = 0;
-        
-        CompileDrawCommands();
-        
-        DepthPrePass(RenderGraph);
-        GBufferPass(RenderGraph);
-        SSAOPass(RenderGraph);
-        EnvironmentPass(RenderGraph);
-        DeferredLightingPass(RenderGraph);
-        DebugDrawPass(RenderGraph);
-        
-
-        RenderGraph.AddPass<RG_Raster>(FRGEvent("Finalize Image State"), nullptr, [&](ICommandList& CmdList)
-        {
-            CmdList.SetImageState(GetRenderTarget(), AllSubresources, EResourceStates::ShaderResource);
-            CmdList.CommitBarriers();
-
-                
-            CmdList.SetImageState(DepthAttachment, AllSubresources, EResourceStates::ShaderResource);
-            CmdList.CommitBarriers();
-        });
-    }
-
-    void FRenderScene::OnSwapchainResized()
-    {
-        CreateImages();
-    }
-
-    void FRenderScene::DepthPrePass(FRenderGraph& RenderGraph)
-    {
-        RenderGraph.AddPass<RG_Raster>(FRGEvent("Pre-Depth Pass"), nullptr, [&] (ICommandList& CmdList)
-        {
-            LUMINA_PROFILE_SECTION_COLORED("Pre-Depth Pass", tracy::Color::Orange);
+            SceneViewport = GRenderContext->CreateViewport(Windowing::GetPrimaryWindowHandle()->GetExtent());
             
-            FRHIVertexShaderRef VertexShader = FShaderLibrary::GetVertexShader("DepthPrePass.vert");
-            if (!VertexShader)
+            LOG_TRACE("Initializing Renderer Scene");
+            
+            // Wait for shader tasks.
+            while (GRenderContext->GetShaderCompiler()->HasPendingRequests()) {}
+            
+            InitBuffers();
+            CreateImages();
+            InitResources();
+        }
+
+        FRenderScene::~FRenderScene()
+        {
+            GRenderContext->WaitIdle();
+            
+            LOG_TRACE("Shutting down Renderer Scene");
+        }
+        
+        void FRenderScene::RenderScene(FRenderGraph& RenderGraph)
+        {
+            LUMINA_PROFILE_SCOPE();
+            SceneRenderStats = {};
+            
+            SCameraComponent& CameraComponent = World->GetActiveCamera();
+            STransformComponent& CameraTransform = World->GetActiveCameraEntity().GetComponent<STransformComponent>();
+
+            glm::vec3 UpdatedForward = CameraTransform.Transform.Rotation * glm::vec3(0.0f, 0.0f, -1.0f);
+            glm::vec3 UpdatedUp      = CameraTransform.Transform.Rotation * glm::vec3(0.0f, 1.0f,  0.0f);
+        
+            CameraComponent.SetView(CameraTransform.Transform.Location, CameraTransform.Transform.Location + UpdatedForward, UpdatedUp);
+
+            SceneGlobalData.CameraData.Location =           glm::vec4(CameraComponent.GetPosition(), 1.0f);
+            SceneGlobalData.CameraData.View =               CameraComponent.GetViewMatrix();
+            SceneGlobalData.CameraData.InverseView =        CameraComponent.GetViewVolume().GetInverseViewMatrix();
+            SceneGlobalData.CameraData.Projection =         CameraComponent.GetProjectionMatrix();
+            SceneGlobalData.CameraData.InverseProjection =  CameraComponent.GetViewVolume().GetInverseProjectionMatrix();
+            SceneGlobalData.Time =                          (float)World->GetTimeSinceWorldCreation();
+            SceneGlobalData.DeltaTime =                     (float)World->GetWorldDeltaTime();
+            SceneGlobalData.FarPlane =                      1000.0f;
+            SceneGlobalData.NearPlane =                     0.01f;
+            
+            SceneViewport->SetViewVolume(CameraComponent.GetViewVolume());
+
+            RenderGraph.AddPass<RG_Transfer>(FRGEvent("Write Scene Buffer"), nullptr, [&](ICommandList& CmdList)
             {
-                return;
-            }
+                LUMINA_PROFILE_SECTION_COLORED("Write Scene Buffer", tracy::Color::Orange4);
+
+                CmdList.WriteBuffer(SceneDataBuffer, &SceneGlobalData, 0, sizeof(FSceneGlobalData));
+            });
+
+            DepthMeshDrawCommands.clear();
+            MeshDrawCommands.clear();
+            IndirectDrawArguments.clear();
+            InstanceData.clear();
+            LightData.NumLights = 0;
             
-            for (SIZE_T CurrentDraw = 0; CurrentDraw < RenderBatches.size(); ++CurrentDraw)
+            CompileDrawCommands();
+            
+            DepthPrePass(RenderGraph);
+            GBufferPass(RenderGraph);
+            SSAOPass(RenderGraph);
+            EnvironmentPass(RenderGraph);
+            DeferredLightingPass(RenderGraph);
+            DebugDrawPass(RenderGraph);
+            
+
+            /** Mostly for UI rendering */  
+            RenderGraph.AddPass<RG_Raster>(FRGEvent("Finalize Image State"), nullptr, [&](ICommandList& CmdList)
             {
-                const FIndirectRenderBatch& Batch = RenderBatches[CurrentDraw];
+                CmdList.SetImageState(GetRenderTarget(), AllSubresources, EResourceStates::ShaderResource);
+                CmdList.CommitBarriers();
 
-                FGraphicsState GraphicsState;
-            
-                FVertexBufferBinding VertexBufferBinding;
-                VertexBufferBinding.SetBuffer(Batch.VertexBuffer);
-                
-                FIndexBufferBinding IndexBufferBinding;
-                IndexBufferBinding.SetBuffer(Batch.IndexBuffer);
+                    
+                CmdList.SetImageState(DepthAttachment, AllSubresources, EResourceStates::ShaderResource);
+                CmdList.CommitBarriers();
+            });
+        }
 
+        void FRenderScene::OnSwapchainResized()
+        {
+            CreateImages();
+        }
+
+        void FRenderScene::DepthPrePass(FRenderGraph& RenderGraph)
+        {
+            RenderGraph.AddPass<RG_Raster>(FRGEvent("Pre-Depth Pass"), nullptr, [&] (ICommandList& CmdList)
+            {
+                LUMINA_PROFILE_SECTION_COLORED("Pre-Depth Pass", tracy::Color::Orange);
                 
-                GraphicsState.AddVertexBuffer(VertexBufferBinding);
-                GraphicsState.SetIndexBuffer(IndexBufferBinding);
-                
+                FRHIVertexShaderRef VertexShader = FShaderLibrary::GetVertexShader("DepthPrePass.vert");
+                if (!VertexShader)
+                {
+                    return;
+                }
+
                 FRenderPassBeginInfo BeginInfo; BeginInfo
                     .SetDebugName("PreDepthPass")
                     .SetDepthAttachment(DepthAttachment)
                     .SetDepthClearValue(0.0f)
                     .SetRenderArea(GetRenderTarget()->GetExtent());
                 
-                GraphicsState.SetRenderPass(BeginInfo);
-                
-                GraphicsState.SetViewport(MakeViewportStateFromImage(GetRenderTarget()));
-                
                 FRenderState RenderState; RenderState
                     .SetDepthStencilState(FDepthStencilState().SetDepthFunc(EComparisonFunc::Greater))
                     .SetRasterState(FRasterState().EnableDepthClip());
+                        
+                FGraphicsPipelineDesc Desc; Desc
+                    .SetRenderState(RenderState)
+                    .SetInputLayout(VertexLayoutInput)
+                    .AddBindingLayout(BindingLayout)
+                    .SetVertexShader(VertexShader);
                     
-                FGraphicsPipelineDesc Desc;
-                Desc.SetRenderState(RenderState);
-                Desc.SetInputLayout(VertexLayoutInput);
-                Desc.AddBindingLayout(BindingLayout);
-                Desc.SetVertexShader(VertexShader);
-                
                 FRHIGraphicsPipelineRef Pipeline = GRenderContext->CreateGraphicsPipeline(Desc);
                 
-                GraphicsState.SetPipeline(Pipeline);
-                GraphicsState.AddBindingSet(BindingSet);
-                
-                GraphicsState.SetIndirectParams(IndirectDrawBuffer);
-                
-                CmdList.SetGraphicsState(GraphicsState);
-                
-                uint64 Offset = Batch.Offset * sizeof(FDrawIndexedIndirectArguments);
-                
-                CmdList.DrawIndexedIndirect(Batch.NumDraws, Offset);
-            }
-        });
-    }
-
-    void FRenderScene::GBufferPass(FRenderGraph& RenderGraph)
-    {
-        RenderGraph.AddPass<RG_Raster>(FRGEvent("GBuffer Pass"), nullptr, [&](ICommandList& CmdList)
-        {
-            LUMINA_PROFILE_SECTION_COLORED("GBuffer Pass", tracy::Color::Red);
-            
-            if (RenderBatches.empty())
-            {
-                return;
-            }
-            
-            FRenderPassBeginInfo BeginInfo; BeginInfo
-            .SetDebugName("GBuffer Pass")
-            .AddColorAttachment(GBuffer.Position)
-            .SetColorLoadOp(ERenderLoadOp::Clear)
-            .SetColorStoreOp(ERenderStoreOp::Store)
-            .SetColorClearColor(FColor::Black)
-            
-            .AddColorAttachment(GBuffer.Normals)
-            .SetColorLoadOp(ERenderLoadOp::Clear)
-            .SetColorStoreOp(ERenderStoreOp::Store)
-            .SetColorClearColor(FColor::Black)
-            
-            .AddColorAttachment(GBuffer.Material)
-            .SetColorLoadOp(ERenderLoadOp::Clear)
-            .SetColorStoreOp(ERenderStoreOp::Store)
-            .SetColorClearColor(FColor::Black)
-            
-            .AddColorAttachment(GBuffer.AlbedoSpec)
-            .SetColorLoadOp(ERenderLoadOp::Clear)
-            .SetColorStoreOp(ERenderStoreOp::Store)
-            .SetColorClearColor(FColor::Black)
-            
-            .SetDepthAttachment(DepthAttachment)
-            .SetDepthLoadOp(ERenderLoadOp::Load)
-            .SetDepthStoreOp(ERenderStoreOp::Store)
-                
-            .SetRenderArea(GetRenderTarget()->GetExtent());
-
-
-            FBlendState BlendState;
-            FBlendState::RenderTarget PositionTarget;
-            PositionTarget.SetFormat(EFormat::RGBA16_FLOAT);
-            BlendState.SetRenderTarget(0, PositionTarget);
-            
-            FBlendState::RenderTarget NormalTarget;
-            NormalTarget.SetFormat(EFormat::RGBA16_FLOAT);
-            BlendState.SetRenderTarget(1, NormalTarget);
-            
-            FBlendState::RenderTarget MaterialTarget;
-            MaterialTarget.SetFormat(EFormat::RGBA8_UNORM);
-            BlendState.SetRenderTarget(2, MaterialTarget);
-            
-            FBlendState::RenderTarget AlbedoSpecTarget;
-            AlbedoSpecTarget.SetFormat(EFormat::RGBA8_UNORM);
-            BlendState.SetRenderTarget(3, AlbedoSpecTarget);
-            
-            FRasterState RasterState;
-            RasterState.EnableDepthClip();
-
-            FDepthStencilState DepthState; DepthState
-                .SetDepthFunc(EComparisonFunc::Equal)
-                .DisableDepthWrite();
-            
-            FRenderState RenderState;
-            RenderState.SetBlendState(BlendState);
-            RenderState.SetRasterState(RasterState);
-            RenderState.SetDepthStencilState(DepthState);
-            
-            for (SIZE_T CurrentDraw = 0; CurrentDraw < RenderBatches.size(); ++CurrentDraw)
-            {
-                const FIndirectRenderBatch& Batch = RenderBatches[CurrentDraw];
-                CMaterialInterface* Material = Batch.Material;
-
-                FVertexBufferBinding VertexBufferBinding = FVertexBufferBinding()
-                    .SetBuffer(Batch.VertexBuffer);
-
-                FIndexBufferBinding IndexBufferBinding = FIndexBufferBinding()
-                    .SetBuffer(Batch.IndexBuffer);
-
-                FGraphicsState GraphicsState;
-                GraphicsState.SetRenderPass(BeginInfo);
-                GraphicsState.AddVertexBuffer(VertexBufferBinding);
-                GraphicsState.SetIndexBuffer(IndexBufferBinding);
-                GraphicsState.SetViewport(MakeViewportStateFromImage(GetRenderTarget()));
-
-                
-                FGraphicsPipelineDesc Desc;
-                Desc.SetRenderState(RenderState);
-                Desc.SetInputLayout(VertexLayoutInput);
-                Desc.AddBindingLayout(BindingLayout);
-                Desc.AddBindingLayout(Material->GetBindingLayout());
-                Desc.SetVertexShader(Material->GetMaterial()->VertexShader);
-                Desc.SetPixelShader(Material->GetMaterial()->PixelShader);
-                
-                FRHIGraphicsPipelineRef Pipeline = GRenderContext->CreateGraphicsPipeline(Desc);
-
-                GraphicsState.SetPipeline(Pipeline);
-                GraphicsState.SetIndirectParams(IndirectDrawBuffer);
-                GraphicsState.AddBindingSet(BindingSet);
-                GraphicsState.AddBindingSet(Material->GetBindingSet());
-                CmdList.SetGraphicsState(GraphicsState);
-                
-                CmdList.DrawIndexedIndirect(Batch.NumDraws, Batch.Offset * sizeof(FDrawIndexedIndirectArguments));
-            }
-        });
-    }
-
-    void FRenderScene::SSAOPass(FRenderGraph& RenderGraph)
-    {
-        if (RenderSettings.bSSAO)
-        {
-            RenderGraph.AddPass<RG_Raster>(FRGEvent("SSAO Pass"), nullptr, [&] (ICommandList& CmdList)
-            {
-                LUMINA_PROFILE_SECTION_COLORED("SSAO Pass", tracy::Color::Pink);
-
-                FRHIVertexShaderRef VertexShader = FShaderLibrary::GetVertexShader("FullscreenQuad.vert");
-                FRHIPixelShaderRef PixelShader = FShaderLibrary::GetPixelShader("SSAO.frag");
-                if (!VertexShader || !PixelShader)
+                for (SIZE_T CurrentDraw = 0; CurrentDraw < DepthMeshDrawCommands.size(); ++CurrentDraw)
                 {
-                    return;
+                    const FMeshDrawCommand& Batch = DepthMeshDrawCommands[CurrentDraw];
+                    
+                    FGraphicsState GraphicsState;
+                    GraphicsState.AddVertexBuffer({ Batch.VertexBuffer });
+                    GraphicsState.SetIndexBuffer({ Batch.IndexBuffer });
+                    GraphicsState.SetRenderPass(BeginInfo);
+                    GraphicsState.SetViewport(MakeViewportStateFromImage(GetRenderTarget()));
+                    GraphicsState.SetPipeline(Pipeline);
+                    GraphicsState.AddBindingSet(BindingSet);
+                    GraphicsState.SetIndirectParams(IndirectDrawBuffer);
+                    
+                    CmdList.SetGraphicsState(GraphicsState);
+                    
+                    CmdList.DrawIndexedIndirect(Batch.NumDraws, Batch.IndirectDrawOffset * sizeof(FDrawIndexedIndirectArguments));
                 }
-
-                FRasterState RasterState;
-                RasterState.SetCullNone();
-    
-                FBlendState BlendState;
-                FBlendState::RenderTarget RenderTarget;
-                RenderTarget.SetFormat(EFormat::R8_UNORM);
-                BlendState.SetRenderTarget(0, RenderTarget);
-    
-                FDepthStencilState DepthState;
-                DepthState.DisableDepthTest();
-                DepthState.DisableDepthWrite();
-            
-                FRenderState RenderState;
-                RenderState.SetRasterState(RasterState);
-                RenderState.SetDepthStencilState(DepthState);
-                RenderState.SetBlendState(BlendState);
-            
-                FGraphicsPipelineDesc Desc;
-                Desc.SetRenderState(RenderState);
-                Desc.AddBindingLayout(BindingLayout);
-                Desc.AddBindingLayout(SSAOPassLayout);
-                Desc.SetVertexShader(VertexShader);
-                Desc.SetPixelShader(PixelShader);
-    
-                FRHIGraphicsPipelineRef Pipeline = GRenderContext->CreateGraphicsPipeline(Desc);
-
-                FGraphicsState GraphicsState;
-                GraphicsState.SetPipeline(Pipeline);
-                GraphicsState.AddBindingSet(BindingSet);
-                GraphicsState.AddBindingSet(SSAOPassSet);
-            
-                FRenderPassBeginInfo BeginInfo; BeginInfo
-                .SetDebugName("SSAO Pass")
-                .AddColorAttachment(SSAOImage)
-                .SetColorLoadOp(ERenderLoadOp::Clear)
-                .SetColorStoreOp(ERenderStoreOp::Store)
-                .SetColorClearColor(FColor::Black)
-                .SetRenderArea(GetRenderTarget()->GetExtent());
-
-                GraphicsState.SetRenderPass(BeginInfo);
-                GraphicsState.SetViewport(MakeViewportStateFromImage(GetRenderTarget()));
-
-                CmdList.SetGraphicsState(GraphicsState);
-                
-                CmdList.Draw(3, 1, 0, 0); 
             });
+        }
 
-
-            RenderGraph.AddPass<RG_Raster>(FRGEvent("SSAO Blur Pass"), nullptr, [&](ICommandList& CmdList)
+        void FRenderScene::GBufferPass(FRenderGraph& RenderGraph)
+        {
+            RenderGraph.AddPass<RG_Raster>(FRGEvent("GBuffer Pass"), nullptr, [&](ICommandList& CmdList)
             {
-                LUMINA_PROFILE_SECTION_COLORED("SSAO Blur Pass", tracy::Color::Yellow);
+                LUMINA_PROFILE_SECTION_COLORED("GBuffer Pass", tracy::Color::Red);
+                
+                if (MeshDrawCommands.empty())
+                {
+                    return;
+                }
+                
+                FRenderPassBeginInfo BeginInfo; BeginInfo
+                .SetDebugName("GBuffer Pass")
+                .AddColorAttachment(GBuffer.Position)
+                .SetColorLoadOp(ERenderLoadOp::Clear)
+                .SetColorStoreOp(ERenderStoreOp::Store)
+                .SetColorClearColor(FColor::Black)
+                
+                .AddColorAttachment(GBuffer.Normals)
+                .SetColorLoadOp(ERenderLoadOp::Clear)
+                .SetColorStoreOp(ERenderStoreOp::Store)
+                .SetColorClearColor(FColor::Black)
+                
+                .AddColorAttachment(GBuffer.Material)
+                .SetColorLoadOp(ERenderLoadOp::Clear)
+                .SetColorStoreOp(ERenderStoreOp::Store)
+                .SetColorClearColor(FColor::Black)
+                
+                .AddColorAttachment(GBuffer.AlbedoSpec)
+                .SetColorLoadOp(ERenderLoadOp::Clear)
+                .SetColorStoreOp(ERenderStoreOp::Store)
+                .SetColorClearColor(FColor::Black)
+                
+                .SetDepthAttachment(DepthAttachment)
+                .SetDepthLoadOp(ERenderLoadOp::Load)
+                .SetDepthStoreOp(ERenderStoreOp::Store)
+                    
+                .SetRenderArea(GetRenderTarget()->GetExtent());
 
+
+                FBlendState BlendState;
+                FBlendState::RenderTarget PositionTarget;
+                PositionTarget.SetFormat(EFormat::RGBA16_FLOAT);
+                BlendState.SetRenderTarget(0, PositionTarget);
+                
+                FBlendState::RenderTarget NormalTarget;
+                NormalTarget.SetFormat(EFormat::RGBA16_FLOAT);
+                BlendState.SetRenderTarget(1, NormalTarget);
+                
+                FBlendState::RenderTarget MaterialTarget;
+                MaterialTarget.SetFormat(EFormat::RGBA8_UNORM);
+                BlendState.SetRenderTarget(2, MaterialTarget);
+                
+                FBlendState::RenderTarget AlbedoSpecTarget;
+                AlbedoSpecTarget.SetFormat(EFormat::RGBA8_UNORM);
+                BlendState.SetRenderTarget(3, AlbedoSpecTarget);
+                
+                FRasterState RasterState;
+                RasterState.EnableDepthClip();
+
+                FDepthStencilState DepthState; DepthState
+                    .SetDepthFunc(EComparisonFunc::Equal)
+                    .DisableDepthWrite();
+                
+                FRenderState RenderState;
+                RenderState.SetBlendState(BlendState);
+                RenderState.SetRasterState(RasterState);
+                RenderState.SetDepthStencilState(DepthState);
+                
+                for (SIZE_T CurrentDraw = 0; CurrentDraw < MeshDrawCommands.size(); ++CurrentDraw)
+                {
+                    const FMeshDrawCommand& Batch = MeshDrawCommands[CurrentDraw];
+                    CMaterialInterface* Material = Batch.Material;
+
+                    FGraphicsState GraphicsState; GraphicsState
+                        .SetRenderPass(BeginInfo)
+                        .AddVertexBuffer({ Batch.VertexBuffer })
+                        .SetIndexBuffer({ Batch.IndexBuffer })
+                        .SetViewport(MakeViewportStateFromImage(GetRenderTarget()));
+
+                    
+                    FGraphicsPipelineDesc Desc; Desc
+                        .SetRenderState(RenderState)
+                        .SetInputLayout(VertexLayoutInput)
+                        .AddBindingLayout(BindingLayout)
+                        .AddBindingLayout(Material->GetBindingLayout())
+                        .SetVertexShader(Material->GetMaterial()->VertexShader)
+                        .SetPixelShader(Material->GetMaterial()->PixelShader);
+                    
+                    GraphicsState.SetPipeline(GRenderContext->CreateGraphicsPipeline(Desc));
+                    GraphicsState.SetIndirectParams(IndirectDrawBuffer);
+                    GraphicsState.AddBindingSet(BindingSet);
+                    GraphicsState.AddBindingSet(Material->GetBindingSet());
+                    CmdList.SetGraphicsState(GraphicsState);
+                    
+                    CmdList.DrawIndexedIndirect(Batch.NumDraws, Batch.IndirectDrawOffset * sizeof(FDrawIndexedIndirectArguments));
+                }
+            });
+        }
+
+        void FRenderScene::SSAOPass(FRenderGraph& RenderGraph)
+        {
+            if (RenderSettings.bSSAO)
+            {
+                RenderGraph.AddPass<RG_Raster>(FRGEvent("SSAO Pass"), nullptr, [&] (ICommandList& CmdList)
+                {
+                    LUMINA_PROFILE_SECTION_COLORED("SSAO Pass", tracy::Color::Pink);
+
+                    FRHIVertexShaderRef VertexShader = FShaderLibrary::GetVertexShader("FullscreenQuad.vert");
+                    FRHIPixelShaderRef PixelShader = FShaderLibrary::GetPixelShader("SSAO.frag");
+                    if (!VertexShader || !PixelShader)
+                    {
+                        return;
+                    }
+
+                    FRasterState RasterState;
+                    RasterState.SetCullNone();
+        
+                    FBlendState BlendState;
+                    FBlendState::RenderTarget RenderTarget;
+                    RenderTarget.SetFormat(EFormat::R8_UNORM);
+                    BlendState.SetRenderTarget(0, RenderTarget);
+        
+                    FDepthStencilState DepthState;
+                    DepthState.DisableDepthTest();
+                    DepthState.DisableDepthWrite();
+                
+                    FRenderState RenderState;
+                    RenderState.SetRasterState(RasterState);
+                    RenderState.SetDepthStencilState(DepthState);
+                    RenderState.SetBlendState(BlendState);
+                
+                    FGraphicsPipelineDesc Desc;
+                    Desc.SetRenderState(RenderState);
+                    Desc.AddBindingLayout(BindingLayout);
+                    Desc.AddBindingLayout(SSAOPassLayout);
+                    Desc.SetVertexShader(VertexShader);
+                    Desc.SetPixelShader(PixelShader);
+        
+                    FRHIGraphicsPipelineRef Pipeline = GRenderContext->CreateGraphicsPipeline(Desc);
+
+                    FGraphicsState GraphicsState;
+                    GraphicsState.SetPipeline(Pipeline);
+                    GraphicsState.AddBindingSet(BindingSet);
+                    GraphicsState.AddBindingSet(SSAOPassSet);
+                
+                    FRenderPassBeginInfo BeginInfo; BeginInfo
+                    .SetDebugName("SSAO Pass")
+                    .AddColorAttachment(SSAOImage)
+                    .SetColorLoadOp(ERenderLoadOp::Clear)
+                    .SetColorStoreOp(ERenderStoreOp::Store)
+                    .SetColorClearColor(FColor::Black)
+                    .SetRenderArea(GetRenderTarget()->GetExtent());
+
+                    GraphicsState.SetRenderPass(BeginInfo);
+                    GraphicsState.SetViewport(MakeViewportStateFromImage(GetRenderTarget()));
+
+                    CmdList.SetGraphicsState(GraphicsState);
+                    
+                    CmdList.Draw(3, 1, 0, 0); 
+                });
+
+
+                RenderGraph.AddPass<RG_Raster>(FRGEvent("SSAO Blur Pass"), nullptr, [&](ICommandList& CmdList)
+                {
+                    LUMINA_PROFILE_SECTION_COLORED("SSAO Blur Pass", tracy::Color::Yellow);
+
+                    FRHIVertexShaderRef VertexShader = FShaderLibrary::GetVertexShader("FullscreenQuad.vert");
+                    FRHIPixelShaderRef PixelShader = FShaderLibrary::GetPixelShader("SSAOBlur.frag");
+                    if (!VertexShader || !PixelShader)
+                    {
+                        return;
+                    }
+
+                    FRasterState RasterState;
+                    RasterState.SetCullNone();
+        
+                    FBlendState BlendState;
+                    FBlendState::RenderTarget RenderTarget;
+                    RenderTarget.SetFormat(EFormat::R8_UNORM);
+                    BlendState.SetRenderTarget(0, RenderTarget);
+        
+                    FDepthStencilState DepthState;
+                    DepthState.DisableDepthTest();
+                    DepthState.DisableDepthWrite();
+                
+                    FRenderState RenderState;
+                    RenderState.SetRasterState(RasterState);
+                    RenderState.SetDepthStencilState(DepthState);
+                    RenderState.SetBlendState(BlendState);
+                
+                    FGraphicsPipelineDesc Desc;
+                    Desc.SetRenderState(RenderState);
+                    Desc.AddBindingLayout(BindingLayout);
+                    Desc.AddBindingLayout(SSAOBlurPassLayout);
+                    Desc.SetVertexShader(VertexShader);
+                    Desc.SetPixelShader(PixelShader);
+        
+                    FRHIGraphicsPipelineRef Pipeline = GRenderContext->CreateGraphicsPipeline(Desc);
+
+                    FGraphicsState GraphicsState;
+                    GraphicsState.SetPipeline(Pipeline);
+                    GraphicsState.AddBindingSet(BindingSet);
+                    GraphicsState.AddBindingSet(SSAOBlurPassSet);
+                
+                
+                    FRenderPassBeginInfo BeginInfo; BeginInfo
+                    .SetDebugName("SSAO Blue Pass")
+                    .AddColorAttachment(SSAOBlur)
+                    .SetColorLoadOp(ERenderLoadOp::Clear)
+                    .SetColorStoreOp(ERenderStoreOp::Store)
+                    .SetColorClearColor(FColor::Black)
+                    .SetRenderArea(GetRenderTarget()->GetExtent());
+                
+                    GraphicsState.SetRenderPass(BeginInfo);
+                    GraphicsState.SetViewport(MakeViewportStateFromImage(GetRenderTarget()));
+
+                    CmdList.SetGraphicsState(GraphicsState);
+                    
+                    CmdList.Draw(3, 1, 0, 0); 
+                });
+            }
+        }
+
+        void FRenderScene::EnvironmentPass(FRenderGraph& RenderGraph)
+        {
+            if (RenderSettings.bHasEnvironment)
+            {
+                RenderGraph.AddPass<RG_Raster>(FRGEvent("Environment Pass"), nullptr, [&](ICommandList& CmdList)
+                {
+                    LUMINA_PROFILE_SECTION_COLORED("Environment Pass", tracy::Color::Green3);
+            
+                    FRHIVertexShaderRef VertexShader = FShaderLibrary::GetVertexShader("FullscreenQuad.vert");
+                    FRHIPixelShaderRef PixelShader = FShaderLibrary::GetPixelShader("Environment.frag");
+                    if (!VertexShader || !PixelShader)
+                    {
+                        return;
+                    }
+            
+                    FRasterState RasterState;
+                    RasterState.SetCullNone();
+            
+                    FBlendState BlendState;
+                    FBlendState::RenderTarget RenderTarget;
+                    BlendState.SetRenderTarget(0, RenderTarget);
+            
+                    FDepthStencilState DepthState;
+                    DepthState.EnableDepthTest();
+                    DepthState.SetDepthFunc(EComparisonFunc::GreaterOrEqual);
+                    DepthState.DisableDepthWrite();
+            
+                    FRenderState RenderState;
+                    RenderState.SetRasterState(RasterState);
+                    RenderState.SetDepthStencilState(DepthState);
+                    RenderState.SetBlendState(BlendState);
+            
+                    FGraphicsPipelineDesc Desc;
+                    Desc.SetRenderState(RenderState);
+                    Desc.AddBindingLayout(BindingLayout);
+                    Desc.AddBindingLayout(EnvironmentLayout);
+                    Desc.SetVertexShader(VertexShader);
+                    Desc.SetPixelShader(PixelShader);
+            
+                    FRHIGraphicsPipelineRef Pipeline = GRenderContext->CreateGraphicsPipeline(Desc);
+            
+                    FGraphicsState GraphicsState;
+                    GraphicsState.AddBindingSet(BindingSet);
+                    GraphicsState.AddBindingSet(EnvironmentBindingSet);
+                    GraphicsState.SetPipeline(Pipeline);
+            
+                    FRenderPassBeginInfo BeginInfo; BeginInfo
+                    .SetDebugName("Environment Pass")
+                    .AddColorAttachment(GetRenderTarget())
+                    .SetColorLoadOp(ERenderLoadOp::Clear)
+                    .SetColorStoreOp(ERenderStoreOp::Store)
+            
+                    .SetDepthAttachment(DepthAttachment)
+                    .SetDepthLoadOp(ERenderLoadOp::Load)
+                    .SetDepthStoreOp(ERenderStoreOp::Store)
+                    .SetRenderArea(GetRenderTarget()->GetExtent());
+            
+                    GraphicsState.SetRenderPass(BeginInfo);
+            
+                    GraphicsState.SetViewport(MakeViewportStateFromImage(GetRenderTarget()));
+            
+                    CmdList.SetGraphicsState(GraphicsState);
+                
+                    CmdList.Draw(3, 1, 0, 0); 
+                });
+            }
+        }
+
+        void FRenderScene::DeferredLightingPass(FRenderGraph& RenderGraph)
+        {
+            RenderGraph.AddPass<RG_Raster>(FRGEvent("Lighting Pass"), nullptr, [&](ICommandList& CmdList)
+            {
+                LUMINA_PROFILE_SECTION_COLORED("Lighting Pass", tracy::Color::Red2);
+                
                 FRHIVertexShaderRef VertexShader = FShaderLibrary::GetVertexShader("FullscreenQuad.vert");
-                FRHIPixelShaderRef PixelShader = FShaderLibrary::GetPixelShader("SSAOBlur.frag");
+                FRHIPixelShaderRef PixelShader = FShaderLibrary::GetPixelShader("DeferredLighting.frag");
                 if (!VertexShader || !PixelShader)
                 {
                     return;
                 }
-
+                
                 FRasterState RasterState;
                 RasterState.SetCullNone();
-    
+                
                 FBlendState BlendState;
                 FBlendState::RenderTarget RenderTarget;
-                RenderTarget.SetFormat(EFormat::R8_UNORM);
                 BlendState.SetRenderTarget(0, RenderTarget);
-    
+        
                 FDepthStencilState DepthState;
-                DepthState.DisableDepthTest();
+                DepthState.EnableDepthTest();
+                if (!RenderSettings.bHasEnvironment)
+                {
+                    DepthState.SetDepthFunc(EComparisonFunc::LessOrEqual);
+                }
                 DepthState.DisableDepthWrite();
-            
+                
                 FRenderState RenderState;
                 RenderState.SetRasterState(RasterState);
                 RenderState.SetDepthStencilState(DepthState);
                 RenderState.SetBlendState(BlendState);
-            
+                
                 FGraphicsPipelineDesc Desc;
                 Desc.SetRenderState(RenderState);
                 Desc.AddBindingLayout(BindingLayout);
-                Desc.AddBindingLayout(SSAOBlurPassLayout);
+                Desc.AddBindingLayout(LightingPassLayout);
                 Desc.SetVertexShader(VertexShader);
                 Desc.SetPixelShader(PixelShader);
-    
+        
                 FRHIGraphicsPipelineRef Pipeline = GRenderContext->CreateGraphicsPipeline(Desc);
 
                 FGraphicsState GraphicsState;
                 GraphicsState.SetPipeline(Pipeline);
                 GraphicsState.AddBindingSet(BindingSet);
-                GraphicsState.AddBindingSet(SSAOBlurPassSet);
-            
-            
+                GraphicsState.AddBindingSet(LightingPassSet);
+                
                 FRenderPassBeginInfo BeginInfo; BeginInfo
-                .SetDebugName("SSAO Blue Pass")
-                .AddColorAttachment(SSAOBlur)
-                .SetColorLoadOp(ERenderLoadOp::Clear)
+                .SetDebugName("Lighting Pass")
+                .AddColorAttachment(GetRenderTarget())
+                .SetColorLoadOp(ERenderLoadOp::Load)
                 .SetColorStoreOp(ERenderStoreOp::Store)
-                .SetColorClearColor(FColor::Black)
+                
+                .SetDepthAttachment(DepthAttachment)
+                .SetDepthLoadOp(ERenderLoadOp::Load)
                 .SetRenderArea(GetRenderTarget()->GetExtent());
-            
+
                 GraphicsState.SetRenderPass(BeginInfo);
+                
                 GraphicsState.SetViewport(MakeViewportStateFromImage(GetRenderTarget()));
 
                 CmdList.SetGraphicsState(GraphicsState);
@@ -418,23 +533,20 @@ namespace Lumina
                 CmdList.Draw(3, 1, 0, 0); 
             });
         }
-    }
 
-    void FRenderScene::EnvironmentPass(FRenderGraph& RenderGraph)
-    {
-        if (RenderSettings.bHasEnvironment)
+        void FRenderScene::DebugDrawPass(FRenderGraph& RenderGraph)
         {
-            RenderGraph.AddPass<RG_Raster>(FRGEvent("Environment Pass"), nullptr, [&](ICommandList& CmdList)
+            RenderGraph.AddPass<RG_Raster>(FRGEvent("Debug Draw Pass"), nullptr, [&](ICommandList& CmdList)
             {
-                LUMINA_PROFILE_SECTION_COLORED("Environment Pass", tracy::Color::Green3);
-        
-                FRHIVertexShaderRef VertexShader = FShaderLibrary::GetVertexShader("FullscreenQuad.vert");
-                FRHIPixelShaderRef PixelShader = FShaderLibrary::GetPixelShader("Environment.frag");
-                if (!VertexShader || !PixelShader)
+                LUMINA_PROFILE_SECTION_COLORED("Debug Draw Pass", tracy::Color::Yellow3);
+                
+                FRHIVertexShaderRef VertexShader = FShaderLibrary::GetVertexShader("SimpleElement.vert");
+                FRHIPixelShaderRef PixelShader = FShaderLibrary::GetPixelShader("SimpleElement.frag");
+                if (!VertexShader || !PixelShader || SimpleVertices.empty())
                 {
                     return;
                 }
-        
+                
                 FRasterState RasterState;
                 RasterState.SetCullNone();
         
@@ -446,375 +558,234 @@ namespace Lumina
                 DepthState.EnableDepthTest();
                 DepthState.SetDepthFunc(EComparisonFunc::GreaterOrEqual);
                 DepthState.DisableDepthWrite();
-        
+                
                 FRenderState RenderState;
                 RenderState.SetRasterState(RasterState);
                 RenderState.SetDepthStencilState(DepthState);
                 RenderState.SetBlendState(BlendState);
-        
+                
                 FGraphicsPipelineDesc Desc;
+                Desc.SetPrimType(EPrimitiveType::LineList);
+                Desc.SetInputLayout(SimpleVertexLayoutInput);
                 Desc.SetRenderState(RenderState);
-                Desc.AddBindingLayout(BindingLayout);
-                Desc.AddBindingLayout(EnvironmentLayout);
+                Desc.AddBindingLayout(SimplePassLayout);
                 Desc.SetVertexShader(VertexShader);
                 Desc.SetPixelShader(PixelShader);
         
                 FRHIGraphicsPipelineRef Pipeline = GRenderContext->CreateGraphicsPipeline(Desc);
-        
+
                 FGraphicsState GraphicsState;
-                GraphicsState.AddBindingSet(BindingSet);
-                GraphicsState.AddBindingSet(EnvironmentBindingSet);
                 GraphicsState.SetPipeline(Pipeline);
-        
+                
                 FRenderPassBeginInfo BeginInfo; BeginInfo
-                .SetDebugName("Environment Pass")
+                .SetDebugName("Debug Draw Pass")
                 .AddColorAttachment(GetRenderTarget())
-                .SetColorLoadOp(ERenderLoadOp::Clear)
+                .SetColorLoadOp(ERenderLoadOp::Load)
                 .SetColorStoreOp(ERenderStoreOp::Store)
-        
+
                 .SetDepthAttachment(DepthAttachment)
                 .SetDepthLoadOp(ERenderLoadOp::Load)
                 .SetDepthStoreOp(ERenderStoreOp::Store)
                 .SetRenderArea(GetRenderTarget()->GetExtent());
-        
+
+                FVertexBufferBinding Binding;
+                Binding.Buffer = SimpleVertexBuffer;
+                GraphicsState.AddVertexBuffer(Binding);
                 GraphicsState.SetRenderPass(BeginInfo);
-        
+                
                 GraphicsState.SetViewport(MakeViewportStateFromImage(GetRenderTarget()));
-        
+
                 CmdList.SetGraphicsState(GraphicsState);
-            
-                CmdList.Draw(3, 1, 0, 0); 
+
+                SCameraComponent& CameraComponent = World->GetActiveCamera();
+                glm::mat4 ViewProjMatrix = CameraComponent.GetViewProjectionMatrix();
+                CmdList.SetPushConstants(&ViewProjMatrix, sizeof(glm::mat4));
+                CmdList.Draw((uint32)SimpleVertices.size(), 1, 0, 0); 
             });
         }
-    }
 
-    void FRenderScene::DeferredLightingPass(FRenderGraph& RenderGraph)
-    {
-        RenderGraph.AddPass<RG_Raster>(FRGEvent("Lighting Pass"), nullptr, [&](ICommandList& CmdList)
+        FViewportState FRenderScene::MakeViewportStateFromImage(const FRHIImage* Image)
         {
-            LUMINA_PROFILE_SECTION_COLORED("Lighting Pass", tracy::Color::Red2);
-            
-            FRHIVertexShaderRef VertexShader = FShaderLibrary::GetVertexShader("FullscreenQuad.vert");
-            FRHIPixelShaderRef PixelShader = FShaderLibrary::GetPixelShader("DeferredLighting.frag");
-            if (!VertexShader || !PixelShader)
-            {
-                return;
-            }
-            
-            FRasterState RasterState;
-            RasterState.SetCullNone();
-            
-            FBlendState BlendState;
-            FBlendState::RenderTarget RenderTarget;
-            BlendState.SetRenderTarget(0, RenderTarget);
-    
-            FDepthStencilState DepthState;
-            DepthState.EnableDepthTest();
-            if (!RenderSettings.bHasEnvironment)
-            {
-                DepthState.SetDepthFunc(EComparisonFunc::LessOrEqual);
-            }
-            DepthState.DisableDepthWrite();
-            
-            FRenderState RenderState;
-            RenderState.SetRasterState(RasterState);
-            RenderState.SetDepthStencilState(DepthState);
-            RenderState.SetBlendState(BlendState);
-            
-            FGraphicsPipelineDesc Desc;
-            Desc.SetRenderState(RenderState);
-            Desc.AddBindingLayout(BindingLayout);
-            Desc.AddBindingLayout(LightingPassLayout);
-            Desc.SetVertexShader(VertexShader);
-            Desc.SetPixelShader(PixelShader);
-    
-            FRHIGraphicsPipelineRef Pipeline = GRenderContext->CreateGraphicsPipeline(Desc);
+            float SizeY = (float)Image->GetSizeY();
+            float SizeX = (float)Image->GetSizeX();
 
-            FGraphicsState GraphicsState;
-            GraphicsState.SetPipeline(Pipeline);
-            GraphicsState.AddBindingSet(BindingSet);
-            GraphicsState.AddBindingSet(LightingPassSet);
-            
-            FRenderPassBeginInfo BeginInfo; BeginInfo
-            .SetDebugName("Lighting Pass")
-            .AddColorAttachment(GetRenderTarget())
-            .SetColorLoadOp(ERenderLoadOp::Load)
-            .SetColorStoreOp(ERenderStoreOp::Store)
-            
-            .SetDepthAttachment(DepthAttachment)
-            .SetDepthLoadOp(ERenderLoadOp::Load)
-            .SetRenderArea(GetRenderTarget()->GetExtent());
+            FViewportState ViewportState;
+            ViewportState.Viewport = FViewport(SizeX, SizeY);
+            ViewportState.Scissor = FRect(SizeX, SizeY);
 
-            GraphicsState.SetRenderPass(BeginInfo);
-            
-            GraphicsState.SetViewport(MakeViewportStateFromImage(GetRenderTarget()));
+            return ViewportState;
+        }
 
-            CmdList.SetGraphicsState(GraphicsState);
-            
-            CmdList.Draw(3, 1, 0, 0); 
-        });
-    }
-
-    void FRenderScene::DebugDrawPass(FRenderGraph& RenderGraph)
-    {
-        RenderGraph.AddPass<RG_Raster>(FRGEvent("Debug Draw Pass"), nullptr, [&](ICommandList& CmdList)
+        void FRenderScene::CompileDrawCommands()
         {
-            LUMINA_PROFILE_SECTION_COLORED("Debug Draw Pass", tracy::Color::Yellow3);
-            
-            FRHIVertexShaderRef VertexShader = FShaderLibrary::GetVertexShader("SimpleElement.vert");
-            FRHIPixelShaderRef PixelShader = FShaderLibrary::GetPixelShader("SimpleElement.frag");
-            if (!VertexShader || !PixelShader || SimpleVertices.empty())
+            LUMINA_PROFILE_SCOPE();
+
+            ICommandList* CommandList = GRenderContext->GetCommandList(ECommandQueue::Graphics);
             {
-                return;
-            }
+                LUMINA_PROFILE_SECTION("Build Render Proxies");
+                
+                // Pre-allocate all containers to avoid reallocations
+                auto Group = World->GetEntityRegistry().group<SStaticMeshComponent, STransformComponent>();
+                const size_t EntityCount = Group.size();
+                
+                // Estimate capacity (entities * average surfaces per mesh)
+                const size_t EstimatedProxies = EntityCount * 2; // Conservative estimate
+                
+                TFixedVector<glm::mat4, 100> Transforms;
+                Transforms.reserve(EstimatedProxies);
             
-            FRasterState RasterState;
-            RasterState.SetCullNone();
-    
-            FBlendState BlendState;
-            FBlendState::RenderTarget RenderTarget;
-            BlendState.SetRenderTarget(0, RenderTarget);
-    
-            FDepthStencilState DepthState;
-            DepthState.EnableDepthTest();
-            DepthState.SetDepthFunc(EComparisonFunc::GreaterOrEqual);
-            DepthState.DisableDepthWrite();
-            
-            FRenderState RenderState;
-            RenderState.SetRasterState(RasterState);
-            RenderState.SetDepthStencilState(DepthState);
-            RenderState.SetBlendState(BlendState);
-            
-            FGraphicsPipelineDesc Desc;
-            Desc.SetPrimType(EPrimitiveType::LineList);
-            Desc.SetInputLayout(SimpleVertexLayoutInput);
-            Desc.SetRenderState(RenderState);
-            Desc.AddBindingLayout(SimplePassLayout);
-            Desc.SetVertexShader(VertexShader);
-            Desc.SetPixelShader(PixelShader);
-    
-            FRHIGraphicsPipelineRef Pipeline = GRenderContext->CreateGraphicsPipeline(Desc);
-
-            FGraphicsState GraphicsState;
-            GraphicsState.SetPipeline(Pipeline);
-            
-            FRenderPassBeginInfo BeginInfo; BeginInfo
-            .SetDebugName("Debug Draw Pass")
-            .AddColorAttachment(GetRenderTarget())
-            .SetColorLoadOp(ERenderLoadOp::Load)
-            .SetColorStoreOp(ERenderStoreOp::Store)
-
-            .SetDepthAttachment(DepthAttachment)
-            .SetDepthLoadOp(ERenderLoadOp::Load)
-            .SetDepthStoreOp(ERenderStoreOp::Store)
-            .SetRenderArea(GetRenderTarget()->GetExtent());
-
-            FVertexBufferBinding Binding;
-            Binding.Buffer = SimpleVertexBuffer;
-            GraphicsState.AddVertexBuffer(Binding);
-            GraphicsState.SetRenderPass(BeginInfo);
-            
-            GraphicsState.SetViewport(MakeViewportStateFromImage(GetRenderTarget()));
-
-            CmdList.SetGraphicsState(GraphicsState);
-
-            SCameraComponent& CameraComponent = World->GetActiveCamera();
-            glm::mat4 ViewProjMatrix = CameraComponent.GetViewProjectionMatrix();
-            CmdList.SetPushConstants(&ViewProjMatrix, sizeof(glm::mat4));
-            CmdList.Draw((uint32)SimpleVertices.size(), 1, 0, 0); 
-        });
-    }
-
-    FViewportState FRenderScene::MakeViewportStateFromImage(const FRHIImage* Image)
-    {
-        float SizeY = (float)Image->GetSizeY();
-        float SizeX = (float)Image->GetSizeX();
-
-        FViewportState ViewportState;
-        ViewportState.Viewport = FViewport(SizeX, SizeY);
-        ViewportState.Scissor = FRect(SizeX, SizeY);
-
-        return ViewportState;
-    }
-
-    void FRenderScene::AddStaticMeshPrimitive(FStaticMeshPrimitive* Primitive)
-    {
-        LUM_ASSERT(Primitive->StaticMesh)
-        LUM_ASSERT(Primitive->Material)
-        
-        Primitive->StaticMesh->ForEachSurface([&](FGeometrySurface& Surface)
-        {
-            
-            
-        });
-    }
-
-    void FRenderScene::CompileDrawCommands()
-    {
-        LUMINA_PROFILE_SCOPE();
-    
-        ICommandList* CommandList = GRenderContext->GetCommandList(ECommandQueue::Graphics);
-        {
-            LUMINA_PROFILE_SECTION("Build Render Proxies");
-            
-            // Pre-allocate all containers to avoid reallocations
-            auto Group = World->GetEntityRegistry().group<SStaticMeshComponent, STransformComponent>();
-            const size_t EntityCount = Group.size();
-            
-            // Estimate capacity (entities * average surfaces per mesh)
-            const size_t EstimatedProxies = EntityCount * 2; // Conservative estimate
-            
-            TRenderVector<glm::mat4> Transforms;
-            Transforms.reserve(EstimatedProxies);
-            StaticMeshRenders.clear();
-            StaticMeshRenders.reserve(EstimatedProxies);
-            
-            THashMap<CMaterialInterface*, bool> MaterialValidityCache;
-            MaterialValidityCache.reserve(64);
-            
-            //========================================================================================================================
-            
-            Group.each([&](const SStaticMeshComponent& MeshComponent, const STransformComponent& TransformComponent)
-            {
-                CStaticMesh* Mesh = MeshComponent.StaticMesh;
-                if (!IsValid(Mesh))
+                    
+                StaticMeshRenders.clear();
+                StaticMeshRenders.reserve(EstimatedProxies);
+                    
+                
+                //========================================================================================================================
+                
+                Group.each([&](const SStaticMeshComponent& MeshComponent, const STransformComponent& TransformComponent)
                 {
-                    return;
-                }
-                
-                const FMeshResource& Resource = Mesh->GetMeshResource();
-                const SIZE_T NumSurfaces = Resource.GetNumSurfaces();
-                
-                const glm::mat4 TransformMatrix = TransformComponent.GetMatrix();
-                
-                for (SIZE_T j = 0; j < NumSurfaces; ++j)
-                {
-                    if (!Resource.IsSurfaceIndexValid(j))
+                    CStaticMesh* Mesh = MeshComponent.StaticMesh;
+                    if (!IsValid(Mesh))
                     {
-                        continue;
-                    }
-            
-                    const FGeometrySurface& Surface = Resource.GetSurface(j);
-                    CMaterialInterface* Material = MeshComponent.GetMaterialForSlot(Surface.MaterialIndex);
-                    
-                    if (!IsValid(Material))
-                    {
-                        continue;
+                        return;
                     }
                     
-                    auto CacheIt = MaterialValidityCache.find(Material);
-                    bool bMaterialReady;
-                    if (CacheIt != MaterialValidityCache.end())
-                    {
-                        bMaterialReady = CacheIt->second;
-                    }
-                    else
-                    {
-                        bMaterialReady = Material->IsReadyForRender();
-                        MaterialValidityCache[Material] = bMaterialReady;
-                    }
+                    const FMeshResource& Resource = Mesh->GetMeshResource();
+                    const SIZE_T NumSurfaces = Resource.GetNumSurfaces();
                     
-                    if (!bMaterialReady)
-                    {
-                        continue;
-                    }
-                
-                    const uint32 TransformIdx = static_cast<uint32>(Transforms.size());
-                    Transforms.emplace_back(TransformMatrix);
+                    const glm::mat4 TransformMatrix = TransformComponent.GetMatrix();
                     
-                    const uintptr_t MaterialPtr = reinterpret_cast<uintptr_t>(Material);
-                    const uintptr_t MeshPtr = reinterpret_cast<uintptr_t>(Mesh);
-                    
-                    const uint64 MaterialID = (MaterialPtr & 0xFFFFFull) << 44;
-                    const uint64 MeshID = (MeshPtr & 0xFFFFFull) << 24;
-                    const uint64 FirstIndex16 = (static_cast<uint64>(Surface.StartIndex) & 0xFFFFull) << 8;
-                    const uint64 IndexCount8 = eastl::min<uint32>(Surface.IndexCount, 0xFF);
-                    
-                    StaticMeshRenders.emplace_back(FStaticMeshRender
+                    for (SIZE_T j = 0; j < NumSurfaces; ++j)
                     {
-                        .Material = Material,
-                        .StaticMesh = Mesh,
-                        .SortKey = MaterialID | MeshID | FirstIndex16 | IndexCount8,
-                        .FirstIndex = static_cast<uint32>(Surface.StartIndex),
-                        .TransformIdx = TransformIdx,
-                        .SurfaceIndexCount = static_cast<uint16>(Surface.IndexCount),
-                    });
-                }
-            });
-            
-            {
-                LUMINA_PROFILE_SECTION("Sort Render Proxies");
-                eastl::sort(StaticMeshRenders.begin(), StaticMeshRenders.end());
-            }
-            
-            {   
-                LUMINA_PROFILE_SECTION("Build Indirect Draw Arguments");
-    
-                const size_t NumProxies = StaticMeshRenders.size();
-                InstanceData.clear();
-                InstanceData.reserve(NumProxies);
-                
-                IndirectDrawArguments.clear();
-                RenderBatches.clear();
-                
-                const size_t EstimatedBatches = eastl::min(NumProxies / 4, NumProxies);
-                IndirectDrawArguments.reserve(EstimatedBatches);
-                RenderBatches.reserve(EstimatedBatches);
-                
-                uint64 CurrentSortKey = ~0ull;
-                FDrawIndexedIndirectArguments* CurrentDrawArgs = nullptr;
-                
-                for (const auto& Proxy : StaticMeshRenders)
-                {
-                    if (CurrentSortKey != Proxy.SortKey)
-                    {
-                        // Start new batch
-                        CurrentSortKey = Proxy.SortKey;
-                        
-                        RenderBatches.emplace_back(FIndirectRenderBatch
+                        if (!Resource.IsSurfaceIndexValid(j))
                         {
-                            .Material = Proxy.Material,
-                            .IndexBuffer =  Proxy.StaticMesh->GetMeshResource().IndexBuffer,
-                            .VertexBuffer = Proxy.StaticMesh->GetMeshResource().VertexBuffer,
-                            .NumDraws = 1,
-                            .Offset = (uint32)IndirectDrawArguments.size()
+                            continue;
+                        }
+                
+                        const FGeometrySurface& Surface = Resource.GetSurface(j);
+                        CMaterialInterface* Material = MeshComponent.GetMaterialForSlot(Surface.MaterialIndex);
+                        
+                        if (!IsValid(Material) || !Material->IsReadyForRender())
+                        {
+                            continue;
+                        }
+                        
+                    
+                        const uint32 TransformIdx = static_cast<uint32>(Transforms.size());
+                        Transforms.emplace_back(TransformMatrix);
+                        
+                        const uintptr_t MaterialPtr = reinterpret_cast<uintptr_t>(Material);
+                        const uintptr_t MeshPtr = reinterpret_cast<uintptr_t>(Mesh);
+                        
+                        const uint64 MaterialID = (MaterialPtr & 0xFFFFFull) << 44;
+                        const uint64 MeshID = (MeshPtr & 0xFFFFFull) << 24;
+                        const uint64 FirstIndex16 = (static_cast<uint64>(Surface.StartIndex) & 0xFFFFull) << 8;
+                        const uint64 IndexCount8 = eastl::min<uint32>(Surface.IndexCount, 0xFF);
+                        
+                        StaticMeshRenders.emplace_back(FStaticMeshRender
+                        {
+                            .Material = Material,
+                            .StaticMesh = Mesh,
+                            .SortKey = MaterialID | MeshID | FirstIndex16 | IndexCount8,
+                            .FirstIndex = static_cast<uint32>(Surface.StartIndex),
+                            .TransformIdx = TransformIdx,
+                            .SurfaceIndexCount = static_cast<uint16>(Surface.IndexCount),
                         });
+                    }
+                });
+
+
+                {
+                    LUMINA_PROFILE_SECTION("Sort Render Proxies");
     
-                        IndirectDrawArguments.emplace_back(FDrawIndexedIndirectArguments{
-                            .IndexCount = Proxy.SurfaceIndexCount,
-                            .InstanceCount = 1,
-                            .StartIndexLocation = Proxy.FirstIndex,
-                            .BaseVertexLocation = 0,
-                            .StartInstanceLocation = static_cast<uint32>(InstanceData.size()),
-                        });
-                        CurrentDrawArgs = &IndirectDrawArguments.back();
+                    const size_t NumProxies = StaticMeshRenders.size();
+                    const size_t MinElementsForParallelSort = 2500;
+    
+                    if (NumProxies > MinElementsForParallelSort)
+                    {
+                        std::sort(std::execution::par_unseq, StaticMeshRenders.begin(), StaticMeshRenders.end());
                     }
                     else
                     {
-                        // Add to existing batch
-                        ++CurrentDrawArgs->InstanceCount;
+                        eastl::sort(StaticMeshRenders.begin(), StaticMeshRenders.end());
                     }
-    
-                    InstanceData.emplace_back(Transforms[Proxy.TransformIdx]);
                 }
-            }
+                
+                {   
+                    LUMINA_PROFILE_SECTION("Build Indirect Draw Arguments");
             
-            {
-                LUMINA_PROFILE_SECTION("Write Buffers");
-                
-                const size_t InstanceDataSize = InstanceData.size() * sizeof(FInstanceData);
-                const size_t IndirectArgsSize = IndirectDrawArguments.size() * sizeof(FDrawIndexedIndirectArguments);
-                
-                if (InstanceDataSize > 0)
-                {
-                    CommandList->WriteBuffer(ModelDataBuffer, InstanceData.data(), 0, InstanceDataSize);
+                    const size_t NumProxies = StaticMeshRenders.size();
+                    InstanceData.clear();
+                    InstanceData.reserve(NumProxies);
+                    
+                    IndirectDrawArguments.clear();
+                    MeshDrawCommands.clear();
+                    
+                    const size_t EstimatedBatches = eastl::min(NumProxies / 4, NumProxies);
+                    IndirectDrawArguments.reserve(EstimatedBatches);
+                    MeshDrawCommands.reserve(EstimatedBatches);
+                    
+                    uint64 CurrentSortKey = ~0ull;
+                    FDrawIndexedIndirectArguments* CurrentDrawArgs = nullptr;
+                    
+                    for (const auto& Proxy : StaticMeshRenders)
+                    {
+                        if (CurrentSortKey != Proxy.SortKey)
+                        {
+                            // Start new batch
+                            CurrentSortKey = Proxy.SortKey;
+                            
+                            MeshDrawCommands.emplace_back(FMeshDrawCommand
+                            {
+                                .Material = Proxy.Material,
+                                .IndexBuffer =  Proxy.StaticMesh->GetIndexBuffer(),
+                                .VertexBuffer = Proxy.StaticMesh->GetVertexBuffer(),
+                                .NumDraws = 1,
+                                .IndirectDrawOffset = (uint32)IndirectDrawArguments.size()
+                            });
+
+                            DepthMeshDrawCommands.emplace_back(FMeshDrawCommand
+                            {
+                                .Material = Proxy.Material,
+                                .IndexBuffer =  Proxy.StaticMesh->GetShadowIndexBuffer(),
+                                .VertexBuffer = Proxy.StaticMesh->GetVertexBuffer(),
+                                .NumDraws = 1,
+                                .IndirectDrawOffset = (uint32)IndirectDrawArguments.size()
+                            });
+            
+                            IndirectDrawArguments.emplace_back(FDrawIndexedIndirectArguments{
+                                .IndexCount = Proxy.SurfaceIndexCount,
+                                .InstanceCount = 1,
+                                .StartIndexLocation = Proxy.FirstIndex,
+                                .BaseVertexLocation = 0,
+                                .StartInstanceLocation = static_cast<uint32>(InstanceData.size()),
+                            });
+                            CurrentDrawArgs = &IndirectDrawArguments.back();
+                        }
+                        else
+                        {
+                            ++CurrentDrawArgs->InstanceCount;
+                        }
+            
+                        InstanceData.emplace_back(Transforms[Proxy.TransformIdx]);
+                    }
                 }
-                if (IndirectArgsSize > 0)
+                
                 {
-                    CommandList->WriteBuffer(IndirectDrawBuffer, IndirectDrawArguments.data(), 0, IndirectArgsSize);
+                    LUMINA_PROFILE_SECTION("Write Buffers");
+                    
+                    const size_t InstanceDataSize = InstanceData.size() * sizeof(FInstanceData);
+                    const size_t IndirectArgsSize = IndirectDrawArguments.size() * sizeof(FDrawIndexedIndirectArguments);
+                    
+                    if (InstanceDataSize > 0)
+                    {
+                        CommandList->WriteBuffer(ModelDataBuffer, InstanceData.data(), 0, InstanceDataSize);
+                    }
+                    if (IndirectArgsSize > 0)
+                    {
+                        CommandList->WriteBuffer(IndirectDrawBuffer, IndirectDrawArguments.data(), 0, IndirectArgsSize);
+                    }
                 }
             }
-        }
     
             //========================================================================================================================
             
@@ -828,13 +799,13 @@ namespace Lumina
                         SimpleVertices.emplace_back(glm::vec4(Line.Start, 1.0f), Line.Color);
                         SimpleVertices.emplace_back(glm::vec4(Line.End, 1.0f), Line.Color);
                     }
-    
+        
                     LineBatcherComponent.Flush();
                 });
-    
+        
                 CommandList->WriteBuffer(SimpleVertexBuffer, SimpleVertices.data(), 0, SimpleVertices.size() * sizeof(FSimpleElementVertex));
             }
-    
+        
             //========================================================================================================================
             
             {
@@ -844,7 +815,7 @@ namespace Lumina
                     entt::entity entity = Group[i];
                     const SPointLightComponent& PointLightComponent = Group.get<SPointLightComponent>(entity);
                     const STransformComponent& TransformComponent = Group.get<STransformComponent>(entity);
-    
+        
                     FLight Light;
                     Light.Type = LIGHT_TYPE_POINT;
                     
@@ -853,14 +824,14 @@ namespace Lumina
                     Light.Position = glm::vec4(TransformComponent.WorldTransform.Location, 1.0f);
                     
                     LightData.Lights[LightData.NumLights++] = Memory::Move(Light);
-    
+        
                     //Scene->DrawDebugSphere(Transform.Location, 0.25f, Light.Color);
                 }
             }
-    
+        
             //========================================================================================================================
-    
-    
+        
+        
             {
                 auto Group = World->GetEntityRegistry().group<>(entt::get<SCameraComponent>, entt::exclude<SEditorComponent>);
                 for (uint64 i = 0; i < Group.size(); ++i)
@@ -871,7 +842,7 @@ namespace Lumina
                     World->DrawFrustum(CameraComponent.GetViewVolume().GetViewProjectionMatrix(), FColor::Green);
                 }
             }
-    
+        
             //========================================================================================================================
             
             {
@@ -881,41 +852,41 @@ namespace Lumina
                     entt::entity entity = Group[i];
                     const SSpotLightComponent& SpotLightComponent = Group.get<SSpotLightComponent>(entity);
                     const FTransform& Transform = Group.get<STransformComponent>(entity).WorldTransform;
-    
+        
                     FLight SpotLight;
                     SpotLight.Type = LIGHT_TYPE_SPOT;
                     
                     SpotLight.Position = glm::vec4(Transform.Location, 1.0f);
-    
+        
                     glm::vec3 Forward = Transform.Rotation * glm::vec3(0.0f, 0.0f, -1.0f);
                     SpotLight.Direction = glm::vec4(glm::normalize(Forward), 0.0f);
                     
                     SpotLight.Color = glm::vec4(SpotLightComponent.LightColor, SpotLightComponent.Intensity);
-    
+        
                     float InnerDegrees = SpotLightComponent.InnerConeAngle;
                     float OuterDegrees = SpotLightComponent.OuterConeAngle;
-    
+        
                     float InnerCos = glm::cos(glm::radians(InnerDegrees));
                     float OuterCos = glm::cos(glm::radians(OuterDegrees));
                     
                     SpotLight.Angle = glm::vec2(InnerCos, OuterCos);
-    
+        
                     SpotLight.Radius = SpotLightComponent.Attenuation;
-    
+        
                     LightData.Lights[LightData.NumLights++] = SpotLight;
-    
+        
                     //Scene->DrawDebugCone(SpotLight.Position, Forward, glm::radians(OuterDegrees), SpotLightComponent.Attenuation, glm::vec4(SpotLightComponent.LightColor, 1.0f));
                     //Scene->DrawDebugCone(SpotLight.Position, Forward, glm::radians(InnerDegrees), SpotLightComponent.Attenuation, glm::vec4(SpotLightComponent.LightColor, 1.0f));
-    
+        
                 }
             }
-    
+        
             
             //========================================================================================================================
-    
-    
+        
+        
             {
-    
+        
                 auto Group = World->GetEntityRegistry().group<SDirectionalLightComponent>();
                 Group.each([this](const SDirectionalLightComponent& DirectionalLightComponent)
                 {
@@ -931,11 +902,8 @@ namespace Lumina
                 });
             }
             
-    
-            CommandList->WriteBuffer(LightDataBuffer, &LightData);
-    
             //========================================================================================================================
-    
+        
             {
                 RenderSettings.bHasEnvironment = false;
                 auto Group = World->GetEntityRegistry().group<SEnvironmentComponent>();
@@ -948,475 +916,476 @@ namespace Lumina
                     RenderSettings.SSAOSettings.Radius                  = EnvironmentComponent.SSAOInfo.Radius;
                 });
             }
-    
+
+            SIZE_T LightUploadSize = sizeof(FSceneLightData::NumLights) + sizeof(FSceneLightData::Padding) + sizeof(FLight) * LightData.NumLights;
+            CommandList->WriteBuffer(LightDataBuffer, &LightData, 0, LightUploadSize);
             CommandList->WriteBuffer(SSAOSettingsBuffer, &RenderSettings.SSAOSettings);
             CommandList->WriteBuffer(EnvironmentBuffer, &RenderSettings.EnvironmentSettings);
-    }
-    
-
-    void FRenderScene::InitResources()
-    {
-        {
-            FVertexAttributeDesc VertexDesc[4];
-            // Pos
-            VertexDesc[0].SetElementStride(sizeof(FVertex));
-            VertexDesc[0].SetOffset(offsetof(FVertex, Position));
-            VertexDesc[0].Format = EFormat::RGBA32_FLOAT;
-
-            // Color
-            VertexDesc[1].SetElementStride(sizeof(FVertex));
-            VertexDesc[1].SetOffset(offsetof(FVertex, Color));
-            VertexDesc[1].Format = EFormat::RGBA32_FLOAT;
-
-            // Normal
-            VertexDesc[2].SetElementStride(sizeof(FVertex));
-            VertexDesc[2].SetOffset(offsetof(FVertex, Normal));
-            VertexDesc[2].Format = EFormat::RGBA32_FLOAT;
-
-            // UV
-            VertexDesc[3].SetElementStride(sizeof(FVertex));
-            VertexDesc[3].SetOffset(offsetof(FVertex, UV));
-            VertexDesc[3].Format = EFormat::RG32_FLOAT;
-
-        
-            VertexLayoutInput = GRenderContext->CreateInputLayout(VertexDesc, std::size(VertexDesc));
         }
 
+        void FRenderScene::InitResources()
         {
-            FVertexAttributeDesc VertexDesc[2];
-            // Pos
-            VertexDesc[0].SetElementStride(sizeof(FSimpleElementVertex));
-            VertexDesc[0].SetOffset(offsetof(FSimpleElementVertex, Position));
-            VertexDesc[0].Format = EFormat::RGBA32_FLOAT;
-
-            // Color
-            VertexDesc[1].SetElementStride(sizeof(FSimpleElementVertex));
-            VertexDesc[1].SetOffset(offsetof(FSimpleElementVertex, Color));
-            VertexDesc[1].Format = EFormat::RGBA32_FLOAT;
-
-            SimpleVertexLayoutInput = GRenderContext->CreateInputLayout(VertexDesc, std::size(VertexDesc));
-        }
-        
-        {
-            FBindingLayoutDesc BindingLayoutDesc;
-            BindingLayoutDesc.StageFlags.SetMultipleFlags(ERHIShaderType::Vertex, ERHIShaderType::Fragment);
-            BindingLayoutDesc.AddItem(FBindingLayoutItem::Buffer_UD(0));
-            BindingLayoutDesc.AddItem(FBindingLayoutItem::Buffer_SRV(1));
-            BindingLayoutDesc.AddItem(FBindingLayoutItem::Buffer_SRV(2));
-            BindingLayoutDesc.AddItem(FBindingLayoutItem::PushConstants(0, 80));
-            BindingLayout = GRenderContext->CreateBindingLayout(BindingLayoutDesc);
-
-            FBindingSetDesc BindingSetDesc;
-            BindingSetDesc.AddItem(FBindingSetItem::BufferCBV(0, SceneDataBuffer));
-            BindingSetDesc.AddItem(FBindingSetItem::BufferSRV(1, ModelDataBuffer));
-            BindingSetDesc.AddItem(FBindingSetItem::BufferSRV(2, LightDataBuffer));
-        
-            BindingSet = GRenderContext->CreateBindingSet(BindingSetDesc, BindingLayout);
-        }
-
-        {
-            FBindingLayoutDesc LayoutDesc;
-            LayoutDesc.AddItem(FBindingLayoutItem::Texture_SRV(0));
-            LayoutDesc.AddItem(FBindingLayoutItem::Texture_SRV(1));
-            LayoutDesc.AddItem(FBindingLayoutItem::Texture_SRV(2));
-            LayoutDesc.AddItem(FBindingLayoutItem::Texture_SRV(3));
-            LayoutDesc.AddItem(FBindingLayoutItem::Texture_SRV(4));
-            LayoutDesc.StageFlags.SetFlag(ERHIShaderType::Fragment);
-            
-            LightingPassLayout = GRenderContext->CreateBindingLayout(LayoutDesc);
-
-            FBindingSetDesc SetDesc;
-            SetDesc.AddItem(FBindingSetItem::TextureSRV(0, GBuffer.Position));
-            SetDesc.AddItem(FBindingSetItem::TextureSRV(1, GBuffer.Normals));
-            SetDesc.AddItem(FBindingSetItem::TextureSRV(2, GBuffer.Material));
-            SetDesc.AddItem(FBindingSetItem::TextureSRV(3, GBuffer.AlbedoSpec));
-            SetDesc.AddItem(FBindingSetItem::TextureSRV(4, SSAOBlur));
-
-            LightingPassSet = GRenderContext->CreateBindingSet(SetDesc, LightingPassLayout);
-        }
-
-        {
-            FBindingLayoutDesc LayoutDesc;
-            LayoutDesc.StageFlags.SetFlag(ERHIShaderType::Vertex);
-            LayoutDesc.AddItem(FBindingLayoutItem::PushConstants(0, 80));
-            SimplePassLayout = GRenderContext->CreateBindingLayout(LayoutDesc);
-        }
-
-        {
-            FBindingLayoutDesc LayoutDesc;
-            LayoutDesc.AddItem(FBindingLayoutItem::Texture_SRV(0));
-            LayoutDesc.AddItem(FBindingLayoutItem::Texture_SRV(1));
-            LayoutDesc.AddItem(FBindingLayoutItem::Texture_SRV(2));
-            LayoutDesc.AddItem(FBindingLayoutItem::Buffer_CBV(3));
-            LayoutDesc.AddItem(FBindingLayoutItem::Buffer_UD(4));
-            LayoutDesc.StageFlags.SetFlag(ERHIShaderType::Fragment);
-            
-            SSAOPassLayout = GRenderContext->CreateBindingLayout(LayoutDesc);
-
-            FBindingSetDesc SetDesc;
-            SetDesc.AddItem(FBindingSetItem::TextureSRV(0, GBuffer.Position));
-            SetDesc.AddItem(FBindingSetItem::TextureSRV(1, GBuffer.Normals));
-            SetDesc.AddItem(FBindingSetItem::TextureSRV(2, NoiseImage, TStaticRHISampler<true, AM_Repeat, AM_Repeat, AM_Repeat>::GetRHI()));
-            SetDesc.AddItem(FBindingSetItem::BufferCBV(3, SSAOKernalBuffer));
-            SetDesc.AddItem(FBindingSetItem::BufferCBV(4, SSAOSettingsBuffer));
-
-            SSAOPassSet = GRenderContext->CreateBindingSet(SetDesc, SSAOPassLayout);
-        }
-
-        {
-            FBindingLayoutDesc LayoutDesc;
-            LayoutDesc.AddItem(FBindingLayoutItem::Texture_SRV(0));
-            LayoutDesc.StageFlags.SetFlag(ERHIShaderType::Fragment);
-            
-            SSAOBlurPassLayout = GRenderContext->CreateBindingLayout(LayoutDesc);
-
-            FBindingSetDesc SetDesc;
-            SetDesc.AddItem(FBindingSetItem::TextureSRV(0, SSAOImage));
-
-            SSAOBlurPassSet = GRenderContext->CreateBindingSet(SetDesc, SSAOBlurPassLayout);
-        }
-        
-        {
-            FBindingLayoutDesc EnvironmentLayoutDesc;
-            EnvironmentLayoutDesc.AddItem(FBindingLayoutItem::Buffer_UD(0));
-            EnvironmentLayoutDesc.StageFlags.SetFlag(ERHIShaderType::Fragment);
-            EnvironmentLayout = GRenderContext->CreateBindingLayout(EnvironmentLayoutDesc);
-
-            FBindingSetDesc EnvironmentDesc;
-            EnvironmentDesc.AddItem(FBindingSetItem::BufferCBV(0, EnvironmentBuffer));
-            EnvironmentBindingSet = GRenderContext->CreateBindingSet(EnvironmentDesc, EnvironmentLayout);
-        }
-        
-    }
-
-    static float lerp(float a, float b, float f)
-    {
-        return a + f * (b - a);
-    }
-
-    void FRenderScene::InitBuffers()
-    {
-        {
-            FRHIBufferDesc BufferDesc;
-            BufferDesc.Size = sizeof(FSceneGlobalData);
-            BufferDesc.Stride = sizeof(FSceneGlobalData);
-            BufferDesc.Usage.SetMultipleFlags(BUF_UniformBuffer, BUF_Dynamic);
-            BufferDesc.MaxVersions = 3;
-            BufferDesc.DebugName = "Scene Global Data";
-            SceneDataBuffer = GRenderContext->CreateBuffer(BufferDesc);
-            GRenderContext->SetObjectName(SceneDataBuffer, BufferDesc.DebugName.c_str(), EAPIResourceType::Buffer);
-        }
-
-        {
-            FRHIBufferDesc ModelBufferDesc;
-            ModelBufferDesc.Size = sizeof(glm::mat4) * 100000;
-            ModelBufferDesc.Stride = sizeof(glm::mat4);
-            ModelBufferDesc.Usage.SetMultipleFlags(BUF_StorageBuffer);
-            ModelBufferDesc.bKeepInitialState = true;
-            ModelBufferDesc.InitialState = EResourceStates::ShaderResource;
-            ModelBufferDesc.DebugName = "Model Buffer";
-            ModelDataBuffer = GRenderContext->CreateBuffer(ModelBufferDesc);
-            GRenderContext->SetObjectName(ModelDataBuffer, ModelBufferDesc.DebugName.c_str(), EAPIResourceType::Buffer);
-        }
-
-        {
-            FRHIBufferDesc LightBufferDesc;
-            LightBufferDesc.Size = sizeof(FSceneLightData);
-            LightBufferDesc.Stride = sizeof(FSceneLightData);
-            LightBufferDesc.Usage.SetMultipleFlags(BUF_StorageBuffer);
-            LightBufferDesc.bKeepInitialState = true;
-            LightBufferDesc.InitialState = EResourceStates::ShaderResource;
-            LightBufferDesc.DebugName = "Light Data Buffer";
-            LightDataBuffer = GRenderContext->CreateBuffer(LightBufferDesc);
-            GRenderContext->SetObjectName(LightDataBuffer, LightBufferDesc.DebugName.c_str(), EAPIResourceType::Buffer);
-        }
-
-        {
-            FRHIBufferDesc BufferDesc;
-            BufferDesc.Size = sizeof(FSSAOSettings);
-            BufferDesc.Stride = sizeof(FSSAOSettings);
-            BufferDesc.Usage.SetMultipleFlags(BUF_UniformBuffer, BUF_Dynamic);
-            BufferDesc.MaxVersions = 3;
-            BufferDesc.DebugName = "SSAO Settings";
-            SSAOSettingsBuffer = GRenderContext->CreateBuffer(BufferDesc);
-            GRenderContext->SetObjectName(SSAOSettingsBuffer, BufferDesc.DebugName.c_str(), EAPIResourceType::Buffer);
-        }
-
-        {
-            FRHIBufferDesc BufferDesc;
-            BufferDesc.Size = sizeof(FEnvironmentSettings);
-            BufferDesc.Stride = sizeof(FEnvironmentSettings);
-            BufferDesc.Usage.SetMultipleFlags(BUF_UniformBuffer, BUF_Dynamic);
-            BufferDesc.MaxVersions = 3;
-            BufferDesc.DebugName = "Environment Settings";
-            EnvironmentBuffer = GRenderContext->CreateBuffer(BufferDesc);
-            GRenderContext->SetObjectName(EnvironmentBuffer, BufferDesc.DebugName.c_str(), EAPIResourceType::Buffer);
-        }
-
-        {
-            
-            // SSAO
-            std::default_random_engine rndEngine;
-            std::uniform_real_distribution rndDist(0.0f, 1.0f);
-
-            // Sample kernel
-            TVector<glm::vec4> SSAOKernel(32);
-            for (uint32_t i = 0; i < 32; ++i)
             {
-                glm::vec3 sample(rndDist(rndEngine) * 2.0 - 1.0, rndDist(rndEngine) * 2.0 - 1.0, rndDist(rndEngine));
-                sample = glm::normalize(sample);
-                sample *= rndDist(rndEngine);
-                float scale = float(i) / float(32);
-                scale = lerp(0.1f, 1.0f, scale * scale);
-                SSAOKernel[i] = glm::vec4(sample * scale, 0.0f);
+                FVertexAttributeDesc VertexDesc[4];
+                // Pos
+                VertexDesc[0].SetElementStride(sizeof(FVertex));
+                VertexDesc[0].SetOffset(offsetof(FVertex, Position));
+                VertexDesc[0].Format = EFormat::RGBA32_FLOAT;
+
+                // Color
+                VertexDesc[1].SetElementStride(sizeof(FVertex));
+                VertexDesc[1].SetOffset(offsetof(FVertex, Color));
+                VertexDesc[1].Format = EFormat::RGBA32_FLOAT;
+
+                // Normal
+                VertexDesc[2].SetElementStride(sizeof(FVertex));
+                VertexDesc[2].SetOffset(offsetof(FVertex, Normal));
+                VertexDesc[2].Format = EFormat::RGBA32_FLOAT;
+
+                // UV
+                VertexDesc[3].SetElementStride(sizeof(FVertex));
+                VertexDesc[3].SetOffset(offsetof(FVertex, UV));
+                VertexDesc[3].Format = EFormat::RG32_FLOAT;
+
+            
+                VertexLayoutInput = GRenderContext->CreateInputLayout(VertexDesc, std::size(VertexDesc));
             }
 
-            FRHICommandListRef CommandList = GRenderContext->CreateCommandList(FCommandListInfo::Transfer());
-            CommandList->Open();
-        
-            FRHIBufferDesc SSAOBufferDesc;
-            SSAOBufferDesc.Size = SSAOKernel.size() * sizeof(glm::vec4);
-            SSAOBufferDesc.Stride = sizeof(glm::vec4);
-            SSAOBufferDesc.Usage.SetMultipleFlags(BUF_UniformBuffer);
-            SSAOBufferDesc.bKeepInitialState = true;
-            SSAOBufferDesc.InitialState = EResourceStates::ShaderResource;
-            SSAOBufferDesc.DebugName = "SSAO Kernal Buffer";
-            SSAOKernalBuffer = GRenderContext->CreateBuffer(SSAOBufferDesc);
-            GRenderContext->SetObjectName(SSAOKernalBuffer, SSAOBufferDesc.DebugName.c_str(), EAPIResourceType::Buffer);
-
-            CommandList->WriteBuffer(SSAOKernalBuffer, SSAOKernel.data(), 0, SSAOBufferDesc.Size);
-            
-            CommandList->Close();
-            GRenderContext->ExecuteCommandList(CommandList, ECommandQueue::Transfer);
-
-            CommandList = GRenderContext->CreateCommandList(FCommandListInfo::Graphics());
-            CommandList->Open();
-            
-            FRHIImageDesc SSAONoiseDesc = {};
-            SSAONoiseDesc.Extent = {4, 4};
-            SSAONoiseDesc.Format = EFormat::RGBA32_FLOAT;
-            SSAONoiseDesc.Dimension = EImageDimension::Texture2D;
-            SSAONoiseDesc.bKeepInitialState = true;
-            SSAONoiseDesc.InitialState = EResourceStates::ShaderResource;
-            SSAONoiseDesc.Flags.SetMultipleFlags(EImageCreateFlags::ShaderResource);
-            SSAONoiseDesc.DebugName = "SSAO Noise";
-        
-            NoiseImage = GRenderContext->CreateImage(SSAONoiseDesc);
-            GRenderContext->SetObjectName(NoiseImage, "SSAO Noise", EAPIResourceType::Image);
-        
-            // Random noise
-            TVector<glm::vec4> NoiseValues(32);
-            for (SIZE_T i = 0; i < NoiseValues.size(); i++)
             {
-                NoiseValues[i] = glm::vec4(rndDist(rndEngine) * 2.0f - 1.0f, rndDist(rndEngine) * 2.0f - 1.0f, 0.0f, 0.0f);
+                FVertexAttributeDesc VertexDesc[2];
+                // Pos
+                VertexDesc[0].SetElementStride(sizeof(FSimpleElementVertex));
+                VertexDesc[0].SetOffset(offsetof(FSimpleElementVertex, Position));
+                VertexDesc[0].Format = EFormat::RGBA32_FLOAT;
+
+                // Color
+                VertexDesc[1].SetElementStride(sizeof(FSimpleElementVertex));
+                VertexDesc[1].SetOffset(offsetof(FSimpleElementVertex, Color));
+                VertexDesc[1].Format = EFormat::RGBA32_FLOAT;
+
+                SimpleVertexLayoutInput = GRenderContext->CreateInputLayout(VertexDesc, std::size(VertexDesc));
             }
             
-            CommandList->WriteImage(NoiseImage, 0, 0, NoiseValues.data(), 4 * 16, 0);
-
-            CommandList->Close();
-            GRenderContext->ExecuteCommandList(CommandList, ECommandQueue::Graphics);
-        }
-        
-
-        {
-            FRHIBufferDesc VertexBufferDesc;
-            VertexBufferDesc.Size = sizeof(FSimpleElementVertex) * (1024 * 1024 * 10);
-            VertexBufferDesc.Stride = sizeof(FSimpleElementVertex);
-            VertexBufferDesc.Usage.SetMultipleFlags(BUF_VertexBuffer);
-            VertexBufferDesc.InitialState = EResourceStates::VertexBuffer;
-            VertexBufferDesc.bKeepInitialState = true;
-            VertexBufferDesc.DebugName = "Simple Vertex Buffer";
-            SimpleVertexBuffer = GRenderContext->CreateBuffer(VertexBufferDesc);
-            GRenderContext->SetObjectName(SimpleVertexBuffer, VertexBufferDesc.DebugName.c_str(), EAPIResourceType::Buffer);
-        }
-        
-
-        {
-            FRHIBufferDesc IndirectBufferDesc;
-            IndirectBufferDesc.Size = sizeof(FDrawIndexedIndirectArguments) * (1024 * 1024 * 10);
-            IndirectBufferDesc.Stride = sizeof(uint32);
-            IndirectBufferDesc.Usage.SetMultipleFlags(BUF_Indirect);
-            IndirectBufferDesc.InitialState = EResourceStates::IndexBuffer;
-            IndirectBufferDesc.bKeepInitialState = true;
-            IndirectBufferDesc.DebugName = "Indirect Draw Buffer";
-            IndirectDrawBuffer = GRenderContext->CreateBuffer(IndirectBufferDesc);
-            GRenderContext->SetObjectName(IndirectDrawBuffer, IndirectBufferDesc.DebugName.c_str(), EAPIResourceType::Buffer);
-        }
-    }
-    
-    void FRenderScene::CreateImages()
-    {
-        FIntVector2D Extent = Windowing::GetPrimaryWindowHandle()->GetExtent();
-
-        {
-            FRHIImageDesc GBufferPosition;
-            GBufferPosition.Extent = Extent;
-            GBufferPosition.Flags.SetMultipleFlags(EImageCreateFlags::ColorAttachment, EImageCreateFlags::ShaderResource);
-            GBufferPosition.Format = EFormat::RGBA16_FLOAT;
-            GBufferPosition.Dimension = EImageDimension::Texture2D;
-            GBufferPosition.DebugName = "GBuffer - Position";
-        
-            GBuffer.Position = GRenderContext->CreateImage(GBufferPosition);
-            GRenderContext->SetObjectName(GBuffer.Position, "GBuffer - Position", EAPIResourceType::Image);
-        }
-
-        {
-            FRHIImageDesc NormalDesc = {};
-            NormalDesc.Extent = Extent;
-            NormalDesc.Format = EFormat::RGBA16_FLOAT;
-            NormalDesc.Dimension = EImageDimension::Texture2D;
-            NormalDesc.Flags.SetMultipleFlags(EImageCreateFlags::ColorAttachment, EImageCreateFlags::ShaderResource);
-            NormalDesc.DebugName = "GBuffer - Normals";
-        
-            GBuffer.Normals = GRenderContext->CreateImage(NormalDesc);
-            GRenderContext->SetObjectName(GBuffer.Normals, "GBuffer - Normals", EAPIResourceType::Image);
-        }
-
-        {
-            FRHIImageDesc MaterialDesc = {};
-            MaterialDesc.Extent = Extent;
-            MaterialDesc.Format = EFormat::RGBA8_UNORM;
-            MaterialDesc.Dimension = EImageDimension::Texture2D;
-            MaterialDesc.Flags.SetMultipleFlags(EImageCreateFlags::ColorAttachment, EImageCreateFlags::ShaderResource);
-            MaterialDesc.DebugName = "GBuffer - Material";
-        
-            GBuffer.Material = GRenderContext->CreateImage(MaterialDesc);
-            GRenderContext->SetObjectName(GBuffer.Material, "GBuffer - Material", EAPIResourceType::Image);
-        }
-
-        {
-            FRHIImageDesc AlbedoDesc = {};
-            AlbedoDesc.Extent = Extent;
-            AlbedoDesc.Format = EFormat::RGBA8_UNORM;
-            AlbedoDesc.Dimension = EImageDimension::Texture2D;
-            AlbedoDesc.Flags.SetMultipleFlags(EImageCreateFlags::ColorAttachment, EImageCreateFlags::ShaderResource);
-            AlbedoDesc.DebugName = "GBuffer - Albedo";
-        
-            GBuffer.AlbedoSpec = GRenderContext->CreateImage(AlbedoDesc);
-            GRenderContext->SetObjectName(GBuffer.AlbedoSpec, "GBuffer - Albedo", EAPIResourceType::Image);
-        }
-        
-
-        {
-            FRHIImageDesc DepthImageDesc;
-            DepthImageDesc.Extent = Extent;
-            DepthImageDesc.Flags.SetMultipleFlags(EImageCreateFlags::DepthAttachment, EImageCreateFlags::ShaderResource);
-            DepthImageDesc.Format = EFormat::D32;
-            DepthImageDesc.InitialState = EResourceStates::DepthWrite;
-            DepthImageDesc.bKeepInitialState = true;
-            DepthImageDesc.Dimension = EImageDimension::Texture2D;
-            DepthImageDesc.DebugName = "Depth Attachment";
-
-            DepthAttachment = GRenderContext->CreateImage(DepthImageDesc);
-            GRenderContext->SetObjectName(DepthAttachment, "Depth Attachment", EAPIResourceType::Image);
-        }
-
-        {
-            FRHIImageDesc SSAODesc = {};
-            SSAODesc.Extent = Extent;
-            SSAODesc.Format = EFormat::R8_UNORM;
-            SSAODesc.Dimension = EImageDimension::Texture2D;
-            SSAODesc.Flags.SetMultipleFlags(EImageCreateFlags::ColorAttachment, EImageCreateFlags::ShaderResource);
-            SSAODesc.DebugName = "SSAO";
-        
-            SSAOImage = GRenderContext->CreateImage(SSAODesc);
-            GRenderContext->SetObjectName(SSAOImage, "SSAO", EAPIResourceType::Image);
-        }
-
-        {
-            FRHIImageDesc SSAODesc = {};
-            SSAODesc.Extent = Extent;
-            SSAODesc.Format = EFormat::R8_UNORM;
-            SSAODesc.Dimension = EImageDimension::Texture2D;
-            SSAODesc.Flags.SetMultipleFlags(EImageCreateFlags::ColorAttachment, EImageCreateFlags::ShaderResource);
-            SSAODesc.DebugName = "SSAO Blur";
-        
-            SSAOBlur = GRenderContext->CreateImage(SSAODesc);
-            GRenderContext->SetObjectName(SSAOBlur, "SSAO Blur", EAPIResourceType::Image);
-        }
-        
-        
-        //==================================================================================================
-
-        {
-            FRHIImageDesc SkyCubeMapDesc;
-            SkyCubeMapDesc.Extent = {2048, 2048};
-            SkyCubeMapDesc.Flags.SetFlag(EImageCreateFlags::CubeCompatible);
-            SkyCubeMapDesc.Flags.SetFlag(EImageCreateFlags::ShaderResource);
-            SkyCubeMapDesc.Format = EFormat::RGBA8_UNORM;
-            SkyCubeMapDesc.Dimension = EImageDimension::Texture2D;
-            SkyCubeMapDesc.ArraySize = 6;
-            SkyCubeMapDesc.DebugName = "Skybox CubeMap";
-
-            CubeMap = GRenderContext->CreateImage(SkyCubeMapDesc);
-            GRenderContext->SetObjectName(CubeMap, "CubeMap", EAPIResourceType::Image);
-
-            static const char* CubeFaceFiles[6] = {
-                "right.jpg", "left.jpg", "top.jpg", "bottom.jpg", "front.jpg", "back.jpg"
-            };
-
-            FRHICommandListRef CommandList = GRenderContext->CreateCommandList(FCommandListInfo::Transfer());
-            CommandList->Open();
-
-            CommandList->BeginTrackingImageState(CubeMap, AllSubresources, EResourceStates::Common);
-        
-            for (int i = 0; i < 6; ++i)
             {
-                FString ResourceDirectory = Paths::GetEngineResourceDirectory();
-                ResourceDirectory += FString("/Textures/CubeMaps/Mountains/") + CubeFaceFiles[i];
+                FBindingLayoutDesc BindingLayoutDesc;
+                BindingLayoutDesc.StageFlags.SetMultipleFlags(ERHIShaderType::Vertex, ERHIShaderType::Fragment);
+                BindingLayoutDesc.AddItem(FBindingLayoutItem::Buffer_UD(0));
+                BindingLayoutDesc.AddItem(FBindingLayoutItem::Buffer_SRV(1));
+                BindingLayoutDesc.AddItem(FBindingLayoutItem::Buffer_SRV(2));
+                BindingLayoutDesc.AddItem(FBindingLayoutItem::PushConstants(0, 80));
+                BindingLayout = GRenderContext->CreateBindingLayout(BindingLayoutDesc);
+
+                FBindingSetDesc BindingSetDesc;
+                BindingSetDesc.AddItem(FBindingSetItem::BufferCBV(0, SceneDataBuffer));
+                BindingSetDesc.AddItem(FBindingSetItem::BufferSRV(1, ModelDataBuffer));
+                BindingSetDesc.AddItem(FBindingSetItem::BufferSRV(2, LightDataBuffer));
             
-                TVector<uint8> Pixels;
-                FIntVector2D ImageExtent = Import::Textures::ImportTexture(Pixels, ResourceDirectory, false);
-            
-                const uint32 width = ImageExtent.X;
-                const uint32 height = ImageExtent.Y;
-                const SIZE_T rowPitch = width * 4;  // 4 bytes per pixel (RGBA8)
-                const SIZE_T depthPitch = rowPitch * height;
-            
-                CommandList->WriteImage(CubeMap, i, 0, Pixels.data(), rowPitch, depthPitch);
+                BindingSet = GRenderContext->CreateBindingSet(BindingSetDesc, BindingLayout);
             }
 
-            CommandList->SetPermanentImageState(CubeMap, EResourceStates::ShaderResource);
-            CommandList->CommitBarriers();
-        
-            CommandList->Close();
-            GRenderContext->ExecuteCommandList(CommandList, ECommandQueue::Transfer);
+            {
+                FBindingLayoutDesc LayoutDesc;
+                LayoutDesc.AddItem(FBindingLayoutItem::Texture_SRV(0));
+                LayoutDesc.AddItem(FBindingLayoutItem::Texture_SRV(1));
+                LayoutDesc.AddItem(FBindingLayoutItem::Texture_SRV(2));
+                LayoutDesc.AddItem(FBindingLayoutItem::Texture_SRV(3));
+                LayoutDesc.AddItem(FBindingLayoutItem::Texture_SRV(4));
+                LayoutDesc.StageFlags.SetFlag(ERHIShaderType::Fragment);
+                
+                LightingPassLayout = GRenderContext->CreateBindingLayout(LayoutDesc);
+
+                FBindingSetDesc SetDesc;
+                SetDesc.AddItem(FBindingSetItem::TextureSRV(0, GBuffer.Position));
+                SetDesc.AddItem(FBindingSetItem::TextureSRV(1, GBuffer.Normals));
+                SetDesc.AddItem(FBindingSetItem::TextureSRV(2, GBuffer.Material));
+                SetDesc.AddItem(FBindingSetItem::TextureSRV(3, GBuffer.AlbedoSpec));
+                SetDesc.AddItem(FBindingSetItem::TextureSRV(4, SSAOBlur));
+
+                LightingPassSet = GRenderContext->CreateBindingSet(SetDesc, LightingPassLayout);
+            }
+
+            {
+                FBindingLayoutDesc LayoutDesc;
+                LayoutDesc.StageFlags.SetFlag(ERHIShaderType::Vertex);
+                LayoutDesc.AddItem(FBindingLayoutItem::PushConstants(0, 80));
+                SimplePassLayout = GRenderContext->CreateBindingLayout(LayoutDesc);
+            }
+
+            {
+                FBindingLayoutDesc LayoutDesc;
+                LayoutDesc.AddItem(FBindingLayoutItem::Texture_SRV(0));
+                LayoutDesc.AddItem(FBindingLayoutItem::Texture_SRV(1));
+                LayoutDesc.AddItem(FBindingLayoutItem::Texture_SRV(2));
+                LayoutDesc.AddItem(FBindingLayoutItem::Buffer_CBV(3));
+                LayoutDesc.AddItem(FBindingLayoutItem::Buffer_UD(4));
+                LayoutDesc.StageFlags.SetFlag(ERHIShaderType::Fragment);
+                
+                SSAOPassLayout = GRenderContext->CreateBindingLayout(LayoutDesc);
+
+                FBindingSetDesc SetDesc;
+                SetDesc.AddItem(FBindingSetItem::TextureSRV(0, GBuffer.Position));
+                SetDesc.AddItem(FBindingSetItem::TextureSRV(1, GBuffer.Normals));
+                SetDesc.AddItem(FBindingSetItem::TextureSRV(2, NoiseImage, TStaticRHISampler<true, AM_Repeat, AM_Repeat, AM_Repeat>::GetRHI()));
+                SetDesc.AddItem(FBindingSetItem::BufferCBV(3, SSAOKernalBuffer));
+                SetDesc.AddItem(FBindingSetItem::BufferCBV(4, SSAOSettingsBuffer));
+
+                SSAOPassSet = GRenderContext->CreateBindingSet(SetDesc, SSAOPassLayout);
+            }
+
+            {
+                FBindingLayoutDesc LayoutDesc;
+                LayoutDesc.AddItem(FBindingLayoutItem::Texture_SRV(0));
+                LayoutDesc.StageFlags.SetFlag(ERHIShaderType::Fragment);
+                
+                SSAOBlurPassLayout = GRenderContext->CreateBindingLayout(LayoutDesc);
+
+                FBindingSetDesc SetDesc;
+                SetDesc.AddItem(FBindingSetItem::TextureSRV(0, SSAOImage));
+
+                SSAOBlurPassSet = GRenderContext->CreateBindingSet(SetDesc, SSAOBlurPassLayout);
+            }
+            
+            {
+                FBindingLayoutDesc EnvironmentLayoutDesc;
+                EnvironmentLayoutDesc.AddItem(FBindingLayoutItem::Buffer_UD(0));
+                EnvironmentLayoutDesc.StageFlags.SetFlag(ERHIShaderType::Fragment);
+                EnvironmentLayout = GRenderContext->CreateBindingLayout(EnvironmentLayoutDesc);
+
+                FBindingSetDesc EnvironmentDesc;
+                EnvironmentDesc.AddItem(FBindingSetItem::BufferCBV(0, EnvironmentBuffer));
+                EnvironmentBindingSet = GRenderContext->CreateBindingSet(EnvironmentDesc, EnvironmentLayout);
+            }
+            
         }
 
-        //==================================================================================================
-
+        static float lerp(float a, float b, float f)
         {
-            FRHIImageDesc DepthMapDesc;
-            DepthMapDesc.Extent = Extent;
-            DepthMapDesc.Flags.SetMultipleFlags(EImageCreateFlags::DepthAttachment, EImageCreateFlags::ShaderResource);
-            DepthMapDesc.Format = EFormat::D32;
-            DepthMapDesc.InitialState = EResourceStates::DepthWrite;
-            DepthMapDesc.bKeepInitialState = true;
-            DepthMapDesc.Dimension = EImageDimension::Texture2D;
-            DepthMapDesc.DebugName = "Depth Map";
-
-            DepthMap = GRenderContext->CreateImage(DepthMapDesc);
-            GRenderContext->SetObjectName(DepthMap, "Depth Map", EAPIResourceType::Image);
+            return a + f * (b - a);
         }
 
-        //==================================================================================================
-        
+        void FRenderScene::InitBuffers()
         {
-            FRHIImageDesc CubeMapDesc;
-            CubeMapDesc.Extent = {1024, 1024};
-            CubeMapDesc.Flags.SetFlag(EImageCreateFlags::CubeCompatible);
-            CubeMapDesc.Flags.SetFlag(EImageCreateFlags::ShaderResource);
-            CubeMapDesc.Format = EFormat::RGBA8_UNORM;
-            CubeMapDesc.bKeepInitialState = true;
-            CubeMapDesc.InitialState = EResourceStates::ShaderResource;
-            CubeMapDesc.Dimension = EImageDimension::Texture2D;
-            CubeMapDesc.ArraySize = 6;
-            CubeMapDesc.DebugName = "Shadow Cubemap";
+            {
+                FRHIBufferDesc BufferDesc;
+                BufferDesc.Size = sizeof(FSceneGlobalData);
+                BufferDesc.Stride = sizeof(FSceneGlobalData);
+                BufferDesc.Usage.SetMultipleFlags(BUF_UniformBuffer, BUF_Dynamic);
+                BufferDesc.MaxVersions = 3;
+                BufferDesc.DebugName = "Scene Global Data";
+                SceneDataBuffer = GRenderContext->CreateBuffer(BufferDesc);
+                GRenderContext->SetObjectName(SceneDataBuffer, BufferDesc.DebugName.c_str(), EAPIResourceType::Buffer);
+            }
 
-            ShadowCubeMap = GRenderContext->CreateImage(CubeMapDesc);
-            GRenderContext->SetObjectName(ShadowCubeMap, CubeMapDesc.DebugName.c_str(), EAPIResourceType::Image);
+            {
+                FRHIBufferDesc ModelBufferDesc;
+                ModelBufferDesc.Size = sizeof(glm::mat4) * 100000;
+                ModelBufferDesc.Stride = sizeof(glm::mat4);
+                ModelBufferDesc.Usage.SetMultipleFlags(BUF_StorageBuffer);
+                ModelBufferDesc.bKeepInitialState = true;
+                ModelBufferDesc.InitialState = EResourceStates::ShaderResource;
+                ModelBufferDesc.DebugName = "Model Buffer";
+                ModelDataBuffer = GRenderContext->CreateBuffer(ModelBufferDesc);
+                GRenderContext->SetObjectName(ModelDataBuffer, ModelBufferDesc.DebugName.c_str(), EAPIResourceType::Buffer);
+            }
+
+            {
+                FRHIBufferDesc LightBufferDesc;
+                LightBufferDesc.Size = sizeof(FSceneLightData);
+                LightBufferDesc.Stride = sizeof(FSceneLightData);
+                LightBufferDesc.Usage.SetMultipleFlags(BUF_StorageBuffer);
+                LightBufferDesc.bKeepInitialState = true;
+                LightBufferDesc.InitialState = EResourceStates::ShaderResource;
+                LightBufferDesc.DebugName = "Light Data Buffer";
+                LightDataBuffer = GRenderContext->CreateBuffer(LightBufferDesc);
+                GRenderContext->SetObjectName(LightDataBuffer, LightBufferDesc.DebugName.c_str(), EAPIResourceType::Buffer);
+            }
+
+            {
+                FRHIBufferDesc BufferDesc;
+                BufferDesc.Size = sizeof(FSSAOSettings);
+                BufferDesc.Stride = sizeof(FSSAOSettings);
+                BufferDesc.Usage.SetMultipleFlags(BUF_UniformBuffer, BUF_Dynamic);
+                BufferDesc.MaxVersions = 3;
+                BufferDesc.DebugName = "SSAO Settings";
+                SSAOSettingsBuffer = GRenderContext->CreateBuffer(BufferDesc);
+                GRenderContext->SetObjectName(SSAOSettingsBuffer, BufferDesc.DebugName.c_str(), EAPIResourceType::Buffer);
+            }
+
+            {
+                FRHIBufferDesc BufferDesc;
+                BufferDesc.Size = sizeof(FEnvironmentSettings);
+                BufferDesc.Stride = sizeof(FEnvironmentSettings);
+                BufferDesc.Usage.SetMultipleFlags(BUF_UniformBuffer, BUF_Dynamic);
+                BufferDesc.MaxVersions = 3;
+                BufferDesc.DebugName = "Environment Settings";
+                EnvironmentBuffer = GRenderContext->CreateBuffer(BufferDesc);
+                GRenderContext->SetObjectName(EnvironmentBuffer, BufferDesc.DebugName.c_str(), EAPIResourceType::Buffer);
+            }
+
+            {
+                
+                // SSAO
+                std::default_random_engine rndEngine;
+                std::uniform_real_distribution rndDist(0.0f, 1.0f);
+
+                // Sample kernel
+                TVector<glm::vec4> SSAOKernel(32);
+                for (uint32_t i = 0; i < 32; ++i)
+                {
+                    glm::vec3 sample(rndDist(rndEngine) * 2.0 - 1.0, rndDist(rndEngine) * 2.0 - 1.0, rndDist(rndEngine));
+                    sample = glm::normalize(sample);
+                    sample *= rndDist(rndEngine);
+                    float scale = float(i) / float(32);
+                    scale = lerp(0.1f, 1.0f, scale * scale);
+                    SSAOKernel[i] = glm::vec4(sample * scale, 0.0f);
+                }
+
+                FRHICommandListRef CommandList = GRenderContext->CreateCommandList(FCommandListInfo::Transfer());
+                CommandList->Open();
+            
+                FRHIBufferDesc SSAOBufferDesc;
+                SSAOBufferDesc.Size = SSAOKernel.size() * sizeof(glm::vec4);
+                SSAOBufferDesc.Stride = sizeof(glm::vec4);
+                SSAOBufferDesc.Usage.SetMultipleFlags(BUF_UniformBuffer);
+                SSAOBufferDesc.bKeepInitialState = true;
+                SSAOBufferDesc.InitialState = EResourceStates::ShaderResource;
+                SSAOBufferDesc.DebugName = "SSAO Kernal Buffer";
+                SSAOKernalBuffer = GRenderContext->CreateBuffer(SSAOBufferDesc);
+                GRenderContext->SetObjectName(SSAOKernalBuffer, SSAOBufferDesc.DebugName.c_str(), EAPIResourceType::Buffer);
+
+                CommandList->WriteBuffer(SSAOKernalBuffer, SSAOKernel.data(), 0, SSAOBufferDesc.Size);
+                
+                CommandList->Close();
+                GRenderContext->ExecuteCommandList(CommandList, ECommandQueue::Transfer);
+
+                CommandList = GRenderContext->CreateCommandList(FCommandListInfo::Graphics());
+                CommandList->Open();
+                
+                FRHIImageDesc SSAONoiseDesc = {};
+                SSAONoiseDesc.Extent = {4, 4};
+                SSAONoiseDesc.Format = EFormat::RGBA32_FLOAT;
+                SSAONoiseDesc.Dimension = EImageDimension::Texture2D;
+                SSAONoiseDesc.bKeepInitialState = true;
+                SSAONoiseDesc.InitialState = EResourceStates::ShaderResource;
+                SSAONoiseDesc.Flags.SetMultipleFlags(EImageCreateFlags::ShaderResource);
+                SSAONoiseDesc.DebugName = "SSAO Noise";
+            
+                NoiseImage = GRenderContext->CreateImage(SSAONoiseDesc);
+                GRenderContext->SetObjectName(NoiseImage, "SSAO Noise", EAPIResourceType::Image);
+            
+                // Random noise
+                TVector<glm::vec4> NoiseValues(32);
+                for (SIZE_T i = 0; i < NoiseValues.size(); i++)
+                {
+                    NoiseValues[i] = glm::vec4(rndDist(rndEngine) * 2.0f - 1.0f, rndDist(rndEngine) * 2.0f - 1.0f, 0.0f, 0.0f);
+                }
+                
+                CommandList->WriteImage(NoiseImage, 0, 0, NoiseValues.data(), 4 * 16, 0);
+
+                CommandList->Close();
+                GRenderContext->ExecuteCommandList(CommandList, ECommandQueue::Graphics);
+            }
+            
+
+            {
+                FRHIBufferDesc VertexBufferDesc;
+                VertexBufferDesc.Size = sizeof(FSimpleElementVertex) * (1024 * 1024 * 10);
+                VertexBufferDesc.Stride = sizeof(FSimpleElementVertex);
+                VertexBufferDesc.Usage.SetMultipleFlags(BUF_VertexBuffer);
+                VertexBufferDesc.InitialState = EResourceStates::VertexBuffer;
+                VertexBufferDesc.bKeepInitialState = true;
+                VertexBufferDesc.DebugName = "Simple Vertex Buffer";
+                SimpleVertexBuffer = GRenderContext->CreateBuffer(VertexBufferDesc);
+                GRenderContext->SetObjectName(SimpleVertexBuffer, VertexBufferDesc.DebugName.c_str(), EAPIResourceType::Buffer);
+            }
+            
+
+            {
+                FRHIBufferDesc IndirectBufferDesc;
+                IndirectBufferDesc.Size = sizeof(FDrawIndexedIndirectArguments) * (1024 * 1024 * 10);
+                IndirectBufferDesc.Stride = sizeof(uint32);
+                IndirectBufferDesc.Usage.SetMultipleFlags(BUF_Indirect);
+                IndirectBufferDesc.InitialState = EResourceStates::IndexBuffer;
+                IndirectBufferDesc.bKeepInitialState = true;
+                IndirectBufferDesc.DebugName = "Indirect Draw Buffer";
+                IndirectDrawBuffer = GRenderContext->CreateBuffer(IndirectBufferDesc);
+                GRenderContext->SetObjectName(IndirectDrawBuffer, IndirectBufferDesc.DebugName.c_str(), EAPIResourceType::Buffer);
+            }
+        }
+        
+        void FRenderScene::CreateImages()
+        {
+            FIntVector2D Extent = Windowing::GetPrimaryWindowHandle()->GetExtent();
+
+            {
+                FRHIImageDesc GBufferPosition;
+                GBufferPosition.Extent = Extent;
+                GBufferPosition.Flags.SetMultipleFlags(EImageCreateFlags::ColorAttachment, EImageCreateFlags::ShaderResource);
+                GBufferPosition.Format = EFormat::RGBA16_FLOAT;
+                GBufferPosition.Dimension = EImageDimension::Texture2D;
+                GBufferPosition.DebugName = "GBuffer - Position";
+            
+                GBuffer.Position = GRenderContext->CreateImage(GBufferPosition);
+                GRenderContext->SetObjectName(GBuffer.Position, "GBuffer - Position", EAPIResourceType::Image);
+            }
+
+            {
+                FRHIImageDesc NormalDesc = {};
+                NormalDesc.Extent = Extent;
+                NormalDesc.Format = EFormat::RGBA16_FLOAT;
+                NormalDesc.Dimension = EImageDimension::Texture2D;
+                NormalDesc.Flags.SetMultipleFlags(EImageCreateFlags::ColorAttachment, EImageCreateFlags::ShaderResource);
+                NormalDesc.DebugName = "GBuffer - Normals";
+            
+                GBuffer.Normals = GRenderContext->CreateImage(NormalDesc);
+                GRenderContext->SetObjectName(GBuffer.Normals, "GBuffer - Normals", EAPIResourceType::Image);
+            }
+
+            {
+                FRHIImageDesc MaterialDesc = {};
+                MaterialDesc.Extent = Extent;
+                MaterialDesc.Format = EFormat::RGBA8_UNORM;
+                MaterialDesc.Dimension = EImageDimension::Texture2D;
+                MaterialDesc.Flags.SetMultipleFlags(EImageCreateFlags::ColorAttachment, EImageCreateFlags::ShaderResource);
+                MaterialDesc.DebugName = "GBuffer - Material";
+            
+                GBuffer.Material = GRenderContext->CreateImage(MaterialDesc);
+                GRenderContext->SetObjectName(GBuffer.Material, "GBuffer - Material", EAPIResourceType::Image);
+            }
+
+            {
+                FRHIImageDesc AlbedoDesc = {};
+                AlbedoDesc.Extent = Extent;
+                AlbedoDesc.Format = EFormat::RGBA8_UNORM;
+                AlbedoDesc.Dimension = EImageDimension::Texture2D;
+                AlbedoDesc.Flags.SetMultipleFlags(EImageCreateFlags::ColorAttachment, EImageCreateFlags::ShaderResource);
+                AlbedoDesc.DebugName = "GBuffer - Albedo";
+            
+                GBuffer.AlbedoSpec = GRenderContext->CreateImage(AlbedoDesc);
+                GRenderContext->SetObjectName(GBuffer.AlbedoSpec, "GBuffer - Albedo", EAPIResourceType::Image);
+            }
+            
+
+            {
+                FRHIImageDesc DepthImageDesc;
+                DepthImageDesc.Extent = Extent;
+                DepthImageDesc.Flags.SetMultipleFlags(EImageCreateFlags::DepthAttachment, EImageCreateFlags::ShaderResource);
+                DepthImageDesc.Format = EFormat::D32;
+                DepthImageDesc.InitialState = EResourceStates::DepthWrite;
+                DepthImageDesc.bKeepInitialState = true;
+                DepthImageDesc.Dimension = EImageDimension::Texture2D;
+                DepthImageDesc.DebugName = "Depth Attachment";
+
+                DepthAttachment = GRenderContext->CreateImage(DepthImageDesc);
+                GRenderContext->SetObjectName(DepthAttachment, "Depth Attachment", EAPIResourceType::Image);
+            }
+
+            {
+                FRHIImageDesc SSAODesc = {};
+                SSAODesc.Extent = Extent;
+                SSAODesc.Format = EFormat::R8_UNORM;
+                SSAODesc.Dimension = EImageDimension::Texture2D;
+                SSAODesc.Flags.SetMultipleFlags(EImageCreateFlags::ColorAttachment, EImageCreateFlags::ShaderResource);
+                SSAODesc.DebugName = "SSAO";
+            
+                SSAOImage = GRenderContext->CreateImage(SSAODesc);
+                GRenderContext->SetObjectName(SSAOImage, "SSAO", EAPIResourceType::Image);
+            }
+
+            {
+                FRHIImageDesc SSAODesc = {};
+                SSAODesc.Extent = Extent;
+                SSAODesc.Format = EFormat::R8_UNORM;
+                SSAODesc.Dimension = EImageDimension::Texture2D;
+                SSAODesc.Flags.SetMultipleFlags(EImageCreateFlags::ColorAttachment, EImageCreateFlags::ShaderResource);
+                SSAODesc.DebugName = "SSAO Blur";
+            
+                SSAOBlur = GRenderContext->CreateImage(SSAODesc);
+                GRenderContext->SetObjectName(SSAOBlur, "SSAO Blur", EAPIResourceType::Image);
+            }
+            
+            
+            //==================================================================================================
+
+            {
+                FRHIImageDesc SkyCubeMapDesc;
+                SkyCubeMapDesc.Extent = {2048, 2048};
+                SkyCubeMapDesc.Flags.SetFlag(EImageCreateFlags::CubeCompatible);
+                SkyCubeMapDesc.Flags.SetFlag(EImageCreateFlags::ShaderResource);
+                SkyCubeMapDesc.Format = EFormat::RGBA8_UNORM;
+                SkyCubeMapDesc.Dimension = EImageDimension::Texture2D;
+                SkyCubeMapDesc.ArraySize = 6;
+                SkyCubeMapDesc.DebugName = "Skybox CubeMap";
+
+                CubeMap = GRenderContext->CreateImage(SkyCubeMapDesc);
+                GRenderContext->SetObjectName(CubeMap, "CubeMap", EAPIResourceType::Image);
+
+                static const char* CubeFaceFiles[6] = {
+                    "right.jpg", "left.jpg", "top.jpg", "bottom.jpg", "front.jpg", "back.jpg"
+                };
+
+                FRHICommandListRef CommandList = GRenderContext->CreateCommandList(FCommandListInfo::Transfer());
+                CommandList->Open();
+
+                CommandList->BeginTrackingImageState(CubeMap, AllSubresources, EResourceStates::Common);
+            
+                for (int i = 0; i < 6; ++i)
+                {
+                    FString ResourceDirectory = Paths::GetEngineResourceDirectory();
+                    ResourceDirectory += FString("/Textures/CubeMaps/Mountains/") + CubeFaceFiles[i];
+                
+                    TVector<uint8> Pixels;
+                    FIntVector2D ImageExtent = Import::Textures::ImportTexture(Pixels, ResourceDirectory, false);
+                
+                    const uint32 width = ImageExtent.X;
+                    const uint32 height = ImageExtent.Y;
+                    const SIZE_T rowPitch = width * 4;  // 4 bytes per pixel (RGBA8)
+                    const SIZE_T depthPitch = rowPitch * height;
+                
+                    CommandList->WriteImage(CubeMap, i, 0, Pixels.data(), rowPitch, depthPitch);
+                }
+
+                CommandList->SetPermanentImageState(CubeMap, EResourceStates::ShaderResource);
+                CommandList->CommitBarriers();
+            
+                CommandList->Close();
+                GRenderContext->ExecuteCommandList(CommandList, ECommandQueue::Transfer);
+            }
+
+            //==================================================================================================
+
+            {
+                FRHIImageDesc DepthMapDesc;
+                DepthMapDesc.Extent = Extent;
+                DepthMapDesc.Flags.SetMultipleFlags(EImageCreateFlags::DepthAttachment, EImageCreateFlags::ShaderResource);
+                DepthMapDesc.Format = EFormat::D32;
+                DepthMapDesc.InitialState = EResourceStates::DepthWrite;
+                DepthMapDesc.bKeepInitialState = true;
+                DepthMapDesc.Dimension = EImageDimension::Texture2D;
+                DepthMapDesc.DebugName = "Depth Map";
+
+                DepthMap = GRenderContext->CreateImage(DepthMapDesc);
+                GRenderContext->SetObjectName(DepthMap, "Depth Map", EAPIResourceType::Image);
+            }
+
+            //==================================================================================================
+            
+            {
+                FRHIImageDesc CubeMapDesc;
+                CubeMapDesc.Extent = {1024, 1024};
+                CubeMapDesc.Flags.SetFlag(EImageCreateFlags::CubeCompatible);
+                CubeMapDesc.Flags.SetFlag(EImageCreateFlags::ShaderResource);
+                CubeMapDesc.Format = EFormat::RGBA8_UNORM;
+                CubeMapDesc.bKeepInitialState = true;
+                CubeMapDesc.InitialState = EResourceStates::ShaderResource;
+                CubeMapDesc.Dimension = EImageDimension::Texture2D;
+                CubeMapDesc.ArraySize = 6;
+                CubeMapDesc.DebugName = "Shadow Cubemap";
+
+                ShadowCubeMap = GRenderContext->CreateImage(CubeMapDesc);
+                GRenderContext->SetObjectName(ShadowCubeMap, CubeMapDesc.DebugName.c_str(), EAPIResourceType::Image);
+            }
+            
         }
         
     }
-    
-}

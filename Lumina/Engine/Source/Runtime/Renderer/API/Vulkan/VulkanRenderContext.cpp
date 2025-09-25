@@ -183,8 +183,8 @@ namespace Lumina
         }
         else
         {
-            Buf = CommandBufferPool.front();
-            CommandBufferPool.pop();
+            Buf = CommandBufferPool.back();
+            CommandBufferPool.pop_back();
         }
 
         Buf->RecordingID = RecodingID;
@@ -206,7 +206,7 @@ namespace Lumina
             {
                 Submission->ClearReferencedResources();
                 Submission->SubmissionID = 0;
-                CommandBufferPool.push(Submission);
+                CommandBufferPool.push_back(Submission);
             }
             else
             {
@@ -332,10 +332,13 @@ namespace Lumina
         WaitInfo.pSemaphores = &TimelineSemaphore;
         WaitInfo.pValues = &CommandListID;
 
-        VkResult Result = vkWaitSemaphores(Device->GetDevice(), &WaitInfo, Timeout);
-        VK_CHECK(Result);
-        
-        return (Result == VK_SUCCESS);
+        {
+            LUMINA_PROFILE_SECTION("vkWaitSemaphores");
+
+            VkResult Result = vkWaitSemaphores(Device->GetDevice(), &WaitInfo, Timeout);
+            VK_CHECK(Result);
+            return (Result == VK_SUCCESS);
+        }
     }
 
     void FQueue::AddSignalSemaphore(VkSemaphore Semaphore, uint64 Value)

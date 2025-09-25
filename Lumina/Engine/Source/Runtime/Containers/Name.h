@@ -122,10 +122,6 @@ namespace Lumina
         FName(const char* Str)
         {
             ID = GNameTable->GetOrCreateID(Str);
-            
-            #if _DEBUG
-            StringView = Str;
-            #endif
         }
         
         FName(const TCHAR* Str) : FName(WIDE_TO_UTF8(Str)) {}
@@ -135,9 +131,6 @@ namespace Lumina
         explicit FName(uint64 InID)
             : ID(InID) 
         {
-            #if _DEBUG
-            StringView = GNameTable->GetString(ID);
-            #endif
         }
 
         bool IsNone() const { return ID == 0; }
@@ -178,9 +171,6 @@ namespace Lumina
         }
 
     private:
-        #if _DEBUG
-        FInlineString StringView = "NAME_None";
-        #endif
         uint64 ID = 0;
     };
     

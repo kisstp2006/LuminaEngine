@@ -1,6 +1,6 @@
 ﻿// File: 'Lexend-Regular.ttf' (77836 bytes)
 // Exported using binary_to_compressed_c.cpp
-static const char g_lexendRegular_compressed_data_base85[64115 + 1] =
+static constexpr char g_lexendRegular_compressed_data_base85[64115 + 1] =
 "7])#######a_tq&'/###I),##aq0hLr*pA$Y69t8kF9lD=C*##ev)##=(,h<6HHWUJo(##<P+##WK/e=q-8<G8]A>#**+##v1#f=g'<$^>q&##^Yr?9W2^+>r6/aRotE>#lTcw'J3@0F"
 "/tDm*SJm--vN*##`@s<BKW8R*5k1_A4V2F%'%HkEc>.KlU:$RE_G###K)>UCi'`l'^A)##mt%'.D'TqL7_Y,MW^vE7E$p925x$KDVNbSi=+I'#0K'&#$IfeEoks/b%GT/#U?c*#3hE6F"
 "qMu+$/Zm&MRcbjLMNK?-qmnUCTs)cIt=UYrV>k(j@C=GHWnWjGSfP)g+prRo1)Q-GN6ArM'E^ooTpw;%SoIfLgeH;-BjTP&Z:PV-db,).&_iI3G(^L(KALZ-_fMB#2TC_&bUTC4sl]>."

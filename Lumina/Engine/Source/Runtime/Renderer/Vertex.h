@@ -49,12 +49,14 @@ namespace Lumina
         glm::vec4   Position;
         glm::vec4      Color;
     };
-    
+
+    static_assert(offsetof(FVertex, Position) == 0, "Required FVertex::Position to be the first member.");
+    static_assert(std::is_trivially_copyable_v<FVertex>, "FVertex must be trivially copyable.");
     
     template<>
-    struct TCanBulkSerialize<FVertex> { enum { Value = true }; };
+    struct TCanBulkSerialize<FVertex> { static constexpr bool Value = true; };
 
     template<>
-    struct TCanBulkSerialize<FSimpleElementVertex> { enum { Value = true }; };
+    struct TCanBulkSerialize<FSimpleElementVertex> { static constexpr bool Value = true; };
     
 }

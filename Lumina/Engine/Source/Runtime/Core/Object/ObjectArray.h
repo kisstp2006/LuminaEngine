@@ -69,8 +69,6 @@ namespace Lumina
     
         FObjectHandle Allocate(CObjectBase* NewObj)
         {
-            LUMINA_PROFILE_SCOPE();
-
             FScopeLock Lock(Mutex);
     
             uint32 Index;
@@ -105,14 +103,14 @@ namespace Lumina
     
         void Deallocate(FObjectHandle Handle)
         {
-            LUMINA_PROFILE_SCOPE();
-            
             FScopeLock Lock(Mutex);
             const uint32 index = Handle.Index;
     
             if (!IsIndexPublished(index))
+            {
                 return;
-    
+            }
+
             Objects[index].Object.store(nullptr, std::memory_order_release);
             Objects[index].Generation.fetch_add(1u, std::memory_order_acq_rel);
     
@@ -122,8 +120,6 @@ namespace Lumina
     
         void Deallocate(uint32 Index)
         {
-            LUMINA_PROFILE_SCOPE();
-
             FScopeLock Lock(Mutex);
     
             if (!IsIndexPublished(Index))
@@ -140,8 +136,6 @@ namespace Lumina
         
         LUMINA_API CObjectBase* Resolve(FObjectHandle Handle) const
         {
-            LUMINA_PROFILE_SCOPE();
-
             // Fast reject if the slot isn’t published yet.
             if (!IsIndexPublished(Handle.Index))
             {
@@ -176,8 +170,6 @@ namespace Lumina
         
         LUMINA_API CObjectBase* Resolve(const CObjectBase* Object) const
         {
-            LUMINA_PROFILE_SCOPE();
-
             const uint32 index = Object ? Object->InternalIndex : UINT32_MAX;
             if (!IsIndexPublished(index))
             {
@@ -191,11 +183,12 @@ namespace Lumina
     
         LUMINA_API FObjectHandle ToHandle(const CObjectBase* Object) const
         {
-            LUMINA_PROFILE_SCOPE();
 
             if (Object == nullptr)
+            {
                 return FObjectHandle();
-    
+            }
+
             const uint32 index = Object->InternalIndex;
             if (!IsIndexPublished(index))
             {
@@ -218,6 +211,7 @@ namespace Lumina
         }
     
     public:
+        
         // Fixed-capacity table. Pre-sizing (optional) removes even the HighWatermark dance:
         // e.g., Objects.resize(kMaxCapacity); then HighWatermark = kMaxCapacity.
         TFixedVector<FEntry, 2024> Objects;

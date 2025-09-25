@@ -5,7 +5,7 @@ namespace Lumina
 
     void CEdNodeGraphPin::RemoveConnection(CEdNodeGraphPin* Pin)
     {
-        VectorRemove(Connections, Pin);
+        TVectorRemove(Connections, Pin);
     }
 
     void CEdNodeGraphPin::DisconnectFrom(CEdNodeGraphPin* OtherPin)

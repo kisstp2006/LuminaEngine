@@ -34,6 +34,12 @@ namespace Lumina
 
     }
 
+    FCommandListResourceStateTracker::FCommandListResourceStateTracker()
+        : LinearAllocator(1024 * 1024)
+    {
+        
+    }
+
     void FCommandListResourceStateTracker::SetEnableUavBarriersForTexture(FTextureStateExtension* Texture, bool bEnableBarriers)
     {
         FTextureState* tracking = GetTextureStateTracking(Texture, true);
@@ -383,6 +389,7 @@ namespace Lumina
 
         TextureStates.clear(); 
         BufferStates.clear();
+        LinearAllocator.Reset();
     }
 
     FTextureState* FCommandListResourceStateTracker::GetTextureStateTracking(FTextureStateExtension* Texture, bool bAllowCreate)
@@ -391,7 +398,7 @@ namespace Lumina
 
         if (it != TextureStates.end())
         {
-            return it->second.get();
+            return it->second;
         }
 
         if (!bAllowCreate)
@@ -399,18 +406,16 @@ namespace Lumina
             return nullptr;
         }
 
-        
-        TSharedPtr<FTextureState> TrackingRef = MakeSharedPtr<FTextureState>();
-        FTextureState* TrackingPtr = TrackingRef.get();
-        TextureStates.emplace(Texture, std::move(TrackingRef));
-        
+
+        FTextureState* TrackingRef = LinearAllocator.TAlloc<FTextureState>();
+        TextureStates.emplace(Texture, TrackingRef);
         
         if (Texture->DescRef.bKeepInitialState)
         {
-            TrackingPtr->State = Texture->stateInitialized ? Texture->DescRef.InitialState : EResourceStates::Common;
+            TrackingRef->State = Texture->stateInitialized ? Texture->DescRef.InitialState : EResourceStates::Common;
         }
 
-        return TrackingPtr;
+        return TrackingRef;
     }
 
     FBufferState* FCommandListResourceStateTracker::GetBufferStateTracking(FBufferStateExtension* Buffer, bool bAllowCreate)
@@ -419,7 +424,7 @@ namespace Lumina
 
         if (it != BufferStates.end())
         {
-            return it->second.get();
+            return it->second;
         }
 
         if (!bAllowCreate)
@@ -427,15 +432,14 @@ namespace Lumina
             return nullptr;
         }
 
-        TSharedPtr<FBufferState> TrackingRef = MakeSharedPtr<FBufferState>();
-        FBufferState* TrackingPtr = TrackingRef.get();
-        BufferStates.emplace(Buffer, std::move(TrackingRef));
+        FBufferState* TrackingRef = LinearAllocator.TAlloc<FBufferState>();
+        BufferStates.emplace(Buffer, TrackingRef);
         
         if (Buffer->DescRef.bKeepInitialState)
         {
-            TrackingPtr->state = Buffer->DescRef.InitialState;
+            TrackingRef->state = Buffer->DescRef.InitialState;
         }
 
-        return TrackingPtr;
+        return TrackingRef;
     }
 }

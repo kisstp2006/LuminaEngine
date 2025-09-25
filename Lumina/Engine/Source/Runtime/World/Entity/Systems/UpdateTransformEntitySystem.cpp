@@ -24,33 +24,63 @@ namespace Lumina
     {
         LUMINA_PROFILE_SCOPE();
 
-        auto View = SystemContext.CreateView<STransformComponent>();
-        auto RelationshipView = SystemContext.CreateView<SCameraComponent, SRelationshipComponent>();
+        auto Group = SystemContext.CreateGroup<FNeedsTransformUpdate>(entt::get<STransformComponent>);
         
-        Task::ParallelFor((uint32)View.size(), [&](uint32 Index)
+        auto WorkCallable = [&](uint32 Index)
         {
-            entt::entity entity = View->data()[Index];
-            auto& transform = View.get<STransformComponent>(entity);
-            
-            if (RelationshipView.contains(entity))
+            TFunction<void(entt::entity)> UpdateTransformRecursive;
+            UpdateTransformRecursive = [&](entt::entity entity)
             {
-                auto& relationship = RelationshipView.get<SRelationshipComponent>(entity);
-            
-                if (relationship.Parent.IsValid())
+                auto& TransformComponent = Group.get<STransformComponent>(entity);
+
+                if (SystemContext.Has<true, SRelationshipComponent>(entity))
                 {
-                    transform.WorldTransform = relationship.Parent.GetComponent<STransformComponent>().WorldTransform * transform.Transform;
+                    auto& RelationshipComponent = SystemContext.Get<SRelationshipComponent>(entity);
+
+                    if (RelationshipComponent.Parent.IsValid())
+                    {
+                        TransformComponent.WorldTransform = RelationshipComponent.Parent.GetComponent<STransformComponent>().WorldTransform * TransformComponent.Transform;
+                    }
+                    else
+                    {
+                        TransformComponent.WorldTransform = TransformComponent.Transform;
+                    }
+                    
+                    for (uint8 i = 0; i < RelationshipComponent.NumChildren; ++i)
+                    {
+                        Entity ChildEntity = RelationshipComponent.Children[i];
+                
+                        UpdateTransformRecursive(ChildEntity.GetHandle());
+                    }
                 }
                 else
                 {
-                    transform.WorldTransform = transform.Transform;
+                    TransformComponent.WorldTransform = TransformComponent.Transform;
                 }
-            }
-            else
-            {
-                transform.WorldTransform = transform.Transform;
-            }
+
+                
+                TransformComponent.CachedMatrix = TransformComponent.WorldTransform.GetMatrix();  
+            };
+
             
-            transform.CachedMatrix = transform.WorldTransform.GetMatrix();
-        });
+            entt::entity entity = Group[Index];
+            UpdateTransformRecursive(entity);
+        };
+
+        
+        // Only schedule tasks if there is a significant amount of transform updates required.
+        if (Group.size() > 100)
+        {
+            Task::ParallelFor((uint32)Group.size(), WorkCallable);
+        }
+        else
+        {
+            for (uint32 i = 0; i < (uint32)Group.size(); ++i)
+            {
+                WorkCallable(i);
+            }
+        }
+        
+        SystemContext.Clear<FNeedsTransformUpdate>();
     }
 }

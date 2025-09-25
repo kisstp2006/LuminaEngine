@@ -26,7 +26,8 @@ namespace Lumina
         // Initialize core engine state.
         //-------------------------------------------------------------------------
         LUMINA_PROFILE_SCOPE();
-        
+
+        GFrameIndex = 0;
         GEngine = this;
         Application = App;
 
@@ -98,7 +99,6 @@ namespace Lumina
         
         if (!Windowing::GetPrimaryWindowHandle()->IsMinimized())
         {
-
             // Frame Start
             //-------------------------------------------------------------------
             {
@@ -193,7 +193,7 @@ namespace Lumina
                 
             }
         }
-        
+
         GarbageCollection::CollectGarbage();
         UpdateContext.MarkFrameEnd(glfwGetTime());
         

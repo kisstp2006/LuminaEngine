@@ -55,16 +55,7 @@ namespace Lumina
 
     void FTreeListView::ClearTree()
     {
-        for (auto* Item : ListItems)
-        {
-            for (auto* Child : Item->Children)
-            {
-                Memory::Delete(Child);
-            }
-            
-            Memory::Delete(Item);
-        }
-        
+        Allocator.Reset();
         ListItems.clear();
     }
 

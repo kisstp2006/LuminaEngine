@@ -2,7 +2,6 @@
 
 #include <fastgltf/types.hpp>
 
-#include "World/SceneRenderer.h"
 #include "Core/Profiler/Profile.h"
 #include "Renderer/RHIIncl.h"
 

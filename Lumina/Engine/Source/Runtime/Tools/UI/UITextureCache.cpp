@@ -1,6 +1,7 @@
 ﻿#include "UITextureCache.h"
 
 #include "Core/Engine/Engine.h"
+#include "EASTL/sort.h"
 #include "ImGui/ImGuiRenderer.h"
 #include "Paths/Paths.h"
 #include "Renderer/RenderManager.h"
@@ -50,13 +51,49 @@ namespace Lumina
     FRHIImageRef FUITextureCache::GetImage(const FName& Path)
     {
         FEntry* Entry = GetOrCreateGroup(Path);
+        Entry->LastUseFrame = GEngine->GetUpdateContext().GetFrame();
         return Entry ? Entry->RHIImage : nullptr;
     }
 
     ImTextureRef FUITextureCache::GetImTexture(const FName& Path)
     {
         FEntry* Entry = GetOrCreateGroup(Path);
+        Entry->LastUseFrame = GEngine->GetUpdateContext().GetFrame();
         return Entry ? Entry->ImTexture : ImTextureRef();
+    }
+
+    void FUITextureCache::StartFrame()
+    {
+        SquareWhiteTexture.second->LastUseFrame = GEngine->GetUpdateContext().GetFrame();
+    }
+
+    void FUITextureCache::EndFrame()
+    {
+        uint64 CurrentFrame = GEngine->GetUpdateContext().GetFrame();
+
+        FMutex RemoveMutex;
+        TVector<uint32> ToRemove;
+        ToRemove.reserve(Entries.size());
+
+        Task::ParallelFor((uint32)Entries.size(), [&](uint32 Index)
+        {
+            FEntry* Entry = Entries[Index];
+            uint64 LastUse = Entry->LastUseFrame.load(std::memory_order_relaxed);
+
+            if (CurrentFrame - LastUse >= 3)
+            {
+                FScopeLock Lock(RemoveMutex);
+                ToRemove.push_back(Index);
+            }
+        });
+        
+        eastl::sort(ToRemove.rbegin(), ToRemove.rend());
+
+        for (uint32 idx : ToRemove)
+        {
+            Memory::Delete(Entries[idx]);
+            Entries.erase(Entries.begin() + idx);
+        }
     }
 
     bool FUITextureCache::HasImagesPendingLoad() const
@@ -93,11 +130,10 @@ namespace Lumina
 
         auto [InsertedIter, Inserted] = Images.try_emplace(PathName, NewEntry);
         FEntry* Entry = InsertedIter->second;
+        Entries.push_back(NewEntry);
 
         if (!Inserted) // Another thread inserted it first
         {
-            Memory::Delete(NewEntry);
-            
             if (Entry->State.load(std::memory_order_acquire) == ETextureState::Ready)
             {
                 return Entry;
@@ -107,7 +143,6 @@ namespace Lumina
         }
 
         
-
         ETextureState Expected = ETextureState::Empty;
         if (Entry->State.compare_exchange_strong(Expected, ETextureState::Loading, std::memory_order_acq_rel))
         {

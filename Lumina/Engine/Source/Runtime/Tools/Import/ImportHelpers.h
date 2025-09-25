@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include <meshoptimizer.h>
 #include "Containers/Array.h"
 #include "Containers/String.h"
 #include "Core/Math/Math.h"
@@ -40,6 +41,7 @@ namespace Lumina::Import
 
         struct FGLTFImportOptions
         {
+            bool bOptimize = true;               // Weather to run a mesh optimization pass.
             bool bImportMaterials = true;        // Whether to import materials defined in the GLTF file
             bool bImportTextures = true;         // Whether to import textures found in the GLTF file.
             bool bImportAnimations = true;       // Whether to import animations
@@ -52,9 +54,13 @@ namespace Lumina::Import
         
         struct FGLTFImportData
         {
-            TVector<FMeshResource> Resources;
-            THashMap<SIZE_T, TVector<FGLTFMaterial>> Materials;
-            TVector<FGLTFImage> Textures;
+            TVector<FMeshResource>                      Resources;
+            TVector<meshopt_OverdrawStatistics>         OverdrawStatics;
+            TVector<meshopt_VertexFetchStatistics>      VertexFetchStatics;
+            
+            THashMap<SIZE_T, TVector<FGLTFMaterial>>    Materials;
+            TVector<FGLTFImage>                         Textures;
+            
         };
         LUMINA_API void ImportGLTF(FGLTFImportData& OutData, const FGLTFImportOptions& ImportOptions, const FString& RawFilePath);
     }

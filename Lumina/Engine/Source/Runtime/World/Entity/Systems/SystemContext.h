@@ -9,7 +9,10 @@ namespace Lumina
 
 namespace Lumina
 {
-    /** Encapsulates the data a world system can execute */
+    /** Encapsulates the data a world system can execute, this may seem redundant, but it's more-so to control
+     * what systems can access.
+     * 
+     */
     struct FSystemContext
     {
         friend class CWorld;
@@ -26,8 +29,31 @@ namespace Lumina
             return EntityWorld->CreateView<Ts...>(std::forward<TArgs>(Args)...);
         }
 
-        
+        template<typename... Ts, typename ... TArgs>
+        auto CreateGroup(TArgs&&... Args)
+        {
+            return EntityWorld->CreateGroup<Ts...>(std::forward<TArgs>(Args)...);
+        }
 
+        template<typename... Ts>
+        decltype(auto) Get(entt::entity entity)
+        {
+            return EntityWorld->Get<Ts...>(entity);
+        }
+        
+        template<typename... Ts>
+        void Clear() const
+        {
+            EntityWorld->Clear<Ts...>();
+        }
+
+        template<bool bAnyOf, typename... Ts>
+        bool Has(entt::entity entity) const
+        {
+            return EntityWorld->Has<bAnyOf, Ts...>(entity);
+        }
+
+        
     private:
         
         double DeltaTime = 0.0f;

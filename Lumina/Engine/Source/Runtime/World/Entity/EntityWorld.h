@@ -22,6 +22,12 @@ namespace Lumina
             return Registry.view<Ts...>(std::forward<TArgs>(Args)...);
         }
 
+        template<typename... Ts, typename... TArgs>
+        auto CreateGroup(TArgs&&... Args)
+        {
+            return Registry.group<Ts...>(std::forward<TArgs>(Args)...);
+        }
+
         template<typename T, typename ... TArgs>
         T& Emplace(TArgs&& ... Args)
         {
@@ -33,6 +39,39 @@ namespace Lumina
         {
             Registry.erase<T>(Entt);
         }
+
+        template<typename... Ts>
+        void Clear()
+        {
+            Registry.clear<Ts...>();
+        }
+
+        template<typename... Ts>
+        auto TryGet(entt::entity entity)
+        {
+            return Registry.try_get<Ts...>(entity);
+        }
+
+        template<typename... Ts>
+        decltype(auto) Get(entt::entity entity)
+        {
+            return Registry.get<Ts...>(entity);
+        }
+
+        template<bool bAnyOf, typename... Ts>
+        bool Has(entt::entity entity) const
+        {
+            if constexpr (bAnyOf)
+            {
+                return Registry.any_of<Ts...>(entity);
+            }
+            else
+            {
+                return Registry.all_of<Ts...>(entity);
+            }
+        }
+    
+        
     
     private:
 

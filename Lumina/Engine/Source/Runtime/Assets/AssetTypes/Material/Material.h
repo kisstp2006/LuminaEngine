@@ -72,6 +72,7 @@ namespace Lumina
         FRHIBindingLayoutRef                    BindingLayout;
         FRHIBindingSetRef                       BindingSet;
 
+        uint8                                   bIsReadyForRender:1=0;
     };
     
 }

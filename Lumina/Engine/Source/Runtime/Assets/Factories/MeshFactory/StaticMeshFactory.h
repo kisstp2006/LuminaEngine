@@ -1,5 +1,6 @@
 #pragma once
 
+#include "meshoptimizer.h"
 #include "Assets/Factories/Factory.h"
 #include "Assets/AssetTypes/Mesh/StaticMesh/StaticMesh.h"
 #include "Tools/Import/ImportHelpers.h"
@@ -24,7 +25,8 @@ namespace Lumina
 
     private:
 
+        Import::Mesh::GLTF::FGLTFImportData ImportedData;
         Import::Mesh::GLTF::FGLTFImportOptions Options;
-
+        bool bShouldReimport = true;
     };
 }

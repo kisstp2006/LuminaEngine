@@ -1,8 +1,7 @@
 ﻿#include "ThumbnailManager.h"
-#include "Renderer/RHIIncl.h"
 #include "Assets/AssetTypes/Mesh/StaticMesh/StaticMesh.h"
-#include "Core/Object/Package/Thumbnail/ThumbnailGenerator.h"
-#include "World/ScenePrimitives.h"
+#include "Renderer/RHIIncl.h"
+#include "World/Scene/RenderScene/SceneMeshes.h"
 
 
 namespace Lumina
@@ -17,18 +16,14 @@ namespace Lumina
     void CThumbnailManager::Initialize()
     {
         CubeMesh = NewObject<CStaticMesh>();
-
-        TVector<FVertex> Vertices;
-        TVector<uint32> Indices;
-        Primitives::GenerateCube(Vertices, Indices);
         
         FMeshResource Resource;
-        Resource.Vertices = Vertices;
-        Resource.Indices = Indices;
+        GenerateCube(Resource.Vertices, Resource.Indices);
+        
         
         FGeometrySurface Surface;
         Surface.ID = "Mesh";
-        Surface.IndexCount = Indices.size();
+        Surface.IndexCount = Resource.Indices.size();
         Surface.StartIndex = 0;
         Surface.MaterialIndex = 0;
         Resource.GeometrySurfaces.push_back(Surface);

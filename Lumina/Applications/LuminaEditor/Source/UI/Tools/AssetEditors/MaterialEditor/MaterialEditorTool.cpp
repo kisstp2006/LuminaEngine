@@ -249,6 +249,8 @@ namespace Lumina
             Material->BindingSet = GRenderContext->CreateBindingSet(SetDesc, Material->BindingLayout);
             GRenderContext->SetObjectName(Material->BindingSet, Material->GetName().c_str(), EAPIResourceType::DescriptorSet);
 
+            Material->bIsReadyForRender = true;
+            
             OnSave();
         }
     }

@@ -1,10 +1,10 @@
 ﻿#pragma once
 #include "imgui.h"
 #include "Containers/Array.h"
-#include "Containers/Name.h"
 #include "Containers/Function.h"
-#include "Core/Templates/Forward.h"
+#include "Containers/Name.h"
 #include "Memory/Memory.h"
+#include "Memory/Allocators/Allocator.h"
 
 namespace Lumina
 {
@@ -83,17 +83,14 @@ namespace Lumina
 
         void MarkTreeDirty() { bDirty = true; }
 
-        bool IsCurrentlyDrawing() const { return bCurrentlyDrawing; }
-        bool IsDirty() const { return bDirty; }
+        FORCEINLINE bool IsCurrentlyDrawing() const { return bCurrentlyDrawing; }
+        FORCEINLINE bool IsDirty() const { return bDirty; }
         
         template<typename T, typename... Args>
         requires (std::is_base_of_v<FTileViewItem, T> && std::is_constructible_v<T, Args...>)
-        void AddItemToTree(Args&&... args)
+        FORCEINLINE void AddItemToTree(Args&&... args)
         {
-            static_assert(std::is_base_of_v<FTileViewItem, T>, "T must inherit from FTreeListView");
-            static_assert(std::is_constructible_v<T, Args...>, "T is not constructible using Args");
-
-            T* New = Memory::New<T>(std::forward<Args>(args)...);
+            T* New = Allocator.TAlloc<T>(std::forward<Args>(args)...);
             ListItems.push_back(New);
         }
 
@@ -110,6 +107,8 @@ namespace Lumina
     
 
     private:
+
+        FBlockLinearAllocator                   Allocator;
 
         TVector<FTileViewItem*>                 Selections;
 

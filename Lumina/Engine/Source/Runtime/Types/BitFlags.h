@@ -116,7 +116,8 @@ namespace Lumina
             m_flags ^= GetFlagMask( flag );
         }
 
-        template<typename T, typename = std::enable_if_t<std::is_enum<T>::value>>
+        template<typename T>
+        requires std::is_enum_v<T>
         FORCEINLINE void FlipFlag( T enumValue )
         {
             FlipFlag( (uint8_t)enumValue );

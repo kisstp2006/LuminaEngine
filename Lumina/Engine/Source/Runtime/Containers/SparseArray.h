@@ -112,7 +112,7 @@ namespace Lumina
             else
             {
                 idx = Data.size();
-                Data.emplace_back_uninit();
+                Data.emplace_back();
                 Occupied.push_back(true);
                 new (&Data[idx]) T(std::forward<Args>(args)...);
             }
@@ -239,13 +239,16 @@ namespace Lumina
             return Data.empty() ? 0.0f : static_cast<float>(FreeList.size()) / Data.size();
         }
     
-        // Defragmentation - compacts the array by moving elements to fill holes
+        // Compacts the array by moving elements to fill holes
         void Defragment()
         {
-            if (FreeList.empty()) return;
-    
+            if (FreeList.empty())
+            {
+                return;
+            }
+
             // Sort free list to process holes in order
-            std::sort(FreeList.begin(), FreeList.end());
+            std::ranges::sort(FreeList);
     
             Index writeIdx = 0;
             Index readIdx = 0;
@@ -324,9 +327,11 @@ namespace Lumina
             Index GetIndex() const { return IndexValue; }
     
         private:
+            
             void SkipHoles()
             {
-                while (IndexValue < Owner->Data.size() && !Owner->Occupied[IndexValue]) {
+                while (IndexValue < Owner->Data.size() && !Owner->Occupied[IndexValue])
+                {
                     ++IndexValue;
                 }
             }
@@ -412,7 +417,7 @@ namespace Lumina
         
         struct alignas(T) FSparseArrayStorage
         {
-            unsigned char Bytes[sizeof(T)];
+            uint8 Bytes[sizeof(T)];
         };
     
         TVector<FSparseArrayStorage> Data;

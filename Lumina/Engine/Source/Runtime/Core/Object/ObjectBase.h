@@ -1,10 +1,9 @@
 ﻿#pragma once
 
+#include "ObjectFlags.h"
 #include "Initializer/ObjectInitializer.h"
 #include "Memory/RefCounted.h"
 #include "Module/API.h"
-#include "ObjectFlags.h"
-#include <utility>
 
 namespace Lumina
 {

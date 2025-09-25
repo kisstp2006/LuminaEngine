@@ -46,7 +46,7 @@ namespace Lumina
             if (World->GetEntityRegistry().all_of<SRelationshipComponent>(GetHandle()))
             {
                 auto& rel = World->GetEntityRegistry().get<SRelationshipComponent>(GetHandle());
-                SIZE_T NumChildren = rel.Size;
+                SIZE_T NumChildren = rel.NumChildren;
                 Ar << NumChildren;
 
                 for (SIZE_T i = 0; i < NumChildren; ++i)
@@ -100,8 +100,8 @@ namespace Lumina
                 {
                     // Create new child entity
                     entt::entity ChildHandle = World->GetEntityRegistry().create();
-                    rel.Children[rel.Size] = Entity(ChildHandle, World);
-                    rel.Size++;
+                    rel.Children[rel.NumChildren] = Entity(ChildHandle, World);
+                    rel.NumChildren++;
     
                     Entity ChildEntity(ChildHandle, World);
                     ChildEntity.Serialize(Ar);

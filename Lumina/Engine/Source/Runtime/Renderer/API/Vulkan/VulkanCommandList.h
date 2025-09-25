@@ -88,7 +88,7 @@ namespace Lumina
         
         void ClearImageColor(FRHIImage* Image, const FColor& Color) override;
 
-        void BindBindingSets(VkPipelineBindPoint BindPoint, VkPipelineLayout PipelineLayout, TVector<FRHIBindingSet*> BindingSets);
+        void BindBindingSets(VkPipelineBindPoint BindPoint, VkPipelineLayout PipelineLayout, TFixedVector<FRHIBindingSet*, 4> BindingSets);
 
         void SetPushConstants(const void* Data, SIZE_T ByteSize) override;
 
@@ -136,6 +136,8 @@ namespace Lumina
         FCommandListInfo                                Info;
         VkShaderStageFlags                              PushConstantVisibility;
         VkPipelineLayout                                CurrentPipelineLayout;
+
+        
     };
     
 }

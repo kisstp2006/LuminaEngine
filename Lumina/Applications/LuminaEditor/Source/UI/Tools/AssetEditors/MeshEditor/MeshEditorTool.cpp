@@ -5,13 +5,13 @@
 #include "Core/Object/Cast.h"
 #include "Core/Reflection/Type/LuminaTypes.h"
 #include "glm/gtc/type_ptr.inl"
-#include "World/SceneRenderer.h"
-#include "World/SceneRenderTypes.h"
+#include "Tools/UI/ImGui/ImGuiFonts.h"
+#include "Tools/UI/ImGui/ImGuiX.h"
 #include "World/Entity/Components/LightComponent.h"
 #include "World/Entity/Components/StaticMeshComponent.h"
 #include "World/Entity/Components/VelocityComponent.h"
-#include "Tools/UI/ImGui/ImGuiFonts.h"
-#include "Tools/UI/ImGui/ImGuiX.h"
+#include "World/Scene/RenderScene/RenderScene.h"
+#include "World/Scene/RenderScene/SceneRenderTypes.h"
 
 
 namespace Lumina
@@ -62,6 +62,7 @@ namespace Lumina
 
                     Row("Vertices", eastl::to_string(Resource.Vertices.size()));
                     Row("Indices", eastl::to_string(Resource.Indices.size()));
+                    Row("Shadow Indices", eastl::to_string(Resource.ShadowIndices.size()));
                     Row("Surfaces", eastl::to_string(Resource.GetNumSurfaces()));
 
                     ImGui::EndTable();

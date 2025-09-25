@@ -84,6 +84,7 @@ namespace Lumina
     	
         ImGui_ImplVulkan_InitInfo InitInfo = {};
     	InitInfo.ApiVersion = VK_API_VERSION_1_3;
+		InitInfo.Allocator = VK_ALLOC_CALLBACK;
         InitInfo.PipelineRenderingCreateInfo = RenderPipeline;
         InitInfo.Instance = VulkanRenderContext->GetVulkanInstance();
         InitInfo.PhysicalDevice = VulkanRenderContext->GetDevice()->GetPhysicalDevice();
@@ -91,7 +92,7 @@ namespace Lumina
         InitInfo.Queue = VulkanRenderContext->GetQueue(ECommandQueue::Graphics)->Queue;
         InitInfo.DescriptorPool = DescriptorPool;
         InitInfo.MinImageCount = 2;
-        InitInfo.ImageCount = 2;
+        InitInfo.ImageCount = 3;
         InitInfo.UseDynamicRendering = true;
         InitInfo.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
 

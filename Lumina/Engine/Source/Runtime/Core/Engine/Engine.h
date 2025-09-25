@@ -62,6 +62,8 @@ namespace Lumina
         {
             return EngineSubsystems.GetSubsystem<T>();
         }
+
+        FORCEINLINE const FUpdateContext& GetUpdateContext() const { return UpdateContext; }
     
     protected:
         
@@ -84,7 +86,7 @@ namespace Lumina
     };
     
     LUMINA_API extern FEngine* GEngine;
-
+    
     template<typename T>
     static T& GetEngineSystem()
     {

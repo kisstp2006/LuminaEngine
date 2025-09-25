@@ -102,9 +102,8 @@ namespace Lumina
         VertexBufferDesc.InitialState = EResourceStates::VertexBuffer;
         VertexBufferDesc.bKeepInitialState = true;
         VertexBufferDesc.DebugName = GetName().ToString() + "Vertex Buffer";
-        MeshResources.VertexBuffer = GRenderContext->CreateBuffer(VertexBufferDesc);
-        GRenderContext->SetObjectName(MeshResources.VertexBuffer, VertexBufferDesc.DebugName.c_str(), EAPIResourceType::Buffer);
-
+        MeshResources.MeshBuffers.VertexBuffer = GRenderContext->CreateBuffer(VertexBufferDesc);
+        GRenderContext->SetObjectName(MeshResources.MeshBuffers.VertexBuffer, VertexBufferDesc.DebugName.c_str(), EAPIResourceType::Buffer);
         
 
         FRHIBufferDesc IndexBufferDesc;
@@ -114,14 +113,38 @@ namespace Lumina
         IndexBufferDesc.InitialState = EResourceStates::IndexBuffer;
         IndexBufferDesc.bKeepInitialState = true;
         IndexBufferDesc.DebugName = GetName().ToString() + "Index Buffer";
-        MeshResources.IndexBuffer = GRenderContext->CreateBuffer(IndexBufferDesc);
-        GRenderContext->SetObjectName(MeshResources.IndexBuffer, IndexBufferDesc.DebugName.c_str(), EAPIResourceType::Buffer);
+        MeshResources.MeshBuffers.IndexBuffer = GRenderContext->CreateBuffer(IndexBufferDesc);
+        GRenderContext->SetObjectName(MeshResources.MeshBuffers.IndexBuffer, IndexBufferDesc.DebugName.c_str(), EAPIResourceType::Buffer);
 
+        if (!MeshResources.ShadowIndices.empty())
+        {
+            FRHIBufferDesc ShadowIndexBufferDesc;
+            ShadowIndexBufferDesc.Size = sizeof(uint32) * MeshResources.ShadowIndices.size();
+            ShadowIndexBufferDesc.Stride = sizeof(uint32);
+            ShadowIndexBufferDesc.Usage.SetMultipleFlags(BUF_IndexBuffer);
+            ShadowIndexBufferDesc.InitialState = EResourceStates::IndexBuffer;
+            ShadowIndexBufferDesc.bKeepInitialState = true;
+            ShadowIndexBufferDesc.DebugName = GetName().ToString() + "Index Buffer";
+            MeshResources.MeshBuffers.ShadowIndexBuffer = GRenderContext->CreateBuffer(ShadowIndexBufferDesc);
+            GRenderContext->SetObjectName(MeshResources.MeshBuffers.ShadowIndexBuffer, ShadowIndexBufferDesc.DebugName.c_str(), EAPIResourceType::Buffer);
+        }
+        else
+        {
+            MeshResources.MeshBuffers.ShadowIndexBuffer = MeshResources.MeshBuffers.IndexBuffer;
+        }
+
+        
         FRHICommandListRef CommandList = GRenderContext->CreateCommandList(FCommandListInfo::Graphics());
 
         CommandList->Open();
-        CommandList->WriteBuffer(MeshResources.VertexBuffer, MeshResources.Vertices.data(), 0, MeshResources.Vertices.size() * sizeof(FVertex));
-        CommandList->WriteBuffer(MeshResources.IndexBuffer, MeshResources.Indices.data(), 0, MeshResources.Indices.size() * sizeof(uint32));
+        CommandList->WriteBuffer(MeshResources.MeshBuffers.VertexBuffer, MeshResources.Vertices.data(), 0, MeshResources.Vertices.size() * sizeof(FVertex));
+        CommandList->WriteBuffer(MeshResources.MeshBuffers.IndexBuffer, MeshResources.Indices.data(), 0, MeshResources.Indices.size() * sizeof(uint32));
+        
+        if (!MeshResources.ShadowIndices.empty())
+        {
+            CommandList->WriteBuffer(MeshResources.MeshBuffers.ShadowIndexBuffer, MeshResources.ShadowIndices.data(), 0, MeshResources.ShadowIndices.size() * sizeof(uint32));
+        }
+        
         CommandList->Close();
         
         GRenderContext->ExecuteCommandList(CommandList, ECommandQueue::Graphics);

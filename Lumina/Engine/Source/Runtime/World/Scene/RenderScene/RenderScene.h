@@ -1,19 +1,20 @@
 #pragma once
 
+#include "MeshDrawCommand.h"
 #include "SceneRenderTypes.h"
 #include "Containers/SparseArray.h"
 #include "Renderer/RenderResource.h"
 #include "Renderer/RenderTypes.h"
+#include "Memory/Allocators/Allocator.h"
+#include "world/entity/components/staticmeshcomponent.h"
 #include "World/Scene/SceneInterface.h"
 
 
 namespace Lumina
 {
-    struct FStaticMeshPrimitive;
-}
-
-namespace Lumina
-{
+    struct FMeshBatch;
+    struct FScenePrimitive;
+    struct FStaticMeshScenePrimitive;
     class FRenderGraph;
     class CWorld;
     class FUpdateContext;
@@ -24,13 +25,18 @@ namespace Lumina
     class FRenderer;
 }
 
+
 namespace Lumina
 {
-    template<typename T> using TRenderVector = TFixedVector<T, 2024>;
+    
+    template<typename T>
+    using TRenderVector = TFixedVector<T, 1000>;
     
     class FRenderScene : public ISceneInterface
     {
     public:
+
+        friend struct FMeshBatch;
         
         FRenderScene(CWorld* InWorld);
         virtual ~FRenderScene();
@@ -48,8 +54,6 @@ namespace Lumina
         
         ESceneRenderGBuffer GetGBufferDebugMode() const { return GBufferDebugMode; }
         void SetGBufferDebugMode(ESceneRenderGBuffer Mode) { GBufferDebugMode = Mode; }
-
-        void AddStaticMeshPrimitive(FStaticMeshPrimitive* Primitive);
         
     protected:
         
@@ -83,8 +87,8 @@ namespace Lumina
 
         FRHIViewportRef                     SceneViewport;
 
-        TRenderVector<FSimpleElementVertex>  SimpleVertices;
-        FRHIBindingLayoutRef                SimplePassLayout;
+        TRenderVector<FSimpleElementVertex>     SimpleVertices;
+        FRHIBindingLayoutRef                    SimplePassLayout;
 
         
         FRHIBufferRef                       SimpleVertexBuffer;
@@ -127,21 +131,45 @@ namespace Lumina
         FRHIImageRef                        SSAOImage;
         FRHIImageRef                        SSAOBlur;
         
-        
-        
         ESceneRenderGBuffer                           GBufferDebugMode = ESceneRenderGBuffer::RenderTarget;
+        
 
+        struct FStaticMeshRender
+        {
+            CMaterialInterface* Material;
+            CStaticMesh* StaticMesh;
+            uint64 SortKey;
+            uint32 FirstIndex;
+            uint32 TransformIdx;
+            uint16 SurfaceIndexCount;
+
+            auto operator <=> (const FStaticMeshRender& Other) const
+            {
+                return SortKey <=> Other.SortKey;
+            }
+        };
+
+        struct FThreadLocalCollectionData
+        {
+            TRenderVector<glm::mat4> LocalTransforms;
+            TRenderVector<FStaticMeshRender> LocalStaticMeshRenders;
+        };
+
+        TRenderVector<FStaticMeshRender> StaticMeshRenders;
+        TFixedHashMap<uint64, FThreadLocalCollectionData, 36> ThreadResults;
+
+        
         /** Packed array of per-instance data */
         TRenderVector<FInstanceData>                  InstanceData;
 
-        
+        /** Packed array of all cached mesh draw commands */
+        TRenderVector<FMeshDrawCommand>               MeshDrawCommands;
+        TRenderVector<FMeshDrawCommand>               DepthMeshDrawCommands;
 
-        
-        TRenderVector<FStaticMeshRender>              StaticMeshRenders;
-        TRenderVector<FIndirectRenderBatch>           RenderBatches;
+
+        /** Packed indirect draw arguments, gets sent directly to the GPU */
         TRenderVector<FDrawIndexedIndirectArguments>  IndirectDrawArguments;
 
-        TVector<FMeshBatch>                           MeshBatches;
     };
     
 }

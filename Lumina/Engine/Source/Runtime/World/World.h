@@ -114,7 +114,7 @@ namespace Lumina
         FLineBatcherComponent*                          LineBatcherComponent = nullptr;
 
         FCameraManager*                                 CameraManager = nullptr;
-        FRenderScene*                                 SceneRenderer = nullptr;
+        FRenderScene*                                   SceneRenderer = nullptr;
         
         TVector<TObjectHandle<CEntitySystem>>           SystemUpdateList[(int32)EUpdateStage::Max];
 

@@ -2,10 +2,10 @@
 
 #include "ConstructObjectParams.h"
 #include "Lumina.h"
-#include "Module/API.h"
 #include "ObjectFlags.h"
 #include "Containers/Array.h"
 #include "Core/LuminaMacros.h"
+#include "Module/API.h"
 #include "Platform/GenericPlatform.h"
 
 
@@ -35,6 +35,7 @@ namespace Lumina
     LUMINA_API FName MakeFullyQualifiedObjectName(const CPackage* Package, const FName& ObjectName);
     LUMINA_API void ResolveObjectName(FName& Name);
 
+    LUMINA_API bool IsValid(const CObjectBase* Obj);
     LUMINA_API bool IsValid(CObjectBase* Obj);
 
     template<typename T>

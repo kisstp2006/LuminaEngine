@@ -1,6 +1,6 @@
 ﻿// File: 'materialdesignicons-webfont.ttf' (1279992 bytes)
 // Exported using binary_to_compressed_c.cpp
-static const char MD_compressed_data_base85[1063205+1] =
+static constexpr char MD_compressed_data_base85[1063205+1] =
     "7])#######bNMns'/###[),##.f1$#Q6>##CExF>6pY(/I->>#q?'o/I[n42_,0K@S*m<-IP4U%sVA0FVUv6NF''##<sC>#SsJkEL_@bbjc[Y#3Qmi'r3?UCm$7'.=?Yw0TIr-$f'TqL"
     "vHKYcQuD_&02q-$E3n0Frb*c1s&0R<8*+##16#iFT_<&VPYB>#+iZw'4tY=B&cD`XK3i--Ccw<(=4^=B+G7+HHUNJ(,Vp_##&S+HF]n$0Q+U-M+UL;$4v=[2P3O%b%/5##vi]=u*8>>#"
     "&JTV-E,RX(hJX31pA3SAeI1=#k6VuPZUjY.>Lc>#Om@u-].=GMM%g+M..a%Gw1j+M.tJfLZ4$##)D>8.#&5>#uCbA#?vb:&<:gr6Z<TT9'KMM')>MMFA@;;$B=Xh#vZ/I$64CB#m<v<B"

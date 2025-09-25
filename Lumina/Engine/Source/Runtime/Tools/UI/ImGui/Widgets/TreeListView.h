@@ -4,6 +4,7 @@
 #include "Containers/Name.h"
 #include "Containers/Function.h"
 #include "Memory/Memory.h"
+#include "Memory/Allocators/Allocator.h"
 
 namespace Lumina
 {
@@ -12,6 +13,7 @@ namespace Lumina
     {
 
         friend class FTreeListView;
+        
     public:
         
         virtual ~FTreeListViewItem() = default;
@@ -48,7 +50,8 @@ namespace Lumina
         requires (std::is_base_of_v<FTreeListViewItem, T> && std::is_constructible_v<T, Args...>)
         T* AddChild(Args&&... args)
         {
-            T* New = Memory::New<T>(std::forward<Args>(args)...);
+            T* New = Allocator->TAlloc<T>(std::forward<Args>(args)...);
+            New->Allocator = Allocator;
             Children.push_back(New);
 
             return New;
@@ -62,13 +65,14 @@ namespace Lumina
 
 
     protected:
-        
-        FTreeListViewItem*          Parent = nullptr;
-        TVector<FTreeListViewItem*> Children;
 
-        uint8                       bExpanded:1;
-        uint8                       bVisible:1;
-        uint8                       bSelected:1;
+        FBlockLinearAllocator*                  Allocator = nullptr;
+        FTreeListViewItem*                      Parent = nullptr;
+        TFixedVector<FTreeListViewItem*, 4>     Children;
+
+        uint8                               bExpanded:1;
+        uint8                               bVisible:1;
+        uint8                               bSelected:1;
         
     };
 
@@ -93,8 +97,9 @@ namespace Lumina
     public:
 
         FTreeListView()
-            : bCurrentlyDrawing(false)
+            : Allocator(1024)
             , bDirty(false)
+            , bCurrentlyDrawing(false)
         {}
 
         ~FTreeListView()
@@ -118,7 +123,8 @@ namespace Lumina
         requires (std::is_base_of_v<FTreeListViewItem, T> && std::is_constructible_v<T, Args...>)
         T* AddItemToTree(Args&&... args)
         {
-            T* New = Memory::New<T>(eastl::forward<Args>(args)...);
+            T* New = Allocator.TAlloc<T>(eastl::forward<Args>(args)...);
+            New->Allocator = &Allocator;
             ListItems.push_back(New);
 
             return New;
@@ -137,6 +143,8 @@ namespace Lumina
         void ForEachItem(const TFunction<void(FTreeListViewItem* Item)>& Functor);
 
     private:
+
+        FBlockLinearAllocator                   Allocator;
 
         TVector<FTreeListViewItem*>             Selections;
         TVector<FTreeListViewItem*>             ListItems;

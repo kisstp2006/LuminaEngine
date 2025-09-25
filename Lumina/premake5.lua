@@ -34,6 +34,9 @@ project "Lumina"
 
 		"Engine/ThirdParty/imgui/imgui_demo.cpp",
 		
+		"Engine/ThirdParty/meshoptimizer/src/**.cpp",
+		"Engine/ThirdParty/meshoptimizer/src/**.h",
+
 		"Engine/ThirdParty/vk-bootstrap/src/**.h",
 	    "Engine/ThirdParty/vk-bootstrap/src/**.cpp",
 

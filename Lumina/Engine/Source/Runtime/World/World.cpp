@@ -11,14 +11,13 @@
 #include "Entity/Components/EditorComponent.h"
 #include "Entity/Components/LineBatcherComponent.h"
 #include "Entity/Components/VelocityComponent.h"
-#include "Entity/Systems/EditorEntityMovementSystem.h"
 #include "Entity/Systems/UpdateTransformEntitySystem.h"
 #include "glm/gtx/matrix_decompose.hpp"
 #include "Subsystems/FCameraManager.h"
 #include "TaskSystem/TaskSystem.h"
-#include "World/SceneRenderer.h"
 #include "World/Entity/Components/RelationshipComponent.h"
 #include "World/entity/systems/EntitySystem.h"
+#include "World/Scene/RenderScene/RenderScene.h"
 
 namespace Lumina
 {
@@ -277,7 +276,7 @@ namespace Lumina
     
         // Now proceed with your existing parenting logic
         SRelationshipComponent& ParentRelationshipComponent = Parent.GetOrAddComponent<SRelationshipComponent>();
-        if (ParentRelationshipComponent.Size >= SRelationshipComponent::MaxChildren)
+        if (ParentRelationshipComponent.NumChildren >= SRelationshipComponent::MaxChildren)
         {
             LOG_ERROR("Parent has reached its max children");
             return;
@@ -288,23 +287,23 @@ namespace Lumina
         {
             if (SRelationshipComponent* ToRemove = ChildRelationshipComponent.Parent.TryGetComponent<SRelationshipComponent>())
             {
-                for (SIZE_T i = 0; i < ToRemove->Size; ++i)
+                for (SIZE_T i = 0; i < ToRemove->NumChildren; ++i)
                 {
                     if (ToRemove->Children[i] == Child)
                     {
-                        for (SIZE_T j = i; j < ToRemove->Size - 1; ++j)
+                        for (SIZE_T j = i; j < ToRemove->NumChildren - 1; ++j)
                         {
                             ToRemove->Children[j] = ToRemove->Children[j + 1];
                         }
     
-                        --ToRemove->Size;
+                        --ToRemove->NumChildren;
                         break;
                     }
                 }
             }
         }
     
-        ParentRelationshipComponent.Children[ParentRelationshipComponent.Size++] = Child;
+        ParentRelationshipComponent.Children[ParentRelationshipComponent.NumChildren++] = Child;
         ChildRelationshipComponent.Parent = Parent;
     }
 

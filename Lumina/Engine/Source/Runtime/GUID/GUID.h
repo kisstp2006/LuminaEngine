@@ -51,7 +51,7 @@ namespace Lumina
     };
 
     
-    template<> struct TCanBulkSerialize<FGuid> { enum { Value = true }; };
+    template<> struct TCanBulkSerialize<FGuid> { static constexpr bool Value = true; };
     //template <> struct TIsPODType<FGuid> { enum { Value = true }; };
 }
 

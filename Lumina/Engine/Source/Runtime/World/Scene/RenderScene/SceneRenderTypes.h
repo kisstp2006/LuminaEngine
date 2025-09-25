@@ -9,7 +9,11 @@
 #include "Renderer/RHIFwd.h"
 
 #define MAX_LIGHTS 1024
-#define MAX_MODELS 10000
+
+namespace Lumina
+{
+    class FRenderScene;
+}
 
 namespace Lumina
 {
@@ -86,50 +90,6 @@ namespace Lumina
         FRHIImageRef Normals;
         FRHIImageRef Material;
         FRHIImageRef AlbedoSpec;
-    };
-
-    struct FIndirectRenderBatch
-    {
-        CMaterialInterface* Material = nullptr;
-        FRHIBuffer*         IndexBuffer = nullptr;
-        FRHIBuffer*         VertexBuffer;
-        uint32              NumDraws;
-        uint32              Offset;
-    };
-
-    struct FStaticMeshRender
-    {
-        CMaterialInterface* Material;
-        CStaticMesh* StaticMesh;
-        uint64 SortKey;
-        uint32 FirstIndex;
-        uint32 TransformIdx;
-        uint16 SurfaceIndexCount;
-
-        auto operator <=> (const FStaticMeshRender& Other) const
-        {
-            return SortKey <=> Other.SortKey;
-        }
-    };
-
-    /** A batch of mesh elements that contain the same material and vertex buffer. */
-    struct FMeshBatch
-    {
-        struct FElement
-        {
-            uint32          FirstIndex;
-            uint32          NumInstances;
-            uint64          IndexOffset;
-            uint32          NumIndices;
-            uint64          IndirectDrawOffset;
-        };
-        
-        TFixedVector<FElement, 4>   Elements;
-        
-        CMaterialInterface*         Material;
-        
-        FRHIBufferRef               VertexBuffer;
-        FRHIBufferRef               IndexBuffer;
     };
     
     struct FInstanceData

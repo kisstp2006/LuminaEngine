@@ -254,10 +254,10 @@ namespace Lumina
     
     struct FRenderPassBeginInfo
     {
-        TVector<FRHIImageRef> ColorAttachments;
-        TVector<ERenderLoadOp> ColorLoadOps;
-        TVector<ERenderStoreOp> ColorStoreOps;
-        TVector<FColor> ClearColorValues;
+        TFixedVector<FRHIImageRef, 4> ColorAttachments;
+        TFixedVector<ERenderLoadOp, 4> ColorLoadOps;
+        TFixedVector<ERenderStoreOp, 4> ColorStoreOps;
+        TFixedVector<FColor, 4> ClearColorValues;
         
         FRHIImageRef DepthAttachment;
         ERenderLoadOp DepthLoadOp = ERenderLoadOp::Clear;
@@ -601,10 +601,10 @@ namespace Lumina
         EPipelineFrontFace          FaceOrientation =           EPipelineFrontFace::COUNTER_CLOCKWISE;
         EPipelineTopology           PrimitiveTopology =         EPipelineTopology::TRIANGLES;
         EPipelineFillMode           PolygonFillMode =           EPipelineFillMode::FILL;
-        TVector<EFormat>            RenderTargetFormats         { EFormat::SRGBA8_UNORM };
+        TFixedVector<EFormat, 4>    RenderTargetFormats         { EFormat::SRGBA8_UNORM };
 
-        FVertexBinding              VertexBinding;
-        TVector<FVertexAttribute>   VertexAttributes;
+        FVertexBinding                      VertexBinding;
+        TFixedVector<FVertexAttribute, 4>   VertexAttributes;
         
         uint8                       EnablePrimitiveRestart : 1 =          false;
         uint8                       EnableAlphaBlending : 1 =             true;
@@ -718,7 +718,7 @@ namespace Lumina
             return *this;
         }
     
-        FGraphicsPipelineSpec& SetRenderTargetFormats(const TVector<EFormat>& formats)
+        FGraphicsPipelineSpec& SetRenderTargetFormats(const TFixedVector<EFormat, 4>& formats)
         {
             RenderTargetFormats = formats;
             return *this;
@@ -782,7 +782,7 @@ namespace Lumina
         EPipelineFrontFace GetFaceOrientation() const { return FaceOrientation; }
         EPipelineTopology GetPrimitiveTopology() const { return PrimitiveTopology; }
         EPipelineFillMode GetPolygonFillMode() const { return PolygonFillMode; }
-        const TVector<EFormat>& GetRenderTargetFormats() const { return RenderTargetFormats; }
+        const TFixedVector<EFormat, 4>& GetRenderTargetFormats() const { return RenderTargetFormats; }
         bool GetEnablePrimitiveRestart() const { return EnablePrimitiveRestart; }
         bool GetEnableAlphaBlending() const { return EnableAlphaBlending; }
         bool GetEnableDepthTest() const { return EnableDepthTest; }
@@ -844,9 +844,9 @@ namespace Lumina
         FRHIGraphicsPipeline* Pipeline = nullptr;
         FRenderPassBeginInfo RenderPass = {};
         FViewportState ViewportState;
-        TVector<FRHIBindingSet*> Bindings;
+        TFixedVector<FRHIBindingSet*, 4> Bindings;
         
-        TVector<FVertexBufferBinding> VertexBuffers;
+        TFixedVector<FVertexBufferBinding, 4> VertexBuffers;
         FIndexBufferBinding IndexBuffer;
 
         FRHIBuffer* IndirectParams = nullptr;

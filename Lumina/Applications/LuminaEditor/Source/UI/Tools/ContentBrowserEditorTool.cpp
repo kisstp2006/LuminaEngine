@@ -367,7 +367,9 @@ namespace Lumina
                     for (auto& Entry : std::filesystem::directory_iterator(CurrentPath.c_str(), ec))
                     {
                         if (ec || !Entry.is_directory())
+                        {
                             continue;
+                        }
 
                         FString Path = Entry.path().generic_string().c_str();
                         FString DisplayName = Entry.path().filename().string().c_str();
@@ -756,7 +758,7 @@ namespace Lumina
 
                     if (Factory->HasImportDialogue())
                     {
-                        ToolContext->PushModal("Import", {500, 500}, [this, Factory, FStringFileName, PathString](const FUpdateContext& DrawContext)
+                        ToolContext->PushModal("Import", {800, 800}, [this, Factory, FStringFileName, PathString](const FUpdateContext& DrawContext)
                         {
                             bool bShouldClose = CFactory::ShowImportDialogue(Factory, FStringFileName, PathString);
                             if (bShouldClose)

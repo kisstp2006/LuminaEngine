@@ -10,10 +10,11 @@ namespace Lumina
 {
     struct LUMINA_API SRelationshipComponent
     {
-        constexpr static SIZE_T MaxChildren = 32;
+        constexpr static uint8 MaxChildren = 32;
         
-        SIZE_T Size {};
-        TArray<Entity, MaxChildren> Children {};
         Entity Parent {};
+        
+        uint8 NumChildren = 0;
+        TArray<Entity, MaxChildren> Children {};
     };
 }

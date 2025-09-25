@@ -2,6 +2,7 @@
 
 #include "RenderTypes.h"
 #include "Memory/SmartPtr.h"
+#include "Memory/Allocators/Allocator.h"
 #include "Types/BitFlags.h"
 
 
@@ -75,6 +76,8 @@ namespace Lumina
     {
     public:
 
+        FCommandListResourceStateTracker();
+        
         void SetEnableUavBarriersForTexture(FTextureStateExtension* Texture, bool bEnableBarriers);
         void SetEnableUavBarriersForBuffer(FBufferStateExtension* Buffer, bool bEnableBarriers);
 
@@ -96,24 +99,29 @@ namespace Lumina
         void KeepTextureInitialStates();
         void CommandListSubmitted();
 
-        NODISCARD const TVector<FTextureBarrier>& GetTextureBarriers() const { return TextureBarriers; }
-        NODISCARD const TVector<FBufferBarrier>& GetBufferBarriers() const { return BufferBarriers; }
+        NODISCARD const TFixedVector<FTextureBarrier, 24>& GetTextureBarriers() const { return TextureBarriers; }
+        NODISCARD const TFixedVector<FBufferBarrier, 24>& GetBufferBarriers() const { return BufferBarriers; }
+        
         void ClearBarriers() { TextureBarriers.clear(); BufferBarriers.clear(); }
 
     private:
-        THashMap<FTextureStateExtension*, TSharedPtr<FTextureState>> TextureStates;
-        THashMap<FBufferStateExtension*, TSharedPtr<FBufferState>> BufferStates;
+        
+        TFixedHashMap<FTextureStateExtension*, FTextureState*, 24> TextureStates;
+        TFixedHashMap<FBufferStateExtension*, FBufferState*, 24> BufferStates;
 
         // Deferred transitions of textures and buffers to permanent states.
         // They are executed only when the command list is executed, not when the app calls setPermanentTextureState or setPermanentBufferState.
-        TVector<TPair<FTextureStateExtension*, EResourceStates>> PermanentTextureStates;
-        TVector<TPair<FBufferStateExtension*, EResourceStates>> PermanentBufferStates;
+        TFixedVector<TPair<FTextureStateExtension*, EResourceStates>, 24> PermanentTextureStates;
+        TFixedVector<TPair<FBufferStateExtension*, EResourceStates>, 24> PermanentBufferStates;
 
-        TVector<FTextureBarrier> TextureBarriers;
-        TVector<FBufferBarrier> BufferBarriers;
+        TFixedVector<FTextureBarrier, 24> TextureBarriers;
+        TFixedVector<FBufferBarrier, 24> BufferBarriers;
 
         FTextureState* GetTextureStateTracking(FTextureStateExtension* Texture, bool bAllowCreate);
         FBufferState* GetBufferStateTracking(FBufferStateExtension* Buffer, bool bAllowCreate);
+
+
+        FBlockLinearAllocator LinearAllocator;
     };
     
 }

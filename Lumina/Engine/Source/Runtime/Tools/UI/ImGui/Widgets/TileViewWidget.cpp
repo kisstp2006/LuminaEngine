@@ -1,5 +1,4 @@
 ﻿#include "TileViewWidget.h"
-
 #include "Assets/AssetPath.h"
 #include "Tools/UI/ImGui/ImGuiX.h"
 
@@ -62,11 +61,7 @@ namespace Lumina
     
     void FTileViewWidget::ClearTree()
     {
-        for (FTileViewItem* Item : ListItems)
-        {
-            Memory::Delete(Item);
-        }
-        
+        Allocator.Reset();
         ListItems.clear();
     }
 

@@ -60,8 +60,8 @@ namespace Lumina
         TVector<VkSemaphore>                    AcquireSemaphores;
         FVulkanRenderContext*                   Context = nullptr;
 
-        TQueue<FRHIEventQueryRef>               FramesInFlight;
-        TVector<FRHIEventQueryRef>              QueryPool;
+        TFixedVector<FRHIEventQueryRef, 4>      FramesInFlight;
+        TFixedVector<FRHIEventQueryRef, 4>      QueryPool;
     };
     
 }

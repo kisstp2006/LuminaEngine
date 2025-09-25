@@ -1,8 +1,8 @@
 ﻿#pragma once
 
-#include "Core/Object/ManualReflectTypes.h"
 #include "ObjectBase.h"
 #include "ObjectMacros.h"
+#include "Core/Object/ManualReflectTypes.h"
 #include "Core/Serialization/Archiver.h"
 #include "Core/Serialization/Structured/StructuredArchive.h"
 
@@ -75,7 +75,7 @@ namespace Lumina
         /** Called when a property on this object has been modified externally */
         LUMINA_API virtual void PostPropertyChange(FProperty* ChangedProperty) {}
 
-        /** Renames this object, optionally changing it's package */
+        /** Renames this object, optionally changing its package */
         LUMINA_API virtual bool Rename(const FName& NewName, CPackage* NewPackage = nullptr, bool bCreateRedirector = true);
         
     private:

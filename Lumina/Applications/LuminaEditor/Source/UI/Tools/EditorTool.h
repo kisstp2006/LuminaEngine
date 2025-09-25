@@ -145,14 +145,14 @@ namespace Lumina
         /** @TODO Cache and compare */
         uint32 GetID() const { return Hash::GetHash32(GetToolName()); }
 
-        ImGuiID GetCurrDockID() const        { return CurrDockID; }
-        ImGuiID GetDesiredDockID() const     { return DesiredDockID; }
-        ImGuiID GetCurrLocationID() const    { return CurrLocationID; }
-        ImGuiID GetPrevLocationID() const    { return PrevLocationID; }
-        ImGuiID GetCurrDockspaceID() const   { return CurrDockspaceID; }
-        ImGuiID GetPrevDockspaceID() const   { return PrevDockspaceID; }
+        FORCEINLINE ImGuiID GetCurrDockID() const        { return CurrDockID; }
+        FORCEINLINE ImGuiID GetDesiredDockID() const     { return DesiredDockID; }
+        FORCEINLINE ImGuiID GetCurrLocationID() const    { return CurrLocationID; }
+        FORCEINLINE ImGuiID GetPrevLocationID() const    { return PrevLocationID; }
+        FORCEINLINE ImGuiID GetCurrDockspaceID() const   { return CurrDockspaceID; }
+        FORCEINLINE ImGuiID GetPrevDockspaceID() const   { return PrevDockspaceID; }
         
-        TVector<FToolWindow*>& GetToolWindows() { return ToolWindows; }
+        FORCEINLINE TFixedVector<FToolWindow*, 4>& GetToolWindows() { return ToolWindows; }
         
         /** Changes the movability of the editor camera */
         void SetEditorCameraEnabled(bool bNewEnable);
@@ -206,7 +206,7 @@ namespace Lumina
         IEditorToolContext*             ToolContext = nullptr;
         FString                         ToolName;
         
-        TVector<FToolWindow*>           ToolWindows;
+        TFixedVector<FToolWindow*, 4>   ToolWindows;
         
         TObjectHandle<CWorld>           World;
         Entity                          EditorEntity;

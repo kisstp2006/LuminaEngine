@@ -92,4 +92,195 @@ namespace Lumina
         SIZE_T Capacity = 0;
     };
 
+    
+    class LUMINA_API FBlockLinearAllocator : public IAllocator 
+    {
+    public:
+
+
+        FBlockLinearAllocator()
+            : CurrentBlock(nullptr)
+            , BlockSize(1024)
+            , CurrentOffset(0)
+            , BlockCount(0)
+        { 
+            AllocateNewBlock();
+        } 
+        
+        explicit FBlockLinearAllocator(SIZE_T InBlockSize) 
+            : CurrentBlock(nullptr)
+            , BlockSize(InBlockSize)
+            , CurrentOffset(0)
+            , BlockCount(0)
+        { 
+            AllocateNewBlock();
+        } 
+    
+        ~FBlockLinearAllocator() override 
+        { 
+            Block* Current = FirstBlock;
+            while (Current)
+            {
+                Block* Next = Current->Next;
+                Memory::Free(Current);
+                Current = Next;
+            }
+        }
+
+        // STL/EASTL container support.
+        void* allocate(size_t n, int flags = 0)
+        {
+            return Allocate(n, EASTL_ALLOCATOR_MIN_ALIGNMENT);
+        }
+        
+        void* allocate(size_t n, size_t alignment, size_t offset, int flags = 0)
+        {
+            return Allocate(n, alignment);
+        }
+        
+        void deallocate(void* p, size_t n)
+        {
+            //... Unsupported.
+        }
+         
+        void* Allocate(SIZE_T Size, SIZE_T Alignment) override 
+        {
+            LUMINA_PROFILE_SCOPE();
+            
+            if (Size > GetUsableBlockSize()) [[unlikely]]
+            {
+                LUM_ASSERT(false)
+            }
+    
+            SIZE_T CurrentPtr = reinterpret_cast<SIZE_T>(CurrentBlock->GetData() + CurrentOffset); 
+            SIZE_T AlignedPtr = (CurrentPtr + Alignment - 1) & ~(Alignment - 1); 
+            SIZE_T NextOffset = AlignedPtr - reinterpret_cast<SIZE_T>(CurrentBlock->GetData()) + Size; 
+            
+            // Check if we need a new block
+            if (NextOffset > GetUsableBlockSize()) [[unlikely]]
+            { 
+                // Allocate new block and switch to it
+                AllocateNewBlock();
+                CurrentOffset = 0;
+                
+                // Recalculate with new block
+                CurrentPtr = reinterpret_cast<SIZE_T>(CurrentBlock->GetData() + CurrentOffset); 
+                AlignedPtr = (CurrentPtr + Alignment - 1) & ~(Alignment - 1); 
+                NextOffset = AlignedPtr - reinterpret_cast<SIZE_T>(CurrentBlock->GetData()) + Size; 
+                
+                LUM_ASSERT(NextOffset <= GetUsableBlockSize());
+            } 
+             
+            void* Result = CurrentBlock->GetData() + (AlignedPtr - reinterpret_cast<SIZE_T>(CurrentBlock->GetData())); 
+            CurrentOffset = NextOffset; 
+            return Result; 
+        } 
+    
+        void Free(void* Data) override 
+        { 
+            // Linear allocators don't support individual frees
+        } 
+    
+        void Reset() override 
+        { 
+            CurrentBlock = FirstBlock;
+            CurrentOffset = 0;
+        }
+
+        /** Will free all memory blocks except the first, and reset the offset. */
+        void Compact()
+        {
+            if (!FirstBlock)
+            {
+                return;
+            }
+
+            Block* Current = FirstBlock->Next;
+            while (Current)
+            {
+                Block* Next = Current->Next;
+                Memory::Free(Current);
+                Current = Next;
+                BlockCount--;
+            }
+
+            // Reset state to only use the first block
+            FirstBlock->Next = nullptr;
+            CurrentBlock = FirstBlock;
+            CurrentOffset = 0;
+        }
+    
+        SIZE_T GetCapacity() override 
+        { 
+            return BlockCount * BlockSize; 
+        }
+        
+        SIZE_T GetUsed() const 
+        { 
+            SIZE_T Used = 0;
+            
+            // Count all previous blocks as fully used
+            Block* Block = FirstBlock;
+            while (Block != CurrentBlock && Block != nullptr)
+            {
+                Used += GetUsableBlockSize();
+                Block = Block->Next;
+            }
+            
+            // Add current block usage
+            if (CurrentBlock)
+            {
+                Used += CurrentOffset;
+            }
+            
+            return Used;
+        }
+        
+        SIZE_T GetBlockCount() const 
+        { 
+            return BlockCount; 
+        }
+    
+    private:
+        
+        struct Block
+        {
+            Block* Next;
+            
+            uint8* GetData() { return reinterpret_cast<uint8*>(this + 1); }
+            const uint8* GetData() const { return reinterpret_cast<const uint8*>(this + 1); }
+        };
+        
+        SIZE_T GetUsableBlockSize() const
+        {
+            return BlockSize - sizeof(Block);
+        }
+        
+        void AllocateNewBlock()
+        {
+            Block* NewBlock = (Block*)Memory::Malloc(BlockSize);
+            LUM_ASSERT(NewBlock != nullptr)
+            
+            NewBlock->Next = nullptr;
+            
+            if (CurrentBlock)
+            {
+                CurrentBlock->Next = NewBlock;
+            }
+            else
+            {
+                FirstBlock = NewBlock;
+            }
+            
+            CurrentBlock = NewBlock;
+            BlockCount++;
+        }
+        
+        Block* FirstBlock = nullptr;
+        Block* CurrentBlock = nullptr;
+        SIZE_T BlockSize;
+        SIZE_T CurrentOffset;
+        SIZE_T BlockCount;
+    };
+
 }

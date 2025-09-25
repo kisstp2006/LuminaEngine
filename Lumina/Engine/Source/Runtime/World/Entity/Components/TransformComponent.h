@@ -65,6 +65,4 @@ namespace Lumina
         glm::mat4 CachedMatrix = WorldTransform.GetMatrix();
     };
     
-    struct FDirtyTransform { };
-
 }

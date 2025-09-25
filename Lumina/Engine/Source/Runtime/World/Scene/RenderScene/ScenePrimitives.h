@@ -1,28 +1,28 @@
 #pragma once
 
+#include "Containers/Array.h"
 #include "glm/glm.hpp"
 
 
 namespace Lumina
 {
+    struct SStaticMeshComponent;
+    class FRenderScene;
+    struct FMeshBatch;
     class CMaterialInterface;
     class CStaticMesh;
-
-
+    
     struct FScenePrimitive
     {
-
-        
-        
-        /** The primitives static meshes */
-        TVector<FMeshBatch> StaticMeshes;
+        TVector<FMeshBatch> MeshBatches;
+        glm::mat4           RenderTransform;
     };
     
-    struct FStaticMeshPrimitive : FScenePrimitive
+    struct FStaticMeshScenePrimitive : FScenePrimitive
     {
-        CStaticMesh* StaticMesh;
-        CMaterialInterface* Material;
-        glm::mat4 RenderTransform;
+        FStaticMeshScenePrimitive(const SStaticMeshComponent& StaticMeshComponent, const glm::mat4& InRenderTransform, FRenderScene* InScene);
+        
+        const CStaticMesh* StaticMesh;
     };
     
 }

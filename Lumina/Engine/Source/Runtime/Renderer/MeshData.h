@@ -9,10 +9,10 @@ namespace Lumina
 
     struct FGeometrySurface final
     {
-        FName ID;
-        SIZE_T StartIndex = 0;
-        uint32 IndexCount = 0;
-        int64 MaterialIndex = -1;
+        FName   ID;
+        uint32  IndexCount = 0;
+        uint32  StartIndex = 0;
+        int16   MaterialIndex = -1;
 
         friend FArchive& operator << (FArchive& Ar, FGeometrySurface& Data)
         {
@@ -28,14 +28,20 @@ namespace Lumina
 
     struct FMeshResource final
     {
+        struct FMeshBuffers
+        {
+            FRHIBufferRef VertexBuffer;
+            FRHIBufferRef IndexBuffer;
+            FRHIBufferRef ShadowIndexBuffer;
+        };
+        
         FName                       Name;
         TVector<FVertex>            Vertices;
         TVector<uint32>             Indices;
+        TVector<uint32>             ShadowIndices;
         TVector<FGeometrySurface>   GeometrySurfaces;
-        FRHIBufferRef               VertexBuffer;
-        FRHIBufferRef               IndexBuffer;
-
-
+        FMeshBuffers                MeshBuffers;
+        
         SIZE_T GetNumSurfaces() const { return GeometrySurfaces.size(); }
         
         bool IsSurfaceIndexValid(SIZE_T Slot) const
@@ -53,6 +59,7 @@ namespace Lumina
             Ar << Data.Name;
             Ar << Data.Vertices;
             Ar << Data.Indices;
+            Ar << Data.ShadowIndices;
             Ar << Data.GeometrySurfaces;
 
             return Ar;

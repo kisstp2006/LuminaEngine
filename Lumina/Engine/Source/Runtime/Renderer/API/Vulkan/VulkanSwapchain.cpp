@@ -250,14 +250,14 @@ namespace Lumina
     	}
 #endif
 
-#if 1
+#if 0
     	while (!FramesInFlight.empty())
 #else
     	while (FramesInFlight.size() >= FRAMES_IN_FLIGHT)
 #endif
     	{
     		FRHIEventQueryRef Query = FramesInFlight.front();
-    		FramesInFlight.pop();
+    		FramesInFlight.pop_back();
 			
     		Context->WaitEventQuery(Query);
 
@@ -277,7 +277,7 @@ namespace Lumina
 
     	Context->ResetEventQuery(Query);
     	Context->SetEventQuery(Query, ECommandQueue::Graphics);
-    	FramesInFlight.push(Query);
+    	FramesInFlight.push_back(Query);
     	return true;
     }
 }

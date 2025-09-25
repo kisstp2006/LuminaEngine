@@ -371,21 +371,24 @@ namespace Lumina
         , DefaultChunkSize(InDefaultChunkSize)
         , MemoryLimit(InMemoryLimit)
         , bIsScratchBuffer(bInIsScratchBuffer)
-    { }
-
-    TSharedPtr<FBufferChunk> FUploadManager::CreateChunk(uint64 Size) const
+        , ChunkAllocator(1024)
     {
-        TSharedPtr<FBufferChunk> chunk = MakeSharedPtr<FBufferChunk>();
+        
+    }
+
+    FBufferChunk* FUploadManager::CreateChunk(uint64 Size)
+    {
+        FBufferChunk* Chunk = ChunkAllocator.TAlloc<FBufferChunk>();
 
         if (bIsScratchBuffer)
         {
             FRHIBufferDesc Desc;
             Desc.Size = Size;
             Desc.DebugName = "ScratchBufferChunk";
-            chunk->Buffer = Context->CreateBuffer(Desc);
+            Chunk->Buffer = Context->CreateBuffer(Desc);
             
-            chunk->MappedMemory = nullptr;
-            chunk->BufferSize = Size;
+            Chunk->MappedMemory = nullptr;
+            Chunk->BufferSize = Size;
         }
         else
         {
@@ -394,18 +397,18 @@ namespace Lumina
             Desc.Usage.SetFlag(EBufferUsageFlags::CPUWritable);
             Desc.DebugName = FString("UploadChunk [ " + eastl::to_string(Size) + " ]");
 
-            chunk->Buffer = Context->CreateBuffer(Desc);
-            FVulkanBuffer* VkBuffer = chunk->Buffer.As<FVulkanBuffer>();
-            chunk->MappedMemory = VkBuffer->GetMappedMemory();
-            chunk->BufferSize = Size;
+            Chunk->Buffer = Context->CreateBuffer(Desc);
+            FVulkanBuffer* VkBuffer = Chunk->Buffer.As<FVulkanBuffer>();
+            Chunk->MappedMemory = VkBuffer->GetMappedMemory();
+            Chunk->BufferSize = Size;
         }
 
-        return chunk;
+        return Chunk;
     }
 
     bool FUploadManager::SuballocateBuffer(uint64 Size, FRHIBuffer** Buffer, uint64* Offset, void** CpuVA, uint64 CurrentVersion, uint32 Alignment)
     {
-        TSharedPtr<FBufferChunk> chunkToRetire;
+        FBufferChunk* ChunkToRetire = nullptr;
 
         if (CurrentChunk)
         {
@@ -426,35 +429,35 @@ namespace Lumina
                 return true;
             }
 
-            chunkToRetire = CurrentChunk;
-            CurrentChunk.reset();
+            ChunkToRetire = CurrentChunk;
+            CurrentChunk = nullptr;
         }
 
         ECommandQueue queue = VersionGetQueue(CurrentVersion);
         FQueue* Queue = Context->GetQueue(queue);
         uint64 completedInstance;
-        vkGetSemaphoreCounterValue(Device->GetDevice(), Queue->TimelineSemaphore, &completedInstance);
+        VK_CHECK(vkGetSemaphoreCounterValue(Device->GetDevice(), Queue->TimelineSemaphore, &completedInstance));
 
         for (auto it = ChunkPool.begin(); it != ChunkPool.end(); ++it)
         {
-            TSharedPtr<FBufferChunk> chunk = *it;
+            FBufferChunk* Chunk = *it;
 
-            if (VersionGetSubmitted(chunk->Version) && VersionGetInstance(chunk->Version) <= completedInstance)
+            if (VersionGetSubmitted(Chunk->Version) && VersionGetInstance(Chunk->Version) <= completedInstance)
             {
-                chunk->Version = 0;
+                Chunk->Version = 0;
             }
 
-            if (chunk->Version == 0 && chunk->BufferSize >= Size)
+            if (Chunk->Version == 0 && Chunk->BufferSize >= Size)
             {
                 ChunkPool.erase(it);
-                CurrentChunk = chunk;
+                CurrentChunk = Chunk;
                 break;
             }
         }
 
-        if (chunkToRetire)
+        if (ChunkToRetire)
         {
-            ChunkPool.push_back(chunkToRetire);
+            ChunkPool.push_back(ChunkToRetire);
         }
 
         if (!CurrentChunk)
@@ -487,10 +490,10 @@ namespace Lumina
         if (CurrentChunk)
         {
             ChunkPool.push_back(CurrentChunk);
-            CurrentChunk.reset();
+            CurrentChunk = nullptr;
         }
 
-        for (const TSharedPtr<FBufferChunk>& chunk : ChunkPool)
+        for (FBufferChunk* chunk : ChunkPool)
         {
             if (chunk->Version == CurrentVersion)
             {
@@ -1209,7 +1212,7 @@ namespace Lumina
         vkDestroyPipelineLayout(Device->GetDevice(), PipelineLayout, VK_ALLOC_CALLBACK);
     }
 
-    void FVulkanPipeline::CreatePipelineLayout(TVector<FRHIBindingLayoutRef> BindingLayouts, VkShaderStageFlags& OutStageFlags)
+    void FVulkanPipeline::CreatePipelineLayout(TFixedVector<FRHIBindingLayoutRef, 4> BindingLayouts, VkShaderStageFlags& OutStageFlags)
     {
         TVector<VkDescriptorSetLayout> Layouts;
         uint32 PushConstantSize = 0;

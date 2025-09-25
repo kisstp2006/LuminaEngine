@@ -48,6 +48,7 @@ namespace Lumina
         GRenderContext->FrameStart(UpdateContext, CurrentFrameIndex);
 
         #if WITH_DEVELOPMENT_TOOLS
+        TextureCache->StartFrame();
         ImGuiRenderer->StartFrame(UpdateContext);
         #endif
     }
@@ -58,6 +59,7 @@ namespace Lumina
         
         #if WITH_DEVELOPMENT_TOOLS
         ImGuiRenderer->EndFrame(UpdateContext);
+        TextureCache->EndFrame();
         #endif
         
         GRenderContext->FrameEnd(UpdateContext);

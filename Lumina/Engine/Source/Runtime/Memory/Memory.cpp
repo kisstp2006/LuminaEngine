@@ -4,6 +4,8 @@ namespace Lumina
 {
     void Memory::Initialize()
     {
+        LUMINA_PROFILE_SCOPE();
+
         if (!GIsMemorySystemInitialized)
         {
             Memzero(&GrpmallocConfig, sizeof(rpmalloc_config_t));
@@ -18,6 +20,8 @@ namespace Lumina
     
     void Memory::Shutdown()
     {
+        LUMINA_PROFILE_SCOPE();
+
         rpmalloc_global_statistics_t stats;
         rpmalloc_global_statistics(&stats);
         
@@ -30,6 +34,8 @@ namespace Lumina
 
     void Memory::InitializeThreadHeap()
     {
+        LUMINA_PROFILE_SCOPE();
+
         // Since our tasks are not bound to a specific thread and we may alloc on one and free on another. This prevents us from calling thread finalize when we shutdown a thread
         // as we can not guarantee that we have freed everything that may have been allocated from this thread.
         // This is not a problem since on application shutdown, we call rpmalloc_finalize, which will release the thread heaps

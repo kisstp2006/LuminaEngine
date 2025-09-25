@@ -1,13 +1,12 @@
 ﻿#include "ImportHelpers.h"
 
+#include <meshoptimizer.h>
+#include <fastgltf/base64.hpp>
 #include <fastgltf/core.hpp>
-#include <fastgltf/types.hpp>
-#include <glm/glm.hpp>
-#include <fastgltf/core.hpp>
+#include <fastgltf/glm_element_traits.hpp>
 #include <fastgltf/tools.hpp>
 #include <fastgltf/types.hpp>
-#include <fastgltf/base64.hpp>
-#include <fastgltf/glm_element_traits.hpp>
+#include <glm/glm.hpp>
 
 #include "Memory/Memory.h"
 #include "Paths/Paths.h"
@@ -83,7 +82,7 @@ namespace Lumina::Import::Mesh::GLTF
         for (fastgltf::Mesh& Mesh : Asset.meshes)
         {
             FMeshResource NewResource;
-            NewResource.GeometrySurfaces.reserve(100);
+            NewResource.GeometrySurfaces.reserve(Mesh.primitives.size());
             NewResource.Name = Mesh.name.empty() ? FName(Name + "_" + eastl::to_string(OutData.Resources.size())) : Mesh.name.c_str();
 
             SIZE_T IndexCount = 0;
@@ -183,7 +182,30 @@ namespace Lumina::Import::Mesh::GLTF
                 }
                 NewResource.GeometrySurfaces.push_back(NewSurface);
             }
+            
+            if (ImportOptions.bOptimize)
+            {
+                for (FGeometrySurface& Section : NewResource.GeometrySurfaces)
+                {
+                    meshopt_optimizeVertexCache(&NewResource.Indices[Section.StartIndex], &NewResource.Indices[Section.StartIndex], Section.IndexCount, NewResource.Vertices.size());
+                    
+                    // Reorder indices for overdraw, balancing overdraw and vertex cache efficiency.
+                    // Allow up to 5% worse ACMR to get more reordering opportunities for overdraw.
+                    constexpr float Threshold = 1.05f;
+                    meshopt_optimizeOverdraw(&NewResource.Indices[Section.StartIndex], &NewResource.Indices[Section.StartIndex], Section.IndexCount, (float*)NewResource.Vertices.data(), NewResource.Vertices.size(), sizeof(FVertex), Threshold);
+                }
 
+                // Vertex fetch optimization should go last as it depends on the final index order
+                meshopt_optimizeVertexFetch(NewResource.Vertices.data(), NewResource.Indices.data(), NewResource.Indices.size(), NewResource.Vertices.data(), NewResource.Vertices.size(), sizeof(FVertex));
+            }
+
+            NewResource.ShadowIndices = TVector<uint32>(NewResource.Indices.size());
+            meshopt_generateShadowIndexBuffer(NewResource.ShadowIndices.data(), NewResource.Indices.data(), NewResource.Indices.size(), &NewResource.Vertices[0].Position, NewResource.Vertices.size(), sizeof(glm::vec4), sizeof(FVertex));
+            meshopt_optimizeVertexCache(NewResource.ShadowIndices.data(), NewResource.ShadowIndices.data(), NewResource.ShadowIndices.size(), NewResource.Vertices.size());
+
+
+            OutData.VertexFetchStatics.push_back(meshopt_analyzeVertexFetch(NewResource.Indices.data(), NewResource.Indices.size(), NewResource.Vertices.size(), sizeof(FVertex)));
+            OutData.OverdrawStatics.push_back(meshopt_analyzeOverdraw(NewResource.Indices.data(), NewResource.Indices.size(), (float*)NewResource.Vertices.data(), NewResource.Vertices.size(), sizeof(FVertex)));
             OutData.Resources.push_back(NewResource);
         }
     }

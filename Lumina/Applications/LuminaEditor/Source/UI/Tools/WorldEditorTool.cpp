@@ -8,16 +8,18 @@
 #include "Core/Object/Package/Package.h"
 #include "glm/gtx/matrix_decompose.hpp"
 #include "Paths/Paths.h"
-#include "World/SceneRenderer.h"
-#include "World/Entity/Components/CameraComponent.h"
-#include "World/Entity/Components/NameComponent.h"
-#include "World/Entity/Components/EditorComponent.h"
-#include "World/Entity/Components/LightComponent.h"
-#include "World/Entity/Components/RelationshipComponent.h"
-#include "World/Entity/Components/VelocityComponent.h"
 #include "Tools/UI/ImGui/ImGuiX.h"
 #include "World/WorldManager.h"
+#include "World/Entity/Components/CameraComponent.h"
+#include "World/Entity/Components/DirtyComponent.h"
+#include "World/Entity/Components/EditorComponent.h"
+#include "World/Entity/Components/LightComponent.h"
+#include "World/Entity/Components/NameComponent.h"
+#include "World/Entity/Components/RelationshipComponent.h"
+#include "World/Entity/Components/VelocityComponent.h"
 #include "World/Entity/Systems/EditorEntityMovementSystem.h"
+#include "World/Scene/RenderScene/RenderScene.h"
+#include "World/Scene/RenderScene/SceneRenderTypes.h"
 
 
 namespace Lumina
@@ -178,6 +180,9 @@ namespace Lumina
 
         if (SelectedEntity.IsValid())
         {
+            SelectedEntity.EmplaceOrReplace<FNeedsTransformUpdate>();
+
+            
             if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl) && ImGui::IsKeyPressed(ImGuiKey_C))
             {
                 CopiedEntity = SelectedEntity;
@@ -590,7 +595,7 @@ namespace Lumina
 
             if (SRelationshipComponent* rel = Item->GetEntity().TryGetComponent<SRelationshipComponent>())
             {
-                for (SIZE_T i = 0; i < rel->Size; ++i)
+                for (SIZE_T i = 0; i < rel->NumChildren; ++i)
                 {
                     AddEntityRecursive(rel->Children[i], Item);
                 }

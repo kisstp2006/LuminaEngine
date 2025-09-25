@@ -36,7 +36,6 @@
 #include "Renderer/RHIGlobals.h"
 #include "Tools/GamePreviewTool.h"
 #include "Tools/AssetEditors/ArchetypeEditor/ArchetypeEditorTool.h"
-#include "World/SceneRenderer.h"
 #include "Tools/AssetEditors/MaterialEditor/MaterialInstanceEditorTool.h"
 #include "Tools/AssetEditors/MeshEditor/MeshEditorTool.h"
 #include "Tools/AssetEditors/TextureEditor/TextureEditorTool.h"
@@ -44,6 +43,7 @@
 #include "Tools/UI/UITextureCache.h"
 #include "Tools/UI/ImGui/ImGuiRenderer.h"
 #include "World/WorldManager.h"
+#include "World/Scene/RenderScene/RenderScene.h"
 
 namespace Lumina
 {
@@ -659,8 +659,8 @@ namespace Lumina
                 }
             }
 
-            TVector<char>       m_buffer;
-            TVector<int32>    m_offsets;
+            TFixedVector<char, 100>       m_buffer;
+            TFixedVector<int32, 100>    m_offsets;
         };
 
         ContiguousStringArrayBuilder namePairsBuilder;
@@ -795,7 +795,7 @@ namespace Lumina
                 // Rely on window name to ditch their .ini settings forever.
                 char windowSuffix[16];
                 ImFormatString(windowSuffix, IM_ARRAYSIZE(windowSuffix), "##%08X", Tool->PrevDockspaceID);
-                size_t windowSuffixLength = strlen( windowSuffix );
+                size_t windowSuffixLength = strlen(windowSuffix);
                 ImGuiContext& g = *GImGui;
                 for (ImGuiWindowSettings* settings = g.SettingsWindows.begin(); settings != nullptr; settings = g.SettingsWindows.next_chunk(settings))
                 {

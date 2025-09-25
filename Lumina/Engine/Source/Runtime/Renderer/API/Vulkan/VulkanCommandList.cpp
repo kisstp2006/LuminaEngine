@@ -91,9 +91,7 @@ namespace Lumina
         
         StateTracker.CommandListSubmitted();
 
-        UploadManager->SubmitChunks(
-            MakeVersion(RecordingID, Queue->Type, false),
-            MakeVersion(SubmissionID, Queue->Type, true));
+        UploadManager->SubmitChunks(MakeVersion(RecordingID, Queue->Type, false), MakeVersion(SubmissionID, Queue->Type, true));
 
         DynamicBufferWrites.clear();
     }
@@ -298,7 +296,7 @@ namespace Lumina
         
         if (Buffer->GetDescription().Usage.IsFlagSet(BUF_Dynamic))
         {
-            Assert(Offset == 0);
+            Assert(Offset == 0)
             auto GetQueueFinishID = [this] (ECommandQueue Queue)-> uint64
             {
                 return RenderContext->GetQueue(Queue)->LastFinishedID;
@@ -370,7 +368,7 @@ namespace Lumina
                     return;
                 }
 
-                uint64_t NewVersionInfo = (uint64_t(Info.CommandQueue) << GVersionQueueShift) | (CurrentCommandBuffer->RecordingID);
+                uint64 NewVersionInfo = (uint64(Info.CommandQueue) << GVersionQueueShift) | (CurrentCommandBuffer->RecordingID);
 
                 if (VulkanBuffer->VersionTracking[Version].compare_exchange_weak(OriginalVersionInfo, NewVersionInfo))
                 {
@@ -398,7 +396,8 @@ namespace Lumina
         // is rounded up later.
         if (Size <= vkCmdUpdateBufferLimit && (Offset & 3) == 0)
         {
-
+            LUMINA_PROFILE_SECTION("vkCmdUpdateBuffer");
+            
             SetBufferState(Buffer, EResourceStates::CopyDest);
             CommitBarriers();
 
@@ -411,6 +410,8 @@ namespace Lumina
         {
             if(Buffer->GetDescription().Usage.IsFlagCleared(EBufferUsageFlags::CPUWritable))
             {
+                LUMINA_PROFILE_SECTION("VkCopyBuffer");
+
                 FRHIBuffer* UploadBuffer;
                 uint64 UploadOffset;
                 void* UploadCPU;
@@ -787,7 +788,7 @@ namespace Lumina
         vkCmdClearColorImage(CurrentCommandBuffer->CommandBuffer, Image->GetAPIResource<VkImage, EAPIResourceType::Image>(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &Value, 1, &Range);
     }
 
-    void FVulkanCommandList::BindBindingSets(VkPipelineBindPoint BindPoint, VkPipelineLayout PipelineLayout, TVector<FRHIBindingSet*> BindingSets)
+    void FVulkanCommandList::BindBindingSets(VkPipelineBindPoint BindPoint, VkPipelineLayout PipelineLayout, TFixedVector<FRHIBindingSet*, 4> BindingSets)
     {
         LUMINA_PROFILE_SCOPE();
         TracyVkZone(CurrentCommandBuffer->TracyContext, CurrentCommandBuffer->CommandBuffer, "BindBindingSet")
@@ -1085,9 +1086,18 @@ namespace Lumina
                 const FFormatInfo& formatInfo = GetFormatInfo(texture->GetDescription().Format);
 
                 VkImageAspectFlags aspectMask = 0;
-                if (formatInfo.bHasDepth)   aspectMask |= VK_IMAGE_ASPECT_DEPTH_BIT;
-                if (formatInfo.bHasStencil) aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
-                if (!aspectMask)            aspectMask  = VK_IMAGE_ASPECT_COLOR_BIT;
+                if (formatInfo.bHasDepth)
+                {
+                    aspectMask |= VK_IMAGE_ASPECT_DEPTH_BIT;
+                }
+                if (formatInfo.bHasStencil)
+                {
+                    aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
+                }
+                if (!aspectMask)
+                {
+                    aspectMask  = VK_IMAGE_ASPECT_COLOR_BIT;
+                }
 
                 VkImageSubresourceRange subresourceRange = {};
                 subresourceRange.baseArrayLayer = barrier.bEntireTexture ? 0 : barrier.ArraySlice;

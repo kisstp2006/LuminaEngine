@@ -80,7 +80,7 @@ namespace Lumina
         VkSemaphore                 TimelineSemaphore;
 
         TFixedVector<TRefCountPtr<FTrackedCommandBuffer>, 4> CommandBuffersInFlight;
-        TQueue<TRefCountPtr<FTrackedCommandBuffer>> CommandBufferPool;
+        TFixedVector<TRefCountPtr<FTrackedCommandBuffer>, 4> CommandBufferPool;
     };
     
     class FVulkanRenderContext : public IRenderContext
