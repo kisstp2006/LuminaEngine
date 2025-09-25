@@ -15,7 +15,7 @@
   </tr>
 </table>
 
-![Discord](https://img.shields.io/discord/1193738186892005387)
+![Discord](https://img.shields.io/discord/1193738186892005387?link=https%3A%2F%2Fdiscord.gg%2F4ZjwrB3c9A)
 
 **Lumina** is a C++ game engine powered by Vulkan, built as a hands-on learning project. Inspired by engines like Unreal and Godot, it focuses on reflection, modularity, and a clean ImGui-based editor. The goal isn’t to become the next major engine or to optimize anyone’s workflow, but to serve as a passion project, a way to explore and experiment with the architectures that make up a full-fledged game engine.
 
