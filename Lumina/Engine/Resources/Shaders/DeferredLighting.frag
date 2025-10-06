@@ -1,6 +1,7 @@
 #version 450
 
 #pragma shader_stage(fragment)
+layout(early_fragment_tests) in;
 
 #include "Includes/Common.glsl"
 #include "Includes/SceneGlobals.glsl"
@@ -140,7 +141,8 @@ void main()
         Lo += EvaluateLightContribution(Light, Position, N, V, Albedo, Roughness, Metallic, F0);
     }
     
-    vec3 Ambient = vec3(0.25) * Albedo * AmbientOcclusion;
+    vec3 AmbientLightColor = GetAmbientLightColor() * GetAmbientLightIntensity();
+    vec3 Ambient = AmbientLightColor += (Albedo * AmbientOcclusion);
     vec3 Color = Ambient + Lo;
     
     Color = Color / (Color + vec3(1.0));

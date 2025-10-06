@@ -10,7 +10,8 @@ namespace Lumina
     struct LUMINA_API SRenderComponent
     {
         GENERATED_BODY()
-        
+
+    private:
     };
     
     

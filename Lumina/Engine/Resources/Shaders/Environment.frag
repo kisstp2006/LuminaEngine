@@ -7,15 +7,10 @@
 layout(location = 0) out vec4 fragColor;
 layout(location = 0) in vec2 vUV;
 
-layout(set = 1, binding = 0) uniform EnvironmentUBO
-{
-    vec3 SunDirection;
-} UBO;
-
 // Improved sun color calculation with proper day/night cycle
 vec3 calculateSunColor() 
 {
-    float sunHeight = UBO.SunDirection.y;
+    float sunHeight = GetSunDirection().y;
 
     // Define color phases
     vec3 nightColor = vec3(0.1, 0.15, 0.3) * 0.8;       // Cooler night
@@ -178,10 +173,10 @@ vec3 computeAtmosphericScattering(vec3 rayOrigin, vec3 rayDir)
 
         primaryOpticalDepth += vec2(primaryRayleighDensity, primaryMieDensity) * primaryStepSize;
 
-        vec2 lightIntersect = raySphereIntersect(primarySamplePoint, UBO.SunDirection, atmosphereRadius);
+        vec2 lightIntersect = raySphereIntersect(primarySamplePoint, GetSunDirection(), atmosphereRadius);
         float lightRayLength = lightIntersect.y;
 
-        vec2 lightOpticalDepth = computeOpticalDepth(primarySamplePoint, UBO.SunDirection, lightRayLength);
+        vec2 lightOpticalDepth = computeOpticalDepth(primarySamplePoint, GetSunDirection(), lightRayLength);
         vec2 totalOpticalDepth = primaryOpticalDepth + lightOpticalDepth;
 
         vec3 rayleighTransmittance = exp(-rayleighCoeff * totalOpticalDepth.x);
@@ -191,7 +186,7 @@ vec3 computeAtmosphericScattering(vec3 rayOrigin, vec3 rayDir)
         totalMie += primaryMieDensity * mieTransmittance * primaryStepSize;
     }
 
-    float cosTheta = dot(rayDir, UBO.SunDirection);
+    float cosTheta = dot(rayDir, GetSunDirection());
 
     float rayleighPhaseValue = rayleighPhase(cosTheta);
     float miePhaseValue = miePhase(cosTheta, mieG);
@@ -204,7 +199,7 @@ vec3 computeAtmosphericScattering(vec3 rayOrigin, vec3 rayDir)
 
 vec3 renderSun(vec3 rayDir)
 {
-    float sunDot = dot(rayDir, UBO.SunDirection);
+    float sunDot = dot(rayDir, GetSunDirection());
 
     // Main sun disc
     float sunDisc = smoothstep(cos(uSunSize * 0.5), cos(uSunSize * 0.25), sunDot);
@@ -213,7 +208,7 @@ vec3 renderSun(vec3 rayDir)
     float sunGlow = smoothstep(cos(uSunSize * 1.8), cos(uSunSize * 1.1), sunDot);
     sunGlow = pow(sunGlow, 3.0);
 
-    float sunFade = smoothstep(0, 0.1, UBO.SunDirection.y);
+    float sunFade = smoothstep(0, 0.1, GetSunDirection().y);
 
     vec3 sunColor = uSunColor * (sunDisc * 0.8 + sunGlow * 0.3) * sunFade;
 
@@ -235,7 +230,7 @@ void main()
     vec2 groundIntersect = raySphereIntersect(cameraPos, rayDir, planetRadius);
     if (groundIntersect.x > 0.0)
     {
-        float groundDot = max(dot(UBO.SunDirection, vec3(0.0, 1.0, 0.0)), 0.0);
+        float groundDot = max(dot(GetSunDirection(), vec3(0.0, 1.0, 0.0)), 0.0);
         vec3 groundColor = uGroundColor * (0.3 + 0.7 * groundDot);
 
         float distance = groundIntersect.x;
@@ -248,7 +243,7 @@ void main()
 
     float avgLuminance = dot(color, vec3(0.299, 0.587, 0.114));
     float exposure = 1.0 / (1.0 + avgLuminance * 0.1);
-    exposure = mix(1.2, 2.5, smoothstep(-0.2, 0.3, UBO.SunDirection.y));
+    exposure = mix(1.2, 2.5, smoothstep(-0.2, 0.3, GetSunDirection().y));
 
     color = 1.0 - exp(-color * exposure);
     color = pow(color, vec3(1.0 / 2.2));

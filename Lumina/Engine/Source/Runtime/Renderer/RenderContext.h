@@ -60,9 +60,11 @@ namespace Lumina
 
         //-------------------------------------------------------------------------------------
 
-        
+        NODISCARD virtual void* MapBuffer(FRHIBuffer* Buffer) = 0;
+        NODISCARD virtual void UnMapBuffer(FRHIBuffer* Buffer) = 0;
         NODISCARD virtual FRHIBufferRef CreateBuffer(const FRHIBufferDesc& Description) = 0;
-        virtual uint64 GetAlignedSizeForBuffer(uint64 Size, TBitFlags<EBufferUsageFlags> Usage) = 0;
+        NODISCARD virtual FRHIBufferRef CreateBuffer(ICommandList* CommandList, const void* InitialData, const FRHIBufferDesc& Description) = 0;
+        NODISCARD virtual uint64 GetAlignedSizeForBuffer(uint64 Size, TBitFlags<EBufferUsageFlags> Usage) = 0;
 
 
         
@@ -92,6 +94,7 @@ namespace Lumina
         NODISCARD virtual FRHIBindingLayoutRef CreateBindingLayout(const FBindingLayoutDesc& Desc) = 0;
         NODISCARD virtual FRHIBindingLayoutRef CreateBindlessLayout(const FBindlessLayoutDesc& Desc) = 0;
         NODISCARD virtual FRHIBindingSetRef CreateBindingSet(const FBindingSetDesc& Desc, FRHIBindingLayout* InLayout) = 0;
+        virtual void CreateBindingSetAndLayout(const TBitFlags<ERHIShaderType>& Visibility, uint16 Binding, const FBindingSetDesc& Desc, FRHIBindingLayoutRef& OutLayout, FRHIBindingSetRef& OutBindingSet) = 0;
         NODISCARD virtual FRHIComputePipelineRef CreateComputePipeline(const FComputePipelineDesc& Desc) = 0;
         NODISCARD virtual FRHIGraphicsPipelineRef CreateGraphicsPipeline(const FGraphicsPipelineDesc& Desc) = 0;
         
@@ -102,6 +105,9 @@ namespace Lumina
 
         virtual void SetObjectName(IRHIResource* Resource, const char* Name, EAPIResourceType Type = EAPIResourceType::Default) = 0;
 
+        NODISCARD virtual FRHIStagingImageRef CreateStagingImage(const FRHIImageDesc& Desc, ERHIAccess Access) = 0;
+        NODISCARD virtual void* MapStagingTexture(FRHIStagingImage* Image, const FTextureSlice& slice, ERHIAccess Access, size_t* OutRowPitch) = 0;
+        virtual void UnMapStagingTexture(FRHIStagingImage* Image) = 0;
         
         NODISCARD virtual FRHIImageRef CreateImage(const FRHIImageDesc& ImageSpec) = 0;
         NODISCARD virtual FRHISamplerRef CreateSampler(const FSamplerDesc& SamplerDesc) = 0;
@@ -120,4 +126,5 @@ namespace Lumina
     protected:
         
     };
+    
 }

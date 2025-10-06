@@ -8,8 +8,9 @@ namespace Lumina
     class LUMINA_API IAllocator
     {
     public:
-        virtual ~IAllocator() = default;
 
+        virtual ~IAllocator() = default;
+        
         template<typename T, typename... Args>
         T* TAlloc(Args&&... args)
         {
@@ -96,11 +97,13 @@ namespace Lumina
     class LUMINA_API FBlockLinearAllocator : public IAllocator 
     {
     public:
-
-
-        FBlockLinearAllocator()
-            : CurrentBlock(nullptr)
-            , BlockSize(1024)
+        
+        explicit FBlockLinearAllocator(const char* AllocatorName) noexcept
+            :FBlockLinearAllocator()
+        {}
+        
+        FBlockLinearAllocator() noexcept
+            : BlockSize(1024)
             , CurrentOffset(0)
             , BlockCount(0)
         { 
@@ -108,8 +111,7 @@ namespace Lumina
         } 
         
         explicit FBlockLinearAllocator(SIZE_T InBlockSize) 
-            : CurrentBlock(nullptr)
-            , BlockSize(InBlockSize)
+            : BlockSize(InBlockSize)
             , CurrentOffset(0)
             , BlockCount(0)
         { 

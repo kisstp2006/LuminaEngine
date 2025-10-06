@@ -25,8 +25,11 @@ namespace Lumina
     class LUMINA_API CWorld : public CObject
     {
         GENERATED_BODY()
+        
         friend class FWorldManager;
         friend struct FSystemContext;
+        friend struct SRenderComponent;
+        
     public:
 
         CWorld();
@@ -89,7 +92,7 @@ namespace Lumina
 
         static CWorld* DuplicateWorldForPIE(CWorld* OwningWorld);
 
-        FRenderScene* GetRenderer() const { return SceneRenderer; }
+        FRenderScene* GetRenderer() const { return RenderScene; }
 
         const TVector<TObjectHandle<CEntitySystem>>& GetSystemsForUpdateStage(EUpdateStage Stage);
 
@@ -103,18 +106,20 @@ namespace Lumina
         //~ End Debug Drawing
 
         void SetIsPlayInEditorWorld(bool bValue) { bIsPlayInEditorWorld = bValue; }
+
+        void SetEntityTransform(Entity Entt, const FTransform& NewTransform);
         
     private:
         
         FLineBatcherComponent& GetOrCreateLineBatcher();
     
     private:
-
+        
         FEntityWorld                                    EntityWorld;
         FLineBatcherComponent*                          LineBatcherComponent = nullptr;
 
         FCameraManager*                                 CameraManager = nullptr;
-        FRenderScene*                                   SceneRenderer = nullptr;
+        FRenderScene*                                   RenderScene = nullptr;
         
         TVector<TObjectHandle<CEntitySystem>>           SystemUpdateList[(int32)EUpdateStage::Max];
 

@@ -13,7 +13,7 @@ namespace Lumina
 
         DEFINE_SCENE_SYSTEM(CUpdateTransformEntitySystem, RequiresUpdate(EUpdateStage::PrePhysics), RequiresUpdate(EUpdateStage::Paused))
         
-        void Initialize() override;
+        void Initialize(FSystemContext& SystemContext) override;
         void Shutdown() override;
 
         void Update(FSystemContext& SystemContext) override;

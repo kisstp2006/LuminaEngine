@@ -17,7 +17,6 @@ namespace Lumina
         CMaterialInterface* Material    = nullptr;
         FRHIBuffer*         IndexBuffer = nullptr;
         FRHIBuffer*         VertexBuffer;
-        uint32              NumDraws;
         uint32              IndirectDrawOffset;
     };
 

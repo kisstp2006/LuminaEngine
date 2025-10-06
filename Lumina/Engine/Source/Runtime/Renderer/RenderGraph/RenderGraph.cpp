@@ -27,9 +27,24 @@ namespace Lumina
         
         for (FRGPassHandle Pass : Passes)
         {
-            EPipelineType Type = Pass->GetPipelineType();
-            FRHICommandListRef CommandList = Type == EPipelineType::Compute ? ComputeCommandList : GraphicsCommandList;
-            Pass->Execute(*CommandList);
+            switch (Pass->GetPipelineType())
+            {
+            case EPipelineType::Graphics:
+                {
+                    Pass->Execute(*GraphicsCommandList);
+                }
+                break;
+            case EPipelineType::Compute:
+                {
+                    Pass->Execute(*ComputeCommandList);
+                }
+                break;
+            default:
+                {
+                    Pass->Execute(*GraphicsCommandList);
+                }
+                break;
+            }
         }
     }
 

@@ -39,7 +39,7 @@ namespace Lumina
         MeshEntity = World->ConstructEntity("MeshEntity");
         
         MeshEntity.Emplace<SStaticMeshComponent>().StaticMesh = Cast<CStaticMesh>(InAsset);
-        MeshEntity.GetComponent<STransformComponent>().SetLocation(glm::vec3(0.0f, 0.0f, -2.5f));
+        MeshEntity.GetComponent<STransformComponent>().SetLocation(glm::vec3(0.0f, 0.0f,  -2.5f));
         
         MeshEntity.GetComponent<SStaticMeshComponent>().StaticMesh = CThumbnailManager::Get().CubeMesh;
         MeshEntity.GetComponent<SStaticMeshComponent>().MaterialOverrides.resize(CThumbnailManager::Get().CubeMesh->Materials.size());
@@ -249,7 +249,7 @@ namespace Lumina
             Material->BindingSet = GRenderContext->CreateBindingSet(SetDesc, Material->BindingLayout);
             GRenderContext->SetObjectName(Material->BindingSet, Material->GetName().c_str(), EAPIResourceType::DescriptorSet);
 
-            Material->bIsReadyForRender = true;
+            Material->SetReadyForRender(true);
             
             OnSave();
         }

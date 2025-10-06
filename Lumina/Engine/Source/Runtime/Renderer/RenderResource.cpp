@@ -70,7 +70,10 @@ namespace Lumina
         void Clear()
         {
             FScopeLock Lock(Mutex);
-            while (!FreeList.empty()) FreeList.pop();
+            while (!FreeList.empty())
+            {
+                FreeList.pop();
+            }
             ResourceList.clear();
         }
 
@@ -175,20 +178,26 @@ namespace Lumina
 
         assert(MipLevel < desc.NumMips);
 
-        if (X == uint32(-1))
+        if (X == uint32(0))
         {
             ret.X = std::max((uint32)desc.Extent.X >> MipLevel, 1u);
         }
 
-        if (Y == uint32(-1))
+        if (Y == uint32(0))
+        {
             ret.Y = std::max((uint32)desc.Extent.Y >> MipLevel, 1u);
+        }
 
-        if (Z == uint32(-1))
+        if (Z == uint32(0))
         {
             if (desc.Dimension == EImageDimension::Texture3D)
+            {
                 ret.Z = std::max((uint32)desc.Depth >> MipLevel, 1u);
+            }
             else
+            {
                 ret.Z = 1;
+            }
         }
 
         return ret;
@@ -228,6 +237,22 @@ namespace Lumina
         }
         return true;
     }
+
+    FBufferRange FBufferRange::Resolve(const FRHIBufferDesc& Desc) const
+    {
+        FBufferRange result;
+        result.ByteOffset = std::min(ByteOffset, Desc.Size);
+        if (ByteSize == 0)
+        {
+            result.ByteSize = Desc.Size - result.ByteOffset;
+        }
+        else
+        {
+            result.ByteSize = std::min(ByteSize, Desc.Size - result.ByteOffset);
+        }
+        return result;
+    }
+    
 }
 
  // Format mapping table. The rows must be in the exactly same order as Format enum members are defined.

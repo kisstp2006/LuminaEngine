@@ -33,6 +33,8 @@ namespace Lumina
     
     FName MakeUniqueObjectName(CClass* Class, CPackage* Package, const FName& InBaseName)
     {
+        LUMINA_PROFILE_SCOPE();
+
         FScopeLock Lock(ObjectNameMutex);
         
         FName BaseName = (InBaseName == NAME_None) ? Class->GetName() : InBaseName;
@@ -73,6 +75,8 @@ namespace Lumina
 
     CObject* StaticAllocateObject(FConstructCObjectParams& Params)
     {
+        LUMINA_PROFILE_SCOPE();
+
         CPackage* Package = nullptr;
         if (Params.Package != NAME_None)
         {
@@ -140,6 +144,8 @@ namespace Lumina
     
     CObject* StaticLoadObject(CClass* InClass, CPackage* Package, const FName& Name, const FName& FileName)
     {
+        LUMINA_PROFILE_SCOPE();
+
         CObject* FoundObject = nullptr;
         
         FoundObject = FindObjectFast(InClass, Package, Name);
@@ -256,8 +262,6 @@ namespace Lumina
 
     bool IsValid(const CObjectBase* Obj)
     {
-        LUMINA_PROFILE_SCOPE();
-        
         if (Obj == nullptr)
         {
             return false;
@@ -273,8 +277,6 @@ namespace Lumina
 
     bool IsValid(CObjectBase* Obj)
     {
-        LUMINA_PROFILE_SCOPE();
-        
         if (Obj == nullptr)
         {
             return false;

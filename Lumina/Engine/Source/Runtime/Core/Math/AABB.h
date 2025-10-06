@@ -23,8 +23,6 @@ namespace Lumina
 
         NODISCARD FAABB ToWorld(const glm::mat4& World) const
         {
-            LUMINA_PROFILE_SCOPE();
-            
             glm::vec3 newMin(std::numeric_limits<float>::max());
             glm::vec3 newMax(-std::numeric_limits<float>::max());
 

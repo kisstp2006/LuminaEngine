@@ -13,10 +13,6 @@
 namespace Lumina
 {
     class FRenderScene;
-}
-
-namespace Lumina
-{
     class CMaterialInterface;
     struct FVertex;
     class CMaterial;
@@ -25,15 +21,20 @@ namespace Lumina
 
 namespace Lumina
 {
-    enum class ESceneRenderGBuffer : uint8
+
+    template<typename T>
+    using TRenderVector = TFixedVector<T, 100>;
+    
+    enum class ERenderSceneDebugFlags : uint8
     {
-        RenderTarget,
-        Albedo,
-        Position,
-        Normals,
-        Material,
-        Depth,
-        SSAO,
+        None     = 0,
+        Position = 1,
+        Normals  = 2,
+        Albedo   = 3,
+        SSAO     = 4,
+        Material = 5,
+        Depth    = 6,
+        Overdraw = 7,
     };
     
     struct FCameraData
@@ -80,8 +81,8 @@ namespace Lumina
 
     struct FEnvironmentSettings
     {
-        glm::vec3 SunDirection;
-        uint32 Padding0;
+        glm::vec4 SunDirection;
+        glm::vec4 AmbientLight; // W is intensity.
     };
     
     struct FGBuffer
@@ -94,8 +95,19 @@ namespace Lumina
     
     struct FInstanceData
     {
-        glm::mat4 Transform;
+        glm::mat4   Transform;
+        glm::vec4   SphereBounds;
+        glm::uvec4  PackedID; // Contains entity ID, and draw ID.
     };
+    static_assert(sizeof(FInstanceData) % 16 == 0, "FInstanceData must be 16-byte aligned");
+
+    struct FCullData
+    {
+        FFrustum    Frustum;
+        glm::vec4   View;
+    };
+    static_assert(sizeof(FCullData) % 16 == 0, "FCullData must be 16-byte aligned");
+
     
     struct FSceneRenderStats
     {
@@ -121,4 +133,37 @@ namespace Lumina
         FSSAOSettings SSAOSettings;
         FEnvironmentSettings EnvironmentSettings;
     };
+
+
+    struct FStaticMeshRender
+    {
+        uint64 SortKey;
+        CMaterialInterface* Material;
+        CStaticMesh* StaticMesh;
+        uint32 FirstIndex;
+        uint16 SurfaceIndexCount;
+
+        auto operator <=> (const FStaticMeshRender& Other) const
+        {
+            return SortKey <=> Other.SortKey;
+        }
+    };
+    
+    struct FThreadLocalCollectionData
+    {
+        TRenderVector<glm::mat4> LocalTransforms;
+        TRenderVector<FStaticMeshRender> LocalStaticMeshRenders;
+    };
+
+    struct FStaticMeshRenderExtractKey
+    {
+        typedef uint64 radix_type;
+    
+        uint64 operator()(const FStaticMeshRender& render) const
+        {
+            return render.SortKey;
+        }
+    };
+
+    
 }

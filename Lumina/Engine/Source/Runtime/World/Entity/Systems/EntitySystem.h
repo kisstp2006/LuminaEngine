@@ -53,7 +53,7 @@ namespace Lumina
         virtual const FUpdatePriorityList* GetRequiredUpdatePriorities() { return nullptr; }
 
         /** Called when the system is first constructed for the world */
-        virtual void Initialize() { }
+        virtual void Initialize(FSystemContext& SystemContext) { }
 
         /** Called per-update, for each required system */
         virtual void Update(FSystemContext& SystemContext) { }

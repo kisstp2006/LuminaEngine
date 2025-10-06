@@ -178,6 +178,8 @@ namespace Lumina
     {
         LUMINA_PROFILE_SCOPE();
 
+        LUM_ASSERT(Buffer->GetUsage().AreAnyFlagsSet(EBufferUsageFlags::CPUReadable, EBufferUsageFlags::CPUReadable))
+        
         // If the buffer has been used in a command list before, wait for that CL to complete
         if (Buffer->LastUseCommandListID != 0)
         {

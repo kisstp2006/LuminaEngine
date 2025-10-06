@@ -150,21 +150,24 @@ namespace Lumina
             ImGui::TextColored(ImVec4(0.58f, 0.86f, 1.0f, 1.0f), "Debug Visualization");
             ImGui::Separator();
 
-            static const char* GBufferDebugLabels[] =
+            static const char* DebugLabels[] =
             {
-                "RenderTarget",
-                "Albedo",
+                "None",
                 "Position",
                 "Normals",
-                "Material"
+                "Albedo",
+                "SSAO",
+                "Material",
+                "Depth",
+                "Overdraw",
             };
 
-            ESceneRenderGBuffer DebugMode = SceneRenderer->GetGBufferDebugMode();
+            ERenderSceneDebugFlags DebugMode = SceneRenderer->GetDebugMode();
             int DebugModeInt = static_cast<int>(DebugMode);
             ImGui::PushItemWidth(200);
-            if (ImGui::Combo("GBuffer Mode", &DebugModeInt, GBufferDebugLabels, IM_ARRAYSIZE(GBufferDebugLabels)))
+            if (ImGui::Combo("Debug Visualization", &DebugModeInt, DebugLabels, IM_ARRAYSIZE(DebugLabels)))
             {
-                SceneRenderer->SetGBufferDebugMode(static_cast<ESceneRenderGBuffer>(DebugModeInt));
+                SceneRenderer->SetDebugMode(static_cast<ERenderSceneDebugFlags>(DebugModeInt));
             }
             ImGui::PopItemWidth();
 

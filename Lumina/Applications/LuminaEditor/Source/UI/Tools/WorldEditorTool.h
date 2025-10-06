@@ -115,6 +115,7 @@ namespace Lumina
         
     protected:
 
+        void SetSelectedEntity(const Entity& NewEntity);
         void RebuildSceneOutliner(FTreeListView* View);
         void HandleEntityEditorDragDrop(FTreeListViewItem* DropItem);
 

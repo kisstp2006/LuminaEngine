@@ -844,9 +844,9 @@ namespace Lumina
         FRHIGraphicsPipeline* Pipeline = nullptr;
         FRenderPassBeginInfo RenderPass = {};
         FViewportState ViewportState;
-        TFixedVector<FRHIBindingSet*, 4> Bindings;
+        TFixedVector<FRHIBindingSet*, 1> Bindings;
         
-        TFixedVector<FVertexBufferBinding, 4> VertexBuffers;
+        TFixedVector<FVertexBufferBinding, 1> VertexBuffers;
         FIndexBufferBinding IndexBuffer;
 
         FRHIBuffer* IndirectParams = nullptr;
@@ -859,6 +859,20 @@ namespace Lumina
         FGraphicsState& SetIndexBuffer(const FIndexBufferBinding& value) { IndexBuffer = value; return *this; }
         FGraphicsState& SetIndirectParams(FRHIBuffer* value) { IndirectParams = value; return *this; }
     };
+
+    struct LUMINA_API FComputeState
+    {
+        FRHIComputePipeline* Pipeline = nullptr;
+        TFixedVector<FRHIBindingSet*, 1> Bindings;
+
+        FRHIBuffer* IndirectParams = nullptr;
+
+        FComputeState& SetPipeline(FRHIComputePipeline* value) { Pipeline = value; return *this; }
+        FComputeState& AddBindingSet(FRHIBindingSet* value) { Bindings.push_back(value); return *this; }
+        FComputeState& SetIndirectParams(FRHIBuffer* value) { IndirectParams = value; return *this; }
+        
+    };
+    
     
     template <>
     struct FVertexTypeTraits<FVertex>

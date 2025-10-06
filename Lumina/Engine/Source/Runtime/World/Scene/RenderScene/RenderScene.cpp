@@ -1,37 +1,36 @@
-    #include "RenderScene.h"
+#include "RenderScene.h"
 
-    #include "Assets/AssetRegistry/AssetRegistry.h"
-    #include "Assets/AssetTypes/Mesh/StaticMesh/StaticMesh.h"
-    #include "Core/Windows/Window.h"
-    #include "Renderer/RHIIncl.h"
-    #define GLM_ENABLE_EXPERIMENTAL
-    #include <execution>
-    #include <variant>
+#include "Assets/AssetRegistry/AssetRegistry.h"
+#include "Assets/AssetTypes/Mesh/StaticMesh/StaticMesh.h"
+#include "Core/Windows/Window.h"
+#include "Renderer/RHIIncl.h"
+#define GLM_ENABLE_EXPERIMENTAL
+#include <execution>
+#include <variant>
 
-    #include "MeshBatch.h"
-    #include "Assets/AssetTypes/Material/Material.h"
-    #include "Assets/AssetTypes/Textures/Texture.h"
-    #include "Core/Engine/Engine.h"
-    #include "Core/Profiler/Profile.h"
-    #include "EASTL/sort.h"
-    #include "glm/gtx/quaternion.hpp"
-    #include "Paths/Paths.h"
-    #include "Renderer/RenderContext.h"
-    #include "Renderer/RHIStaticStates.h"
-    #include "Renderer/ShaderCompiler.h"
-    #include "Renderer/RenderGraph/RenderGraph.h"
-    #include "Renderer/RenderGraph/RenderGraphDescriptor.h"
-    #include "TaskSystem/TaskSystem.h"
-    #include "Tools/Import/ImportHelpers.h"
-    #include "World/World.h"
-    #include "World/Entity/Entity.h"
-    #include "World/Entity/Components/CameraComponent.h"
-    #include "World/Entity/Components/EditorComponent.h"
-    #include "world/entity/components/environmentcomponent.h"
-    #include "world/entity/components/lightcomponent.h"
-    #include "World/Entity/Components/LineBatcherComponent.h"
-    #include "world/entity/components/staticmeshcomponent.h"
-    #include "World/Entity/Components/TransformComponent.h"
+#include "Assets/AssetTypes/Material/Material.h"
+#include "Assets/AssetTypes/Textures/Texture.h"
+#include "Core/Engine/Engine.h"
+#include "Core/Profiler/Profile.h"
+#include "EASTL/sort.h"
+#include "glm/gtx/quaternion.hpp"
+#include "Paths/Paths.h"
+#include "Renderer/RenderContext.h"
+#include "Renderer/RHIStaticStates.h"
+#include "Renderer/ShaderCompiler.h"
+#include "Renderer/RenderGraph/RenderGraph.h"
+#include "Renderer/RenderGraph/RenderGraphDescriptor.h"
+#include "TaskSystem/TaskSystem.h"
+#include "Tools/Import/ImportHelpers.h"
+#include "World/World.h"
+#include "World/Entity/Entity.h"
+#include "World/Entity/Components/CameraComponent.h"
+#include "World/Entity/Components/EditorComponent.h"
+#include "world/entity/components/environmentcomponent.h"
+#include "world/entity/components/lightcomponent.h"
+#include "World/Entity/Components/LineBatcherComponent.h"
+#include "world/entity/components/staticmeshcomponent.h"
+#include "World/Entity/Components/TransformComponent.h"
 
     namespace Lumina
     {
@@ -41,6 +40,8 @@
             , SceneRenderStats()
             , SceneGlobalData()
         {
+            DebugVisualizationMode = ERenderSceneDebugFlags::None;
+            
             SceneViewport = GRenderContext->CreateViewport(Windowing::GetPrimaryWindowHandle()->GetExtent());
             
             LOG_TRACE("Initializing Renderer Scene");
@@ -73,51 +74,49 @@
         
             CameraComponent.SetView(CameraTransform.Transform.Location, CameraTransform.Transform.Location + UpdatedForward, UpdatedUp);
 
-            SceneGlobalData.CameraData.Location =           glm::vec4(CameraComponent.GetPosition(), 1.0f);
-            SceneGlobalData.CameraData.View =               CameraComponent.GetViewMatrix();
-            SceneGlobalData.CameraData.InverseView =        CameraComponent.GetViewVolume().GetInverseViewMatrix();
-            SceneGlobalData.CameraData.Projection =         CameraComponent.GetProjectionMatrix();
-            SceneGlobalData.CameraData.InverseProjection =  CameraComponent.GetViewVolume().GetInverseProjectionMatrix();
-            SceneGlobalData.Time =                          (float)World->GetTimeSinceWorldCreation();
-            SceneGlobalData.DeltaTime =                     (float)World->GetWorldDeltaTime();
-            SceneGlobalData.FarPlane =                      1000.0f;
-            SceneGlobalData.NearPlane =                     0.01f;
+            SetViewVolume(CameraComponent.GetViewVolume());
+
             
-            SceneViewport->SetViewVolume(CameraComponent.GetViewVolume());
 
             RenderGraph.AddPass<RG_Transfer>(FRGEvent("Write Scene Buffer"), nullptr, [&](ICommandList& CmdList)
             {
                 LUMINA_PROFILE_SECTION_COLORED("Write Scene Buffer", tracy::Color::Orange4);
-
                 CmdList.WriteBuffer(SceneDataBuffer, &SceneGlobalData, 0, sizeof(FSceneGlobalData));
             });
+            
+            RenderGraph.AddPass<RG_Raster>(FRGEvent("Clear Overdraw"), nullptr, [&](ICommandList& CmdList)
+            {
+               CmdList.ClearImageUInt(OverdrawImage, AllSubresources, 0); 
+            });
 
-            DepthMeshDrawCommands.clear();
-            MeshDrawCommands.clear();
-            IndirectDrawArguments.clear();
-            InstanceData.clear();
-            LightData.NumLights = 0;
             
+            ResetState();
             CompileDrawCommands();
-            
-            DepthPrePass(RenderGraph);
-            GBufferPass(RenderGraph);
+            FrustumCull(RenderGraph, SceneViewport->GetViewVolume());
+            DepthPrePass(RenderGraph, SceneViewport->GetViewVolume());
+            GBufferPass(RenderGraph, SceneViewport->GetViewVolume());
             SSAOPass(RenderGraph);
             EnvironmentPass(RenderGraph);
             DeferredLightingPass(RenderGraph);
+            BatchedLineDraw(RenderGraph);
             DebugDrawPass(RenderGraph);
             
-
             /** Mostly for UI rendering */  
             RenderGraph.AddPass<RG_Raster>(FRGEvent("Finalize Image State"), nullptr, [&](ICommandList& CmdList)
             {
-                CmdList.SetImageState(GetRenderTarget(), AllSubresources, EResourceStates::ShaderResource);
-                CmdList.CommitBarriers();
-
-                    
-                CmdList.SetImageState(DepthAttachment, AllSubresources, EResourceStates::ShaderResource);
+                CmdList.SetImageState(GetVisualizationImage(), AllSubresources, EResourceStates::ShaderResource);
                 CmdList.CommitBarriers();
             });
+        }
+
+        FRHIImageRef FRenderScene::GetVisualizationImage() const
+        {
+            if (DebugVisualizationMode == ERenderSceneDebugFlags::None)
+            {
+                return GetRenderTarget();
+            }
+
+            return DebugVisualizationImage;
         }
 
         void FRenderScene::OnSwapchainResized()
@@ -125,11 +124,100 @@
             CreateImages();
         }
 
-        void FRenderScene::DepthPrePass(FRenderGraph& RenderGraph)
+        entt::entity FRenderScene::GetEntityAtPixel(uint32 X, uint32 Y) const
+        {
+            if (!PickerImage)
+            {
+                return entt::null;
+            }
+
+            FRHICommandListRef CommandList = GRenderContext->CreateCommandList(FCommandListInfo::Graphics());
+            CommandList->Open();
+
+            FRHIStagingImageRef StagingImage = GRenderContext->CreateStagingImage(PickerImage->GetDescription(), ERHIAccess::HostRead);
+            CommandList->CopyImage(PickerImage, FTextureSlice(), StagingImage, FTextureSlice());
+
+            CommandList->Close();
+            GRenderContext->ExecuteCommandList(CommandList);
+
+            size_t RowPitch = 0;
+            void* MappedMemory = GRenderContext->MapStagingTexture(StagingImage, FTextureSlice(), ERHIAccess::HostRead, &RowPitch);
+            if (!MappedMemory)
+            {
+                return entt::null;
+            }
+
+            const uint32 Width  = PickerImage->GetDescription().Extent.X;
+            const uint32 Height = PickerImage->GetDescription().Extent.Y;
+
+            if (X >= Width || Y >= Height)
+            {
+                GRenderContext->UnMapStagingTexture(StagingImage);
+                return entt::null;
+            }
+
+            uint8* RowStart = reinterpret_cast<uint8*>(MappedMemory) + Y * RowPitch;
+            uint32* PixelPtr = reinterpret_cast<uint32*>(RowStart) + X;
+            uint32 PixelValue = *PixelPtr;
+
+            GRenderContext->UnMapStagingTexture(StagingImage);
+
+            if (PixelValue == 0)
+            {
+                return entt::null;
+            }
+
+            return static_cast<entt::entity>(PixelValue);
+        }
+
+        void FRenderScene::FrustumCull(FRenderGraph& RenderGraph, const FViewVolume& View)
+        {
+            RenderGraph.AddPass<RG_Raster>(FRGEvent("Frustum Cull"), nullptr, [&] (ICommandList& CmdList)
+            {
+                LUMINA_PROFILE_SECTION_COLORED("Frustum Cull", tracy::Color::Pink2);
+
+                if (IndirectDrawArguments.empty())
+                {
+                    return;
+                }
+                
+                FRHIComputeShaderRef ComputeShader = FShaderLibrary::GetComputeShader("FrustumCull.comp");
+
+                FComputePipelineDesc PipelineDesc;
+                PipelineDesc.SetComputeShader(ComputeShader);
+                PipelineDesc.AddBindingLayout(FrustumCullLayout);
+                    
+                FRHIComputePipelineRef Pipeline = GRenderContext->CreateComputePipeline(PipelineDesc);
+                
+                FComputeState State;
+                State.SetPipeline(Pipeline);
+                State.AddBindingSet(FrustumCullSet);
+                CmdList.SetComputeState(State);
+
+                FCullData CullData;
+                CullData.Frustum = SceneViewport->GetViewVolume().GetFrustum();
+                CullData.View = glm::vec4(SceneViewport->GetViewVolume().GetViewPosition(), (uint32)InstanceData.size());
+                
+                CmdList.SetPushConstants(&CullData, sizeof(FCullData));
+
+                uint32 Num = (uint32)InstanceData.size();
+                uint32 NumWorkGroups = (Num + 255) / 256;
+                
+                CmdList.Dispatch(NumWorkGroups, 1, 1);
+                
+            });
+        }
+
+        void FRenderScene::DepthPrePass(FRenderGraph& RenderGraph, const FViewVolume& View)
         {
             RenderGraph.AddPass<RG_Raster>(FRGEvent("Pre-Depth Pass"), nullptr, [&] (ICommandList& CmdList)
             {
                 LUMINA_PROFILE_SECTION_COLORED("Pre-Depth Pass", tracy::Color::Orange);
+
+                if (DepthMeshDrawCommands.empty())
+                {
+                    return;
+                }
                 
                 FRHIVertexShaderRef VertexShader = FShaderLibrary::GetVertexShader("DepthPrePass.vert");
                 if (!VertexShader)
@@ -144,7 +232,7 @@
                     .SetRenderArea(GetRenderTarget()->GetExtent());
                 
                 FRenderState RenderState; RenderState
-                    .SetDepthStencilState(FDepthStencilState().SetDepthFunc(EComparisonFunc::Greater))
+                    .SetDepthStencilState(FDepthStencilState().SetDepthFunc(EComparisonFunc::GreaterOrEqual))
                     .SetRasterState(FRasterState().EnableDepthClip());
                         
                 FGraphicsPipelineDesc Desc; Desc
@@ -170,12 +258,12 @@
                     
                     CmdList.SetGraphicsState(GraphicsState);
                     
-                    CmdList.DrawIndexedIndirect(Batch.NumDraws, Batch.IndirectDrawOffset * sizeof(FDrawIndexedIndirectArguments));
+                    CmdList.DrawIndexedIndirect(1, Batch.IndirectDrawOffset * sizeof(FDrawIndexedIndirectArguments));
                 }
             });
         }
 
-        void FRenderScene::GBufferPass(FRenderGraph& RenderGraph)
+        void FRenderScene::GBufferPass(FRenderGraph& RenderGraph, const FViewVolume& View)
         {
             RenderGraph.AddPass<RG_Raster>(FRGEvent("GBuffer Pass"), nullptr, [&](ICommandList& CmdList)
             {
@@ -207,6 +295,11 @@
                 .SetColorLoadOp(ERenderLoadOp::Clear)
                 .SetColorStoreOp(ERenderStoreOp::Store)
                 .SetColorClearColor(FColor::Black)
+
+                .AddColorAttachment(PickerImage)
+                .SetColorLoadOp(ERenderLoadOp::Clear)
+                .SetColorStoreOp(ERenderStoreOp::Store)
+                .SetColorClearColor(FColor::Black)
                 
                 .SetDepthAttachment(DepthAttachment)
                 .SetDepthLoadOp(ERenderLoadOp::Load)
@@ -231,12 +324,16 @@
                 FBlendState::RenderTarget AlbedoSpecTarget;
                 AlbedoSpecTarget.SetFormat(EFormat::RGBA8_UNORM);
                 BlendState.SetRenderTarget(3, AlbedoSpecTarget);
+
+                FBlendState::RenderTarget PickerTarget;
+                PickerTarget.SetFormat(EFormat::R32_UINT);
+                BlendState.SetRenderTarget(4, PickerTarget);
                 
                 FRasterState RasterState;
                 RasterState.EnableDepthClip();
 
                 FDepthStencilState DepthState; DepthState
-                    .SetDepthFunc(EComparisonFunc::Equal)
+                    .SetDepthFunc(EComparisonFunc::GreaterOrEqual)
                     .DisableDepthWrite();
                 
                 FRenderState RenderState;
@@ -249,13 +346,6 @@
                     const FMeshDrawCommand& Batch = MeshDrawCommands[CurrentDraw];
                     CMaterialInterface* Material = Batch.Material;
 
-                    FGraphicsState GraphicsState; GraphicsState
-                        .SetRenderPass(BeginInfo)
-                        .AddVertexBuffer({ Batch.VertexBuffer })
-                        .SetIndexBuffer({ Batch.IndexBuffer })
-                        .SetViewport(MakeViewportStateFromImage(GetRenderTarget()));
-
-                    
                     FGraphicsPipelineDesc Desc; Desc
                         .SetRenderState(RenderState)
                         .SetInputLayout(VertexLayoutInput)
@@ -264,13 +354,20 @@
                         .SetVertexShader(Material->GetMaterial()->VertexShader)
                         .SetPixelShader(Material->GetMaterial()->PixelShader);
                     
-                    GraphicsState.SetPipeline(GRenderContext->CreateGraphicsPipeline(Desc));
-                    GraphicsState.SetIndirectParams(IndirectDrawBuffer);
-                    GraphicsState.AddBindingSet(BindingSet);
-                    GraphicsState.AddBindingSet(Material->GetBindingSet());
+                    FGraphicsState GraphicsState; GraphicsState
+                        .SetRenderPass(BeginInfo)
+                        .AddVertexBuffer({ Batch.VertexBuffer })
+                        .SetIndexBuffer({ Batch.IndexBuffer })
+                        .SetViewport(MakeViewportStateFromImage(GetRenderTarget()))
+                        .SetPipeline(GRenderContext->CreateGraphicsPipeline(Desc))
+                        .SetIndirectParams(IndirectDrawBuffer)
+                        .AddBindingSet(BindingSet)
+                        .AddBindingSet(Material->GetBindingSet());
+                    
                     CmdList.SetGraphicsState(GraphicsState);
                     
-                    CmdList.DrawIndexedIndirect(Batch.NumDraws, Batch.IndirectDrawOffset * sizeof(FDrawIndexedIndirectArguments));
+                    
+                    CmdList.DrawIndexedIndirect(1, Batch.IndirectDrawOffset * sizeof(FDrawIndexedIndirectArguments));
                 }
             });
         }
@@ -382,7 +479,7 @@
                 
                 
                     FRenderPassBeginInfo BeginInfo; BeginInfo
-                    .SetDebugName("SSAO Blue Pass")
+                    .SetDebugName("SSAO Blur Pass")
                     .AddColorAttachment(SSAOBlur)
                     .SetColorLoadOp(ERenderLoadOp::Clear)
                     .SetColorStoreOp(ERenderStoreOp::Store)
@@ -434,7 +531,6 @@
                     FGraphicsPipelineDesc Desc;
                     Desc.SetRenderState(RenderState);
                     Desc.AddBindingLayout(BindingLayout);
-                    Desc.AddBindingLayout(EnvironmentLayout);
                     Desc.SetVertexShader(VertexShader);
                     Desc.SetPixelShader(PixelShader);
             
@@ -442,7 +538,6 @@
             
                     FGraphicsState GraphicsState;
                     GraphicsState.AddBindingSet(BindingSet);
-                    GraphicsState.AddBindingSet(EnvironmentBindingSet);
                     GraphicsState.SetPipeline(Pipeline);
             
                     FRenderPassBeginInfo BeginInfo; BeginInfo
@@ -534,11 +629,11 @@
             });
         }
 
-        void FRenderScene::DebugDrawPass(FRenderGraph& RenderGraph)
+        void FRenderScene::BatchedLineDraw(FRenderGraph& RenderGraph)
         {
-            RenderGraph.AddPass<RG_Raster>(FRGEvent("Debug Draw Pass"), nullptr, [&](ICommandList& CmdList)
+            RenderGraph.AddPass<RG_Raster>(FRGEvent("Batched Line Pass"), nullptr, [&](ICommandList& CmdList)
             {
-                LUMINA_PROFILE_SECTION_COLORED("Debug Draw Pass", tracy::Color::Yellow3);
+                LUMINA_PROFILE_SECTION_COLORED("Batched Line Pass", tracy::Color::Yellow3);
                 
                 FRHIVertexShaderRef VertexShader = FShaderLibrary::GetVertexShader("SimpleElement.vert");
                 FRHIPixelShaderRef PixelShader = FShaderLibrary::GetPixelShader("SimpleElement.frag");
@@ -578,7 +673,7 @@
                 GraphicsState.SetPipeline(Pipeline);
                 
                 FRenderPassBeginInfo BeginInfo; BeginInfo
-                .SetDebugName("Debug Draw Pass")
+                .SetDebugName("Batched Line Pass")
                 .AddColorAttachment(GetRenderTarget())
                 .SetColorLoadOp(ERenderLoadOp::Load)
                 .SetColorStoreOp(ERenderStoreOp::Store)
@@ -604,6 +699,74 @@
             });
         }
 
+        void FRenderScene::DebugDrawPass(FRenderGraph& RenderGraph)
+        {
+            RenderGraph.AddPass<RG_Raster>(FRGEvent("Debug Draw Pass"), nullptr, [&](ICommandList& CmdList)
+            {
+                LUMINA_PROFILE_SECTION_COLORED("Debug Draw Pass", tracy::Color::Red2);
+                
+                FRHIVertexShaderRef VertexShader = FShaderLibrary::GetVertexShader("FullscreenQuad.vert");
+                FRHIPixelShaderRef PixelShader = FShaderLibrary::GetPixelShader("Debug.frag");
+                if (!VertexShader || !PixelShader)
+                {
+                    return;
+                }
+                
+                FRasterState RasterState;
+                RasterState.SetCullNone();
+                
+                FBlendState BlendState;
+                FBlendState::RenderTarget RenderTarget;
+                RenderTarget.SetFormat(EFormat::RGBA32_FLOAT);
+                BlendState.SetRenderTarget(0, RenderTarget);
+        
+                FDepthStencilState DepthState;
+                DepthState.DisableDepthTest();
+                DepthState.DisableDepthWrite();
+                
+                FRenderState RenderState;
+                RenderState.SetRasterState(RasterState);
+                RenderState.SetDepthStencilState(DepthState);
+                RenderState.SetBlendState(BlendState);
+                
+                FGraphicsPipelineDesc Desc;
+                Desc.SetRenderState(RenderState);
+                Desc.AddBindingLayout(BindingLayout);
+                Desc.AddBindingLayout(DebugPassLayout);
+                Desc.SetVertexShader(VertexShader);
+                Desc.SetPixelShader(PixelShader);
+        
+                FRHIGraphicsPipelineRef Pipeline = GRenderContext->CreateGraphicsPipeline(Desc);
+
+                FGraphicsState GraphicsState;
+                GraphicsState.SetPipeline(Pipeline);
+                GraphicsState.AddBindingSet(BindingSet);
+                GraphicsState.AddBindingSet(DebugPassSet);
+                
+                FRenderPassBeginInfo BeginInfo; BeginInfo
+                .SetDebugName("Debug Draw Pass")
+                .AddColorAttachment(DebugVisualizationImage)
+                .SetColorClearColor(FColor::Black)
+                .SetColorLoadOp(ERenderLoadOp::Clear)
+                .SetColorStoreOp(ERenderStoreOp::Store)
+                
+                .SetDepthAttachment(DepthAttachment)
+                .SetDepthLoadOp(ERenderLoadOp::Load)
+                .SetDepthStoreOp(ERenderStoreOp::Store)
+                .SetRenderArea(DebugVisualizationImage->GetExtent());
+
+                GraphicsState.SetRenderPass(BeginInfo);
+                
+                GraphicsState.SetViewport(MakeViewportStateFromImage(DebugVisualizationImage));
+
+                CmdList.SetGraphicsState(GraphicsState);
+
+                uint32 Mode = (uint32)DebugVisualizationMode;
+                CmdList.SetPushConstants(&Mode, sizeof(uint32));
+                CmdList.Draw(3, 1, 0, 0); 
+            });
+        }
+
         FViewportState FRenderScene::MakeViewportStateFromImage(const FRHIImage* Image)
         {
             float SizeY = (float)Image->GetSizeY();
@@ -616,158 +779,152 @@
             return ViewportState;
         }
 
+        void FRenderScene::SetViewVolume(const FViewVolume& ViewVolume)
+        {
+            SceneViewport->SetViewVolume(ViewVolume);
+            
+            SceneGlobalData.CameraData.Location =           glm::vec4(SceneViewport->GetViewVolume().GetViewPosition(), 1.0f);
+            SceneGlobalData.CameraData.View =               SceneViewport->GetViewVolume().GetViewMatrix();
+            SceneGlobalData.CameraData.InverseView =        SceneViewport->GetViewVolume().GetInverseViewMatrix();
+            SceneGlobalData.CameraData.Projection =         SceneViewport->GetViewVolume().GetProjectionMatrix();
+            SceneGlobalData.CameraData.InverseProjection =  SceneViewport->GetViewVolume().GetInverseProjectionMatrix();
+            SceneGlobalData.Time =                          (float)World->GetTimeSinceWorldCreation();
+            SceneGlobalData.DeltaTime =                     (float)World->GetWorldDeltaTime();
+            SceneGlobalData.FarPlane =                      1000.0f;
+            SceneGlobalData.NearPlane =                     0.01f;
+        }
+
+        void FRenderScene::ResetState()
+        {
+            SimpleVertices.clear();
+            DepthMeshDrawCommands.clear();
+            MeshDrawCommands.clear();
+            IndirectDrawArguments.clear();
+            InstanceData.clear();
+            LightData.NumLights = 0;
+        }
+
         void FRenderScene::CompileDrawCommands()
         {
             LUMINA_PROFILE_SCOPE();
 
             ICommandList* CommandList = GRenderContext->GetCommandList(ECommandQueue::Graphics);
             {
-                LUMINA_PROFILE_SECTION("Build Render Proxies");
+                LUMINA_PROFILE_SECTION("Compile Draw Commands");
                 
-                // Pre-allocate all containers to avoid reallocations
                 auto Group = World->GetEntityRegistry().group<SStaticMeshComponent, STransformComponent>();
+
                 const size_t EntityCount = Group.size();
+                const size_t EstimatedProxies = EntityCount * 2;
                 
-                // Estimate capacity (entities * average surfaces per mesh)
-                const size_t EstimatedProxies = EntityCount * 2; // Conservative estimate
+                InstanceData.clear();
+                InstanceData.reserve(EstimatedProxies);
                 
-                TFixedVector<glm::mat4, 100> Transforms;
-                Transforms.reserve(EstimatedProxies);
-            
-                    
-                StaticMeshRenders.clear();
-                StaticMeshRenders.reserve(EstimatedProxies);
-                    
+                THashMap<uint64, uint64> BatchedDraws;
                 
                 //========================================================================================================================
-                
-                Group.each([&](const SStaticMeshComponent& MeshComponent, const STransformComponent& TransformComponent)
                 {
-                    CStaticMesh* Mesh = MeshComponent.StaticMesh;
-                    if (!IsValid(Mesh))
+                    Group.each([&](entt::entity entity, const SStaticMeshComponent& MeshComponent, const STransformComponent& TransformComponent)
                     {
-                        return;
-                    }
-                    
-                    const FMeshResource& Resource = Mesh->GetMeshResource();
-                    const SIZE_T NumSurfaces = Resource.GetNumSurfaces();
-                    
-                    const glm::mat4 TransformMatrix = TransformComponent.GetMatrix();
-                    
-                    for (SIZE_T j = 0; j < NumSurfaces; ++j)
-                    {
-                        if (!Resource.IsSurfaceIndexValid(j))
+                        CStaticMesh* Mesh = MeshComponent.StaticMesh;
+                        if (!IsValid(Mesh))
                         {
-                            continue;
-                        }
-                
-                        const FGeometrySurface& Surface = Resource.GetSurface(j);
-                        CMaterialInterface* Material = MeshComponent.GetMaterialForSlot(Surface.MaterialIndex);
-                        
-                        if (!IsValid(Material) || !Material->IsReadyForRender())
-                        {
-                            continue;
+                            return;
                         }
                         
-                    
-                        const uint32 TransformIdx = static_cast<uint32>(Transforms.size());
-                        Transforms.emplace_back(TransformMatrix);
+                        const FMeshResource& Resource = Mesh->GetMeshResource();
+                        const SIZE_T NumSurfaces = Resource.GetNumSurfaces();
                         
-                        const uintptr_t MaterialPtr = reinterpret_cast<uintptr_t>(Material);
                         const uintptr_t MeshPtr = reinterpret_cast<uintptr_t>(Mesh);
-                        
-                        const uint64 MaterialID = (MaterialPtr & 0xFFFFFull) << 44;
                         const uint64 MeshID = (MeshPtr & 0xFFFFFull) << 24;
-                        const uint64 FirstIndex16 = (static_cast<uint64>(Surface.StartIndex) & 0xFFFFull) << 8;
-                        const uint64 IndexCount8 = eastl::min<uint32>(Surface.IndexCount, 0xFF);
-                        
-                        StaticMeshRenders.emplace_back(FStaticMeshRender
-                        {
-                            .Material = Material,
-                            .StaticMesh = Mesh,
-                            .SortKey = MaterialID | MeshID | FirstIndex16 | IndexCount8,
-                            .FirstIndex = static_cast<uint32>(Surface.StartIndex),
-                            .TransformIdx = TransformIdx,
-                            .SurfaceIndexCount = static_cast<uint16>(Surface.IndexCount),
-                        });
-                    }
-                });
 
+                        glm::mat4 TransformMatrix = TransformComponent.GetMatrix();
+                        FAABB BoundingBox = Mesh->GetAABB().ToWorld(TransformMatrix);
+                        glm::vec3 Center = (BoundingBox.Min + BoundingBox.Max) * 0.5f;
+                        glm::vec3 Extents = BoundingBox.Max - Center;
+                        float Radius = glm::length(Extents);
+                        glm::vec4 SphereBounds = glm::vec4(Center, Radius);
 
-                {
-                    LUMINA_PROFILE_SECTION("Sort Render Proxies");
-    
-                    const size_t NumProxies = StaticMeshRenders.size();
-                    const size_t MinElementsForParallelSort = 2500;
-    
-                    if (NumProxies > MinElementsForParallelSort)
-                    {
-                        std::sort(std::execution::par_unseq, StaticMeshRenders.begin(), StaticMeshRenders.end());
-                    }
-                    else
-                    {
-                        eastl::sort(StaticMeshRenders.begin(), StaticMeshRenders.end());
-                    }
-                }
-                
-                {   
-                    LUMINA_PROFILE_SECTION("Build Indirect Draw Arguments");
-            
-                    const size_t NumProxies = StaticMeshRenders.size();
-                    InstanceData.clear();
-                    InstanceData.reserve(NumProxies);
-                    
-                    IndirectDrawArguments.clear();
-                    MeshDrawCommands.clear();
-                    
-                    const size_t EstimatedBatches = eastl::min(NumProxies / 4, NumProxies);
-                    IndirectDrawArguments.reserve(EstimatedBatches);
-                    MeshDrawCommands.reserve(EstimatedBatches);
-                    
-                    uint64 CurrentSortKey = ~0ull;
-                    FDrawIndexedIndirectArguments* CurrentDrawArgs = nullptr;
-                    
-                    for (const auto& Proxy : StaticMeshRenders)
-                    {
-                        if (CurrentSortKey != Proxy.SortKey)
+                        for (SIZE_T j = 0; j < NumSurfaces; ++j)
                         {
-                            // Start new batch
-                            CurrentSortKey = Proxy.SortKey;
+                            if (!Resource.IsSurfaceIndexValid(j))
+                            {
+                                continue;
+                            }
+                    
+                            const FGeometrySurface& Surface = Resource.GetSurface(j);
+                            CMaterialInterface* Material = MeshComponent.GetMaterialForSlot(Surface.MaterialIndex);
                             
-                            MeshDrawCommands.emplace_back(FMeshDrawCommand
+                            if (!IsValid(Material) || !Material->IsReadyForRender())
                             {
-                                .Material = Proxy.Material,
-                                .IndexBuffer =  Proxy.StaticMesh->GetIndexBuffer(),
-                                .VertexBuffer = Proxy.StaticMesh->GetVertexBuffer(),
-                                .NumDraws = 1,
-                                .IndirectDrawOffset = (uint32)IndirectDrawArguments.size()
-                            });
+                                continue;
+                            }
+                            
+                            const uintptr_t MaterialPtr = reinterpret_cast<uintptr_t>(Material);
+                            const uint64 MaterialID = (MaterialPtr & 0xFFFFFFFull) << 28;
+                            const uint64 SortKey = MaterialID | MeshID;
+                            
 
-                            DepthMeshDrawCommands.emplace_back(FMeshDrawCommand
+                            if (BatchedDraws.find(SortKey) == BatchedDraws.end())
                             {
-                                .Material = Proxy.Material,
-                                .IndexBuffer =  Proxy.StaticMesh->GetShadowIndexBuffer(),
-                                .VertexBuffer = Proxy.StaticMesh->GetVertexBuffer(),
-                                .NumDraws = 1,
-                                .IndirectDrawOffset = (uint32)IndirectDrawArguments.size()
+                                BatchedDraws[SortKey] = IndirectDrawArguments.size();
+
+                                MeshDrawCommands.emplace_back(FMeshDrawCommand
+                                {
+                                    .Material = Material,
+                                    .IndexBuffer =  Mesh->GetIndexBuffer(),
+                                    .VertexBuffer = Mesh->GetVertexBuffer(),
+                                    .IndirectDrawOffset = (uint32)IndirectDrawArguments.size()
+                                });
+                
+                                DepthMeshDrawCommands.emplace_back(FMeshDrawCommand
+                                {
+                                    .Material = Material,
+                                    .IndexBuffer =  Mesh->GetShadowIndexBuffer(),
+                                    .VertexBuffer = Mesh->GetVertexBuffer(),
+                                    .IndirectDrawOffset = (uint32)IndirectDrawArguments.size()
+                                });
+                                
+                                IndirectDrawArguments.emplace_back(FDrawIndexedIndirectArguments
+                                {
+                                    .IndexCount = Surface.IndexCount,
+                                    .InstanceCount = 1,
+                                    .StartIndexLocation = Surface.StartIndex,
+                                    .BaseVertexLocation = 0,
+                                    .StartInstanceLocation = 0,
+                                });
+                            }
+                            else
+                            {
+                                IndirectDrawArguments[BatchedDraws[SortKey]].InstanceCount++;
+                            }
+
+                            glm::uvec4 PackedID;
+                            PackedID.x = (uint32)entity;
+                            PackedID.y = (uint32)BatchedDraws[SortKey]; // Get index of indirect draw batch.
+                            
+                            InstanceData.emplace_back(FInstanceData
+                            {
+                                .Transform = TransformMatrix,
+                                .SphereBounds = SphereBounds,
+                                .PackedID = PackedID,
                             });
-            
-                            IndirectDrawArguments.emplace_back(FDrawIndexedIndirectArguments{
-                                .IndexCount = Proxy.SurfaceIndexCount,
-                                .InstanceCount = 1,
-                                .StartIndexLocation = Proxy.FirstIndex,
-                                .BaseVertexLocation = 0,
-                                .StartInstanceLocation = static_cast<uint32>(InstanceData.size()),
-                            });
-                            CurrentDrawArgs = &IndirectDrawArguments.back();
                         }
-                        else
-                        {
-                            ++CurrentDrawArgs->InstanceCount;
-                        }
-            
-                        InstanceData.emplace_back(Transforms[Proxy.TransformIdx]);
-                    }
+                    });
+                }
+
+                // Give each indirect draw command the correct start instance offset index.
+                uint32 CumulativeInstanceCount = 0;
+                for (FDrawIndexedIndirectArguments& Arg : IndirectDrawArguments)
+                {
+                    Arg.StartInstanceLocation = CumulativeInstanceCount;
+                    CumulativeInstanceCount += Arg.InstanceCount;
+                }
+
+                // Since this value will be written in the shader, we no longer need it, since we've generated unique StartInstanceIndex per draw.
+                for (FDrawIndexedIndirectArguments& Arg : IndirectDrawArguments)
+                {
+                    Arg.InstanceCount = 0;
                 }
                 
                 {
@@ -778,7 +935,7 @@
                     
                     if (InstanceDataSize > 0)
                     {
-                        CommandList->WriteBuffer(ModelDataBuffer, InstanceData.data(), 0, InstanceDataSize);
+                        CommandList->WriteBuffer(InstanceDataBuffer, InstanceData.data(), 0, InstanceDataSize);
                     }
                     if (IndirectArgsSize > 0)
                     {
@@ -791,7 +948,6 @@
             
             {
                 auto Group = World->GetEntityRegistry().group<FLineBatcherComponent>();
-                SimpleVertices.clear();
                 Group.each([&](auto& LineBatcherComponent)
                 {
                     for (const FBatchedLine& Line : LineBatcherComponent.BatchedLines)
@@ -887,8 +1043,8 @@
         
             {
         
-                auto Group = World->GetEntityRegistry().group<SDirectionalLightComponent>();
-                Group.each([this](const SDirectionalLightComponent& DirectionalLightComponent)
+                auto View = World->GetEntityRegistry().view<SDirectionalLightComponent>();
+                View.each([this](const SDirectionalLightComponent& DirectionalLightComponent)
                 {
                     FLight DirectionalLight;
                     DirectionalLight.Type = LIGHT_TYPE_DIRECTIONAL;
@@ -906,9 +1062,11 @@
         
             {
                 RenderSettings.bHasEnvironment = false;
-                auto Group = World->GetEntityRegistry().group<SEnvironmentComponent>();
-                Group.each([this] (const SEnvironmentComponent& EnvironmentComponent)
+                RenderSettings.EnvironmentSettings.AmbientLight = glm::vec4(0.0f);
+                auto View = World->GetEntityRegistry().view<SEnvironmentComponent>();
+                View.each([this] (const SEnvironmentComponent& EnvironmentComponent)
                 {
+                    RenderSettings.EnvironmentSettings.AmbientLight     = glm::vec4(EnvironmentComponent.AmbientLight.Color, EnvironmentComponent.AmbientLight.Intensity);
                     RenderSettings.bHasEnvironment                      = true;
                     RenderSettings.bSSAO                                = EnvironmentComponent.bSSAOEnabled;
                     RenderSettings.SSAOSettings.Intensity               = EnvironmentComponent.SSAOInfo.Intensity;
@@ -919,9 +1077,11 @@
 
             SIZE_T LightUploadSize = sizeof(FSceneLightData::NumLights) + sizeof(FSceneLightData::Padding) + sizeof(FLight) * LightData.NumLights;
             CommandList->WriteBuffer(LightDataBuffer, &LightData, 0, LightUploadSize);
-            CommandList->WriteBuffer(SSAOSettingsBuffer, &RenderSettings.SSAOSettings);
-            CommandList->WriteBuffer(EnvironmentBuffer, &RenderSettings.EnvironmentSettings);
+            
+            SSAOSettingsBuffer.UpdateBuffer(CommandList, RenderSettings.SSAOSettings);
+            EnvironmentBuffer.UpdateBuffer(CommandList, RenderSettings.EnvironmentSettings);
         }
+        
 
         void FRenderScene::InitResources()
         {
@@ -930,22 +1090,22 @@
                 // Pos
                 VertexDesc[0].SetElementStride(sizeof(FVertex));
                 VertexDesc[0].SetOffset(offsetof(FVertex, Position));
-                VertexDesc[0].Format = EFormat::RGBA32_FLOAT;
-
-                // Color
-                VertexDesc[1].SetElementStride(sizeof(FVertex));
-                VertexDesc[1].SetOffset(offsetof(FVertex, Color));
-                VertexDesc[1].Format = EFormat::RGBA32_FLOAT;
+                VertexDesc[0].Format = EFormat::RGB32_FLOAT;
 
                 // Normal
-                VertexDesc[2].SetElementStride(sizeof(FVertex));
-                VertexDesc[2].SetOffset(offsetof(FVertex, Normal));
-                VertexDesc[2].Format = EFormat::RGBA32_FLOAT;
+                VertexDesc[1].SetElementStride(sizeof(FVertex));
+                VertexDesc[1].SetOffset(offsetof(FVertex, Normal));
+                VertexDesc[1].Format = EFormat::R32_UINT;
 
                 // UV
+                VertexDesc[2].SetElementStride(sizeof(FVertex));
+                VertexDesc[2].SetOffset(offsetof(FVertex, UV));
+                VertexDesc[2].Format = EFormat::RG16_UINT;
+                
+                // Color
                 VertexDesc[3].SetElementStride(sizeof(FVertex));
-                VertexDesc[3].SetOffset(offsetof(FVertex, UV));
-                VertexDesc[3].Format = EFormat::RG32_FLOAT;
+                VertexDesc[3].SetOffset(offsetof(FVertex, Color));
+                VertexDesc[3].Format = EFormat::RGBA8_UNORM;
 
             
                 VertexLayoutInput = GRenderContext->CreateInputLayout(VertexDesc, std::size(VertexDesc));
@@ -965,35 +1125,35 @@
 
                 SimpleVertexLayoutInput = GRenderContext->CreateInputLayout(VertexDesc, std::size(VertexDesc));
             }
+
+            {
+                FBindingSetDesc BindingSetDesc;
+                BindingSetDesc.AddItem(FBindingSetItem::BufferSRV(0, InstanceDataBuffer));
+                BindingSetDesc.AddItem(FBindingSetItem::BufferUAV(1, InstanceMappingBuffer));
+                BindingSetDesc.AddItem(FBindingSetItem::BufferUAV(2, IndirectDrawBuffer));
+                BindingSetDesc.AddItem(FBindingSetItem::PushConstants(0, sizeof(FCullData)));
+
+                TBitFlags<ERHIShaderType> Visibility;
+                Visibility.SetMultipleFlags(ERHIShaderType::Compute);
+                GRenderContext->CreateBindingSetAndLayout(Visibility, 0, BindingSetDesc, FrustumCullLayout, FrustumCullSet);
+            }
             
             {
-                FBindingLayoutDesc BindingLayoutDesc;
-                BindingLayoutDesc.StageFlags.SetMultipleFlags(ERHIShaderType::Vertex, ERHIShaderType::Fragment);
-                BindingLayoutDesc.AddItem(FBindingLayoutItem::Buffer_UD(0));
-                BindingLayoutDesc.AddItem(FBindingLayoutItem::Buffer_SRV(1));
-                BindingLayoutDesc.AddItem(FBindingLayoutItem::Buffer_SRV(2));
-                BindingLayoutDesc.AddItem(FBindingLayoutItem::PushConstants(0, 80));
-                BindingLayout = GRenderContext->CreateBindingLayout(BindingLayoutDesc);
 
                 FBindingSetDesc BindingSetDesc;
                 BindingSetDesc.AddItem(FBindingSetItem::BufferCBV(0, SceneDataBuffer));
-                BindingSetDesc.AddItem(FBindingSetItem::BufferSRV(1, ModelDataBuffer));
-                BindingSetDesc.AddItem(FBindingSetItem::BufferSRV(2, LightDataBuffer));
-            
-                BindingSet = GRenderContext->CreateBindingSet(BindingSetDesc, BindingLayout);
+                BindingSetDesc.AddItem(FBindingSetItem::BufferSRV(1, InstanceDataBuffer));
+                BindingSetDesc.AddItem(FBindingSetItem::BufferSRV(2, InstanceMappingBuffer));
+                BindingSetDesc.AddItem(FBindingSetItem::BufferSRV(3, LightDataBuffer));
+                BindingSetDesc.AddItem(FBindingSetItem::BufferCBV(4, EnvironmentBuffer));
+                //BindingSetDesc.AddItem(FBindingSetItem::TextureUAV(5, OverdrawImage));
+
+                TBitFlags<ERHIShaderType> Visibility;
+                Visibility.SetMultipleFlags(ERHIShaderType::Vertex, ERHIShaderType::Fragment);
+                GRenderContext->CreateBindingSetAndLayout(Visibility, 0, BindingSetDesc, BindingLayout, BindingSet);
             }
 
             {
-                FBindingLayoutDesc LayoutDesc;
-                LayoutDesc.AddItem(FBindingLayoutItem::Texture_SRV(0));
-                LayoutDesc.AddItem(FBindingLayoutItem::Texture_SRV(1));
-                LayoutDesc.AddItem(FBindingLayoutItem::Texture_SRV(2));
-                LayoutDesc.AddItem(FBindingLayoutItem::Texture_SRV(3));
-                LayoutDesc.AddItem(FBindingLayoutItem::Texture_SRV(4));
-                LayoutDesc.StageFlags.SetFlag(ERHIShaderType::Fragment);
-                
-                LightingPassLayout = GRenderContext->CreateBindingLayout(LayoutDesc);
-
                 FBindingSetDesc SetDesc;
                 SetDesc.AddItem(FBindingSetItem::TextureSRV(0, GBuffer.Position));
                 SetDesc.AddItem(FBindingSetItem::TextureSRV(1, GBuffer.Normals));
@@ -1001,7 +1161,24 @@
                 SetDesc.AddItem(FBindingSetItem::TextureSRV(3, GBuffer.AlbedoSpec));
                 SetDesc.AddItem(FBindingSetItem::TextureSRV(4, SSAOBlur));
 
-                LightingPassSet = GRenderContext->CreateBindingSet(SetDesc, LightingPassLayout);
+                TBitFlags<ERHIShaderType> Visibility;
+                Visibility.SetMultipleFlags(ERHIShaderType::Fragment);
+                GRenderContext->CreateBindingSetAndLayout(Visibility, 0, SetDesc, LightingPassLayout, LightingPassSet);
+
+            }
+
+            {
+                FBindingSetDesc SetDesc;
+                SetDesc.AddItem(FBindingSetItem::TextureSRV(0, GBuffer.Position));
+                SetDesc.AddItem(FBindingSetItem::TextureSRV(1, GBuffer.Normals));
+                SetDesc.AddItem(FBindingSetItem::TextureSRV(2, GBuffer.Material));
+                SetDesc.AddItem(FBindingSetItem::TextureSRV(3, GBuffer.AlbedoSpec));
+                SetDesc.AddItem(FBindingSetItem::TextureSRV(4, SSAOBlur));
+                SetDesc.AddItem(FBindingSetItem::PushConstants(0, sizeof(uint32)));
+
+                TBitFlags<ERHIShaderType> Visibility;
+                Visibility.SetMultipleFlags(ERHIShaderType::Fragment);
+                GRenderContext->CreateBindingSetAndLayout(Visibility, 0, SetDesc, DebugPassLayout, DebugPassSet);
             }
 
             {
@@ -1012,16 +1189,6 @@
             }
 
             {
-                FBindingLayoutDesc LayoutDesc;
-                LayoutDesc.AddItem(FBindingLayoutItem::Texture_SRV(0));
-                LayoutDesc.AddItem(FBindingLayoutItem::Texture_SRV(1));
-                LayoutDesc.AddItem(FBindingLayoutItem::Texture_SRV(2));
-                LayoutDesc.AddItem(FBindingLayoutItem::Buffer_CBV(3));
-                LayoutDesc.AddItem(FBindingLayoutItem::Buffer_UD(4));
-                LayoutDesc.StageFlags.SetFlag(ERHIShaderType::Fragment);
-                
-                SSAOPassLayout = GRenderContext->CreateBindingLayout(LayoutDesc);
-
                 FBindingSetDesc SetDesc;
                 SetDesc.AddItem(FBindingSetItem::TextureSRV(0, GBuffer.Position));
                 SetDesc.AddItem(FBindingSetItem::TextureSRV(1, GBuffer.Normals));
@@ -1029,31 +1196,19 @@
                 SetDesc.AddItem(FBindingSetItem::BufferCBV(3, SSAOKernalBuffer));
                 SetDesc.AddItem(FBindingSetItem::BufferCBV(4, SSAOSettingsBuffer));
 
-                SSAOPassSet = GRenderContext->CreateBindingSet(SetDesc, SSAOPassLayout);
+                TBitFlags<ERHIShaderType> Visibility;
+                Visibility.SetMultipleFlags(ERHIShaderType::Fragment);
+                GRenderContext->CreateBindingSetAndLayout(Visibility, 0, SetDesc, SSAOPassLayout, SSAOPassSet);
             }
 
             {
-                FBindingLayoutDesc LayoutDesc;
-                LayoutDesc.AddItem(FBindingLayoutItem::Texture_SRV(0));
-                LayoutDesc.StageFlags.SetFlag(ERHIShaderType::Fragment);
-                
-                SSAOBlurPassLayout = GRenderContext->CreateBindingLayout(LayoutDesc);
-
                 FBindingSetDesc SetDesc;
                 SetDesc.AddItem(FBindingSetItem::TextureSRV(0, SSAOImage));
 
-                SSAOBlurPassSet = GRenderContext->CreateBindingSet(SetDesc, SSAOBlurPassLayout);
-            }
-            
-            {
-                FBindingLayoutDesc EnvironmentLayoutDesc;
-                EnvironmentLayoutDesc.AddItem(FBindingLayoutItem::Buffer_UD(0));
-                EnvironmentLayoutDesc.StageFlags.SetFlag(ERHIShaderType::Fragment);
-                EnvironmentLayout = GRenderContext->CreateBindingLayout(EnvironmentLayoutDesc);
-
-                FBindingSetDesc EnvironmentDesc;
-                EnvironmentDesc.AddItem(FBindingSetItem::BufferCBV(0, EnvironmentBuffer));
-                EnvironmentBindingSet = GRenderContext->CreateBindingSet(EnvironmentDesc, EnvironmentLayout);
+                TBitFlags<ERHIShaderType> Visibility;
+                Visibility.SetMultipleFlags(ERHIShaderType::Fragment);
+                GRenderContext->CreateBindingSetAndLayout(Visibility, 0, SetDesc, SSAOBlurPassLayout, SSAOBlurPassSet);
+                
             }
             
         }
@@ -1077,15 +1232,34 @@
             }
 
             {
-                FRHIBufferDesc ModelBufferDesc;
-                ModelBufferDesc.Size = sizeof(glm::mat4) * 100000;
-                ModelBufferDesc.Stride = sizeof(glm::mat4);
-                ModelBufferDesc.Usage.SetMultipleFlags(BUF_StorageBuffer);
-                ModelBufferDesc.bKeepInitialState = true;
-                ModelBufferDesc.InitialState = EResourceStates::ShaderResource;
-                ModelBufferDesc.DebugName = "Model Buffer";
-                ModelDataBuffer = GRenderContext->CreateBuffer(ModelBufferDesc);
-                GRenderContext->SetObjectName(ModelDataBuffer, ModelBufferDesc.DebugName.c_str(), EAPIResourceType::Buffer);
+                FRHIBufferDesc BufferDesc;
+                BufferDesc.Size = sizeof(FInstanceData) * 50'000;
+                BufferDesc.Stride = sizeof(FInstanceData);
+                BufferDesc.Usage.SetMultipleFlags(BUF_StorageBuffer);
+                BufferDesc.bKeepInitialState = true;
+                BufferDesc.InitialState = EResourceStates::ShaderResource;
+                BufferDesc.DebugName = "Instance Buffer";
+                InstanceDataBuffer = GRenderContext->CreateBuffer(BufferDesc);
+                GRenderContext->SetObjectName(InstanceDataBuffer, BufferDesc.DebugName.c_str(), EAPIResourceType::Buffer);
+            }
+
+            {
+                FRHIBufferDesc BufferDesc;
+                BufferDesc.Size = sizeof(uint32) * 50'000;
+                BufferDesc.Stride = sizeof(uint32);
+                BufferDesc.Usage.SetMultipleFlags(BUF_StorageBuffer);
+                BufferDesc.bKeepInitialState = true;
+                BufferDesc.InitialState = EResourceStates::UnorderedAccess;
+                BufferDesc.DebugName = "Instance Mapping";
+                InstanceMappingBuffer = GRenderContext->CreateBuffer(BufferDesc);
+                GRenderContext->SetObjectName(InstanceMappingBuffer, BufferDesc.DebugName.c_str(), EAPIResourceType::Buffer);
+
+                
+                BufferDesc.Usage.SetFlag(EBufferUsageFlags::CPUReadable);
+                BufferDesc.DebugName = "Instance Readback";
+                InstanceReadbackBuffer = GRenderContext->CreateBuffer(BufferDesc);
+                GRenderContext->SetObjectName(InstanceReadbackBuffer, BufferDesc.DebugName.c_str(), EAPIResourceType::Buffer);
+
             }
 
             {
@@ -1101,25 +1275,13 @@
             }
 
             {
-                FRHIBufferDesc BufferDesc;
-                BufferDesc.Size = sizeof(FSSAOSettings);
-                BufferDesc.Stride = sizeof(FSSAOSettings);
-                BufferDesc.Usage.SetMultipleFlags(BUF_UniformBuffer, BUF_Dynamic);
-                BufferDesc.MaxVersions = 3;
-                BufferDesc.DebugName = "SSAO Settings";
-                SSAOSettingsBuffer = GRenderContext->CreateBuffer(BufferDesc);
-                GRenderContext->SetObjectName(SSAOSettingsBuffer, BufferDesc.DebugName.c_str(), EAPIResourceType::Buffer);
+                SSAOSettingsBuffer = FRHITypedBufferRef<FSSAOSettings>::CreateEmptyUniformBuffer(true, 3);
+                GRenderContext->SetObjectName(SSAOSettingsBuffer, "SSAO Settings", EAPIResourceType::Buffer);
             }
 
             {
-                FRHIBufferDesc BufferDesc;
-                BufferDesc.Size = sizeof(FEnvironmentSettings);
-                BufferDesc.Stride = sizeof(FEnvironmentSettings);
-                BufferDesc.Usage.SetMultipleFlags(BUF_UniformBuffer, BUF_Dynamic);
-                BufferDesc.MaxVersions = 3;
-                BufferDesc.DebugName = "Environment Settings";
-                EnvironmentBuffer = GRenderContext->CreateBuffer(BufferDesc);
-                GRenderContext->SetObjectName(EnvironmentBuffer, BufferDesc.DebugName.c_str(), EAPIResourceType::Buffer);
+                EnvironmentBuffer = FRHITypedBufferRef<FEnvironmentSettings>::CreateEmptyUniformBuffer(true, 3);
+                GRenderContext->SetObjectName(EnvironmentBuffer, "Environment Buffer", EAPIResourceType::Buffer);
             }
 
             {
@@ -1188,28 +1350,25 @@
             
 
             {
-                FRHIBufferDesc VertexBufferDesc;
-                VertexBufferDesc.Size = sizeof(FSimpleElementVertex) * (1024 * 1024 * 10);
-                VertexBufferDesc.Stride = sizeof(FSimpleElementVertex);
-                VertexBufferDesc.Usage.SetMultipleFlags(BUF_VertexBuffer);
-                VertexBufferDesc.InitialState = EResourceStates::VertexBuffer;
-                VertexBufferDesc.bKeepInitialState = true;
-                VertexBufferDesc.DebugName = "Simple Vertex Buffer";
-                SimpleVertexBuffer = GRenderContext->CreateBuffer(VertexBufferDesc);
-                GRenderContext->SetObjectName(SimpleVertexBuffer, VertexBufferDesc.DebugName.c_str(), EAPIResourceType::Buffer);
+                SimpleVertexBuffer = FRHITypedVertexBuffer<FSimpleElementVertex>::CreateEmpty(100'000);
+                GRenderContext->SetObjectName(SimpleVertexBuffer, SimpleVertexBuffer->GetDescription().DebugName.c_str(), EAPIResourceType::Buffer);
             }
-            
 
             {
-                FRHIBufferDesc IndirectBufferDesc;
-                IndirectBufferDesc.Size = sizeof(FDrawIndexedIndirectArguments) * (1024 * 1024 * 10);
-                IndirectBufferDesc.Stride = sizeof(uint32);
-                IndirectBufferDesc.Usage.SetMultipleFlags(BUF_Indirect);
-                IndirectBufferDesc.InitialState = EResourceStates::IndexBuffer;
-                IndirectBufferDesc.bKeepInitialState = true;
-                IndirectBufferDesc.DebugName = "Indirect Draw Buffer";
-                IndirectDrawBuffer = GRenderContext->CreateBuffer(IndirectBufferDesc);
-                GRenderContext->SetObjectName(IndirectDrawBuffer, IndirectBufferDesc.DebugName.c_str(), EAPIResourceType::Buffer);
+                FRHIBufferDesc BufferDesc;
+                BufferDesc.Size = sizeof(FDrawIndexedIndirectArguments) * (100);
+                BufferDesc.Stride = sizeof(FDrawIndexedIndirectArguments);
+                BufferDesc.Usage.SetMultipleFlags(BUF_Indirect, BUF_StorageBuffer);
+                BufferDesc.InitialState = EResourceStates::IndirectArgument;
+                BufferDesc.bKeepInitialState = true;
+                BufferDesc.DebugName = "Indirect Draw Buffer";
+                IndirectDrawBuffer = GRenderContext->CreateBuffer(BufferDesc);
+                GRenderContext->SetObjectName(IndirectDrawBuffer, BufferDesc.DebugName.c_str(), EAPIResourceType::Buffer);
+
+                BufferDesc.Usage.SetFlag(EBufferUsageFlags::CPUReadable);
+                BufferDesc.DebugName = "Instance Readback";
+                InstanceReadbackBuffer = GRenderContext->CreateBuffer(BufferDesc);
+                GRenderContext->SetObjectName(InstanceReadbackBuffer, BufferDesc.DebugName.c_str(), EAPIResourceType::Buffer);
             }
         }
         
@@ -1218,106 +1377,159 @@
             FIntVector2D Extent = Windowing::GetPrimaryWindowHandle()->GetExtent();
 
             {
-                FRHIImageDesc GBufferPosition;
-                GBufferPosition.Extent = Extent;
-                GBufferPosition.Flags.SetMultipleFlags(EImageCreateFlags::ColorAttachment, EImageCreateFlags::ShaderResource);
-                GBufferPosition.Format = EFormat::RGBA16_FLOAT;
-                GBufferPosition.Dimension = EImageDimension::Texture2D;
-                GBufferPosition.DebugName = "GBuffer - Position";
+                FRHIImageDesc ImageDesc = {};
+                ImageDesc.Extent = Extent;
+                ImageDesc.Format = EFormat::RGBA32_FLOAT;
+                ImageDesc.Dimension = EImageDimension::Texture2D;
+                ImageDesc.bKeepInitialState = true;
+                ImageDesc.InitialState = EResourceStates::RenderTarget;
+                ImageDesc.Flags.SetMultipleFlags(EImageCreateFlags::RenderTarget, EImageCreateFlags::ShaderResource);
+                ImageDesc.DebugName = "Debug Visualization";
             
-                GBuffer.Position = GRenderContext->CreateImage(GBufferPosition);
+                DebugVisualizationImage = GRenderContext->CreateImage(ImageDesc);
+                GRenderContext->SetObjectName(DebugVisualizationImage, "Debug Visualization", EAPIResourceType::Image);
+            }
+            
+            {
+                FRHIImageDesc ImageDesc;
+                ImageDesc.Extent = Extent;
+                ImageDesc.Flags.SetMultipleFlags(EImageCreateFlags::ColorAttachment, EImageCreateFlags::ShaderResource);
+                ImageDesc.Format = EFormat::RGBA16_FLOAT;
+                ImageDesc.Dimension = EImageDimension::Texture2D;
+                ImageDesc.DebugName = "GBuffer - Position";
+                ImageDesc.bKeepInitialState = true;
+                ImageDesc.InitialState = EResourceStates::ShaderResource;
+            
+                GBuffer.Position = GRenderContext->CreateImage(ImageDesc);
                 GRenderContext->SetObjectName(GBuffer.Position, "GBuffer - Position", EAPIResourceType::Image);
             }
 
             {
-                FRHIImageDesc NormalDesc = {};
-                NormalDesc.Extent = Extent;
-                NormalDesc.Format = EFormat::RGBA16_FLOAT;
-                NormalDesc.Dimension = EImageDimension::Texture2D;
-                NormalDesc.Flags.SetMultipleFlags(EImageCreateFlags::ColorAttachment, EImageCreateFlags::ShaderResource);
-                NormalDesc.DebugName = "GBuffer - Normals";
+                FRHIImageDesc ImageDesc = {};
+                ImageDesc.Extent = Extent;
+                ImageDesc.Format = EFormat::RGBA16_FLOAT;
+                ImageDesc.Dimension = EImageDimension::Texture2D;
+                ImageDesc.bKeepInitialState = true;
+                ImageDesc.InitialState = EResourceStates::ShaderResource;
+                ImageDesc.Flags.SetMultipleFlags(EImageCreateFlags::ColorAttachment, EImageCreateFlags::ShaderResource);
+                ImageDesc.DebugName = "GBuffer - Normals";
             
-                GBuffer.Normals = GRenderContext->CreateImage(NormalDesc);
+                GBuffer.Normals = GRenderContext->CreateImage(ImageDesc);
                 GRenderContext->SetObjectName(GBuffer.Normals, "GBuffer - Normals", EAPIResourceType::Image);
             }
 
             {
-                FRHIImageDesc MaterialDesc = {};
-                MaterialDesc.Extent = Extent;
-                MaterialDesc.Format = EFormat::RGBA8_UNORM;
-                MaterialDesc.Dimension = EImageDimension::Texture2D;
-                MaterialDesc.Flags.SetMultipleFlags(EImageCreateFlags::ColorAttachment, EImageCreateFlags::ShaderResource);
-                MaterialDesc.DebugName = "GBuffer - Material";
+                FRHIImageDesc ImageDesc = {};
+                ImageDesc.Extent = Extent;
+                ImageDesc.Format = EFormat::RGBA8_UNORM;
+                ImageDesc.Dimension = EImageDimension::Texture2D;
+                ImageDesc.bKeepInitialState = true;
+                ImageDesc.InitialState = EResourceStates::ShaderResource;
+                ImageDesc.Flags.SetMultipleFlags(EImageCreateFlags::ColorAttachment, EImageCreateFlags::ShaderResource);
+                ImageDesc.DebugName = "GBuffer - Material";
             
-                GBuffer.Material = GRenderContext->CreateImage(MaterialDesc);
+                GBuffer.Material = GRenderContext->CreateImage(ImageDesc);
                 GRenderContext->SetObjectName(GBuffer.Material, "GBuffer - Material", EAPIResourceType::Image);
             }
 
             {
-                FRHIImageDesc AlbedoDesc = {};
-                AlbedoDesc.Extent = Extent;
-                AlbedoDesc.Format = EFormat::RGBA8_UNORM;
-                AlbedoDesc.Dimension = EImageDimension::Texture2D;
-                AlbedoDesc.Flags.SetMultipleFlags(EImageCreateFlags::ColorAttachment, EImageCreateFlags::ShaderResource);
-                AlbedoDesc.DebugName = "GBuffer - Albedo";
+                FRHIImageDesc ImageDesc = {};
+                ImageDesc.Extent = Extent;
+                ImageDesc.Format = EFormat::RGBA8_UNORM;
+                ImageDesc.Dimension = EImageDimension::Texture2D;
+                ImageDesc.bKeepInitialState = true;
+                ImageDesc.InitialState = EResourceStates::ShaderResource;
+                ImageDesc.Flags.SetMultipleFlags(EImageCreateFlags::ColorAttachment, EImageCreateFlags::ShaderResource);
+                ImageDesc.DebugName = "GBuffer - Albedo";
             
-                GBuffer.AlbedoSpec = GRenderContext->CreateImage(AlbedoDesc);
+                GBuffer.AlbedoSpec = GRenderContext->CreateImage(ImageDesc);
                 GRenderContext->SetObjectName(GBuffer.AlbedoSpec, "GBuffer - Albedo", EAPIResourceType::Image);
             }
             
 
             {
-                FRHIImageDesc DepthImageDesc;
-                DepthImageDesc.Extent = Extent;
-                DepthImageDesc.Flags.SetMultipleFlags(EImageCreateFlags::DepthAttachment, EImageCreateFlags::ShaderResource);
-                DepthImageDesc.Format = EFormat::D32;
-                DepthImageDesc.InitialState = EResourceStates::DepthWrite;
-                DepthImageDesc.bKeepInitialState = true;
-                DepthImageDesc.Dimension = EImageDimension::Texture2D;
-                DepthImageDesc.DebugName = "Depth Attachment";
+                FRHIImageDesc ImageDesc;
+                ImageDesc.Extent = Extent;
+                ImageDesc.Flags.SetMultipleFlags(EImageCreateFlags::DepthAttachment, EImageCreateFlags::ShaderResource);
+                ImageDesc.Format = EFormat::D32;
+                ImageDesc.InitialState = EResourceStates::DepthWrite;
+                ImageDesc.bKeepInitialState = true;
+                ImageDesc.Dimension = EImageDimension::Texture2D;
+                ImageDesc.DebugName = "Depth Attachment";
 
-                DepthAttachment = GRenderContext->CreateImage(DepthImageDesc);
+                DepthAttachment = GRenderContext->CreateImage(ImageDesc);
                 GRenderContext->SetObjectName(DepthAttachment, "Depth Attachment", EAPIResourceType::Image);
             }
 
             {
-                FRHIImageDesc SSAODesc = {};
-                SSAODesc.Extent = Extent;
-                SSAODesc.Format = EFormat::R8_UNORM;
-                SSAODesc.Dimension = EImageDimension::Texture2D;
-                SSAODesc.Flags.SetMultipleFlags(EImageCreateFlags::ColorAttachment, EImageCreateFlags::ShaderResource);
-                SSAODesc.DebugName = "SSAO";
+                FRHIImageDesc ImageDesc = {};
+                ImageDesc.Extent = Extent;
+                ImageDesc.Format = EFormat::R8_UNORM;
+                ImageDesc.Dimension = EImageDimension::Texture2D;
+                ImageDesc.bKeepInitialState = true;
+                ImageDesc.InitialState = EResourceStates::ShaderResource;
+                ImageDesc.Flags.SetMultipleFlags(EImageCreateFlags::ColorAttachment, EImageCreateFlags::ShaderResource);
+                ImageDesc.DebugName = "SSAO";
             
-                SSAOImage = GRenderContext->CreateImage(SSAODesc);
+                SSAOImage = GRenderContext->CreateImage(ImageDesc);
                 GRenderContext->SetObjectName(SSAOImage, "SSAO", EAPIResourceType::Image);
             }
 
             {
-                FRHIImageDesc SSAODesc = {};
-                SSAODesc.Extent = Extent;
-                SSAODesc.Format = EFormat::R8_UNORM;
-                SSAODesc.Dimension = EImageDimension::Texture2D;
-                SSAODesc.Flags.SetMultipleFlags(EImageCreateFlags::ColorAttachment, EImageCreateFlags::ShaderResource);
-                SSAODesc.DebugName = "SSAO Blur";
+                FRHIImageDesc ImageDesc = {};
+                ImageDesc.Extent = Extent;
+                ImageDesc.Format = EFormat::R8_UNORM;
+                ImageDesc.Dimension = EImageDimension::Texture2D;
+                ImageDesc.bKeepInitialState = true;
+                ImageDesc.InitialState = EResourceStates::ShaderResource;
+                ImageDesc.Flags.SetMultipleFlags(EImageCreateFlags::ColorAttachment, EImageCreateFlags::ShaderResource);
+                ImageDesc.DebugName = "SSAO Blur";
             
-                SSAOBlur = GRenderContext->CreateImage(SSAODesc);
+                SSAOBlur = GRenderContext->CreateImage(ImageDesc);
                 GRenderContext->SetObjectName(SSAOBlur, "SSAO Blur", EAPIResourceType::Image);
             }
+
+            {
+                FRHIImageDesc ImageDesc = {};
+                ImageDesc.Extent = Extent;
+                ImageDesc.Format = EFormat::R32_UINT;
+                ImageDesc.Dimension = EImageDimension::Texture2D;
+                ImageDesc.bKeepInitialState = true;
+                ImageDesc.InitialState = EResourceStates::UnorderedAccess;
+                ImageDesc.Flags.SetMultipleFlags(EImageCreateFlags::ShaderResource, EImageCreateFlags::UnorderedAccess);
+                ImageDesc.DebugName = "Overdraw Visualization";
             
+                OverdrawImage = GRenderContext->CreateImage(ImageDesc);
+                GRenderContext->SetObjectName(OverdrawImage, "Overdraw Visualization", EAPIResourceType::Image);
+            }
+
+            {
+                FRHIImageDesc ImageDesc = {};
+                ImageDesc.Extent = Extent;
+                ImageDesc.Format = EFormat::R32_UINT;
+                ImageDesc.Dimension = EImageDimension::Texture2D;
+                ImageDesc.InitialState = EResourceStates::RenderTarget;
+                ImageDesc.bKeepInitialState = true;
+                ImageDesc.Flags.SetMultipleFlags(EImageCreateFlags::ColorAttachment, EImageCreateFlags::ShaderResource);
+                ImageDesc.DebugName = "Picker";
+                
+                PickerImage = GRenderContext->CreateImage(ImageDesc);
+                GRenderContext->SetObjectName(PickerImage, "Picker", EAPIResourceType::Image);
+            }
             
             //==================================================================================================
 
             {
-                FRHIImageDesc SkyCubeMapDesc;
-                SkyCubeMapDesc.Extent = {2048, 2048};
-                SkyCubeMapDesc.Flags.SetFlag(EImageCreateFlags::CubeCompatible);
-                SkyCubeMapDesc.Flags.SetFlag(EImageCreateFlags::ShaderResource);
-                SkyCubeMapDesc.Format = EFormat::RGBA8_UNORM;
-                SkyCubeMapDesc.Dimension = EImageDimension::Texture2D;
-                SkyCubeMapDesc.ArraySize = 6;
-                SkyCubeMapDesc.DebugName = "Skybox CubeMap";
+                FRHIImageDesc ImageDesc;
+                ImageDesc.Extent = {2048, 2048};
+                ImageDesc.Flags.SetFlag(EImageCreateFlags::CubeCompatible);
+                ImageDesc.Flags.SetFlag(EImageCreateFlags::ShaderResource);
+                ImageDesc.Format = EFormat::RGBA8_UNORM;
+                ImageDesc.Dimension = EImageDimension::Texture2D;
+                ImageDesc.ArraySize = 6;
+                ImageDesc.DebugName = "Skybox CubeMap";
 
-                CubeMap = GRenderContext->CreateImage(SkyCubeMapDesc);
+                CubeMap = GRenderContext->CreateImage(ImageDesc);
                 GRenderContext->SetObjectName(CubeMap, "CubeMap", EAPIResourceType::Image);
 
                 static const char* CubeFaceFiles[6] = {
@@ -1355,37 +1567,35 @@
             //==================================================================================================
 
             {
-                FRHIImageDesc DepthMapDesc;
-                DepthMapDesc.Extent = Extent;
-                DepthMapDesc.Flags.SetMultipleFlags(EImageCreateFlags::DepthAttachment, EImageCreateFlags::ShaderResource);
-                DepthMapDesc.Format = EFormat::D32;
-                DepthMapDesc.InitialState = EResourceStates::DepthWrite;
-                DepthMapDesc.bKeepInitialState = true;
-                DepthMapDesc.Dimension = EImageDimension::Texture2D;
-                DepthMapDesc.DebugName = "Depth Map";
+                FRHIImageDesc ImageDesc;
+                ImageDesc.Extent = Extent;
+                ImageDesc.Flags.SetMultipleFlags(EImageCreateFlags::DepthAttachment, EImageCreateFlags::ShaderResource);
+                ImageDesc.Format = EFormat::D32;
+                ImageDesc.InitialState = EResourceStates::DepthWrite;
+                ImageDesc.bKeepInitialState = true;
+                ImageDesc.Dimension = EImageDimension::Texture2D;
+                ImageDesc.DebugName = "Depth Map";
 
-                DepthMap = GRenderContext->CreateImage(DepthMapDesc);
+                DepthMap = GRenderContext->CreateImage(ImageDesc);
                 GRenderContext->SetObjectName(DepthMap, "Depth Map", EAPIResourceType::Image);
             }
 
             //==================================================================================================
             
             {
-                FRHIImageDesc CubeMapDesc;
-                CubeMapDesc.Extent = {1024, 1024};
-                CubeMapDesc.Flags.SetFlag(EImageCreateFlags::CubeCompatible);
-                CubeMapDesc.Flags.SetFlag(EImageCreateFlags::ShaderResource);
-                CubeMapDesc.Format = EFormat::RGBA8_UNORM;
-                CubeMapDesc.bKeepInitialState = true;
-                CubeMapDesc.InitialState = EResourceStates::ShaderResource;
-                CubeMapDesc.Dimension = EImageDimension::Texture2D;
-                CubeMapDesc.ArraySize = 6;
-                CubeMapDesc.DebugName = "Shadow Cubemap";
+                FRHIImageDesc ImageDesc;
+                ImageDesc.Extent = {1024, 1024};
+                ImageDesc.Flags.SetFlag(EImageCreateFlags::CubeCompatible);
+                ImageDesc.Flags.SetFlag(EImageCreateFlags::ShaderResource);
+                ImageDesc.Format = EFormat::RGBA8_UNORM;
+                ImageDesc.bKeepInitialState = true;
+                ImageDesc.InitialState = EResourceStates::ShaderResource;
+                ImageDesc.Dimension = EImageDimension::Texture2D;
+                ImageDesc.ArraySize = 6;
+                ImageDesc.DebugName = "Shadow Cubemap";
 
-                ShadowCubeMap = GRenderContext->CreateImage(CubeMapDesc);
-                GRenderContext->SetObjectName(ShadowCubeMap, CubeMapDesc.DebugName.c_str(), EAPIResourceType::Image);
+                ShadowCubeMap = GRenderContext->CreateImage(ImageDesc);
+                GRenderContext->SetObjectName(ShadowCubeMap, ImageDesc.DebugName.c_str(), EAPIResourceType::Image);
             }
-            
         }
-        
     }

@@ -5,6 +5,11 @@
 
 namespace Lumina
 {
+    class FRHIStagingImage;
+}
+
+namespace Lumina
+{
     class FRHIDescriptorTable;
     class IEventQuery;
     class FRHISampler;
@@ -30,6 +35,7 @@ namespace Lumina
     using FRHIResourceRef           = TRefCountPtr<IRHIResource>;
     using FRHIBufferRef             = TRefCountPtr<FRHIBuffer>;
     using FRHIImageRef              = TRefCountPtr<FRHIImage>;
+    using FRHIStagingImageRef       = TRefCountPtr<FRHIStagingImage>;
     using FRHISamplerRef            = TRefCountPtr<FRHISampler>;
     using FRHIShaderRef             = TRefCountPtr<FRHIShader>;
     using FRHIVertexShaderRef       = TRefCountPtr<FRHIVertexShader>;

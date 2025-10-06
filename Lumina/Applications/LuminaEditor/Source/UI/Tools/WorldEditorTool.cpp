@@ -180,22 +180,25 @@ namespace Lumina
 
         if (SelectedEntity.IsValid())
         {
+            
             SelectedEntity.EmplaceOrReplace<FNeedsTransformUpdate>();
 
-            
-            if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl) && ImGui::IsKeyPressed(ImGuiKey_C))
+            if (bViewportFocused)
             {
-                CopiedEntity = SelectedEntity;
-            }
+                if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl) && ImGui::IsKeyPressed(ImGuiKey_C))
+                {
+                    CopiedEntity = SelectedEntity;
+                }
 
-            if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl) && ImGui::IsKeyPressed(ImGuiKey_D))
-            {
-                Entity New;
-                CopyEntity(New, SelectedEntity);
+                if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl) && ImGui::IsKeyPressed(ImGuiKey_D))
+                {
+                    Entity New;
+                    CopyEntity(New, SelectedEntity);
+                }
             }
         }
 
-        if (CopiedEntity)
+        if (CopiedEntity && bViewportFocused)
         {
             if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl) && ImGui::IsKeyPressed(ImGuiKey_V))
             {
@@ -204,7 +207,7 @@ namespace Lumina
             }
         }
 
-        if (SelectedEntity)
+        if (SelectedEntity && bViewportFocused)
         {
             if (ImGui::IsKeyPressed(ImGuiKey_Delete))
             {
@@ -288,23 +291,24 @@ namespace Lumina
             ImGui::TextColored(ImVec4(0.58f, 0.86f, 1.0f, 1.0f), "Debug Visualization");
             ImGui::Separator();
 
-            static const char* GBufferDebugLabels[] =
+            static const char* DebugLabels[] =
             {
-                "RenderTarget",
-                "Albedo",
+                "None",
                 "Position",
                 "Normals",
+                "Albedo",
+                "SSAO",
                 "Material",
                 "Depth",
-                "SSAO",
+                "Overdraw",
             };
 
-            ESceneRenderGBuffer DebugMode = SceneRenderer->GetGBufferDebugMode();
+            ERenderSceneDebugFlags DebugMode = SceneRenderer->GetDebugMode();
             int DebugModeInt = static_cast<int>(DebugMode);
             ImGui::PushItemWidth(200);
-            if (ImGui::Combo("GBuffer Mode", &DebugModeInt, GBufferDebugLabels, IM_ARRAYSIZE(GBufferDebugLabels)))
+            if (ImGui::Combo("Debug Visualization", &DebugModeInt, DebugLabels, IM_ARRAYSIZE(DebugLabels)))
             {
-                SceneRenderer->SetGBufferDebugMode(static_cast<ESceneRenderGBuffer>(DebugModeInt));
+                SceneRenderer->SetDebugMode(static_cast<ERenderSceneDebugFlags>(DebugModeInt));
             }
             ImGui::PopItemWidth();
 
@@ -355,6 +359,42 @@ namespace Lumina
         }
         
         ImGuizmo::SetDrawlist(ImGui::GetCurrentWindow()->DrawList);
+
+        if (ImGui::IsWindowHovered(ImGuiHoveredFlags_RootAndChildWindows))
+        {
+            uint32 PickerWidth = World->GetRenderer()->GetRenderTarget()->GetExtent().X;
+            uint32 PickerHeight = World->GetRenderer()->GetRenderTarget()->GetExtent().Y;
+            
+            ImVec2 viewportScreenPos = ImGui::GetWindowPos();
+            ImVec2 mousePos = ImGui::GetMousePos();
+
+            ImVec2 MousePosInViewport;
+            MousePosInViewport.x = mousePos.x - viewportScreenPos.x;
+            MousePosInViewport.y = mousePos.y - viewportScreenPos.y;
+
+            MousePosInViewport.x = glm::clamp(MousePosInViewport.x, 0.0f, ViewportSize.x - 1.0f);
+            MousePosInViewport.y = glm::clamp(MousePosInViewport.y, 0.0f, ViewportSize.y - 1.0f);
+
+            float scaleX = static_cast<float>(PickerWidth) / ViewportSize.x;
+            float scaleY = static_cast<float>(PickerHeight) / ViewportSize.y;
+
+            uint32 texX = static_cast<uint32>(MousePosInViewport.x * scaleX);
+            uint32 texY = static_cast<uint32>(MousePosInViewport.y * scaleY);
+
+            if ((!ImGuizmo::IsOver()) && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+            {
+                entt::entity EntityHandle = World->GetRenderer()->GetEntityAtPixel(texX, texY);
+                if (EntityHandle == entt::null)
+                {
+                    SetSelectedEntity({});
+                }
+                else
+                {
+                    SetSelectedEntity(Entity(EntityHandle, World));
+                }
+            
+            }
+        }
     
         SCameraComponent& CameraComponent = EditorEntity.GetComponent<SCameraComponent>();
     
@@ -570,11 +610,21 @@ namespace Lumina
 
         World->InitializeWorld();
         EditorEntity = World->SetupEditorWorld();
-        
-        SelectedEntity = {};
-        OutlinerListView.MarkTreeDirty();
 
+        SetSelectedEntity({});
         SystemsListView.MarkTreeDirty();
+    }
+
+    void FWorldEditorTool::SetSelectedEntity(const Entity& NewEntity)
+    {
+        if (NewEntity == SelectedEntity)
+        {
+            return;
+        }
+        
+        SelectedEntity = NewEntity;
+        OutlinerListView.MarkTreeDirty();
+        RebuildPropertyTables();
     }
 
     void FWorldEditorTool::RebuildSceneOutliner(FTreeListView* View)
@@ -591,6 +641,11 @@ namespace Lumina
             else
             {
                 Item = OutlinerListView.AddItemToTree<FEntityListViewItem>(ParentItem, eastl::move(entity));
+            }
+
+            if (Item->GetEntity() == SelectedEntity)
+            {
+                OutlinerListView.SetSelection(Item, OutlinerContext);
             }
 
             if (SRelationshipComponent* rel = Item->GetEntity().TryGetComponent<SRelationshipComponent>())

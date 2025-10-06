@@ -6,6 +6,15 @@ const float PI = 3.14159265359;
 const float TWO_PI = 6.28318530718;
 const float INV_PI = 0.31830988618;
 
+struct DrawIndexedIndirectCommand 
+{
+    uint IndexCount;
+    uint InstanceCount;
+    uint FirstIndex;
+    int  VertexOffset;
+    uint FirstInstance;
+};
+
 
 // Check if *any* of the bits in 'flag' are set in 'value'
 bool HasFlag(uint value, uint flag)

@@ -1,23 +1,25 @@
 #version 460 core
 
 #pragma shader_stage(fragment)
+layout(early_fragment_tests) in;
 
 #include "Includes/SceneGlobals.glsl"
 
 #define MAX_SCALARS 24
 #define MAX_VECTORS 24
 
-layout(early_fragment_tests) in;
 
 layout(location = 0) in vec4 inColor;
 layout(location = 1) in vec3 inNormal;
 layout(location = 2) in vec4 inFragPos;
 layout(location = 3) in vec2 inUV;
+layout(location = 4) flat in uint inEntityID;
 
 layout(location = 0) out vec4 GPosition;
 layout(location = 1) out vec4 GNormal;
 layout(location = 2) out vec4 GMaterial;
 layout(location = 3) out vec4 GAlbedoSpec;
+layout(location = 4) out uint GPicker;
 
 layout(set = 1, binding = 0) uniform FMaterialUniforms
 {
@@ -87,4 +89,9 @@ void main()
 
     GAlbedoSpec.rgb = Material.Diffuse.rgb;
     GAlbedoSpec.a = Material.Specular;
+
+    GPicker = inEntityID;
+
+    //ivec2 pix = ivec2(gl_FragCoord.xy);
+    //imageAtomicAdd(uOverdrawImage, pix, 1u);
 }

@@ -41,7 +41,6 @@ namespace Lumina
         
         FVulkanCommandList(FVulkanRenderContext* InContext, const FCommandListInfo& InInfo)
             : UploadManager(MakeUniquePtr<FUploadManager>(InContext, InInfo.UploadChunkSize, 0, false))
-            , ComputeState()
             , RenderContext(InContext)
             , Info(InInfo)
             , PushConstantVisibility(0)
@@ -53,13 +52,17 @@ namespace Lumina
         void Close() override;
         void Executed(FQueue* Queue, uint64 SubmissionID) override;
 
-        
         void CopyImage(FRHIImage* Src, const FTextureSlice& SrcSlice, FRHIImage* Dst, const FTextureSlice& DstSlice) override;
+        void CopyImage(FRHIImage* Src, const FTextureSlice& SrcSlice, FRHIStagingImage* Dst, const FTextureSlice& DstSlice) override;
         void WriteImage(FRHIImage* Dst, uint32 ArraySlice, uint32 MipLevel, const void* Data, SIZE_T RowPitch, SIZE_T DepthPitch) override;
+        void ClearImageFloat(FRHIImage* Image, FTextureSubresourceSet Subresource, const FColor& Color) override;
+        void ClearImageUInt(FRHIImage* Image, FTextureSubresourceSet Subresource, uint32 Color) override;
 
-        void CopyBuffer(FRHIBuffer* Source, uint64 SrcOffset, FRHIBuffer* Destination, uint64 DstOffset, uint64 CopySize) override;
         void WriteBuffer(FRHIBuffer* Buffer, const void* Data, SIZE_T Offset, SIZE_T Size) override;
+        void FillBuffer(FRHIBuffer* Buffer, uint32 Value) override;
+        void CopyBuffer(FRHIBuffer* Source, uint64 SrcOffset, FRHIBuffer* Destination, uint64 DstOffset, uint64 CopySize) override;
 
+        void UpdateComputeDynamicBuffers();
         void UpdateGraphicsDynamicBuffers();
         void FlushDynamicBufferWrites();
         void SubmitDynamicBuffers(uint64 RecordingID, uint64 SubmittedID);
@@ -88,7 +91,7 @@ namespace Lumina
         
         void ClearImageColor(FRHIImage* Image, const FColor& Color) override;
 
-        void BindBindingSets(VkPipelineBindPoint BindPoint, VkPipelineLayout PipelineLayout, TFixedVector<FRHIBindingSet*, 4> BindingSets);
+        void BindBindingSets(VkPipelineBindPoint BindPoint, VkPipelineLayout PipelineLayout, TFixedVector<FRHIBindingSet*, 1> BindingSets);
 
         void SetPushConstants(const void* Data, SIZE_T ByteSize) override;
 
@@ -101,6 +104,7 @@ namespace Lumina
         void DrawIndirect(uint32 DrawCount, uint64 Offset) override;
         void DrawIndexedIndirect(uint32 DrawCount, uint64 Offset) override;
 
+        void SetComputeState(const FComputeState& State) override;
         void Dispatch(uint32 GroupCountX, uint32 GroupCountY, uint32 GroupCountZ) override;
 
 
@@ -117,8 +121,10 @@ namespace Lumina
         const FCommandListInfo& GetCommandListInfo() const override { return Info; }
 
         FPendingCommandState& GetPendingCommandState() override { return PendingState; }
-
+        
+        
         TRefCountPtr<FTrackedCommandBuffer>  CurrentCommandBuffer;
+        
 
     private:
 
@@ -128,7 +134,7 @@ namespace Lumina
         bool                                            bHasDynamicBufferWrites = false;
 
         FGraphicsState                                  CurrentGraphicsState;
-        FVulkanComputeState                             ComputeState;
+        FComputeState                                   CurrentComputeState;
                                                         
         FCommandListResourceStateTracker                StateTracker;
         FPendingCommandState                            PendingState;

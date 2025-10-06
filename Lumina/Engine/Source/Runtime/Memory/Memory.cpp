@@ -73,15 +73,20 @@ namespace Lumina
     void* Memory::Malloc(size_t size, size_t alignment)
     {
 #if LUMINA_RPMALLOC
+
+        if (size == 0)
+        {
+            return nullptr;
+        }
         
         if(!GIsMemorySystemInitialized)
         {
             Initialize();
         }
-        
-        if (size == 0)
+
+        if (!IsThreadHeapInitialized()) [[unlikely]]
         {
-            return nullptr;
+            InitializeThreadHeap();
         }
 
         SIZE_T ActualAlignment = GetActualAlignment(size, alignment);

@@ -72,8 +72,8 @@ namespace Lumina
         TFixedVector<uint64, 4>             SignalSemaphoreValues;
         
         ECommandQueue               Type;
-        FMutex                      GetMutex;
-        FMutex                      SubmitMutex;
+        TracyLockable(FMutex, GetMutex);
+        TracyLockable(FMutex, SubmitMutex);
         VkCommandPool               CommandPool;
         VkQueue                     Queue;
         uint32                      QueueFamilyIndex;
@@ -122,8 +122,10 @@ namespace Lumina
 
         //-------------------------------------------------------------------------------------
 
-
+        NODISCARD void* MapBuffer(FRHIBuffer* Buffer) override;
+        NODISCARD void UnMapBuffer(FRHIBuffer* Buffer) override;
         NODISCARD FRHIBufferRef CreateBuffer(const FRHIBufferDesc& Description) override;
+        NODISCARD FRHIBufferRef CreateBuffer(ICommandList* CommandList, const void* InitialData, const FRHIBufferDesc& Description) override;
         NODISCARD uint64 GetAlignedSizeForBuffer(uint64 Size, TBitFlags<EBufferUsageFlags> Usage) override;
 
         
@@ -131,7 +133,10 @@ namespace Lumina
 
         NODISCARD FRHIViewportRef CreateViewport(const FIntVector2D& Size) override;
         
-
+        NODISCARD FRHIStagingImageRef CreateStagingImage(const FRHIImageDesc& Desc, ERHIAccess Access) override;
+        void* MapStagingTexture(FRHIStagingImage* Image, const FTextureSlice& slice, ERHIAccess Access, size_t* OutRowPitch) override;
+        void UnMapStagingTexture(FRHIStagingImage* Image) override;
+        
         NODISCARD FRHIImageRef CreateImage(const FRHIImageDesc& ImageSpec) override;
         NODISCARD FRHISamplerRef CreateSampler(const FSamplerDesc& SamplerDesc) override;
         
@@ -157,6 +162,7 @@ namespace Lumina
         NODISCARD FRHIBindingLayoutRef CreateBindingLayout(const FBindingLayoutDesc& Desc) override;
         NODISCARD FRHIBindingLayoutRef CreateBindlessLayout(const FBindlessLayoutDesc& Desc) override;
         NODISCARD FRHIBindingSetRef CreateBindingSet(const FBindingSetDesc& Desc, FRHIBindingLayout* InLayout) override;
+        void CreateBindingSetAndLayout(const TBitFlags<ERHIShaderType>& Visibility, uint16 Binding, const FBindingSetDesc& Desc, FRHIBindingLayoutRef& OutLayout, FRHIBindingSetRef& OutBindingSet) override;
         NODISCARD FRHIComputePipelineRef CreateComputePipeline(const FComputePipelineDesc& Desc) override;
         NODISCARD FRHIGraphicsPipelineRef CreateGraphicsPipeline(const FGraphicsPipelineDesc& Desc) override;
         

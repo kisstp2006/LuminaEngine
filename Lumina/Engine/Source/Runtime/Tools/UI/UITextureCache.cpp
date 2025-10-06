@@ -21,6 +21,7 @@ namespace Lumina
         SquareWhiteTexture.first = SquareTexturePath;
         
         SquareWhiteTexture.second = Memory::New<FEntry>();
+        SquareWhiteTexture.second->Name = SquareTexturePath; 
         SquareWhiteTexture.second->RHIImage = RHI;
         SquareWhiteTexture.second->ImTexture = ImTex;
         SquareWhiteTexture.second->State.store(ETextureState::Ready, std::memory_order_release);
@@ -29,7 +30,10 @@ namespace Lumina
 
     FUITextureCache::~FUITextureCache()
     {
-        while (HasImagesPendingLoad()) {  }
+        while (HasImagesPendingLoad())
+        {
+            Threading::Sleep(1);
+        }
 
         Memory::Delete(SquareWhiteTexture.second);
         SquareWhiteTexture.second = nullptr;
@@ -51,14 +55,14 @@ namespace Lumina
     FRHIImageRef FUITextureCache::GetImage(const FName& Path)
     {
         FEntry* Entry = GetOrCreateGroup(Path);
-        Entry->LastUseFrame = GEngine->GetUpdateContext().GetFrame();
+        Entry->LastUseFrame.store(GEngine->GetUpdateContext().GetFrame(), std::memory_order_relaxed);
         return Entry ? Entry->RHIImage : nullptr;
     }
 
     ImTextureRef FUITextureCache::GetImTexture(const FName& Path)
     {
         FEntry* Entry = GetOrCreateGroup(Path);
-        Entry->LastUseFrame = GEngine->GetUpdateContext().GetFrame();
+        Entry->LastUseFrame.store(GEngine->GetUpdateContext().GetFrame(), std::memory_order_relaxed);
         return Entry ? Entry->ImTexture : ImTextureRef();
     }
 
@@ -69,31 +73,8 @@ namespace Lumina
 
     void FUITextureCache::EndFrame()
     {
-        uint64 CurrentFrame = GEngine->GetUpdateContext().GetFrame();
-
-        FMutex RemoveMutex;
-        TVector<uint32> ToRemove;
-        ToRemove.reserve(Entries.size());
-
-        Task::ParallelFor((uint32)Entries.size(), [&](uint32 Index)
-        {
-            FEntry* Entry = Entries[Index];
-            uint64 LastUse = Entry->LastUseFrame.load(std::memory_order_relaxed);
-
-            if (CurrentFrame - LastUse >= 3)
-            {
-                FScopeLock Lock(RemoveMutex);
-                ToRemove.push_back(Index);
-            }
-        });
+        LUMINA_PROFILE_SCOPE();
         
-        eastl::sort(ToRemove.rbegin(), ToRemove.rend());
-
-        for (uint32 idx : ToRemove)
-        {
-            Memory::Delete(Entries[idx]);
-            Entries.erase(Entries.begin() + idx);
-        }
     }
 
     bool FUITextureCache::HasImagesPendingLoad() const
@@ -126,6 +107,7 @@ namespace Lumina
         }
 
         FEntry* NewEntry = Memory::New<FEntry>();
+        NewEntry->Name = PathName;
         NewEntry->State.store(ETextureState::Empty, std::memory_order_release);
 
         auto [InsertedIter, Inserted] = Images.try_emplace(PathName, NewEntry);
@@ -134,6 +116,9 @@ namespace Lumina
 
         if (!Inserted) // Another thread inserted it first
         {
+            Entries.pop_back();
+            Memory::Delete(NewEntry);
+
             if (Entry->State.load(std::memory_order_acquire) == ETextureState::Ready)
             {
                 return Entry;

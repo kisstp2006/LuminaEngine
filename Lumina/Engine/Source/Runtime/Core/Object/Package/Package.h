@@ -144,7 +144,7 @@ namespace Lumina
         /** The object which may have been loaded into the package */
         CObject* Object = nullptr;
 
-        INLINE friend FArchive& operator << (FArchive& Ar, FObjectExport& Data)
+        FORCEINLINE friend FArchive& operator << (FArchive& Ar, FObjectExport& Data)
         {
             Ar << Data.ObjectName;
             Ar << Data.ClassName;
@@ -172,7 +172,7 @@ namespace Lumina
         /** Runtime-resolved pointer after import is loaded */
         CObject* Object = nullptr;
 
-        INLINE friend FArchive& operator << (FArchive& Ar, FObjectImport& Data)
+        FORCEINLINE friend FArchive& operator << (FArchive& Ar, FObjectImport& Data)
         {
             Ar << Data.Package;
             Ar << Data.ObjectName;
@@ -289,7 +289,7 @@ namespace Lumina
         bool operator==(const FObjectPackageIndex& Other) const { return Index == Other.Index; }
         bool operator!=(const FObjectPackageIndex& Other) const { return Index != Other.Index; }
 
-        INLINE friend FArchive& operator << (FArchive& Ar, FObjectPackageIndex& Data)
+        FORCEINLINE friend FArchive& operator << (FArchive& Ar, FObjectPackageIndex& Data)
         {
             Ar << Data.Index;
             

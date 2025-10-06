@@ -616,6 +616,10 @@ namespace Lumina
 		uint32 Y = 0;
 		uint32 Z = 0;
 
+		uint32 Width = uint32(-1);
+		uint32 Height = uint32(-1);
+		uint32 Depth = uint32(-1);
+
 		uint32 MipLevel = 0;
 		uint32 ArraySlice = 0;
 
@@ -765,6 +769,14 @@ namespace Lumina
 		FRHIImageDesc Description;
 	};
 
+	class LUMINA_API FRHIStagingImage : public IRHIResource
+	{
+	public:
+		RENDER_RESOURCE(RRT_Image)
+
+		NODISCARD virtual const FRHIImageDesc& GetDesc() const = 0;
+	};
+	
 	//-------------------------------------------------------------------------------------------------------------------
 
 	class LUMINA_API FRHIShader : public IRHIResource
@@ -1100,12 +1112,12 @@ namespace Lumina
             EStencilOp PassOp = EStencilOp::Keep;
             EComparisonFunc StencilFunc = EComparisonFunc::Always;
 
-            constexpr StencilOpDesc& setFailOp(EStencilOp value) { FailOp = value; return *this; }
-            constexpr StencilOpDesc& setDepthFailOp(EStencilOp value) { DepthFailOp = value; return *this; }
-            constexpr StencilOpDesc& setPassOp(EStencilOp value) { PassOp = value; return *this; }
-            constexpr StencilOpDesc& setStencilFunc(EComparisonFunc value) { StencilFunc = value; return *this; }
+            constexpr StencilOpDesc& SetFailOp(EStencilOp value) { FailOp = value; return *this; }
+            constexpr StencilOpDesc& SetDepthFailOp(EStencilOp value) { DepthFailOp = value; return *this; }
+            constexpr StencilOpDesc& SetPassOp(EStencilOp value) { PassOp = value; return *this; }
+            constexpr StencilOpDesc& SetStencilFunc(EComparisonFunc value) { StencilFunc = value; return *this; }
 
-			const size_t GetHash() const
+            size_t GetHash() const
             {
 	            size_t hash = 0;
             	Hash::HashCombine(hash, FailOp);
@@ -1295,7 +1307,7 @@ namespace Lumina
 		TBitFlags<ERHIShaderType> StageFlags;
 		uint32 Index = 0;
 
-		TFixedVector<FBindingLayoutItem, MaxBindingsPerLayout> Bindings;
+		TFixedVector<FBindingLayoutItem, 4> Bindings;
 
 		
 		FBindingLayoutDesc& SetVisibility(ERHIShaderType InType) { StageFlags.SetFlag(InType); return *this; }
@@ -1308,7 +1320,7 @@ namespace Lumina
 		TBitFlags<ERHIShaderType> StageFlags;
 		uint32 FirstSlot = 0;
 		uint32 MaxCapacity = 0;
-		TFixedVector<FBindingLayoutItem, MaxBindingsPerLayout> Bindings;
+		TFixedVector<FBindingLayoutItem, 4> Bindings;
 
 		FBindlessLayoutDesc& SetVisibility(ERHIShaderType Value) { StageFlags.SetFlag(Value); return *this; }
 		FBindlessLayoutDesc& SetFirstSlot(uint32 Value) { FirstSlot = Value; return *this; }
@@ -1326,7 +1338,7 @@ namespace Lumina
 	
 	struct LUMINA_API FBindingSetItem
 	{
-		FBindingSetItem() { }
+		FBindingSetItem() { } // NOLINT(cppcoreguidelines-pro-type-member-init, modernize-use-equals-default)
 		
 		IRHIResource* ResourceHandle;
 		uint32 Slot;
@@ -1335,6 +1347,8 @@ namespace Lumina
 		EImageDimension Dimension		: 8;
 		EFormat Format					: 8;
 		uint8 bUnused					: 8;
+
+		
 		uint32 bUnused2; // Padding
 
 		union 
@@ -1455,6 +1469,22 @@ namespace Lumina
 			return Result;
 		}
 
+		static FBindingSetItem PushConstants(uint32 Slot, uint32 ByteSize)
+		{
+			FBindingSetItem Result;
+			Result.Slot = Slot;
+			Result.ArrayElement = 0;
+			Result.Type = ERHIBindingResourceType::PushConstants;
+			Result.ResourceHandle = nullptr;
+			Result.Format = EFormat::UNKNOWN;
+			Result.Dimension = EImageDimension::Unknown;
+			Result.Range.ByteOffset = 0;
+			Result.Range.ByteSize = ByteSize;
+			Result.bUnused = 0;
+			Result.bUnused2 = 0;
+			return Result;
+		}
+
 		bool operator == (const FBindingSetItem& b) const
 		{
 			return ResourceHandle == b.ResourceHandle
@@ -1471,12 +1501,14 @@ namespace Lumina
 	
 	struct LUMINA_API FBindingSetDesc
 	{
-		TFixedVector<FBindingSetItem, MaxBindingsPerLayout> Bindings;
+		TFixedVector<FBindingSetItem, 1> Bindings;
 		
 		bool operator ==(const FBindingSetDesc& b) const
 		{
 			if (Bindings.size() != b.Bindings.size())
+			{
 				return false;
+			}
 
 			for (size_t i = 0; i < Bindings.size(); ++i)
 			{
@@ -1576,7 +1608,7 @@ namespace Lumina
         FRHIPixelShaderRef						PS;
         FRenderState							RenderState;
         FVariableRateShadingState				ShadingRateState;
-        TFixedVector<FRHIBindingLayoutRef, 4>	BindingLayouts;
+        TFixedVector<FRHIBindingLayoutRef, 1>	BindingLayouts;
         
         FGraphicsPipelineDesc& SetPrimType(EPrimitiveType value) { PrimType = value; return *this; }
         FGraphicsPipelineDesc& SetPatchControlPoints(uint32 value) { PatchControlPoints = value; return *this; }
@@ -1607,7 +1639,7 @@ namespace Lumina
 	struct LUMINA_API FComputePipelineDesc
 	{
 		FRHIComputeShaderRef					CS;
-		TFixedVector<FRHIBindingLayoutRef, 4>	BindingLayouts;
+		TFixedVector<FRHIBindingLayoutRef, 1>	BindingLayouts;
 
 		FComputePipelineDesc& SetComputeShader(FRHIComputeShader* value) { CS = value; return *this; }
 		FComputePipelineDesc& AddBindingLayout(FRHIBindingLayout* layout) { BindingLayouts.push_back(layout); return *this; }

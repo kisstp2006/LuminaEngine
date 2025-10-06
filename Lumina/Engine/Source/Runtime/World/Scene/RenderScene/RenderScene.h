@@ -5,14 +5,13 @@
 #include "Containers/SparseArray.h"
 #include "Renderer/RenderResource.h"
 #include "Renderer/RenderTypes.h"
-#include "Memory/Allocators/Allocator.h"
+#include "Renderer/TypedBuffer.h"
 #include "world/entity/components/staticmeshcomponent.h"
 #include "World/Scene/SceneInterface.h"
 
 
 namespace Lumina
 {
-    struct FMeshBatch;
     struct FScenePrimitive;
     struct FStaticMeshScenePrimitive;
     class FRenderGraph;
@@ -29,9 +28,6 @@ namespace Lumina
 namespace Lumina
 {
     
-    template<typename T>
-    using TRenderVector = TFixedVector<T, 1000>;
-    
     class FRenderScene : public ISceneInterface
     {
     public:
@@ -44,28 +40,35 @@ namespace Lumina
         void RenderScene(FRenderGraph& RenderGraph);
     
         FRHIImageRef GetRenderTarget() const { return SceneViewport->GetRenderTarget(); }
+        LUMINA_API FRHIImageRef GetVisualizationImage() const;
         FSceneGlobalData* GetSceneGlobalData() { return &SceneGlobalData; }
 
         FSceneRenderSettings& GetSceneRenderSettings() { return RenderSettings; }
         const FSceneRenderStats& GetSceneRenderStats() const { return SceneRenderStats; }
-        const FGBuffer& GetGBuffer() const { return GBuffer; }
-        FRHIImageRef GetDepthAttachment() const { return DepthAttachment; }
-        FRHIImageRef GetSSAOImage() const { return SSAOImage; }
         
-        ESceneRenderGBuffer GetGBufferDebugMode() const { return GBufferDebugMode; }
-        void SetGBufferDebugMode(ESceneRenderGBuffer Mode) { GBufferDebugMode = Mode; }
-        
+        ERenderSceneDebugFlags GetDebugMode() const { return DebugVisualizationMode; }
+        void SetDebugMode(ERenderSceneDebugFlags Mode) { DebugVisualizationMode = Mode; }
+
+
+        LUMINA_API entt::entity GetEntityAtPixel(uint32 X, uint32 Y) const;
+
     protected:
+
+        void SetViewVolume(const FViewVolume& ViewVolume);
+
+        void ResetState();
         
         /** Compiles all renderers from the world into draw commands for dispatch */
         void CompileDrawCommands();
 
         //~ Begin Render Passes
-        void DepthPrePass(FRenderGraph& RenderGraph);
-        void GBufferPass(FRenderGraph& RenderGraph);
+        void FrustumCull(FRenderGraph& RenderGraph, const FViewVolume& View);
+        void DepthPrePass(FRenderGraph& RenderGraph, const FViewVolume& View);
+        void GBufferPass(FRenderGraph& RenderGraph, const FViewVolume& View);
         void SSAOPass(FRenderGraph& RenderGraph);
         void EnvironmentPass(FRenderGraph& RenderGraph);
         void DeferredLightingPass(FRenderGraph& RenderGraph);
+        void BatchedLineDraw(FRenderGraph& RenderGraph);
         void DebugDrawPass(FRenderGraph& RenderGraph);
         //~ End Render Passes
 
@@ -76,7 +79,6 @@ namespace Lumina
         void CreateImages();
         void OnSwapchainResized();
     
-
     private:
 
         CWorld*                             World = nullptr;
@@ -87,28 +89,32 @@ namespace Lumina
 
         FRHIViewportRef                     SceneViewport;
 
-        TRenderVector<FSimpleElementVertex>     SimpleVertices;
-        FRHIBindingLayoutRef                    SimplePassLayout;
-
+        TRenderVector<FSimpleElementVertex>         SimpleVertices;
+        FRHIBindingLayoutRef                        SimplePassLayout;
         
-        FRHIBufferRef                       SimpleVertexBuffer;
-        FRHIBufferRef                       SceneDataBuffer;
-        FRHIBufferRef                       EnvironmentBuffer;
-        FRHIBufferRef                       ModelDataBuffer;
-        FRHIBufferRef                       LightDataBuffer;
-        FRHIBufferRef                       SSAOKernalBuffer;
-        FRHIBufferRef                       SSAOSettingsBuffer;
-        FRHIBufferRef                       IndirectDrawBuffer;
+        
+
+        FRHITypedVertexBuffer<FSimpleElementVertex> SimpleVertexBuffer;
+        FRHIBufferRef                               SceneDataBuffer;
+        FRHITypedBufferRef<FEnvironmentSettings>    EnvironmentBuffer;
+        FRHIBufferRef                               InstanceDataBuffer;
+        FRHIBufferRef                               InstanceMappingBuffer;
+        FRHIBufferRef                               InstanceReadbackBuffer;
+        FRHIBufferRef                               LightDataBuffer;
+        FRHIBufferRef                               SSAOKernalBuffer;
+        FRHITypedBufferRef<FSSAOSettings>           SSAOSettingsBuffer;
+        FRHIBufferRef                               IndirectDrawBuffer;
 
         FRHIInputLayoutRef                  VertexLayoutInput;
         FRHIInputLayoutRef                  SimpleVertexLayoutInput;
 
         FSceneGlobalData                    SceneGlobalData;
-
-        FRHIBindingLayoutRef                EnvironmentLayout;
-        FRHIBindingSetRef                   EnvironmentBindingSet;
+        
         FRHIBindingSetRef                   LightingPassSet;
         FRHIBindingLayoutRef                LightingPassLayout;
+
+        FRHIBindingSetRef                   DebugPassSet;
+        FRHIBindingLayoutRef                DebugPassLayout;
 
         FRHIBindingSetRef                   SSAOPassSet;
         FRHIBindingLayoutRef                SSAOPassLayout;
@@ -118,7 +124,9 @@ namespace Lumina
         
         FRHIBindingLayoutRef                BindingLayout;
         FRHIBindingSetRef                   BindingSet;
-        
+
+        FRHIBindingSetRef                   FrustumCullSet;
+        FRHIBindingLayoutRef                FrustumCullLayout;
         
         FGBuffer                            GBuffer;
         
@@ -130,34 +138,13 @@ namespace Lumina
         FRHIImageRef                        NoiseImage;
         FRHIImageRef                        SSAOImage;
         FRHIImageRef                        SSAOBlur;
+        FRHIImageRef                        PickerImage;
+        FRHIImageRef                        OverdrawImage;
+        FRHIImageRef                        DebugVisualizationImage;
+
+        ERenderSceneDebugFlags              DebugVisualizationMode;
         
-        ESceneRenderGBuffer                           GBufferDebugMode = ESceneRenderGBuffer::RenderTarget;
         
-
-        struct FStaticMeshRender
-        {
-            CMaterialInterface* Material;
-            CStaticMesh* StaticMesh;
-            uint64 SortKey;
-            uint32 FirstIndex;
-            uint32 TransformIdx;
-            uint16 SurfaceIndexCount;
-
-            auto operator <=> (const FStaticMeshRender& Other) const
-            {
-                return SortKey <=> Other.SortKey;
-            }
-        };
-
-        struct FThreadLocalCollectionData
-        {
-            TRenderVector<glm::mat4> LocalTransforms;
-            TRenderVector<FStaticMeshRender> LocalStaticMeshRenders;
-        };
-
-        TRenderVector<FStaticMeshRender> StaticMeshRenders;
-        TFixedHashMap<uint64, FThreadLocalCollectionData, 36> ThreadResults;
-
         
         /** Packed array of per-instance data */
         TRenderVector<FInstanceData>                  InstanceData;

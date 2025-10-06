@@ -49,15 +49,4 @@ namespace Lumina
         LOG_WARN("Shader with key [{}] not found.", Key);
         return nullptr;
     }
-
-    FBufferRange FBufferRange::Resolve(const FRHIBufferDesc& Desc) const
-    {
-        FBufferRange result;
-        result.ByteOffset = std::min(ByteOffset, Desc.Size);
-        if (ByteSize == 0)
-            result.ByteSize = Desc.Size - result.ByteOffset;
-        else
-            result.ByteSize = std::min(ByteSize, Desc.Size - result.ByteOffset);
-        return result;
-    }
 }

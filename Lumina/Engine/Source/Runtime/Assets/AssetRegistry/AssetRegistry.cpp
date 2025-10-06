@@ -69,6 +69,8 @@ namespace Lumina
 
     void FAssetRegistry::AssetCreated(CObject* Asset)
     {
+        FScopeLock Lock(AssetsMutex);
+
         CPackage* Package = Asset->GetPackage();
         FName PathName = Package->GetName();
         LUM_ASSERT(AssetPackageMap.find(PathName) == AssetPackageMap.end())
@@ -97,6 +99,8 @@ namespace Lumina
 
     void FAssetRegistry::AssetDeleted(CPackage* Package)
     {
+        FScopeLock Lock(AssetsMutex);
+
         FName PathName = Package->GetName();
         LUM_ASSERT(AssetPackageMap.find(PathName) != AssetPackageMap.end())
 
@@ -132,6 +136,8 @@ namespace Lumina
 
     void FAssetRegistry::AssetRenamed(CObject* Asset, const FString& OldPackagePath)
     {
+        FScopeLock Lock(AssetsMutex);
+
         CPackage* Package = Asset->GetPackage();
         CPackage* OldPackage = FindObject<CPackage>(nullptr, Paths::ConvertToVirtualPath(OldPackagePath));
         if (OldPackage)
@@ -172,6 +178,8 @@ namespace Lumina
 
     void FAssetRegistry::AssetSaved(CObject* Asset)
     {
+        FScopeLock Lock(AssetsMutex);
+
         CPackage* Package = Asset->GetPackage();
 
         FString FullPathName = Paths::ResolveVirtualPath(Package->GetName().ToString());

@@ -27,7 +27,10 @@ namespace Lumina
         GENERATED_BODY()
         
         LUM_PROPERTY(Editable, Color, Category = "Ambient Light")
-        glm::vec4 Color = glm::vec4(1.0f);
+        glm::vec3 Color = glm::vec3(1.0f);
+
+        LUM_PROPERTY(Editable, Category = "Ambient Light")
+        float Intensity = 0.0f;
         
     };
     

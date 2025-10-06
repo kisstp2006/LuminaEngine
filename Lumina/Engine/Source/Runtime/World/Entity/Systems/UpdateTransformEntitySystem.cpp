@@ -10,7 +10,7 @@
 namespace Lumina
 {
     
-    void CUpdateTransformEntitySystem::Initialize()
+    void CUpdateTransformEntitySystem::Initialize(FSystemContext& SystemContext)
     {
         
     }

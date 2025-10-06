@@ -29,10 +29,17 @@ namespace Lumina
         }
 
         template<typename T, typename ... TArgs>
-        T& Emplace(TArgs&& ... Args)
+        T& Emplace(entt::entity entity, TArgs&& ... Args)
         {
-            return Registry.emplace<T>(std::forward<TArgs>(Args)...);
+            return Registry.emplace<T>(entity, std::forward<TArgs>(Args)...);
         }
+
+        template<typename T, typename ... TArgs>
+        T& EmplaceOrReplace(entt::entity entity, TArgs&& ... Args)
+        {
+            return Registry.emplace_or_replace<T>(entity, std::forward<TArgs>(Args)...);
+        }
+
 
         template<typename T>
         void Erase(entt::entity Entt)

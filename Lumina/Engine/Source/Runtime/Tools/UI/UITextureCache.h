@@ -18,6 +18,7 @@ namespace Lumina
         
         struct FEntry
         {
+            FName Name;
             std::atomic_uint64_t LastUseFrame{0};
             std::atomic<ETextureState> State = ETextureState::Empty;
             FRHIImageRef RHIImage;
@@ -45,7 +46,9 @@ namespace Lumina
     private:
         
         TVector<FEntry*>            Entries;
+        
         THashMap<FName, FEntry*>    Images;
+        
         TPair<FName, FEntry*>       SquareWhiteTexture;
     };
     

@@ -1,11 +1,12 @@
 #pragma once
 
 #include "Containers/Name.h"
-#include "Core/Templates/IsSigned.h"
-#include "Core/Versioning/CoreVersion.h"
+#include "Platform/Platform.h"
 #include "Containers/String.h"
 #include "Core/Object/ObjectHandle.h"
 #include "Core/Templates/CanBulkSerialize.h"
+#include "Core/Templates/IsSigned.h"
+#include "Core/Versioning/CoreVersion.h"
 #include "Log/Log.h"
 
 namespace Lumina

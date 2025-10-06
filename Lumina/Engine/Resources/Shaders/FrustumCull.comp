@@ -1,0 +1,98 @@
+#version 450 core
+#pragma shader_stage(compute)
+
+layout (local_size_x = 256) in;
+
+struct FInstanceData // Mirroed in SceneGlobals.glsl
+{
+    mat4    ModelMatrix;
+    vec4    SphereBounds;
+    uvec4   PackedID;
+};
+
+// Frustum is in world space.
+struct FCullData
+{
+    vec4 Planes[6];
+    vec4 View;
+};
+
+struct FDrawIndexedIndirectArguments
+{
+    uint IndexCount;
+    uint InstanceCount;
+    uint StartIndexLocation;
+    int  BaseVertexLocation;
+    uint StartInstanceLocation;
+};
+
+
+layout(set = 0, binding = 0) readonly buffer InstanceData
+{
+    FInstanceData Instances[];
+} uInstanceData;
+
+layout(set = 0, binding = 1) writeonly buffer InstanceMappingData
+{
+    uint Mapping[];
+} uMappingData;
+
+layout(set = 0, binding = 2) buffer IndirectDrawBuffer
+{
+    FDrawIndexedIndirectArguments Args[];
+} uIndirectDrawData;
+
+layout(push_constant) uniform DebugInfo
+{
+    FCullData CullData;
+} PC;
+
+bool IsVisible(uint Index)
+{
+    vec4 SphereBounds = uInstanceData.Instances[Index].SphereBounds;
+    vec3 Center = SphereBounds.xyz;
+    float Radius = SphereBounds.w;
+    
+    vec4 p0 = PC.CullData.Planes[0];
+    vec4 p1 = PC.CullData.Planes[1];
+    vec4 p2 = PC.CullData.Planes[2];
+    vec4 p3 = PC.CullData.Planes[3];
+    vec4 p4 = PC.CullData.Planes[4];
+    vec4 p5 = PC.CullData.Planes[5];
+
+    float d0 = dot(p0.xyz, Center) + p0.w;
+    float d1 = dot(p1.xyz, Center) + p1.w;
+    float d2 = dot(p2.xyz, Center) + p2.w;
+    float d3 = dot(p3.xyz, Center) + p3.w;
+    float d4 = dot(p4.xyz, Center) + p4.w;
+    float d5 = dot(p5.xyz, Center) + p5.w;
+    
+    float inside = step(-Radius, d0) *
+    step(-Radius, d1) *
+    step(-Radius, d2) *
+    step(-Radius, d3) *
+    step(-Radius, d4) *
+    step(-Radius, d5);
+
+    return inside > 0.5;
+}
+
+void main()
+{
+    uint gID = gl_GlobalInvocationID.x;
+    uint NumInstances = uint(PC.CullData.View.a);
+    uint BatchID = uInstanceData.Instances[gID].PackedID.y;
+    
+    if(gID < NumInstances)
+    {
+        if(IsVisible(gID))
+        {
+            uint InstanceCount = atomicAdd(uIndirectDrawData.Args[BatchID].InstanceCount, 1);
+            
+            uint InstanceIndex = uIndirectDrawData.Args[BatchID].StartInstanceLocation + InstanceCount;
+            
+            uMappingData.Mapping[InstanceIndex] = gID;
+        }
+    }
+}
+

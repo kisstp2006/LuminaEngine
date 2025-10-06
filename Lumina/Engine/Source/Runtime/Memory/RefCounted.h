@@ -2,6 +2,7 @@
 
 #include "Core/Templates/Forward.h"
 #include "Memory.h"
+#include "Allocators/Allocator.h"
 #include "Core/Assertions/Assert.h"
 PRAGMA_DISABLE_ALL_WARNINGS
 #include "EASTL/internal/atomic/atomic.h"

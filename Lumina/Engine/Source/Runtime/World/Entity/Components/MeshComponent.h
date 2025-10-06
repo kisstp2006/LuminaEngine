@@ -4,6 +4,7 @@
 #include "RenderComponent.h"
 #include "Core/Object/ObjectHandleTyped.h"
 #include "MeshComponent.generated.h"
+#include "World/Scene/RenderScene/MeshBatch.h"
 
 namespace Lumina
 {
@@ -16,6 +17,7 @@ namespace Lumina
         
         LUM_PROPERTY(Editable, Category = "Materials")
         TVector<TObjectHandle<CMaterialInterface>> MaterialOverrides;
+
     };
     
 }

@@ -8,12 +8,32 @@
 
 namespace Lumina
 {
+
+    // Pack normalized normal into 10:10:10:2 format
+    inline uint32 PackNormal(glm::vec3 normal)
+    {
+        int x = (int)(glm::clamp(normal.x, -1.0f, 1.0f) * 511.0f);
+        int y = (int)(glm::clamp(normal.y, -1.0f, 1.0f) * 511.0f);
+        int z = (int)(glm::clamp(normal.z, -1.0f, 1.0f) * 511.0f);
+        return ((x & 0x3FF) << 0) | ((y & 0x3FF) << 10) | ((z & 0x3FF) << 20);
+    }
+
+    // Pack color into RGBA8
+    inline uint32 PackColor(glm::vec4 color)
+    {
+        uint8 r = (uint8)(glm::clamp(color.r, 0.0f, 1.0f) * 255.0f);
+        uint8 g = (uint8)(glm::clamp(color.g, 0.0f, 1.0f) * 255.0f);
+        uint8 b = (uint8)(glm::clamp(color.b, 0.0f, 1.0f) * 255.0f);
+        uint8 a = (uint8)(glm::clamp(color.a, 0.0f, 1.0f) * 255.0f);
+        return (a << 24) | (b << 16) | (g << 8) | r;
+    }
+    
     struct FVertex
     {
-        glm::vec4       Position;
-        glm::vec4       Color;
-        glm::vec4       Normal;
-        glm::vec2       UV;
+        glm::vec3       Position;
+        uint32          Normal;
+        glm::u16vec2    UV;
+        uint32          Color;
 
         
         friend FArchive& operator<<(FArchive& Ar, FVertex& Data)
@@ -22,24 +42,18 @@ namespace Lumina
             Ar << Data.Position.x;
             Ar << Data.Position.y;
             Ar << Data.Position.z;
-            Ar << Data.Position.w;
-
-            // Color
-            Ar << Data.Color.x;
-            Ar << Data.Color.y;
-            Ar << Data.Color.z;
-            Ar << Data.Color.w;
 
             // Normal
-            Ar << Data.Normal.x;
-            Ar << Data.Normal.y;
-            Ar << Data.Normal.z;
-            Ar << Data.Normal.w;
-            
+            Ar << Data.Normal;
+
             // UV
             Ar << Data.UV.x;
             Ar << Data.UV.y;
+            
+            // Color
+            Ar << Data.Color;
 
+            
             return Ar;
         }
     };

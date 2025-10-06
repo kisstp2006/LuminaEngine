@@ -141,14 +141,12 @@ namespace Lumina::Memory
 
     LUMINA_API void Free(void*& Memory);
 
-    template< typename T, typename ... ConstructorParams >
-    requires std::is_constructible_v<T, ConstructorParams...> && (!eastl::is_array_v<T>)
-    NODISCARD T* New(ConstructorParams&&... params)
+    template<typename T, typename ... ConstructorParams>
+    requires eastl::is_constructible_v<T, ConstructorParams...> && (!eastl::is_array_v<T>)
+    NODISCARD T* New(ConstructorParams&&... Params)  // NOLINT(cppcoreguidelines-missing-std-forward)
     {
         void* Memory = Malloc(sizeof(T), alignof(T));
-        // std::forward is used instead of eastl::forward to suppress static analysis warnings
-        // (e.g. cppcoreguidelines-missing-std-forward). EASTL is still preferred in most cases.
-        return new(Memory) T(std::forward<ConstructorParams>(params)...);
+        return new(Memory) T(eastl::forward<ConstructorParams>(Params)...);
     }
 
     template<typename T>

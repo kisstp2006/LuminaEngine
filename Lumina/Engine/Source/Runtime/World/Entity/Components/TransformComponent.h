@@ -35,7 +35,7 @@ namespace Lumina
             Transform.Location = InLocation; 
         }
 
-        void SetRotation(const glm::quat& InRotation) 
+        void SetRotation(const glm::quat& InRotation)
         { 
             Transform.Rotation = InRotation; 
         }

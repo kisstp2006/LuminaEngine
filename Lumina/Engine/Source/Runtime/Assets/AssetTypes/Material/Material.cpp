@@ -78,11 +78,6 @@ namespace Lumina
         return const_cast<CMaterial*>(this);
     }
 
-    bool CMaterial::IsReadyForRender() const
-    {
-        return bIsReadyForRender;
-    }
-
     FRHIBindingSetRef CMaterial::GetBindingSet() const
     {
         return BindingSet;

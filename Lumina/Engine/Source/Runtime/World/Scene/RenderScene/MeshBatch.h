@@ -12,16 +12,13 @@ namespace Lumina
     /** A batch of mesh elements that contain the same material and vertex buffer. */
     struct FMeshBatch
     {
-        FMeshBatch() = default;
-        ~FMeshBatch();
-        
         struct FElement
         {
             uint32          FirstIndex;
             uint32          NumIndices;
         };
         
-        TFixedVector<FElement, 4>   Elements;
+        TFixedVector<FElement, 1>   Elements;
         
         FRenderScene*               Scene;
         CMaterialInterface*         Material;

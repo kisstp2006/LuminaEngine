@@ -17,19 +17,19 @@ namespace Lumina
     {
         CubeMesh = NewObject<CStaticMesh>();
         
-        FMeshResource Resource;
-        GenerateCube(Resource.Vertices, Resource.Indices);
+        TUniquePtr<FMeshResource> Resource = MakeUniquePtr<FMeshResource>();
+        GenerateCube(Resource->Vertices, Resource->Indices);
         
         
         FGeometrySurface Surface;
         Surface.ID = "Mesh";
-        Surface.IndexCount = Resource.Indices.size();
+        Surface.IndexCount = Resource->Indices.size();
         Surface.StartIndex = 0;
         Surface.MaterialIndex = 0;
-        Resource.GeometrySurfaces.push_back(Surface);
+        Resource->GeometrySurfaces.push_back(Surface);
 
         CubeMesh->Materials.resize(1);
-        CubeMesh->SetMeshResource(Resource);
+        CubeMesh->SetMeshResource(eastl::move(Resource));
     }
 
     CThumbnailManager& CThumbnailManager::Get()

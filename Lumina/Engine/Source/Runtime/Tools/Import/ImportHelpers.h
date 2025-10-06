@@ -3,6 +3,7 @@
 #include "Containers/Array.h"
 #include "Containers/String.h"
 #include "Core/Math/Math.h"
+#include "Memory/SmartPtr.h"
 #include "Module/API.h"
 #include "Platform/Platform.h"
 #include "Renderer/RHIFwd.h"
@@ -25,7 +26,6 @@ namespace Lumina::Import
         NODISCARD LUMINA_API FRHIImageRef CreateTextureFromImport(IRenderContext* RenderContext, const FString& RawFilePath, bool bFlipVerticalOnLoad = true);
     }
 
-
     namespace Mesh::GLTF
     {
         struct FGLTFMaterial
@@ -37,6 +37,11 @@ namespace Lumina::Import
         {
             FString RelativePath;
             SIZE_T ByteOffset;
+
+            bool operator==(const FGLTFImage& Other) const
+            {
+                return Other.RelativePath == RelativePath && Other.ByteOffset == ByteOffset;
+            }
         };
 
         struct FGLTFImportOptions
@@ -51,15 +56,34 @@ namespace Lumina::Import
             bool bUseCompression = false;        // Whether to compress vertex/index data after import
             float Scale = 1.0f;                  // Scene-wide scale factor
         };
+
+        struct FGLTFImageHasher
+        {
+            size_t operator()(const FGLTFImage& Asset) const noexcept
+            {
+                size_t Seed = 0;
+                Lumina::Hash::HashCombine(Seed, Asset.RelativePath);
+                Lumina::Hash::HashCombine(Seed, Asset.ByteOffset);
+                return Seed;
+            }
+        };
+    
+        struct FGLTFImageEqual
+        {
+            bool operator()(const FGLTFImage& A, const FGLTFImage& B) const noexcept
+            {
+                return A.RelativePath == B.RelativePath && A.ByteOffset == B.ByteOffset;
+            }
+        };
         
         struct FGLTFImportData
         {
-            TVector<FMeshResource>                      Resources;
+            TVector<TUniquePtr<FMeshResource>>          Resources;
             TVector<meshopt_OverdrawStatistics>         OverdrawStatics;
             TVector<meshopt_VertexFetchStatistics>      VertexFetchStatics;
             
             THashMap<SIZE_T, TVector<FGLTFMaterial>>    Materials;
-            TVector<FGLTFImage>                         Textures;
+            THashSet<FGLTFImage, FGLTFImageHasher, FGLTFImageEqual> Textures;
             
         };
         LUMINA_API void ImportGLTF(FGLTFImportData& OutData, const FGLTFImportOptions& ImportOptions, const FString& RawFilePath);

@@ -53,6 +53,17 @@ namespace Lumina
             return EntityWorld->Has<bAnyOf, Ts...>(entity);
         }
 
+        template<typename T, typename ... TArgs>
+        T& Emplace(TArgs&& ... Args)
+        {
+            return EntityWorld->Emplace<T>(std::forward<TArgs>(Args)...);
+        }
+
+        template<typename T, typename ... TArgs>
+        T& EmplaceOrReplace(entt::entity entity, TArgs&& ... Args)
+        {
+            return EntityWorld->EmplaceOrReplace<T>(entity, std::forward<TArgs>(Args)...);
+        }
         
     private:
         

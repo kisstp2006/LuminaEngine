@@ -40,7 +40,6 @@ namespace Lumina
         bool SetVectorValue(const FName& Name, const glm::vec4& Value) override;
         bool GetParameterValue(EMaterialParameterType Type, const FName& Name, FMaterialParameter& Param) override;
         CMaterial* GetMaterial() const override;
-        bool IsReadyForRender() const override;
         FRHIBindingSetRef GetBindingSet() const override;
         FRHIBindingLayoutRef GetBindingLayout() const override;
         FRHIVertexShaderRef GetVertexShader() const override;
@@ -71,8 +70,6 @@ namespace Lumina
         FRHIBufferRef                           UniformBuffer;
         FRHIBindingLayoutRef                    BindingLayout;
         FRHIBindingSetRef                       BindingSet;
-
-        uint8                                   bIsReadyForRender:1=0;
     };
     
 }

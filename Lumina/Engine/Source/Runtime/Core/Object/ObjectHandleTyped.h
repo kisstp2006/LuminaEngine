@@ -140,7 +140,10 @@ namespace Lumina
         
         bool IsValid() const
         {
-            if (*this == FObjectHandle()) return false;
+            if (*this == FObjectHandle())
+            {
+                return false;
+            }
             return Get() != nullptr;
         }
 

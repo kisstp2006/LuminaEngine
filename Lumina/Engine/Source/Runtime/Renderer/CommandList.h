@@ -8,10 +8,6 @@
 namespace Lumina
 {
     class FQueue;
-}
-
-namespace Lumina
-{
     struct FRenderPassBeginInfo;
     class IRenderContext;
 }
@@ -73,9 +69,13 @@ namespace Lumina
         virtual void Executed(FQueue* Queue, uint64 SubmissionID) = 0;
         
         virtual void CopyImage(FRHIImage* Src, const FTextureSlice& SrcSlice, FRHIImage* Dst, const FTextureSlice& DstSlice) = 0;
+        virtual void CopyImage(FRHIImage* Src, const FTextureSlice& SrcSlice, FRHIStagingImage* Dst, const FTextureSlice& DstSlice) = 0;
         virtual void WriteImage(FRHIImage* Dst, uint32 ArraySlice, uint32 MipLevel, const void* Data, SIZE_T RowPitch, SIZE_T DepthPitch) = 0;
-        
+        virtual void ClearImageFloat(FRHIImage* Image, FTextureSubresourceSet Subresource, const FColor& Color) = 0;
+        virtual void ClearImageUInt(FRHIImage* Image, FTextureSubresourceSet Subresource, uint32 Color) = 0;
+
         virtual void WriteBuffer(FRHIBuffer* Buffer, const void* Data, SIZE_T Offset, SIZE_T Size) = 0;
+        virtual void FillBuffer(FRHIBuffer* Buffer, uint32 Value) = 0;
         virtual void CopyBuffer(FRHIBuffer* Source, uint64 SrcOffset, FRHIBuffer* Destination, uint64 DstOffset, uint64 CopySize) = 0;
         
         virtual void SetPermanentImageState(FRHIImage* Image, EResourceStates StateBits) = 0;
@@ -112,7 +112,8 @@ namespace Lumina
         virtual void DrawIndexed(uint32 IndexCount, uint32 InstanceCount = 1, uint32 FirstIndex = 1, int32 VertexOffset = 0, uint32 FirstInstance = 0) = 0;
         virtual void DrawIndirect(uint32 DrawCount, uint64 Offset) = 0;
         virtual void DrawIndexedIndirect(uint32 DrawCount, uint64 Offset) = 0;
-        
+
+        virtual void SetComputeState(const FComputeState& State) = 0;
         virtual void Dispatch(uint32 GroupCountX, uint32 GroupCountY, uint32 GroupCountZ) = 0;
 
         NODISCARD virtual const FCommandListInfo& GetCommandListInfo() const = 0;

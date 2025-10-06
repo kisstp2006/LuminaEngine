@@ -1,6 +1,4 @@
 
-#define MAX_LIGHTS 1024
-
 struct FCameraView
 {
     vec4 CameraPosition;    // Camera Position
@@ -13,6 +11,13 @@ struct FCameraView
 const uint LIGHT_TYPE_DIRECTIONAL = 0;
 const uint LIGHT_TYPE_POINT       = 1;
 const uint LIGHT_TYPE_SPOT        = 2;
+
+struct FInstanceData
+{
+    mat4    ModelMatrix;
+    vec4    SphereBounds;
+    uvec4   PackedID;
+};
 
 struct FLight
 {
@@ -35,16 +40,48 @@ layout(set = 0, binding = 0) readonly uniform SceneGlobals
 
 layout(set = 0, binding = 1) readonly buffer FModelData
 {
-    mat4 ModelMatrix[]; // Raw flat buffer of scatterd models (not sorted).
+    FInstanceData Instances[];
 } ModelData;
 
+layout(set = 0, binding = 2) readonly buffer InstanceMappingData
+{
+    uint Mapping[];
+} uMappingData;
 
-layout(set = 0, binding = 2) readonly buffer FLightData
+
+layout(set = 0, binding = 3) readonly buffer FLightData
 {
     uint    NumLights;
-    FLight  Lights[MAX_LIGHTS];
+    FLight  Lights[];
 } LightData;
 
+layout(set = 0, binding = 4) uniform FEnvironmentUBO
+{
+    vec4 SunDirection;
+    vec4 AmbientLight;
+} EnvironmentUBO;
+
+//layout(set = 0, binding = 5, r32ui) uniform uimage2D uOverdrawImage;
+
+uint DrawIDToInstanceID(uint ID)
+{
+    return uMappingData.Mapping[ID];
+}
+
+vec3 GetSunDirection()
+{
+    return EnvironmentUBO.SunDirection.xyz;
+}
+
+vec3 GetAmbientLightColor()
+{
+    return EnvironmentUBO.AmbientLight.xyz;
+}
+
+float GetAmbientLightIntensity()
+{
+    return EnvironmentUBO.AmbientLight.w;
+}
 
 float GetTime()
 {
@@ -81,14 +118,20 @@ mat4 GetInverseCameraProjection()
     return SceneUBO.CameraView.InverseCameraProjection;
 }
 
-vec3 GetModelLocation(uint Index)
-{
-    return vec3(ModelData.ModelMatrix[Index][3].xyz);
-}
-
 mat4 GetModelMatrix(uint Index)
 {
-    return ModelData.ModelMatrix[Index];
+    return ModelData.Instances[DrawIDToInstanceID(Index)].ModelMatrix;
+}
+
+vec3 GetModelLocation(uint Index)
+{
+    mat4 Matrix = GetModelMatrix(Index);
+    return vec3(Matrix[3].xyz);
+}
+
+uint GetEntityID(uint Index)
+{
+    return ModelData.Instances[DrawIDToInstanceID(Index)].PackedID.x;
 }
 
 vec3 WorldToView(vec3 worldPos)

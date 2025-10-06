@@ -12,10 +12,26 @@
 #include "TaskSystem/TaskSystem.h"
 #include "Tools/Import/ImportHelpers.h"
 #include "Tools/UI/UITextureCache.h"
+#include "Tools/UI/ImGui/ImGuiDesignIcons.h"
 
 
 namespace Lumina
 {
+    FString FormatNumber(size_t number)
+    {
+        FString result;
+        result.sprintf("%zu", number);
+        
+        int insertPosition = result.length() - 3;
+        while (insertPosition > 0) 
+        {
+            result.insert(insertPosition, ",");
+            insertPosition -= 3;
+        }
+        return result;
+    }
+    
+    
     CObject* CStaticMeshFactory::CreateNew(const FName& Name, CPackage* Package)
     {
         return NewObject<CStaticMesh>(Package, Name);
@@ -33,138 +49,293 @@ namespace Lumina
             Import::Mesh::GLTF::ImportGLTF(ImportedData, Options, RawPath);
             bShouldReimport = false;
         }
-
-        ImGui::SeparatorText("Import Options");
-        
-        if (ImGui::BeginTable("GLTFImportOptionsTable", 2, ImGuiTableFlags_BordersInnerV))
-        {
-            ImGui::TableSetupColumn("Option", ImGuiTableColumnFlags_WidthStretch, 0.4f);
-            ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch, 0.6f);
     
-            auto AddCheckboxRow = [&](const char* Label, bool& Option)
+        // Add some padding and use a child window for better layout control
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(20, 20));
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(12, 8));
+    
+        // Header with file info
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.9f, 0.9f, 1.0f));
+        ImGui::TextWrapped("Importing: %s", Paths::FileName(RawPath).c_str());
+        ImGui::PopStyleColor();
+        ImGui::Spacing();
+    
+        // Import Options Section
+        ImGui::PushStyleColor(ImGuiCol_Separator, ImVec4(0.4f, 0.6f, 0.8f, 0.8f));
+        ImGui::SeparatorText("Import Options");
+        ImGui::PopStyleColor();
+        ImGui::Spacing();
+        
+        // Create a more spacious options layout
+        ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(12, 8));
+        if (ImGui::BeginTable("GLTFImportOptionsTable", 2, ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_PadOuterX))
+        {
+            ImGui::TableSetupColumn("Option", ImGuiTableColumnFlags_WidthFixed, 180.0f);
+            ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
+    
+            auto AddCheckboxRow = [&](const char* Icon, const char* Label, const char* Description, bool& Option)
             {
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
-                ImGui::Text("%s", Label);
+                
+                // Add icon and label
+                ImGui::Text("%s %s", Icon, Label);
+                if (Description && ImGui::IsItemHovered())
+                {
+                    ImGui::SetTooltip("%s", Description);
+                }
+                
                 ImGui::TableSetColumnIndex(1);
+                ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(8, 4));
                 if (ImGui::Checkbox(("##" + FString(Label)).c_str(), &Option))
                 {
                     bShouldReimport = true;
                 }
+                ImGui::PopStyleVar();
             };
     
-            AddCheckboxRow("Optimize Mesh", Options.bOptimize);
-            AddCheckboxRow("Import Materials", Options.bImportMaterials);
+            AddCheckboxRow(LE_ICON_ACCOUNT_BOX, "Optimize Mesh", "Optimize vertex cache and reduce overdraw", Options.bOptimize);
+            AddCheckboxRow(LE_ICON_ACCOUNT_BOX, "Import Materials", "Import material definitions from GLTF", Options.bImportMaterials);
+            
             if (!Options.bImportMaterials)
             {
-                AddCheckboxRow("Import Textures", Options.bImportTextures);
+                // Indent texture option when materials are disabled
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::Indent(20.0f);
+                ImGui::Text("Import Textures");
+                if (ImGui::IsItemHovered())
+                {
+                    ImGui::SetTooltip("Import textures without materials");
+                }
+                ImGui::Unindent(20.0f);
+                ImGui::TableSetColumnIndex(1);
+                ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(8, 4));
+                if (ImGui::Checkbox("##ImportTextures", &Options.bImportTextures))
+                {
+                    bShouldReimport = true;
+                }
+                ImGui::PopStyleVar();
             }
-            AddCheckboxRow("Import Animations", Options.bImportAnimations);
-            AddCheckboxRow("Generate Tangents", Options.bGenerateTangents);
-            AddCheckboxRow("Merge Meshes", Options.bMergeMeshes);
-            AddCheckboxRow("Apply Transforms", Options.bApplyTransforms);
-            AddCheckboxRow("Use Mesh Compression", Options.bUseCompression);
+            
+            AddCheckboxRow(LE_ICON_ACCOUNT_BOX, "Import Animations", "Import skeletal and morph target animations", Options.bImportAnimations);
+            AddCheckboxRow(LE_ICON_ACCOUNT_BOX, "Generate Tangents", "Calculate tangent vectors for normal mapping", Options.bGenerateTangents);
+            AddCheckboxRow(LE_ICON_ACCOUNT_BOX, "Merge Meshes", "Combine compatible meshes into single objects", Options.bMergeMeshes);
+            AddCheckboxRow(LE_ICON_ACCOUNT_BOX, "Apply Transforms", "Bake node transforms into vertex positions", Options.bApplyTransforms);
+            AddCheckboxRow(LE_ICON_ACCOUNT_BOX, "Use Mesh Compression", "Compress vertex data to reduce memory usage", Options.bUseCompression);
     
-            // Import Scale
+            // Import Scale with better styling
             ImGui::TableNextRow();
             ImGui::TableSetColumnIndex(0);
-            ImGui::Text("Scale");
+            ImGui::TextUnformatted(LE_ICON_ACCOUNT_BOX " Scale");
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::SetTooltip("Uniform scale factor applied to all imported geometry");
+            }
             ImGui::TableSetColumnIndex(1);
-            ImGui::DragFloat("##ImportScale", &Options.Scale, 0.01f, 0.01f, 100.0f, "%.2f");
+            ImGui::PushItemWidth(-1);
+            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(8, 4));
+            if (ImGui::DragFloat("##ImportScale", &Options.Scale, 0.01f, 0.01f, 100.0f, "%.2f"))
+            {
+                bShouldReimport = true;
+            }
+            ImGui::PopStyleVar();
+            ImGui::PopItemWidth();
     
             ImGui::EndTable();
         }
+        ImGui::PopStyleVar(); // CellPadding
     
+        // Import Statistics Section
         if (!ImportedData.Resources.empty())
         {
-            ImGui::SeparatorText("Import Stats");
-
-            if (ImGui::BeginTable("GLTFImportMeshStats", 6, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable))
+            ImGui::Spacing();
+            ImGui::Spacing();
+            
+            ImGui::PushStyleColor(ImGuiCol_Separator, ImVec4(0.6f, 0.8f, 0.4f, 0.8f));
+            ImGui::SeparatorText(LE_ICON_ACCOUNT_BOX "Import Statistics");
+            ImGui::PopStyleColor();
+            ImGui::Spacing();
+    
+            // Mesh Statistics with alternating row colors
+            ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(10, 6));
+            if (ImGui::BeginTable("GLTFImportMeshStats", 6, 
+                ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | 
+                ImGuiTableFlags_Resizable | ImGuiTableFlags_ScrollY, ImVec2(0, 150)))
             {
-                ImGui::TableSetupColumn("Mesh Name");
-                ImGui::TableSetupColumn("Vertices");
-                ImGui::TableSetupColumn("Indices");
-                ImGui::TableSetupColumn("Surfaces");
-                ImGui::TableSetupColumn("Overdraw");
-                ImGui::TableSetupColumn("Vertex Fetch");
+                // Styled headers
+                ImGui::TableSetupColumn("Mesh Name", ImGuiTableColumnFlags_WidthStretch);
+                ImGui::TableSetupColumn("Vertices", ImGuiTableColumnFlags_WidthFixed, 80);
+                ImGui::TableSetupColumn("Indices", ImGuiTableColumnFlags_WidthFixed, 80);
+                ImGui::TableSetupColumn("Surfaces", ImGuiTableColumnFlags_WidthFixed, 80);
+                ImGui::TableSetupColumn("Overdraw", ImGuiTableColumnFlags_WidthFixed, 80);
+                ImGui::TableSetupColumn("V-Fetch", ImGuiTableColumnFlags_WidthFixed, 80);
+                
+                ImGui::PushStyleColor(ImGuiCol_TableHeaderBg, ImVec4(0.3f, 0.4f, 0.5f, 1.0f));
                 ImGui::TableHeadersRow();
-
+                ImGui::PopStyleColor();
+    
                 auto DrawRow = [](const FMeshResource& Resource, const auto& Overdraw, const auto& VertexFetch)
                 {
                     ImGui::TableNextRow();
-                    auto setCol = [&](int idx, const char* fmt, auto value)
+                    
+                    auto SetColoredColumn = [&](int idx, const char* fmt, auto value, ImVec4 color = ImVec4(1,1,1,1))
                     {
                         ImGui::TableSetColumnIndex(idx);
-                        ImGui::Text(fmt, value);
+                        if (color.x != 1 || color.y != 1 || color.z != 1)
+                        {
+                            ImGui::PushStyleColor(ImGuiCol_Text, color);
+                            ImGui::Text(fmt, value);
+                            ImGui::PopStyleColor();
+                        }
+                        else
+                        {
+                            ImGui::Text(fmt, value);
+                        }
                     };
-
-                    setCol(0, "%s", Resource.Name.c_str());
-                    setCol(1, "%zu", Resource.Vertices.size());
-                    setCol(2, "%zu", Resource.Indices.size());
-                    setCol(3, "%zu", Resource.GeometrySurfaces.size());
-                    setCol(4, "%.2f", Overdraw.overdraw);
-                    setCol(5, "%.2f", VertexFetch.overfetch);
+    
+                    SetColoredColumn(0, "%s", Resource.Name.c_str());
+                    
+                    // Color-code vertex/index counts based on complexity
+                    ImVec4 vertexColor = Resource.Vertices.size() > 10000 ? ImVec4(1,0.7f,0.3f,1) : ImVec4(0.7f,1,0.7f,1);
+                    SetColoredColumn(1, "%s", FormatNumber(Resource.Vertices.size()).c_str(), vertexColor);
+                    SetColoredColumn(2, "%s", FormatNumber(Resource.Indices.size()).c_str());
+                    SetColoredColumn(3, "%zu", Resource.GeometrySurfaces.size());
+                    
+                    // Color-code performance metrics
+                    ImVec4 overdrawColor = Overdraw.overdraw > 2.0f ? ImVec4(1,0.5f,0.5f,1) : ImVec4(0.8f,0.8f,0.8f,1);
+                    SetColoredColumn(4, "%.2f", Overdraw.overdraw, overdrawColor);
+                    
+                    ImVec4 fetchColor = VertexFetch.overfetch > 2.0f ? ImVec4(1,0.5f,0.5f,1) : ImVec4(0.8f,0.8f,0.8f,1);
+                    SetColoredColumn(5, "%.2f", VertexFetch.overfetch, fetchColor);
                 };
-
+    
                 for (size_t i = 0; i < ImportedData.Resources.size(); ++i)
                 {
-                    DrawRow(ImportedData.Resources[i], ImportedData.OverdrawStatics[i], ImportedData.VertexFetchStatics[i]);
+                    DrawRow(*ImportedData.Resources[i], ImportedData.OverdrawStatics[i], ImportedData.VertexFetchStatics[i]);
                 }
     
                 ImGui::EndTable();
             }
-
+            ImGui::PopStyleVar(); // CellPadding
+    
+            // Texture Preview Section
             if (!ImportedData.Textures.empty())
             {
-                ImGui::SeparatorText("Import Textures");
-
-                if (ImGui::BeginTable("Import Textures", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable))
+                ImGui::Spacing();
+                ImGui::PushStyleColor(ImGuiCol_Separator, ImVec4(0.8f, 0.6f, 0.8f, 0.8f));
+                ImGui::SeparatorText(LE_ICON_ACCOUNT_BOX "Texture Preview");
+                ImGui::PopStyleColor();
+                ImGui::Spacing();
+    
+                if (ImGui::BeginChild("ImportTexturesChild", ImVec2(0, 200), true))
                 {
-                    ImGui::TableSetupColumn("Preview", ImGuiTableColumnFlags_WidthFixed, 140.0f);
-                    ImGui::TableSetupColumn("Path", ImGuiTableColumnFlags_WidthStretch);
-                    ImGui::TableHeadersRow();
-
-                    for (Import::Mesh::GLTF::FGLTFImage& Image : ImportedData.Textures)
+                    ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(8, 8));
+                    if (ImGui::BeginTable("ImportTextures", 2, 
+                        ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable))
                     {
-                        FString ImagePath = Paths::Parent(RawPath) + "/" + Image.RelativePath;
+                        ImGui::TableSetupColumn("Preview", ImGuiTableColumnFlags_WidthFixed, 150.0f);
+                        ImGui::TableSetupColumn("Path", ImGuiTableColumnFlags_WidthStretch);
                         
-                        ImGui::TableNextRow();
-                        ImGui::TableSetColumnIndex(0);
-                        ImGui::Image(FUITextureCache::Get().GetImTexture(ImagePath), ImVec2(126.0f, 126.0f));
-
-                        ImGui::TableSetColumnIndex(1);
-                        ImGui::TextWrapped("%s", ImagePath.c_str());
+                        ImGui::PushStyleColor(ImGuiCol_TableHeaderBg, ImVec4(0.4f, 0.3f, 0.4f, 1.0f));
+                        ImGui::TableHeadersRow();
+                        ImGui::PopStyleColor();
+    
+                        for (const Import::Mesh::GLTF::FGLTFImage& Image : ImportedData.Textures)
+                        {
+                            FString ImagePath = Paths::Parent(RawPath) + "/" + Image.RelativePath;
+                        
+                            ImGui::TableNextRow();
+                            ImGui::TableSetColumnIndex(0);
+                            
+                            // Add a subtle border around the texture preview
+                            ImVec2 imageSize(128.0f, 128.0f);
+                            ImVec2 cursorPos = ImGui::GetCursorScreenPos();
+                            ImGui::GetWindowDrawList()->AddRect(
+                                cursorPos, 
+                                ImVec2(cursorPos.x + imageSize.x + 4, cursorPos.y + imageSize.y + 4),
+                                IM_COL32(100, 100, 100, 255), 2.0f);
+                            
+                            ImGui::SetCursorScreenPos(ImVec2(cursorPos.x + 2, cursorPos.y + 2));
+                            ImGui::Image(FUITextureCache::Get().GetImTexture(ImagePath), imageSize);
+    
+                            ImGui::TableSetColumnIndex(1);
+                            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.9f, 0.9f, 1.0f));
+                            ImGui::TextWrapped("%s", Paths::FileName(ImagePath).c_str());
+                            ImGui::PopStyleColor();
+                            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.7f, 0.7f, 0.7f, 1.0f));
+                            ImGui::TextWrapped("%s", ImagePath.c_str());
+                            ImGui::PopStyleColor();
+                        }
+                        ImGui::EndTable();
                     }
-                    ImGui::EndTable();
+                    ImGui::PopStyleVar(); // CellPadding
+                    ImGui::EndChild();
                 }
-
             }
         }
     
-        if (ImGui::Button("Import"))
+        // Action Buttons with better styling
+        ImGui::Spacing();
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+    
+        // Center the buttons
+        float buttonWidth = 100.0f;
+        float spacing = ImGui::GetStyle().ItemSpacing.x;
+        float totalWidth = (buttonWidth * 2) + spacing;
+        float offsetX = (ImGui::GetContentRegionAvail().x - totalWidth) * 0.5f;
+        if (offsetX > 0)
+        {
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + offsetX);
+        }
+
+        // Style the import button
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.7f, 0.2f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.8f, 0.3f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.1f, 0.6f, 0.1f, 1.0f));
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(20, 8));
+        
+        if (ImGui::Button("Import", ImVec2(buttonWidth, 0)))
         {
             bShouldImport = true;
             bShouldClose = true;
         }
-    
+        
+        ImGui::PopStyleVar();
+        ImGui::PopStyleColor(3);
         ImGui::SameLine();
     
-        if (ImGui::Button("Cancel"))
+        // Style the cancel button
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.6f, 0.3f, 0.3f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.7f, 0.4f, 0.4f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.5f, 0.2f, 0.2f, 1.0f));
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(20, 8));
+        
+        if (ImGui::Button("Cancel", ImVec2(buttonWidth, 0)))
         {
+            ImportedData = {};
+            Options = {};
             bShouldImport = false;
             bShouldClose = true;
         }
         
+        ImGui::PopStyleVar();
+        ImGui::PopStyleColor(3);
+        
+        ImGui::PopStyleVar(2);
+        
+        
         return bShouldImport;
     }
-
     
     void CStaticMeshFactory::TryImport(const FString& RawPath, const FString& DestinationPath)
     {
         FString VirtualPath = Paths::ConvertToVirtualPath(DestinationPath);
         
         uint32 Counter = 0;
-        for (const FMeshResource& MeshResource : ImportedData.Resources)
+        for (TUniquePtr<FMeshResource>& MeshResource : ImportedData.Resources)
         {
             FString QualifiedPath = DestinationPath + eastl::to_string(Counter);
             FString FileName = Paths::FileName(QualifiedPath, true);
@@ -175,15 +346,14 @@ namespace Lumina
             CStaticMesh* NewMesh = Cast<CStaticMesh>(TryCreateNew(QualifiedPath));
             NewMesh->SetFlag(OF_NeedsPostLoad);
 
-            NewMesh->MeshResources = MeshResource;
+            NewMesh->MeshResources = eastl::move(MeshResource);
 
-            Task::ParallelFor((uint32)ImportedData.Textures.size(), [&](uint32 Index)
+            Task::ParallelFor(ImportedData.Textures, [&](const Import::Mesh::GLTF::FGLTFImage& Texture)
             {
                 CTextureFactory* TextureFactory = CTextureFactory::StaticClass()->GetDefaultObject<CTextureFactory>();
 
-                const Import::Mesh::GLTF::FGLTFImage& Image = ImportedData.Textures[Index];
                 FString ParentPath = Paths::Parent(RawPath);
-                FString TexturePath = ParentPath + "/" + Image.RelativePath;
+                FString TexturePath = ParentPath + "/" + Texture.RelativePath;
                 FString TextureFileName = Paths::RemoveExtension(Paths::FileName(TexturePath));
                                          
                 FString DestinationParent = Paths::Parent(FullPath);

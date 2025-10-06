@@ -8,6 +8,7 @@
 #include "Core/Serialization/MemoryArchiver.h"
 #include "Core/Serialization/ObjectArchiver.h"
 #include "EASTL/sort.h"
+#include "Entity/Components/DirtyComponent.h"
 #include "Entity/Components/EditorComponent.h"
 #include "Entity/Components/LineBatcherComponent.h"
 #include "Entity/Components/VelocityComponent.h"
@@ -73,6 +74,7 @@ namespace Lumina
             {
                 Entity NewEntity(GetEntityRegistry().create(), this);
                 NewEntity.Serialize(Ar);
+                GetEntityRegistry().emplace_or_replace<FNeedsTransformUpdate>(NewEntity.GetHandle());
             }
         }
     }
@@ -80,10 +82,10 @@ namespace Lumina
     void CWorld::InitializeWorld()
     {
         LUM_ASSERT(CameraManager == nullptr)
-        LUM_ASSERT(SceneRenderer == nullptr)
+        LUM_ASSERT(RenderScene == nullptr)
         
         CameraManager = Memory::New<FCameraManager>();
-        SceneRenderer = Memory::New<FRenderScene>(this);
+        RenderScene = Memory::New<FRenderScene>(this);
 
         TVector<TObjectHandle<CEntitySystem>> Systems;
         CEntitySystemRegistry::Get().GetRegisteredSystems(Systems);
@@ -156,12 +158,12 @@ namespace Lumina
     {
         LUMINA_PROFILE_SCOPE();
 
-        SceneRenderer->RenderScene(RenderGraph);
+        RenderScene->RenderScene(RenderGraph);
     }
 
     void CWorld::ShutdownWorld()
     {
-        Memory::Delete(SceneRenderer);
+        Memory::Delete(RenderScene);
         Memory::Delete(CameraManager);
         
         for (uint8 i = 0; i < (uint8)EUpdateStage::Max; i++)
@@ -180,7 +182,9 @@ namespace Lumina
         Assert(NewSystem != nullptr)
         
         NewSystem->World = this;
-        NewSystem->Initialize();
+
+        FSystemContext SystemContext(this);
+        NewSystem->Initialize(SystemContext);
 
         for (uint8 i = 0; i < (uint8)EUpdateStage::Max; ++i)
         {
@@ -210,8 +214,8 @@ namespace Lumina
         StringName += "_" + eastl::to_string((int)NewEntity);
         
         GetEntityRegistry().emplace<SNameComponent>(NewEntity).Name = StringName;
-        
         GetEntityRegistry().emplace<STransformComponent>(NewEntity).Transform = Transform;
+        GetEntityRegistry().emplace_or_replace<FNeedsTransformUpdate>(NewEntity);
         
         return Entity(NewEntity, this);
     }
@@ -261,12 +265,13 @@ namespace Lumina
         // Step 5: Update child's local transform component
         if (Child.HasComponent<STransformComponent>())
         {
-            Child.Patch<STransformComponent>([&](auto& Transform)
-            {
-                Transform.SetLocation(translation);
-                Transform.SetRotation(rotation);
-                Transform.SetScale(scale);
-            });
+            FTransform NewTransform;
+            NewTransform.Location = translation;
+            NewTransform.Rotation = rotation;
+            NewTransform.Scale = scale;
+            
+            SetEntityTransform(Child, NewTransform);
+            
         }
         else
         {
@@ -394,7 +399,13 @@ namespace Lumina
         FLineBatcherComponent& Batcher = GetOrCreateLineBatcher();
         Batcher.DrawArrow(Start, Direction, Length, Color, Thickness, Duration, HeadSize);
     }
-    
+
+    void CWorld::SetEntityTransform(Entity Entt, const FTransform& NewTransform)
+    {
+        Entt.EmplaceOrReplace<STransformComponent>(NewTransform);
+        Entt.EmplaceOrReplace<FNeedsTransformUpdate>();
+    }
+
     FLineBatcherComponent& CWorld::GetOrCreateLineBatcher()
     {
         if (LineBatcherComponent)

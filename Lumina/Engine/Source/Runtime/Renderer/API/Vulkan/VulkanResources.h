@@ -33,6 +33,8 @@ namespace Lumina
     // ----------------------------------------------------------------------------------
 
 
+
+    VkFormat ConvertFormat(EFormat Format);
     
     class FVulkanSwapchain;
 
@@ -50,12 +52,13 @@ namespace Lumina
     class FUploadManager : public IDeviceChild
     {
     public:
+        
         FUploadManager(FVulkanRenderContext* Ctx, uint64 InDefaultChunkSize, uint64 InMemoryLimit, bool bInIsScratchBuffer);
 
         FBufferChunk* CreateChunk(uint64 Size);
 
         bool SuballocateBuffer(uint64 Size, FRHIBuffer** Buffer, uint64* Offset, void** CpuVA, uint64 CurrentVersion, uint32 Alignment = 256);
-        void SubmitChunks(uint64 CurrentVersion, uint64_t submittedVersion);
+        void SubmitChunks(uint64 CurrentVersion, uint64 submittedVersion);
 
     private:
         
@@ -75,9 +78,13 @@ namespace Lumina
     public:
         RENDER_RESOURCE(RRT_None)
 
+        FVulkanEventQuery();
+        ~FVulkanEventQuery();
+
         ECommandQueue   Queue = ECommandQueue::Graphics;
         uint64          CommandListID = 0;
-        
+
+        VkQueryPool QueryPool = nullptr;
     };
     
     class FVulkanViewport : public FRHIViewport
@@ -192,6 +199,37 @@ namespace Lumina
         VkImageAspectFlags          PartialAspectMask =     VK_IMAGE_ASPECT_NONE;
         VkImage                     Image =                 VK_NULL_HANDLE;
         VkImageView                 ImageView =             VK_NULL_HANDLE;
+    };
+
+    class FVulkanStagingImage : public FRHIStagingImage, public IDeviceChild
+    {
+    public:
+
+        FVulkanStagingImage(FVulkanDevice* InDevice);
+
+        struct FRegion
+        {
+            off_t Offset;
+            size_t Size;
+        };
+        
+        size_t GetBufferSize()
+        {
+            size_t Size = SliceRegions.back().Offset + SliceRegions.back().Size;
+            return Size;
+        }
+
+        size_t ComputeSliceSize(uint32 MipLevel);
+        const FRegion& GetSliceRegion(uint32 MipLevel, uint32 ArraySlice, uint32 Z);
+        void PopulateSliceRegions();
+        
+
+        FRHIImageDesc Desc;
+        TRefCountPtr<FVulkanBuffer> Buffer;
+        TFixedVector<FRegion, 4> SliceRegions;
+        
+        const FRHIImageDesc& GetDesc() const override { return Desc; }
+        
     };
 
     constexpr uint32 ShaderBinarySize = sizeof(uint32);
@@ -404,7 +442,7 @@ namespace Lumina
         {
         }
         
-        void CreatePipelineLayout(TFixedVector<FRHIBindingLayoutRef, 4> BindingLayouts, VkShaderStageFlags& OutStageFlags);
+        void CreatePipelineLayout(const TFixedVector<FRHIBindingLayoutRef, 1>& BindingLayouts, VkShaderStageFlags& OutStageFlags);
         
         VkPipelineLayout            PipelineLayout;
         VkPipeline                  Pipeline;

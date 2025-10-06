@@ -9,12 +9,10 @@ namespace Lumina
 {
     inline void GenerateCube(TVector<FVertex>& OutVertices, TVector<uint32>& OutIndices)
     {
-        constexpr glm::vec4 white = glm::vec4(1.0f);
-        
-        const glm::vec4 normals[] =
+        const glm::vec3 normals[] =
         {
-            { 0,  0,  1, 0}, { 0,  0, -1, 0}, {-1,  0,  0, 0},
-            { 1,  0,  0, 0}, { 0,  1,  0, 0}, { 0, -1,  0, 0}
+            { 0,  0,  1}, { 0,  0, -1}, {-1,  0,  0},
+            { 1,  0,  0}, { 0,  1,  0}, { 0, -1,  0}
         };
 
         const glm::vec3 positions[24] =
@@ -47,16 +45,18 @@ namespace Lumina
             for (int i = 0; i < 4; ++i)
             {
                 int idx = face * 4 + i;
-                OutVertices.push_back(
-                {
-                    glm::vec4(positions[idx], 1.0f),
-                    white,
-                    normals[face],
-                    uvs[i]
-                });
+            
+                FVertex vertex;
+                vertex.Position = positions[idx];
+                vertex.Normal = PackNormal(normals[face]);
+                vertex.UV.x = (uint16)(uvs[i].x * 65535.0f);
+                vertex.UV.y = (uint16)(uvs[i].y * 65535.0f);
+                vertex.Color = 0xFFFFFFFF; // White
+            
+                OutVertices.push_back(vertex);
             }
 
-            uint32_t base = face * 4;
+            uint32 base = face * 4;
             OutIndices.push_back(base + 0);
             OutIndices.push_back(base + 1);
             OutIndices.push_back(base + 2);

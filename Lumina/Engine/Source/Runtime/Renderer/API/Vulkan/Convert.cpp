@@ -18,9 +18,7 @@ namespace Lumina::Vk
             // The below stages are exclusive to synchronization2
             assert((stageFlags & VK_PIPELINE_STAGE_2_MICROMAP_BUILD_BIT_EXT) != VK_PIPELINE_STAGE_2_MICROMAP_BUILD_BIT_EXT);
             assert((accessMask & VK_ACCESS_2_MICROMAP_WRITE_BIT_EXT) != VK_ACCESS_2_MICROMAP_WRITE_BIT_EXT);
-            return
-                FResourceStateMapping(State, stageFlags, accessMask, ImageLayout
-                );
+            return FResourceStateMapping(State, stageFlags, accessMask, ImageLayout);
         }
 
         FResourceStateMapping2 AsResourceStateMapping2() const

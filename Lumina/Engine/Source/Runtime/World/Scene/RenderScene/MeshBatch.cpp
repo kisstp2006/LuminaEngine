@@ -4,8 +4,4 @@
 
 namespace Lumina
 {
-    FMeshBatch::~FMeshBatch()
-    {
-       
-    }
 }

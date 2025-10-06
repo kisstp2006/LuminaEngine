@@ -88,16 +88,6 @@ namespace Lumina
         return false;
     }
 
-    bool CMaterialInstance::IsReadyForRender() const
-    {
-        if (!Material.IsValid())
-        {
-            return false;
-        }
-
-        return Material->IsReadyForRender();
-    }
-
     FRHIBindingSetRef CMaterialInstance::GetBindingSet() const
     {
         return BindingSet;

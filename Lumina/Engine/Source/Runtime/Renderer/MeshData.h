@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Containers/Array.h"
+#include "Core/Utils/NonCopyable.h"
 #include "Renderer/RenderTypes.h"
 
 namespace Lumina
@@ -26,7 +27,7 @@ namespace Lumina
         
     };
 
-    struct FMeshResource final
+    struct LUMINA_API FMeshResource : INonCopyable
     {
         struct FMeshBuffers
         {

@@ -33,16 +33,4 @@ namespace Lumina
         TVector<TPair<FRHIBindingSet*, uint32>> CurrentBindings;
         FRenderPassBeginInfo                    CurrentRenderPassInfo;
     };
-
-    class FVulkanComputeState
-    {
-    public:
-
-        FVulkanComputeState() = default;
-        
-        FVulkanComputePipeline*                 Pipeline;
-        TVector<TPair<FRHIBindingSet*, uint32>> CurrentBindings;
-
-    };
-    
 }

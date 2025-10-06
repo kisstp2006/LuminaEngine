@@ -13,7 +13,7 @@
 
 namespace Lumina
 {
-    void CEditorEntityMovementSystem::Initialize()
+    void CEditorEntityMovementSystem::Initialize(FSystemContext& SystemContext)
     {
         
     }

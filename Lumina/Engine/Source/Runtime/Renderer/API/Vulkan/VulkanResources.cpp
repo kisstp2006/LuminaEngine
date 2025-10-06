@@ -89,14 +89,6 @@ namespace Lumina
 
     } };
 
-    VkFormat ConvertFormat(EFormat format)
-    {
-        Assert(format < EFormat::COUNT)
-        Assert(FormatMap[uint32_t(format)].Format == format)
-
-        return FormatMap[uint32_t(format)].vkFormat;
-    }
-
     // Deprecated, held for reference.
 #if 0
     VkFormat GetVkFormat(EImageFormat Format)
@@ -365,6 +357,14 @@ namespace Lumina
     }
 
 
+    VkFormat ConvertFormat(EFormat Format)
+    {
+        Assert(Format < EFormat::COUNT)
+        Assert(FormatMap[uint32(Format)].Format == Format)
+
+        return FormatMap[uint32(Format)].vkFormat;
+    }
+
     FUploadManager::FUploadManager(FVulkanRenderContext* Ctx, uint64 InDefaultChunkSize, uint64 InMemoryLimit, bool bInIsScratchBuffer)
         : IDeviceChild(Ctx->GetDevice())
         , Context(Ctx)
@@ -413,7 +413,7 @@ namespace Lumina
         if (CurrentChunk)
         {
             uint64 alignedOffset = Align(CurrentChunk->WritePointer, Alignment);
-            uint64_t endOfDataInChunk = alignedOffset + Size;
+            uint64 endOfDataInChunk = alignedOffset + Size;
 
             if (endOfDataInChunk <= CurrentChunk->BufferSize)
             {
@@ -502,6 +502,26 @@ namespace Lumina
         }
     }
 
+    FVulkanEventQuery::FVulkanEventQuery()
+    {
+//        VkQueryPoolCreateInfo QueryPoolInfo = {};
+//        QueryPoolInfo.queryCount = 1;
+//        QueryPoolInfo.pipelineStatistics = 
+//            VK_QUERY_PIPELINE_STATISTIC_INPUT_ASSEMBLY_VERTICES_BIT |
+//            VK_QUERY_PIPELINE_STATISTIC_INPUT_ASSEMBLY_PRIMITIVES_BIT |
+//            VK_QUERY_PIPELINE_STATISTIC_VERTEX_SHADER_INVOCATIONS_BIT |
+//            VK_QUERY_PIPELINE_STATISTIC_CLIPPING_INVOCATIONS_BIT |
+//            VK_QUERY_PIPELINE_STATISTIC_CLIPPING_PRIMITIVES_BIT |
+//            VK_QUERY_PIPELINE_STATISTIC_FRAGMENT_SHADER_INVOCATIONS_BIT |
+//            VK_QUERY_PIPELINE_STATISTIC_COMPUTE_SHADER_INVOCATIONS_BIT;
+//
+        //vkCreateQueryPool(device, &QueryPoolInfo, nullptr, &QueryPool);
+    }
+
+    FVulkanEventQuery::~FVulkanEventQuery()
+    {
+    }
+
     FVulkanBuffer::FVulkanBuffer(FVulkanDevice* InDevice, const FRHIBufferDesc& InDescription)
         : FRHIBuffer(InDescription)
         , IDeviceChild(InDevice)
@@ -562,7 +582,7 @@ namespace Lumina
         }
         
         
-        if(GetDescription().Usage.AreAnyFlagsSet(EBufferUsageFlags::CPUWritable, EBufferUsageFlags::Dynamic))
+        if(GetDescription().Usage.AreAnyFlagsSet(EBufferUsageFlags::CPUWritable, EBufferUsageFlags::CPUReadable, EBufferUsageFlags::Dynamic))
         {
             VmaFlags |= VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
         }
@@ -633,6 +653,7 @@ namespace Lumina
     {
         VkImageCreateFlags ImageFlags = VK_NO_FLAGS;
         VkImageUsageFlags UsageFlags = VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+        VmaAllocationCreateFlags AllocationFlags = 0;
         
         Assert(InDescription.Format != EFormat::UNKNOWN)
         VkFormat VulkanFormat = ConvertFormat(InDescription.Format);
@@ -699,7 +720,6 @@ namespace Lumina
         ImageCreateInfo.usage = UsageFlags;
         ImageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     
-        VmaAllocationCreateFlags AllocationFlags = VK_NO_FLAGS;
         Device->GetAllocator()->AllocateImage(&ImageCreateInfo, AllocationFlags, &Image, InDescription.DebugName.c_str());
     
         Assert(Image != VK_NULL_HANDLE)
@@ -754,6 +774,83 @@ namespace Lumina
             case EAPIResourceType::ImageView:   return ImageView;
             case EAPIResourceType::Default:     return Image;
             default:                            return Image;
+        }
+    }
+
+    FVulkanStagingImage::FVulkanStagingImage(FVulkanDevice* InDevice)
+        :IDeviceChild(InDevice)
+    {
+    }
+
+    size_t FVulkanStagingImage::ComputeSliceSize(uint32 MipLevel)
+    {
+        const FFormatInfo& formatInfo = GetFormatInfo(Desc.Format);
+
+        uint32 wInBlocks = eastl::max<uint32>(((Desc.Extent.X >> MipLevel) + formatInfo.BlockSize - 1) / formatInfo.BlockSize, 1u);
+        uint32 hInBlocks = eastl::max<uint32>(((Desc.Extent.Y >> MipLevel) + formatInfo.BlockSize - 1) / formatInfo.BlockSize, 1u);
+
+        size_t blockPitchBytes = wInBlocks * formatInfo.BytesPerBlock;
+        return blockPitchBytes * hInBlocks;
+    }
+
+    static off_t AlignBufferOffset(off_t off)
+    {
+        static constexpr off_t bufferAlignmentBytes = 4;
+        return ((off + (bufferAlignmentBytes - 1)) / bufferAlignmentBytes) * bufferAlignmentBytes;
+    }
+
+    const FVulkanStagingImage::FRegion& FVulkanStagingImage::GetSliceRegion(uint32 MipLevel, uint32 ArraySlice, uint32 Z)
+    {
+        if (Desc.Depth != 1)
+        {
+            // Hard case, since each mip level has half the slices as the previous one.
+            LUM_ASSERT(ArraySlice == 0);
+            LUM_ASSERT(Z < Desc.Depth);
+
+            uint32 mipDepth = Desc.Depth;
+            uint32 index = 0;
+            while (MipLevel-- > 0)
+            {
+                index += mipDepth;
+                mipDepth = std::max(mipDepth, uint32(1));
+            }
+            return SliceRegions[index + Z];
+        }
+        else if (Desc.ArraySize != 1)
+        {
+            // Easy case, since each mip level has a consistent number of slices.
+            LUM_ASSERT(ArraySlice < Desc.ArraySize)
+            LUM_ASSERT(SliceRegions.size() == Desc.NumMips * Desc.ArraySize)
+            return SliceRegions[MipLevel * Desc.ArraySize + ArraySlice];
+        }
+        else
+        {
+            LUM_ASSERT(ArraySlice == 0)
+            LUM_ASSERT(SliceRegions.size() == Desc.NumMips)
+            return SliceRegions[MipLevel];
+        }
+    }
+
+    void FVulkanStagingImage::PopulateSliceRegions()
+    {
+        off_t curOffset = 0;
+
+        SliceRegions.clear();
+
+        for(uint32 mip = 0; mip < Desc.NumMips; mip++)
+        {
+            auto sliceSize = ComputeSliceSize(mip);
+
+            uint32 depth = std::max<uint32>(Desc.Depth >> mip, uint32(1));
+            uint32 numSlices = Desc.ArraySize * depth;
+
+            for (uint32_t slice = 0; slice < numSlices; slice++)
+            {
+                SliceRegions.push_back({ curOffset, sliceSize });
+
+                // update offset for the next region
+                curOffset = AlignBufferOffset(off_t(curOffset + sliceSize));
+            }
         }
     }
 
@@ -1032,9 +1129,9 @@ namespace Lumina
         VK_CHECK(vkAllocateDescriptorSets(Device->GetDevice(), &AllocateInfo, &DescriptorSet));
 
 
-        TVector<VkDescriptorBufferInfo> BufferInfos;
-        TVector<VkDescriptorImageInfo> ImageInfos;
-        TVector<VkWriteDescriptorSet> Writes;
+        TFixedVector<VkDescriptorBufferInfo, 2> BufferInfos;
+        TFixedVector<VkDescriptorImageInfo, 2> ImageInfos;
+        TFixedVector<VkWriteDescriptorSet, 2> Writes;
         BufferInfos.reserve(InDesc.Bindings.size());
         ImageInfos.reserve(InDesc.Bindings.size());
         Writes.reserve(4);
@@ -1043,6 +1140,12 @@ namespace Lumina
         for (SIZE_T BindingIndex = 0; BindingIndex < InDesc.Bindings.size(); ++BindingIndex)
         {
             const FBindingSetItem& Item = InDesc.Bindings[BindingIndex];
+            if (Item.Type == ERHIBindingResourceType::PushConstants)
+            {
+                continue;
+            }
+
+            
             const VkDescriptorSetLayoutBinding VkBinding = Layout->Bindings[BindingIndex];
 
             
@@ -1160,7 +1263,6 @@ namespace Lumina
         }
 
         vkUpdateDescriptorSets(Device->GetDevice(), (uint32)Writes.size(), Writes.data(), 0, nullptr);
-        
     }
 
     FVulkanBindingSet::~FVulkanBindingSet()
@@ -1212,9 +1314,9 @@ namespace Lumina
         vkDestroyPipelineLayout(Device->GetDevice(), PipelineLayout, VK_ALLOC_CALLBACK);
     }
 
-    void FVulkanPipeline::CreatePipelineLayout(TFixedVector<FRHIBindingLayoutRef, 4> BindingLayouts, VkShaderStageFlags& OutStageFlags)
+    void FVulkanPipeline::CreatePipelineLayout(const TFixedVector<FRHIBindingLayoutRef, 1>& BindingLayouts, VkShaderStageFlags& OutStageFlags)
     {
-        TVector<VkDescriptorSetLayout> Layouts;
+        TFixedVector<VkDescriptorSetLayout, 2> Layouts;
         uint32 PushConstantSize = 0;
         
         for (const FRHIBindingLayoutRef& Binding : BindingLayouts)
@@ -1269,7 +1371,7 @@ namespace Lumina
         };
 
         
-        TVector<VkPipelineShaderStageCreateInfo> ShaderStages;
+        TFixedVector<VkPipelineShaderStageCreateInfo, 2> ShaderStages;
         if (InDesc.VS)
         {
             VkPipelineShaderStageCreateInfo VertexStage = {};
@@ -1350,8 +1452,8 @@ namespace Lumina
 
         FBlendState BlendState = InDesc.RenderState.BlendState;
 
-        TVector<VkFormat> ColorAttachmentFormats;
-        TVector<VkPipelineColorBlendAttachmentState> ColorBlendAttachmentStates;
+        TFixedVector<VkFormat, 2> ColorAttachmentFormats;
+        TFixedVector<VkPipelineColorBlendAttachmentState, 2> ColorBlendAttachmentStates;
         for (const FBlendState::RenderTarget& RenderTarget : BlendState.Targets)
         {
             if (!RenderTarget.bEnabled)

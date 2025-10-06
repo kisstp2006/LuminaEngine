@@ -12,6 +12,7 @@ namespace Lumina::Reflection
     static char const* const GIncludePaths[] =
     {
         "/Lumina/Engine",
+        "/Lumina/Engine/ThirdParty/glm",
         "/Lumina/Engine/Source",
         "/Lumina/Engine/Source/Runtime",
         "/Lumina/Engine/ThirdParty/EA/EABase/include/common",
@@ -58,13 +59,12 @@ namespace Lumina::Reflection
         eastl::fixed_vector<const char*, 24> clangArgs;
 
         eastl::string PrjPath = Project.ParentPath + "/Source/";
-        FullIncludePaths.push_back("-I" + PrjPath);
+        FullIncludePaths.push_back("-I " + PrjPath);
         clangArgs.push_back(FullIncludePaths.back().c_str());
 
         eastl::string LuminaDirectory = std::getenv("LUMINA_DIR");
         for (const char* Path : GIncludePaths)
         {
-            //eastl::string SlnPath = std::filesystem::path(SolutionPath.c_str()).parent_path().string().c_str();
             eastl::string FullPath = LuminaDirectory + Path;
             FullIncludePaths.emplace_back("-I" + FullPath);
             clangArgs.emplace_back(FullIncludePaths.back().c_str());
@@ -77,8 +77,8 @@ namespace Lumina::Reflection
         
         clangArgs.emplace_back("-x");
         clangArgs.emplace_back("c++");
-        clangArgs.emplace_back("-std=c++20");
-        clangArgs.emplace_back( "-O0" );
+        clangArgs.emplace_back("-std=c++23");
+        clangArgs.emplace_back("-O0");
         
         clangArgs.emplace_back("-D REFLECTION_PARSER");
         clangArgs.emplace_back("-D NDEBUG");
@@ -89,10 +89,8 @@ namespace Lumina::Reflection
         clangArgs.emplace_back("-fms-compatibility");
 
         clangArgs.emplace_back("-w");
-
-        clangArgs.emplace_back("-ast-dump=json");
-
-        clangArgs.emplace_back("-ferror-limit=100000000");
+        
+        clangArgs.emplace_back("-ferror-limit=1000000000");
         
         clangArgs.emplace_back("-Wno-multichar");
         clangArgs.emplace_back("-Wno-deprecated-builtins");

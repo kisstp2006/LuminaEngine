@@ -29,9 +29,13 @@ namespace Lumina
         virtual FRHIBindingLayoutRef GetBindingLayout() const { LUMINA_NO_ENTRY() }
         virtual FRHIVertexShaderRef GetVertexShader() const { LUMINA_NO_ENTRY() }
         virtual FRHIPixelShaderRef GetPixelShader() const { LUMINA_NO_ENTRY() }
-        
-        // @TODO TEMP
-        virtual bool IsReadyForRender() const { return false; }
+
+        void SetReadyForRender(bool bReady) { bReadyForRender = bReady; }
+        bool IsReadyForRender() const { return bReadyForRender; }
+
+    protected:
+
+        uint8 bReadyForRender:1 = false;
         
     };
 }

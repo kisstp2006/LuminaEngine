@@ -51,6 +51,7 @@ int main(int argc, char* argv[])
 
         SolutionToReflect = LuminaDirectory;
         SolutionToReflect += "\\Lumina.sln";
+        //SolutionToReflect = "H:/LuminaTestProject/Test.sln";
 
         if (!std::filesystem::exists(SolutionToReflect.c_str()))
         {
@@ -147,7 +148,7 @@ int main(int argc, char* argv[])
 
 namespace eastl
 {
-    void AssertionFailure(const char* expression)
+    [[noreturn]] void AssertionFailure(const char* expression)
     {
         std::fprintf(stderr, "EASTL Assertion Failure: %s\n", expression);
         std::abort();

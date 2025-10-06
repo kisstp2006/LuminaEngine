@@ -27,7 +27,6 @@ namespace Lumina
         //-------------------------------------------------------------------------
         LUMINA_PROFILE_SCOPE();
 
-        GFrameIndex = 0;
         GEngine = this;
         Application = App;
 

@@ -152,7 +152,8 @@ namespace Lumina
     {
         LUMINA_PROFILE_SCOPE();
         
-        FScopeLock Lock(GetMutex);
+        std::scoped_lock Lock(GetMutex);
+        LockMark(GetMutex);
 
         uint64 RecodingID = ++LastRecordingID;
         
@@ -219,7 +220,9 @@ namespace Lumina
     {
         LUMINA_PROFILE_SCOPE();
 
-        FScopeLock Lock(SubmitMutex);
+        std::scoped_lock Lock(SubmitMutex);
+        LockMark(GetMutex);
+
         TFixedVector<VkCommandBuffer, 4> CommandBuffers(NumCommandLists);
         TFixedVector<VkPipelineStageFlags, 4> StageFlags(WaitSemaphores.size());
 
@@ -375,17 +378,17 @@ namespace Lumina
         vkb::InstanceBuilder Builder;
         auto InstBuilder = Builder
         .set_app_name("Lumina Engine")
+        .set_allocation_callbacks(VK_ALLOC_CALLBACK)
 #if LE_DEBUG
         //.add_validation_feature_enable(VK_VALIDATION_FEATURE_ENABLE_BEST_PRACTICES_EXT)
         .add_validation_feature_enable(VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT)
         //.add_validation_feature_enable(VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT)
         //.add_validation_feature_enable(VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_RESERVE_BINDING_SLOT_EXT)
         //.add_validation_feature_enable(VK_VALIDATION_FEATURE_ENABLE_DEBUG_PRINTF_EXT)
+        .enable_extension(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)
         .request_validation_layers()
-        .set_allocation_callbacks(VK_ALLOC_CALLBACK)
         .use_default_debug_messenger()
         .set_debug_callback(VkDebugCallback)
-        .enable_extension(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)
 #endif
         .require_api_version(1, 3, 0)
         .build();
@@ -397,8 +400,11 @@ namespace Lumina
         }
 
         VulkanInstance = InstBuilder.value();
+
         
+#if LE_DEBUG
         DebugUtils.DebugMessenger = InstBuilder->debug_messenger;
+#endif
         
         CreateDevice(InstBuilder.value());
         
@@ -454,17 +460,18 @@ namespace Lumina
             Queues[i] = nullptr;
         }
         
-        auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(VulkanInstance, "vkDestroyDebugUtilsMessengerEXT");
-        func(VulkanInstance, DebugUtils.DebugMessenger, VK_ALLOC_CALLBACK);
-
         SamplerMap.clear();
         InputLayoutMap.clear();
-        
         FlushPendingDeletes();
         IRHIResource::ReleaseAllRHIResources();
-        
+
         Memory::Delete(VulkanDevice);
         VulkanDevice = nullptr;
+
+#if LE_DEBUG
+        auto FuncPtr = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(VulkanInstance, "vkDestroyDebugUtilsMessengerEXT");
+        FuncPtr(VulkanInstance, DebugUtils.DebugMessenger, VK_ALLOC_CALLBACK);
+#endif
         
         vkDestroyInstance(VulkanInstance, VK_ALLOC_CALLBACK);
         VulkanInstance = VK_NULL_HANDLE;
@@ -558,6 +565,7 @@ namespace Lumina
         TimelineFeatures.timelineSemaphore = VK_TRUE;
         
         VkPhysicalDeviceFeatures DeviceFeatures = {};
+        DeviceFeatures.fragmentStoresAndAtomics = VK_TRUE;
         DeviceFeatures.samplerAnisotropy        = VK_TRUE;
         DeviceFeatures.sampleRateShading        = VK_TRUE;
         DeviceFeatures.fillModeNonSolid         = VK_TRUE;
@@ -645,6 +653,63 @@ namespace Lumina
     FRHIViewportRef FVulkanRenderContext::CreateViewport(const FIntVector2D& Size)
     {
         return MakeRefCount<FVulkanViewport>(Size, this);
+    }
+
+    FRHIStagingImageRef FVulkanRenderContext::CreateStagingImage(const FRHIImageDesc& Desc, ERHIAccess Access)
+    {
+        auto Image = MakeRefCount<FVulkanStagingImage>(VulkanDevice);
+        Image->Desc = Desc;
+        Image->PopulateSliceRegions();
+
+        FRHIBufferDesc BufDesc;
+        BufDesc.Size = Image->GetBufferSize();
+        BufDesc.DebugName = Desc.DebugName;
+        BufDesc.InitialState = EResourceStates::CopyDest;
+        BufDesc.bKeepInitialState = true;
+        if (Access == ERHIAccess::HostRead)
+        {
+            BufDesc.Usage.SetFlag(EBufferUsageFlags::CPUReadable);
+        }
+        else if (Access == ERHIAccess::HostWrite)
+        {
+            BufDesc.Usage.SetFlag(EBufferUsageFlags::CPUWritable);
+        }
+
+        auto Buffer = MakeRefCount<FVulkanBuffer>(VulkanDevice, BufDesc);
+        Image->Buffer = Buffer;
+
+        if (!Image->Buffer)
+        {
+            return nullptr;
+        }
+
+        return Image;
+    }
+
+    void* FVulkanRenderContext::MapStagingTexture(FRHIStagingImage* Image, const FTextureSlice& slice, ERHIAccess Access, size_t* OutRowPitch)
+    {
+        FVulkanStagingImage* VulkanStagingImage = static_cast<FVulkanStagingImage*>(Image);
+
+        auto ResolvedSlice = slice.Resolve(Image->GetDesc());
+
+        auto Region = VulkanStagingImage->GetSliceRegion(ResolvedSlice.MipLevel, ResolvedSlice.ArraySlice, ResolvedSlice.Z);
+        
+        const FFormatInfo& formatInfo = GetFormatInfo(VulkanStagingImage->Desc.Format);
+
+        auto wInBlocks = ResolvedSlice.X / formatInfo.BlockSize;
+
+        *OutRowPitch = wInBlocks * formatInfo.BytesPerBlock;
+
+        uint8* MappedPtr = (uint8*)VulkanDevice->GetAllocator()->MapMemory(VulkanStagingImage->Buffer, VulkanStagingImage->Buffer->GetAllocation());
+        MappedPtr += Region.Offset;
+        return MappedPtr;
+    }
+
+    void FVulkanRenderContext::UnMapStagingTexture(FRHIStagingImage* Image)
+    {
+        FVulkanStagingImage* VulkanStagingImage = static_cast<FVulkanStagingImage*>(Image);
+
+        VulkanDevice->GetAllocator()->UnmapMemory(VulkanStagingImage->Buffer, VulkanStagingImage->Buffer->GetAllocation());
     }
 
     FRHIImageRef FVulkanRenderContext::CreateImage(const FRHIImageDesc& ImageSpec)
@@ -759,7 +824,7 @@ namespace Lumina
                     VkDescriptorBufferInfo& BufferInfo = BufferWriteInfos.emplace_back();
                     BufferInfo.buffer = Buffer->GetBuffer();
                     BufferInfo.offset = 0;
-                    BufferInfo.range = Buffer->GetSize();
+                    BufferInfo.range = Binding.Range.Resolve(Buffer->GetDescription()).ByteSize;
                         
                     Write.pBufferInfo = &BufferInfo;
                     Write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -771,7 +836,7 @@ namespace Lumina
                     VkDescriptorBufferInfo& BufferInfo = BufferWriteInfos.emplace_back();
                     BufferInfo.buffer = Buffer->GetBuffer();
                     BufferInfo.offset = 0;
-                    BufferInfo.range = Buffer->GetSize();
+                    BufferInfo.range = Binding.Range.Resolve(Buffer->GetDescription()).ByteSize;
                         
                     Write.pBufferInfo = &BufferInfo;
                     Write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
@@ -783,7 +848,7 @@ namespace Lumina
                     VkDescriptorBufferInfo& BufferInfo = BufferWriteInfos.emplace_back();
                     BufferInfo.buffer = Buffer->GetBuffer();
                     BufferInfo.offset = 0;
-                    BufferInfo.range = Buffer->GetSize();
+                    BufferInfo.range = Binding.Range.Resolve(Buffer->GetDescription()).ByteSize;
                         
                     Write.pBufferInfo = &BufferInfo;
                     Write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
@@ -829,6 +894,31 @@ namespace Lumina
     FRHIBindingSetRef FVulkanRenderContext::CreateBindingSet(const FBindingSetDesc& Desc, FRHIBindingLayout* InLayout)
     {
         return MakeRefCount<FVulkanBindingSet>(this, Desc, (FVulkanBindingLayout*)InLayout);
+    }
+
+    void FVulkanRenderContext::CreateBindingSetAndLayout(const TBitFlags<ERHIShaderType>& Visibility, uint16 Binding, const FBindingSetDesc& Desc, FRHIBindingLayoutRef& OutLayout, FRHIBindingSetRef& OutBindingSet)
+    {
+        FBindingLayoutDesc LayoutDesc;
+        LayoutDesc.StageFlags = Visibility;
+        LayoutDesc.SetBindingIndex(Binding);
+        
+        for (const FBindingSetItem& BindingItem : Desc.Bindings)
+        {
+            FBindingLayoutItem Item;
+            Item.Slot = BindingItem.Slot;
+            Item.Type = BindingItem.Type;
+            Item.Size = 1;
+            if (Item.Type == ERHIBindingResourceType::PushConstants)
+            {
+                Item.Size = (uint16)BindingItem.Range.ByteSize;
+            }
+            LayoutDesc.Bindings.push_back(Item);
+        }
+
+        OutLayout = CreateBindingLayout(LayoutDesc);
+        
+        OutBindingSet = CreateBindingSet(Desc, OutLayout);
+        
     }
 
     FRHIComputePipelineRef FVulkanRenderContext::CreateComputePipeline(const FComputePipelineDesc& Desc)
@@ -898,11 +988,31 @@ namespace Lumina
         (void)bSuccess;
     }
 
+    void* FVulkanRenderContext::MapBuffer(FRHIBuffer* Buffer)
+    {
+        FVulkanBuffer* VulkanBuffer = static_cast<FVulkanBuffer*>(Buffer);
+        return VulkanDevice->GetAllocator()->MapMemory(VulkanBuffer, VulkanBuffer->GetAllocation());
+    }
+
+    void FVulkanRenderContext::UnMapBuffer(FRHIBuffer* Buffer)
+    {
+        FVulkanBuffer* VulkanBuffer = static_cast<FVulkanBuffer*>(Buffer);
+        return VulkanDevice->GetAllocator()->UnmapMemory(VulkanBuffer, VulkanBuffer->GetAllocation());
+    }
+
     FRHIBufferRef FVulkanRenderContext::CreateBuffer(const FRHIBufferDesc& Description)
     {
         return MakeRefCount<FVulkanBuffer>(VulkanDevice, Description);
     }
-    
+
+    FRHIBufferRef FVulkanRenderContext::CreateBuffer(ICommandList* CommandList, const void* InitialData, const FRHIBufferDesc& Description)
+    {
+        auto Buffer = MakeRefCount<FVulkanBuffer>(VulkanDevice, Description);
+        CommandList->BeginTrackingBufferState(Buffer, EResourceStates::CopyDest);
+        CommandList->WriteBuffer(Buffer, InitialData, 0, Description.Size);
+        return Buffer;
+    }
+
     void FVulkanRenderContext::FlushPendingDeletes()
     {
         LUMINA_PROFILE_SCOPE();
