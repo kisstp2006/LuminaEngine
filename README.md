@@ -19,6 +19,8 @@
 
 **Lumina** is a C++ game engine powered by Vulkan, built as a hands-on learning project. Inspired by engines like Unreal and Godot, it focuses on reflection, modularity, and a clean ImGui-based editor. The goal isn’t to become the next major engine or to optimize anyone’s workflow, but to serve as a passion project, a way to explore and experiment with the architectures that make up a full-fledged game engine.
 
+Up to date blog: https://www.dr-elliot.com
+
 # ⚠️ DISCLAIMER
 
 > **Early development** – APIs and systems are in flux, and not everything is fully documented or stable yet. **THE PROJECT MOST LIKELY WON'T BUILD FOR YOU, IF YOU WOULD LIKE TO BUILD IT, PLEASE REACH OUT TO GET HELP**
@@ -35,17 +37,9 @@
 
 ## 📸 Screenshots
 
-| Render Pipeline | Editor |
-|:---:|:---:|
-| [<img src="https://github.com/user-attachments/assets/12ddaeac-ad21-4804-bac9-fa269e3d35c6" width="400"/>](https://github.com/user-attachments/assets/12ddaeac-ad21-4804-bac9-fa269e3d35c6) | [<img src="https://github.com/user-attachments/assets/283c9475-c1b7-4b6b-bbc8-781dc2aeb000" width="400"/>](https://github.com/user-attachments/assets/283c9475-c1b7-4b6b-bbc8-781dc2aeb000) |
-
-| Material Editor |
-|:---:|
-| [<img src="https://github.com/user-attachments/assets/c4ec5ced-4f1c-4387-8836-78c8cbeda179" width="400"/>](https://github.com/user-attachments/assets/c4ec5ced-4f1c-4387-8836-78c8cbeda179) |
-
-| Editor (Full) |
-|:---:|
-| <img src="https://github.com/user-attachments/assets/be38f2ad-f7f1-4947-87ab-2584f1bc4616" width="800"/> |
+<img width="1912" height="552" alt="image" src="https://github.com/user-attachments/assets/8c81055c-f46a-447d-a79c-31b51fded805" />
+<img width="2229" height="1222" alt="image" src="https://github.com/user-attachments/assets/a6b973ba-851e-4732-b30b-eb0bf14b08e1" />
+<img width="2225" height="1222" alt="image" src="https://github.com/user-attachments/assets/944c2569-a969-42b9-b0e6-88050fb5037c" />
 
 
 
@@ -64,8 +58,8 @@
 4. Ensure the `LUMINA_DIR` environment variable is set to the engine install directory file path (e.g. C:/CoolStuff/LuminaGameEngine)
 5. Run `Scripts/Win-GenProjects.py`.
 6. Open the generated `.sln` in Visual Studio.
-7. Build the **Reflector** in `Release` mode.
-8. Set **Editor** as startup project. Select Debug mode.
+7. Build & Run the **Reflector** in `Release` mode.
+8. Set **Editor** as startup project. Select Debug or Release mode.
 9. Build & run.
 
 ---
