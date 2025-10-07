@@ -152,7 +152,7 @@ namespace Lumina::FileHelper
         std::string String = buffer.str();
         OutString.assign(String.c_str());
         
-        return OutString.size();
+        return !OutString.empty();
     }
 
     bool SaveStringToFile(FStringView String, FStringView Path, uint32 WriteFlags)

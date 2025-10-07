@@ -40,6 +40,8 @@ namespace Lumina
         PFN_vkCmdDebugMarkerBeginEXT vkCmdDebugMarkerBeginEXT = nullptr;
         PFN_vkCmdDebugMarkerEndEXT vkCmdDebugMarkerEndEXT = nullptr;
     };
+
+    VkImageAspectFlags GuessImageAspectFlags(VkFormat Format);
     
     class FQueue : public IDeviceChild
     {

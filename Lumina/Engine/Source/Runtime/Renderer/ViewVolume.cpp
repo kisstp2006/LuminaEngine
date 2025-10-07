@@ -11,12 +11,30 @@ namespace Lumina
     FViewVolume::FViewVolume(float fov, float aspect)
         : FOV(fov), AspectRatio(aspect)
     {
+        Near = 0.01f;
+        Far = 1000.0f;
         ViewPosition =  glm::vec3(1.0f);
         UpVector =      UpAxis;
         ForwardVector = ForwardAxis;
         RightVector =   glm::normalize(glm::cross(ForwardVector, UpVector));
         
         SetPerspective(fov, aspect);
+    }
+
+    void FViewVolume::SetNear(float InNear)
+    {
+        Near = InNear;
+        ProjectionMatrix = glm::perspective(glm::radians(FOV), AspectRatio, Far, Near);
+        InverseProjectionMatrix = glm::inverse(ProjectionMatrix);
+        UpdateMatrices();
+    }
+
+    void FViewVolume::SetFar(float InFar)
+    {
+        Far = InFar;
+        ProjectionMatrix = glm::perspective(glm::radians(FOV), AspectRatio, Far, Near);
+        InverseProjectionMatrix = glm::inverse(ProjectionMatrix);
+        UpdateMatrices();
     }
 
 
@@ -42,7 +60,7 @@ namespace Lumina
         FOV = fov;
         AspectRatio = aspect;
 
-        ProjectionMatrix = glm::perspective(glm::radians(FOV), AspectRatio, 1000.0f, 0.1f);
+        ProjectionMatrix = glm::perspective(glm::radians(FOV), AspectRatio, Far, Near);
         InverseProjectionMatrix = glm::inverse(ProjectionMatrix);
         UpdateMatrices();
     }
@@ -52,7 +70,7 @@ namespace Lumina
     {
         AspectRatio = InAspect;
 
-        ProjectionMatrix = glm::perspective(glm::radians(FOV), AspectRatio, 1000.0f, 0.1f);
+        ProjectionMatrix = glm::perspective(glm::radians(FOV), AspectRatio, Far, Near);
         InverseProjectionMatrix = glm::inverse(ProjectionMatrix);
         UpdateMatrices();
     }
@@ -60,9 +78,15 @@ namespace Lumina
     void FViewVolume::SetFOV(float InFOV)
     {
         FOV = InFOV;
-        ProjectionMatrix = glm::perspective(glm::radians(FOV), AspectRatio, 1000.0f, 0.1f);
+        ProjectionMatrix = glm::perspective(glm::radians(FOV), AspectRatio, Far, Near);
         InverseProjectionMatrix = glm::inverse(ProjectionMatrix);
         UpdateMatrices();
+    }
+
+    glm::mat4 FViewVolume::ToReverseDepthViewProjectionMatrix() const
+    {
+        glm::mat4 ReverseProjectionMatrix = glm::perspective(glm::radians(FOV), AspectRatio, Near, Far);
+        return ReverseProjectionMatrix * ViewMatrix;
     }
 
     FFrustum FViewVolume::GetFrustum() const

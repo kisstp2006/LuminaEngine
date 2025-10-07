@@ -118,7 +118,7 @@ namespace Lumina
         BindingIndex++;
     }
 
-    void FMaterialCompiler::TextureSample(const FString& ID, CTexture* Texture)
+    void FMaterialCompiler::TextureSample(const FString& ID, CTexture* Texture, CMaterialInput* Input)
     {
         if (Texture == nullptr)
         {
@@ -128,14 +128,32 @@ namespace Lumina
         {
             return;
         }
+
+        FString UVData = "GetTexCoords()";
+        if (Input->HasConnection())
+        {
+            CMaterialOutput* AConn = Cast<CMaterialOutput>(Input->GetConnections()[0]);
+            UVData = AConn->GetOwningNode()->GetNodeFullName();
+        }
         
-        ShaderChunks.append("vec4 " + ID + " = texture(" + ID + "_sample" + ", inUV.xy);\n");
+        
+        ShaderChunks.append("vec4 " + ID + " = texture(" + ID + "_sample" + ", " + UVData + ".xy);\n");
         BoundImages.push_back(Texture);
     }
 
     void FMaterialCompiler::NewLine()
     {
         ShaderChunks.append("\n");
+    }
+
+    void FMaterialCompiler::VertexNormal(const FString& ID)
+    {
+        ShaderChunks.append("vec4 " + ID + " = vec4(inNormalWS.xyz, 1.0);\n");
+    }
+
+    void FMaterialCompiler::TexCoords(const FString& ID)
+    {
+        ShaderChunks.append("vec4 " + ID + " = vec4(GetTexCoords(), 1.0, 1.0);\n");
     }
 
     void FMaterialCompiler::WorldPos(const FString& ID)
@@ -146,6 +164,148 @@ namespace Lumina
     void FMaterialCompiler::CameraPos(const FString& ID)
     {
         ShaderChunks.append("vec4 " + ID + " = vec4(GetCameraPosition(), 1.0);\n");
+    }
+
+    void FMaterialCompiler::EntityID(const FString& ID)
+    {
+        ShaderChunks.append("float " + ID + " = float(inEntityID);\n");
+    }
+
+    void FMaterialCompiler::Saturate(CMaterialInput* A, CMaterialInput* /*B*/)
+    {
+        FString OwningNode = A->GetOwningNode()->GetNodeFullName();
+
+        FString AValue;
+        if (A->HasConnection())
+        {
+            CMaterialOutput* AConn = Cast<CMaterialOutput>(A->GetConnections()[0]);
+            FString Swizzle = GetSwizzleForMask(AConn->GetComponentMask());
+            AValue = "vec4(" + AConn->GetOwningNode()->GetNodeFullName() + Swizzle + ")";
+        }
+        else
+        {
+            AValue = "vec4(0.0)";
+        }
+
+        ShaderChunks.append("vec4 " + OwningNode + " = clamp(" + AValue + ", 0.0, 1.0);\n");
+    }
+
+    void FMaterialCompiler::Normalize(CMaterialInput* A, CMaterialInput* /*B*/)
+    {
+        FString OwningNode = A->GetOwningNode()->GetNodeFullName();
+
+        FString AValue;
+        if (A->HasConnection())
+        {
+            CMaterialOutput* AConn = Cast<CMaterialOutput>(A->GetConnections()[0]);
+            FString Swizzle = GetSwizzleForMask(AConn->GetComponentMask());
+            AValue = "vec3(" + AConn->GetOwningNode()->GetNodeFullName() + Swizzle + ")";
+        }
+        else
+        {
+            AValue = "vec3(0.0, 0.0, 1.0)";
+        }
+
+        ShaderChunks.append("vec3 " + OwningNode + " = normalize(" + AValue + ");\n");
+    }
+
+    void FMaterialCompiler::Distance(CMaterialInput* A, CMaterialInput* B)
+    {
+        FString OwningNode = A->GetOwningNode()->GetNodeFullName();
+
+        FString AValue, BValue;
+
+        if (A->HasConnection())
+        {
+            CMaterialOutput* AConn = Cast<CMaterialOutput>(A->GetConnections()[0]);
+            FString Swizzle = GetSwizzleForMask(AConn->GetComponentMask());
+            AValue = "vec3(" + AConn->GetOwningNode()->GetNodeFullName() + Swizzle + ")";
+        }
+        else
+        {
+            AValue = "vec3(0.0)";
+        }
+
+        if (B->HasConnection())
+        {
+            CMaterialOutput* BConn = Cast<CMaterialOutput>(B->GetConnections()[0]);
+            FString Swizzle = GetSwizzleForMask(BConn->GetComponentMask());
+            BValue = "vec3(" + BConn->GetOwningNode()->GetNodeFullName() + Swizzle + ")";
+        }
+        else
+        {
+            BValue = "vec3(0.0)";
+        }
+
+        ShaderChunks.append("float " + OwningNode + " = distance(" + AValue + ", " + BValue + ");\n");
+    }
+
+    void FMaterialCompiler::Abs(CMaterialInput* A, CMaterialInput* /*B*/)
+    {
+        FString OwningNode = A->GetOwningNode()->GetNodeFullName();
+
+        FString AValue;
+        if (A->HasConnection())
+        {
+            CMaterialOutput* AConn = Cast<CMaterialOutput>(A->GetConnections()[0]);
+            FString Swizzle = GetSwizzleForMask(AConn->GetComponentMask());
+            AValue = "vec4(" + AConn->GetOwningNode()->GetNodeFullName() + Swizzle + ")";
+        }
+        else
+        {
+            AValue = "vec4(0.0)";
+        }
+
+        ShaderChunks.append("vec4 " + OwningNode + " = abs(" + AValue + ");\n");
+    }
+
+    void FMaterialCompiler::SmoothStep(CMaterialInput* A, CMaterialInput* B, CMaterialInput* C)
+    {
+        FString OwningNode = A->GetOwningNode()->GetNodeFullName();
+        CMaterialExpression_SmoothStep* Node = A->GetOwningNode<CMaterialExpression_SmoothStep>();
+
+        FString AValue, BValue, CValue;
+
+        // Edge0
+        if (A->HasConnection())
+        {
+            CMaterialOutput* AConn = Cast<CMaterialOutput>(A->GetConnections()[0]);
+            FString Swizzle = GetSwizzleForMask(AConn->GetComponentMask());
+            AValue = "vec4(" + AConn->GetOwningNode()->GetNodeFullName() + Swizzle + ")";
+        }
+        else
+        {
+            FString ConstAString = eastl::to_string(Node->ConstA);
+            AValue = "vec4(" + ConstAString + ")";
+        }
+
+        // Edge1
+        if (B->HasConnection())
+        {
+            CMaterialOutput* BConn = Cast<CMaterialOutput>(B->GetConnections()[0]);
+            FString Swizzle = GetSwizzleForMask(BConn->GetComponentMask());
+            BValue = "vec4(" + BConn->GetOwningNode()->GetNodeFullName() + Swizzle + ")";
+        }
+        else
+        {
+            FString ConstBString = eastl::to_string(Node->ConstB);
+            BValue = "vec4(" + ConstBString + ")";
+        }
+
+        // Handle C input
+        if (C->HasConnection())
+        {
+            CMaterialOutput* CConn = Cast<CMaterialOutput>(C->GetConnections()[0]);
+            FString Swizzle = GetSwizzleForMask(CConn->GetComponentMask());
+            CValue = "vec4(" + CConn->GetOwningNode()->GetNodeFullName() + Swizzle + ")";
+        }
+        else
+        {
+            FString ConstCString = eastl::to_string(Node->X);
+            CValue = "vec4(" + ConstCString + ")";
+        }
+
+        ShaderChunks.append("vec4 " + OwningNode + " = smoothstep(" + AValue + ", " + BValue + ", " + CValue + ");\n");
     }
 
     void FMaterialCompiler::Time(const FString& ID)

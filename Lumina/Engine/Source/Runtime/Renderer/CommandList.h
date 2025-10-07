@@ -8,7 +8,6 @@
 namespace Lumina
 {
     class FQueue;
-    struct FRenderPassBeginInfo;
     class IRenderContext;
 }
 
@@ -88,7 +87,10 @@ namespace Lumina
         virtual void SetBufferState(FRHIBuffer* Buffer, EResourceStates StateBits) = 0;
         
         virtual void SetResourceStatesForBindingSet(FRHIBindingSet* BindingSet) = 0;
-        virtual void SetResourceStateForRenderPass(const FRenderPassBeginInfo& PassInfo) = 0;
+        virtual void SetResourceStateForRenderPass(const FRenderPassDesc& PassInfo) = 0;
+
+        virtual void EnableAutomaticBarriers() = 0;
+        virtual void DisableAutomaticBarriers() = 0;
         
         virtual void CommitBarriers() = 0;
 
@@ -98,7 +100,7 @@ namespace Lumina
         virtual void AddMarker(const char* Name, const FColor& Color = FColor::Red) = 0;
         virtual void PopMarker() = 0;
         
-        virtual void BeginRenderPass(const FRenderPassBeginInfo& PassInfo) = 0;
+        virtual void BeginRenderPass(const FRenderPassDesc& PassInfo) = 0;
         virtual void EndRenderPass() = 0;
         virtual void ClearImageColor(FRHIImage* Image, const FColor& Color) = 0;
         
@@ -115,6 +117,7 @@ namespace Lumina
 
         virtual void SetComputeState(const FComputeState& State) = 0;
         virtual void Dispatch(uint32 GroupCountX, uint32 GroupCountY, uint32 GroupCountZ) = 0;
+        
 
         NODISCARD virtual const FCommandListInfo& GetCommandListInfo() const = 0;
         NODISCARD virtual FPendingCommandState& GetPendingCommandState() = 0;

@@ -15,6 +15,25 @@
 
 namespace Lumina
 {
+	static FVulkanImage::ESubresourceViewType GetTextureViewType(EFormat BindingFormat, EFormat TextureFormat)
+	{
+		EFormat Format = (BindingFormat == EFormat::UNKNOWN) ? TextureFormat : BindingFormat;
+
+		const FFormatInfo& FormatInfo = GetFormatInfo(Format);
+
+		if (FormatInfo.bHasDepth)
+		{
+			return FVulkanImage::ESubresourceViewType::DepthOnly;
+		}
+        
+		if (FormatInfo.bHasStencil)
+		{
+			return FVulkanImage::ESubresourceViewType::StencilOnly;
+		}
+        
+		return FVulkanImage::ESubresourceViewType::AllAspects;
+	}
+	
 	FString VkFormatToString(VkFormat format)
 	{
 		switch (format)
@@ -134,12 +153,14 @@ namespace Lumina
 		if(ImDrawData* DrawData = ImGui::GetDrawData())
 		{
 			FRHICommandListRef CommandList = VulkanRenderContext->GetCommandList(ECommandQueue::Graphics);
+
+			FRenderPassDesc::FAttachment Attachment; Attachment
+				.SetImage(GEngine->GetEngineViewport()->GetRenderTarget())
+				.SetLoadOp(ERenderLoadOp::Load);
+				
 			
-			FRenderPassBeginInfo RenderPass; RenderPass
-			.AddColorAttachment(GEngine->GetEngineViewport()->GetRenderTarget())
-			.SetColorLoadOp(ERenderLoadOp::Load)
-			.SetColorStoreOp(ERenderStoreOp::Store)
-			.SetColorClearColor(FColor::Black)
+			FRenderPassDesc RenderPass; RenderPass
+			.AddColorAttachment(Attachment)
 			.SetRenderArea(GEngine->GetEngineViewport()->GetRenderTarget()->GetExtent());
 			
 			CommandList->BeginRenderPass(RenderPass);
@@ -339,8 +360,11 @@ namespace Lumina
     	
 		ReferencedImages.push_back(Image);
 	    VkImage VulkanImage = Image->GetAPIResource<VkImage>();
-    	VkImageView VulkanImageView = Image->GetAPIResource<VkImageView, EAPIResourceType::ImageView>();
-    	
+
+		const FTextureSubresourceSet Subresource = AllSubresources;
+		FVulkanImage::ESubresourceViewType ViewType = GetTextureViewType(EFormat::UNKNOWN, Image->GetDescription().Format);
+		VkImageView View = Image.As<FVulkanImage>()->GetSubresourceView(Subresource, Image->GetDescription().Dimension, Image->GetDescription().Format, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, ViewType).View;
+		
     	auto It = ImageCache.find(VulkanImage);
 		
     	if (It != ImageCache.end())
@@ -349,9 +373,11 @@ namespace Lumina
     	}
 
     	FRHISamplerRef Sampler = TStaticRHISampler<>::GetRHI();
+
+		
     	VkSampler VulkanSampler = Sampler->GetAPIResource<VkSampler>();
     	
-    	VkDescriptorSet DescriptorSet = ImGui_ImplVulkan_AddTexture(VulkanSampler, VulkanImageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    	VkDescriptorSet DescriptorSet = ImGui_ImplVulkan_AddTexture(VulkanSampler, View, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     	ImageCache.insert_or_assign(VulkanImage, DescriptorSet);
 
     	return (intptr_t)DescriptorSet;

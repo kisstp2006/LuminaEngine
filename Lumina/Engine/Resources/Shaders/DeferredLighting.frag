@@ -14,6 +14,7 @@ layout(set = 1, binding = 1) uniform sampler2D uNormal;
 layout(set = 1, binding = 2) uniform sampler2D uMaterial;
 layout(set = 1, binding = 3) uniform sampler2D uAlbedoSpec;
 layout(set = 1, binding = 4) uniform sampler2D uSSAO;
+layout(set = 1, binding = 5) uniform sampler2DArray uShadowCascade;
 
 
 float DistributionGGX(vec3 N, vec3 H, float roughness)
@@ -110,6 +111,31 @@ vec3 EvaluateLightContribution(FLight Light, vec3 Position, vec3 N, vec3 V, vec3
 
 // ----------------------------------------------------------------------------
 
+float TextureProj(vec4 ShadowCoord, int cascade)
+{
+    float shadow = 0.0;
+    float bias = 0.005;
+
+    vec3 projCoords = ShadowCoord.xyz / ShadowCoord.w;
+
+    vec2 shadowUV = projCoords.xy * 0.5 + 0.5;
+    shadowUV.y = 1.0 - shadowUV.y;
+
+    // PCF: Sample 3x3 grid around the fragment
+    vec2 texelSize = 1.0 / vec2(textureSize(uShadowCascade, 0).xy);
+    for(int x = -1; x <= 1; ++x)
+    {
+        for(int y = -1; y <= 1; ++y)
+        {
+            vec2 sampleUV = shadowUV + vec2(x, y) * texelSize;
+            float shadowDepth = texture(uShadowCascade, vec3(sampleUV, cascade)).r;
+            shadow += (projCoords.z - bias > shadowDepth) ? 0.0 : 1.0;
+        }
+    }
+
+    return shadow / 9.0;
+}
+
 void main()
 {
     vec3 PositionVS = texture(uPosition, vUV).rgb;
@@ -125,29 +151,65 @@ void main()
     float Roughness = texture(uMaterial, vUV).g;
     float Metallic = texture(uMaterial, vUV).b;
     float Specular = texture(uAlbedoSpec, vUV).a;
-    float AmbientOcclusion = texture(uSSAO, vUV).r;
+    float SSAO = texture(uSSAO, vUV).r;
 
     vec3 N = Normal;
     vec3 V = normalize(SceneUBO.CameraView.CameraPosition.xyz - Position);
     
     vec3 F0 = vec3(0.04);
     F0 = mix(F0, Albedo.rgb, Metallic);
+    
+
+    int CascadeIndex = 3;
+    float ViewDepth = -PositionVS.z;
+    float LinearDepth = ViewDepth / SceneUBO.FarPlane;
+    LinearDepth = clamp(LinearDepth, 0.0, 1.0);
+
+    for(int i = 0; i < 4 - 1; ++i)
+    {
+        if(LinearDepth < SceneUBO.CascadeSplits[i])
+        {
+            CascadeIndex = i;
+            break;
+        }
+    }
+
+    vec4 ShadowCoord = SceneUBO.LightViewProj[CascadeIndex] * vec4(Position, 1.0);
+    float Shadow = TextureProj(ShadowCoord, CascadeIndex);
 
     vec3 Lo = vec3(0.0);
-    
-    for(uint LightIndex = 0; LightIndex < GetNumLights(); ++LightIndex)
+    for (uint LightIndex = 0; LightIndex < GetNumLights(); ++LightIndex)
     {
         FLight Light = GetLightAt(LightIndex);
-        Lo += EvaluateLightContribution(Light, Position, N, V, Albedo, Roughness, Metallic, F0);
+        vec3 LContribution = EvaluateLightContribution(Light, Position, N, V, Albedo, Roughness, Metallic, F0);
+
+        if (Light.Type == LIGHT_TYPE_DIRECTIONAL)
+        {
+            // multiply only this light’s contribution by shadow
+            LContribution *= Shadow;
+        }
+
+        Lo += LContribution;
     }
-    
+
     vec3 AmbientLightColor = GetAmbientLightColor() * GetAmbientLightIntensity();
-    vec3 Ambient = AmbientLightColor += (Albedo * AmbientOcclusion);
+    vec3 Ambient = AmbientLightColor * SSAO * AO;
     vec3 Color = Ambient + Lo;
-    
+
     Color = Color / (Color + vec3(1.0));
-    
+
     Color = pow(Color, vec3(1.0/2.2));
-    
+
     outColor = vec4(Color, 1.0);
+
+    vec3 CascadeDebugColors[4] = vec3[4](
+    vec3(1.0, 0.0, 0.0), // Cascade 0 = red
+    vec3(0.0, 1.0, 0.0), // Cascade 1 = green
+    vec3(0.0, 0.0, 1.0), // Cascade 2 = blue
+    vec3(1.0, 1.0, 0.0)  // Cascade 3 = yellow
+    );
+    
+    //outColor *= vec4(CascadeDebugColors[CascadeIndex], 1.0);
+
+    return;
 }

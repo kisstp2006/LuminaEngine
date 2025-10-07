@@ -1,7 +1,6 @@
 #version 460 core
 
 #pragma shader_stage(fragment)
-layout(early_fragment_tests) in;
 
 #include "Includes/SceneGlobals.glsl"
 
@@ -9,11 +8,13 @@ layout(early_fragment_tests) in;
 #define MAX_VECTORS 24
 
 
+layout(early_fragment_tests) in;
 layout(location = 0) in vec4 inColor;
-layout(location = 1) in vec3 inNormal;
-layout(location = 2) in vec4 inFragPos;
-layout(location = 3) in vec2 inUV;
-layout(location = 4) flat in uint inEntityID;
+layout(location = 1) in vec4 inNormalVS;
+layout(location = 2) in vec4 inNormalWS;
+layout(location = 3) in vec4 inFragPos;
+layout(location = 4) in vec2 inUV;
+layout(location = 5) flat in uint inEntityID;
 
 layout(location = 0) out vec4 GPosition;
 layout(location = 1) out vec4 GNormal;
@@ -56,6 +57,11 @@ vec3 GetWorldNormal(vec3 FragNormal, vec2 UV, vec3 FragPos, vec3 TangentSpaceNor
     return normalize(TBN * TangentSpaceNormal);
 }
 
+vec2 GetTexCoords()
+{
+    return inUV;
+}
+
 struct SMaterialInputs
 {
     vec3    Diffuse;
@@ -68,17 +74,20 @@ struct SMaterialInputs
     float   Opacity;
 };
 
+
+vec3 ViewNormal = inNormalVS.xyz;
+vec3 WorldNormal = inNormalWS.xyz;
+
+
 $MATERIAL_INPUTS
 
 void main()
 {
     SMaterialInputs Material = GetMaterialInputs();
+    
+    vec3 EncodedNormal = ViewNormal * 0.5 + 0.5;
 
     GPosition = inFragPos;
-
-    vec3 WorldNormal = GetWorldNormal(inNormal, inUV, inFragPos.xyz, Material.Normal);
-    vec3 ViewNormal = normalize(inNormal);
-    vec3 EncodedNormal = ViewNormal * 0.5 + 0.5;
     
     GNormal = vec4(EncodedNormal, 1.0);
 
@@ -91,7 +100,4 @@ void main()
     GAlbedoSpec.a = Material.Specular;
 
     GPicker = inEntityID;
-
-    //ivec2 pix = ivec2(gl_FragCoord.xy);
-    //imageAtomicAdd(uOverdrawImage, pix, 1u);
 }

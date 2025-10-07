@@ -30,7 +30,7 @@ namespace Lumina
         glm::vec3 Color = glm::vec3(1.0f);
 
         LUM_PROPERTY(Editable, Category = "Ambient Light")
-        float Intensity = 0.0f;
+        float Intensity = 0.065f;
         
     };
     
@@ -44,7 +44,7 @@ namespace Lumina
         SAmbientLight AmbientLight;
         
         LUM_PROPERTY(Editable, Category = "SSAO")
-        bool bSSAOEnabled = false;
+        bool bSSAOEnabled = true;
 
         LUM_PROPERTY(Editable, Category = "SSAO")
         SSSAOInfo SSAOInfo;

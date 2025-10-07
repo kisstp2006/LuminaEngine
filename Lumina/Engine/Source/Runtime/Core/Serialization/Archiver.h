@@ -7,6 +7,9 @@
 #include "Core/Templates/CanBulkSerialize.h"
 #include "Core/Templates/IsSigned.h"
 #include "Core/Versioning/CoreVersion.h"
+#include "glm/glm.hpp"
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtc/quaternion.hpp>
 #include "Log/Log.h"
 
 namespace Lumina
@@ -334,7 +337,115 @@ namespace Lumina
         }
         D = !!OldUBoolValue;
     }
+
+    // GLM Vector Types
+    inline FArchive& operator<<(FArchive& Ar, glm::vec2& v)
+    {
+        Ar << v.x << v.y;
+        return Ar;
+    }
+
+    inline FArchive& operator<<(FArchive& Ar, glm::vec3& v)
+    {
+        Ar << v.x << v.y << v.z;
+        return Ar;
+    }
+
+    inline FArchive& operator<<(FArchive& Ar, glm::vec4& v)
+    {
+        Ar << v.x << v.y << v.z << v.w;
+        return Ar;
+    }
+
+    // GLM Integer Vector Types
+    inline FArchive& operator<<(FArchive& Ar, glm::ivec2& v)
+    {
+        Ar << v.x << v.y;
+        return Ar;
+    }
+
+    inline FArchive& operator<<(FArchive& Ar, glm::ivec3& v)
+    {
+        Ar << v.x << v.y << v.z;
+        return Ar;
+    }
+
+    inline FArchive& operator<<(FArchive& Ar, glm::ivec4& v)
+    {
+        Ar << v.x << v.y << v.z << v.w;
+        return Ar;
+    }
+
+    // GLM Unsigned Integer Vector Types
+    inline FArchive& operator<<(FArchive& Ar, glm::uvec2& v)
+    {
+        Ar << v.x << v.y;
+        return Ar;
+    }
+
+    inline FArchive& operator<<(FArchive& Ar, glm::uvec3& v)
+    {
+        Ar << v.x << v.y << v.z;
+        return Ar;
+    }
+
+    inline FArchive& operator<<(FArchive& Ar, glm::uvec4& v)
+    {
+        Ar << v.x << v.y << v.z << v.w;
+        return Ar;
+    }
+
+    // GLM 16-bit Unsigned Integer Vector Types
+    inline FArchive& operator<<(FArchive& Ar, glm::u16vec2& v)
+    {
+        Ar << v.x << v.y;
+        return Ar;
+    }
+
+    inline FArchive& operator<<(FArchive& Ar, glm::u16vec3& v)
+    {
+        Ar << v.x << v.y << v.z;
+        return Ar;
+    }
+
+    inline FArchive& operator<<(FArchive& Ar, glm::u16vec4& v)
+    {
+        Ar << v.x << v.y << v.z << v.w;
+        return Ar;
+    }
+
+    // GLM Matrix Types
+    inline FArchive& operator<<(FArchive& Ar, glm::mat2& m)
+    {
+        Ar << m[0] << m[1];
+        return Ar;
+    }
+
+    inline FArchive& operator<<(FArchive& Ar, glm::mat3& m)
+    {
+        Ar << m[0] << m[1] << m[2];
+        return Ar;
+    }
+
+    inline FArchive& operator<<(FArchive& Ar, glm::mat4& m)
+    {
+        Ar << m[0] << m[1] << m[2] << m[3];
+        return Ar;
+    }
+
+    // GLM Quaternion
+    inline FArchive& operator<<(FArchive& Ar, glm::quat& q)
+    {
+        Ar << q.x << q.y << q.z << q.w;
+        return Ar;
+    }
+    
+    
 }
+
+
+
+
 
 // Example usage for a custom struct
 #if 0

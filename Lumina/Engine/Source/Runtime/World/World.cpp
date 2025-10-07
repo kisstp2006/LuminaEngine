@@ -24,6 +24,7 @@ namespace Lumina
 {
     CWorld::CWorld()
     {
+        SelectedEntity = entt::null;
     }
 
     void CWorld::Serialize(FArchive& Ar)

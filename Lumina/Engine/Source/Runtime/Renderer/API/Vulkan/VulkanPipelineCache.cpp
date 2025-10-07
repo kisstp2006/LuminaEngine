@@ -9,6 +9,7 @@ namespace Lumina
     FRHIGraphicsPipelineRef FVulkanPipelineCache::GetOrCreateGraphicsPipeline(FVulkanDevice* Device, const FGraphicsPipelineDesc& InDesc)
     {
         LUMINA_PROFILE_SCOPE();
+        FScopeLock Lock(ShaderMutex);
 
         SIZE_T Hash = Hash::GetHash(InDesc);
         if (GraphicsPipelines.find(Hash) != GraphicsPipelines.end())
@@ -26,6 +27,7 @@ namespace Lumina
     FRHIComputePipelineRef FVulkanPipelineCache::GetOrCreateComputePipeline(FVulkanDevice* Device, const FComputePipelineDesc& InDesc)
     {
         LUMINA_PROFILE_SCOPE();
+        FScopeLock Lock(ShaderMutex);
 
         SIZE_T Hash = Hash::GetHash(InDesc);
         if (ComputePipelines.find(Hash) != ComputePipelines.end())
@@ -41,12 +43,15 @@ namespace Lumina
 
     void FVulkanPipelineCache::PostShaderRecompiled(const IVulkanShader* Shader)
     {
+        FScopeLock Lock(ShaderMutex);
         GraphicsPipelines.clear();
         ComputePipelines.clear();
     }
     
     void FVulkanPipelineCache::ReleasePipelines()
     {
+        FScopeLock Lock(ShaderMutex);
+
         GraphicsPipelines.clear();
         ComputePipelines.clear();
     }

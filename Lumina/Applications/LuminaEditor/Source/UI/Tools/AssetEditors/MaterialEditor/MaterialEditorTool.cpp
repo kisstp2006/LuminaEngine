@@ -133,7 +133,7 @@ namespace Lumina
 
     void FMaterialEditorTool::DrawGLSLPreview(const FUpdateContext& UpdateContext)
     {
-
+        ImGui::TextUnformatted(Tree.c_str());
     }
 
     void FMaterialEditorTool::Compile()
@@ -153,7 +153,7 @@ namespace Lumina
         }
         else
         {
-            FString Tree = Compiler.BuildTree();
+            Tree = Compiler.BuildTree();
             CompilationResult.CompilationLog = "Generated GLSL: \n \n \n" + Tree;
             CompilationResult.bIsError = false;
             bGLSLPreviewDirty = true;

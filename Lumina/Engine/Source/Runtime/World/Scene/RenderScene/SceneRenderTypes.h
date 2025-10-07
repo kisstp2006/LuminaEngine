@@ -35,6 +35,10 @@ namespace Lumina
         Material = 5,
         Depth    = 6,
         Overdraw = 7,
+        Cascade1 = 8,
+        Cascade2 = 9,
+        Cascade3 = 10,
+        Cascade4 = 11,
     };
     
     struct FCameraData
@@ -70,6 +74,15 @@ namespace Lumina
         uint32 NumLights = 0;
         uint32 Padding[3] = {};
         FLight Lights[MAX_LIGHTS];
+    };
+
+    struct FShadowCascade
+    {
+        FRHIImageRef    ShadowMapImage;
+        FLight          DirectionalLight;
+        glm::mat4       LightViewProjection;
+        float           SplitDepth;
+        glm::ivec2      ShadowMapSize;
     };
 
     struct FSSAOSettings
@@ -123,10 +136,15 @@ namespace Lumina
         float          DeltaTime;
         float          NearPlane;
         float          FarPlane;
+
+        glm::mat4       LightViewProj[4];
+        glm::vec4       CascadeSplits;
     };
+
 
     struct FSceneRenderSettings
     {
+        uint8 bUseInstancing:1 = true;
         uint8 bHasEnvironment:1 = false;
         uint8 bDrawAABB:1 = false;
         uint8 bSSAO:1 = false;

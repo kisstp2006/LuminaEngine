@@ -16,6 +16,7 @@ namespace Lumina
         EFormat Format;
         VkFormat vkFormat;
     };
+    
 
     static const std::array<FormatMapping, size_t(EFormat::COUNT)> FormatMap = { {
         { EFormat::UNKNOWN,           VK_FORMAT_UNDEFINED                },
@@ -120,6 +121,30 @@ namespace Lumina
         }
     }
 #endif
+
+    static VkImageViewType TextureDimensionToImageViewType(EImageDimension dimension)
+    {
+        switch (dimension)
+        {
+        case EImageDimension::Texture2D:
+            return VK_IMAGE_VIEW_TYPE_2D;
+
+        case EImageDimension::Texture2DArray:
+            return VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+
+        case EImageDimension::Texture3D:
+            return VK_IMAGE_VIEW_TYPE_3D;
+
+        case EImageDimension::TextureCube:
+            return VK_IMAGE_VIEW_TYPE_CUBE;
+
+        case EImageDimension::TextureCubeArray:
+            return VK_IMAGE_VIEW_TYPE_CUBE_ARRAY;
+
+        case EImageDimension::Unknown:
+            LUMINA_NO_ENTRY();
+        }
+    }
 
     VkBufferUsageFlags ToVkBufferUsage(TBitFlags<EBufferUsageFlags> Usage) 
     {
@@ -412,12 +437,12 @@ namespace Lumina
 
         if (CurrentChunk)
         {
-            uint64 alignedOffset = Align(CurrentChunk->WritePointer, Alignment);
+            uint64 alignedOffset = Align(CurrentChunk->WritePointer.load(std::memory_order::acquire), Alignment);
             uint64 endOfDataInChunk = alignedOffset + Size;
 
             if (endOfDataInChunk <= CurrentChunk->BufferSize)
             {
-                CurrentChunk->WritePointer = endOfDataInChunk;
+                CurrentChunk->WritePointer.store(endOfDataInChunk, std::memory_order_release);
 
                 *Buffer = CurrentChunk->Buffer.GetReference();
                 *Offset = alignedOffset;
@@ -473,7 +498,7 @@ namespace Lumina
         }
 
         CurrentChunk->Version = CurrentVersion;
-        CurrentChunk->WritePointer = Size;
+        CurrentChunk->WritePointer.store(Size, std::memory_order_release);
 
         *Buffer = CurrentChunk->Buffer.GetReference();
         *Offset = 0;
@@ -721,35 +746,13 @@ namespace Lumina
         ImageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     
         Device->GetAllocator()->AllocateImage(&ImageCreateInfo, AllocationFlags, &Image, InDescription.DebugName.c_str());
-    
-        Assert(Image != VK_NULL_HANDLE)
-    
-        VkImageViewCreateInfo ImageViewCreateInfo = {};
-        ImageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        ImageViewCreateInfo.image = Image;
-        ImageViewCreateInfo.viewType = GetDescription().Flags.IsFlagSet(EImageCreateFlags::CubeCompatible) ? VK_IMAGE_VIEW_TYPE_CUBE : VK_IMAGE_VIEW_TYPE_2D;
-        ImageViewCreateInfo.format = VulkanFormat;
-        ImageViewCreateInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-        ImageViewCreateInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-        ImageViewCreateInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-        ImageViewCreateInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-        ImageViewCreateInfo.subresourceRange.aspectMask = FullAspectMask;
-        ImageViewCreateInfo.subresourceRange.baseArrayLayer = 0;
-        ImageViewCreateInfo.subresourceRange.layerCount = GetDescription().ArraySize;
-        ImageViewCreateInfo.subresourceRange.baseMipLevel = 0;
-        ImageViewCreateInfo.subresourceRange.levelCount = GetDescription().NumMips;
-    
-        VK_CHECK(vkCreateImageView(Device->GetDevice(), &ImageViewCreateInfo, VK_ALLOC_CALLBACK, &ImageView));
-    
-        Assert(ImageView != VK_NULL_HANDLE)
     }
 
 
-    FVulkanImage::FVulkanImage(FVulkanDevice* InDevice, const FRHIImageDesc& InDescription, VkImage RawImage, VkImageView RawView)
+    FVulkanImage::FVulkanImage(FVulkanDevice* InDevice, const FRHIImageDesc& InDescription, VkImage RawImage, bool bManagedExternal)
         : FRHIImage(InDescription)
         , IDeviceChild(InDevice)
         , Image(RawImage)
-        , ImageView(RawView)
     {
         bImageManagedExternal = true;
         FullAspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -758,23 +761,117 @@ namespace Lumina
 
     FVulkanImage::~FVulkanImage()
     {
+        for (auto& ViewPair : SubresourceViews)
+        {
+            auto& View = ViewPair.second.View;
+            vkDestroyImageView(Device->GetDevice(), View, VK_ALLOC_CALLBACK);
+        }
+
+        SubresourceViews.clear();
+
         if (!bImageManagedExternal)
         {
             Device->GetAllocator()->DestroyImage(Image);
         }
-        
-        vkDestroyImageView(Device->GetDevice(), ImageView, VK_ALLOC_CALLBACK);
     }
 
     void* FVulkanImage::GetAPIResourceImpl(EAPIResourceType Type)
     {
-        switch (Type)
+        return Image;
+    }
+
+    void* FVulkanImage::GetRHIView(EFormat Format, FTextureSubresourceSet Subresources, EImageDimension Dimension, bool bReadyOnlyDSV)
+    {
+        if (Format == EFormat::UNKNOWN)
         {
-            case EAPIResourceType::Image:       return Image;
-            case EAPIResourceType::ImageView:   return ImageView;
-            case EAPIResourceType::Default:     return Image;
-            default:                            return Image;
+            Format = GetDescription().Format;
         }
+
+        const FFormatInfo& FormatInfo = GetFormatInfo(Format);
+
+        ESubresourceViewType ViewType = ESubresourceViewType::AllAspects;
+        if (FormatInfo.bHasDepth && !FormatInfo.bHasStencil)
+        {
+            ViewType = ESubresourceViewType::DepthOnly;
+        }
+        else if (!FormatInfo.bHasDepth && FormatInfo.bHasStencil)
+        {
+            ViewType = ESubresourceViewType::StencilOnly;
+        }
+
+        return GetSubresourceView(Subresources, Dimension, Format, 0, ViewType).View;
+    }
+
+    FTextureSubresourceView& FVulkanImage::GetSubresourceView(const FTextureSubresourceSet& Subresource, EImageDimension Dimension, EFormat Format, VkImageUsageFlags Usage, ESubresourceViewType ViewType)
+    {
+        FScopeLock Lock(SubresourceMutex);
+        if (Dimension == EImageDimension::Unknown)
+        {
+            Dimension = DescRef.Dimension;
+        }
+
+        if (Format == EFormat::UNKNOWN)
+        {
+            Format = DescRef.Format;
+        }
+
+        auto CacheKey = eastl::make_tuple(Subresource, ViewType, Dimension, Format, Usage);
+        auto Iter = SubresourceViews.find(CacheKey);
+        if (Iter != SubresourceViews.end())
+        {
+            return Iter->second;
+        }
+
+        auto [A, B] = SubresourceViews.emplace(CacheKey, *this);
+        FTextureSubresourceView& View = A->second;
+        View.Subresource = Subresource;
+
+        VkFormat VulkanFormat = ConvertFormat(Format);
+
+        VkImageAspectFlags AspectFlags = GuessImageAspectFlags(VulkanFormat);
+
+        VkImageSubresourceRange Range = {};
+        Range.aspectMask = AspectFlags;
+        Range.baseMipLevel = Subresource.BaseMipLevel;
+        Range.levelCount = Subresource.NumMipLevels;
+        Range.baseArrayLayer = Subresource.BaseArraySlice;
+        Range.layerCount = Subresource.NumArraySlices;
+        
+        View.SubresourceRange = Range;
+
+        VkImageViewCreateInfo ImageViewCreateInfo = {};
+        ImageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        ImageViewCreateInfo.image = Image;
+        ImageViewCreateInfo.viewType = TextureDimensionToImageViewType(Dimension);
+        ImageViewCreateInfo.format = VulkanFormat;
+        ImageViewCreateInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+        ImageViewCreateInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+        ImageViewCreateInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+        ImageViewCreateInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+        ImageViewCreateInfo.subresourceRange = Range;
+
+        VkImageViewUsageCreateInfo ImageViewUsageInfo = {};
+        ImageViewUsageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_USAGE_CREATE_INFO;
+        ImageViewUsageInfo.usage = Usage;
+
+        if (Usage != 0)
+        {
+            ImageViewCreateInfo.pNext = &ImageViewUsageInfo;
+        }
+
+        VK_CHECK(vkCreateImageView(Device->GetDevice(), &ImageViewCreateInfo, VK_ALLOC_CALLBACK, &View.View));
+
+        return View;
+    }
+
+    uint32 FVulkanImage::GetNumSubresources() const
+    {
+        return GetDescription().NumMips * GetDescription().ArraySize;
+    }
+
+    uint32 FVulkanImage::GetSubresourceIndex(uint32 MipLevel, uint32 ArrayLayer) const
+    {
+        return MipLevel * GetDescription().ArraySize + ArrayLayer;
     }
 
     FVulkanStagingImage::FVulkanStagingImage(FVulkanDevice* InDevice)
@@ -1104,6 +1201,25 @@ namespace Lumina
         return DescriptorSetLayout;
     }
 
+    static FVulkanImage::ESubresourceViewType GetTextureViewType(EFormat BindingFormat, EFormat TextureFormat)
+    {
+        EFormat Format = (BindingFormat == EFormat::UNKNOWN) ? TextureFormat : BindingFormat;
+
+        const FFormatInfo& FormatInfo = GetFormatInfo(Format);
+
+        if (FormatInfo.bHasDepth)
+        {
+            return FVulkanImage::ESubresourceViewType::DepthOnly;
+        }
+        
+        if (FormatInfo.bHasStencil)
+        {
+            return FVulkanImage::ESubresourceViewType::StencilOnly;
+        }
+        
+        return FVulkanImage::ESubresourceViewType::AllAspects;
+    }
+
     FVulkanBindingSet::FVulkanBindingSet(FVulkanRenderContext* RenderContext, const FBindingSetDesc& InDesc, FVulkanBindingLayout* InLayout)
         : IDeviceChild(RenderContext->GetDevice())
         , Desc(InDesc)
@@ -1169,10 +1285,14 @@ namespace Lumina
             case ERHIBindingResourceType::Texture_SRV:
                 {
                     BindingsRequiringTransitions.push_back((uint32)BindingIndex);
-                    
                     FVulkanImage* Image = static_cast<FVulkanImage*>(Item.ResourceHandle);
+                    
+                    const FTextureSubresourceSet Subresource = Item.TextureResource.Subresources.Resolve(Image->GetDescription(), true);
+                    FVulkanImage::ESubresourceViewType ViewType = GetTextureViewType(Item.Format, Image->GetDescription().Format);
+                    VkImageView View = Image->GetSubresourceView(Subresource, Item.Dimension, Item.Format, VK_IMAGE_USAGE_SAMPLED_BIT, ViewType).View;
+                    
                     VkDescriptorImageInfo& ImageInfo = ImageInfos.emplace_back();
-                    ImageInfo.imageView = Image->GetImageView();
+                    ImageInfo.imageView = View;
                     ImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
                     ImageInfo.sampler = Item.TextureResource.Sampler ?
                     Item.TextureResource.Sampler->GetAPIResource<VkSampler>() : TStaticRHISampler<>::GetRHI()->GetAPIResource<VkSampler>();
@@ -1185,10 +1305,14 @@ namespace Lumina
             case ERHIBindingResourceType::Texture_UAV:
                 {
                     BindingsRequiringTransitions.push_back((uint32)BindingIndex);
-                    
+
                     FVulkanImage* Image = static_cast<FVulkanImage*>(Item.ResourceHandle);
+                    const FTextureSubresourceSet Subresource = Item.TextureResource.Subresources.Resolve(Image->GetDescription(), true);
+                    FVulkanImage::ESubresourceViewType ViewType = GetTextureViewType(Item.Format, Image->GetDescription().Format);
+                    VkImageView View = Image->GetSubresourceView(Subresource, Item.Dimension, Item.Format, VK_IMAGE_USAGE_STORAGE_BIT, ViewType).View;
+                    
                     VkDescriptorImageInfo& ImageInfo = ImageInfos.emplace_back();
-                    ImageInfo.imageView = Image->GetImageView();
+                    ImageInfo.imageView = View;
                     ImageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
                     
                     Write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;

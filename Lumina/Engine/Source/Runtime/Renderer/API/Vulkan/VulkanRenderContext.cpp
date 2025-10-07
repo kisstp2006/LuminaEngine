@@ -37,6 +37,25 @@ namespace Lumina
     {
         return Memory::Realloc(pMemory, size, alignment);
     }
+
+    static FVulkanImage::ESubresourceViewType GetTextureViewType(EFormat BindingFormat, EFormat TextureFormat)
+    {
+        EFormat Format = (BindingFormat == EFormat::UNKNOWN) ? TextureFormat : BindingFormat;
+
+        const FFormatInfo& FormatInfo = GetFormatInfo(Format);
+
+        if (FormatInfo.bHasDepth)
+        {
+            return FVulkanImage::ESubresourceViewType::DepthOnly;
+        }
+        
+        if (FormatInfo.bHasStencil)
+        {
+            return FVulkanImage::ESubresourceViewType::StencilOnly;
+        }
+        
+        return FVulkanImage::ESubresourceViewType::AllAspects;
+    }
     
     VkBool32 VKAPI_PTR VkDebugCallback(
         VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -121,6 +140,28 @@ namespace Lumina
     
     //------------------------------------------------------------------------------------
 
+
+    VkImageAspectFlags GuessImageAspectFlags(VkFormat Format)
+    {
+        switch (Format)
+        {
+        case VK_FORMAT_D16_UNORM:
+        case VK_FORMAT_X8_D24_UNORM_PACK32:
+        case VK_FORMAT_D32_SFLOAT:
+            return VK_IMAGE_ASPECT_DEPTH_BIT;
+
+        case VK_FORMAT_S8_UINT:
+            return VK_IMAGE_ASPECT_STENCIL_BIT;
+
+        case VK_FORMAT_D16_UNORM_S8_UINT:
+        case VK_FORMAT_D24_UNORM_S8_UINT:
+        case VK_FORMAT_D32_SFLOAT_S8_UINT:
+            return VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+
+        default:
+            return VK_IMAGE_ASPECT_COLOR_BIT;
+        }
+    }
 
     FQueue::FQueue(FVulkanRenderContext* InRenderContext, VkQueue InQueue, uint32 InQueueFamilyIndex, ECommandQueue InType)
         : IDeviceChild(InRenderContext->GetDevice())
@@ -797,8 +838,13 @@ namespace Lumina
             case ERHIBindingResourceType::Texture_SRV:
                 {
                     FVulkanImage* Image = static_cast<FVulkanImage*>(Binding.ResourceHandle);
+
+                    const FTextureSubresourceSet Subresource = Binding.TextureResource.Subresources.Resolve(Image->GetDescription(), true);
+                    FVulkanImage::ESubresourceViewType ViewType = GetTextureViewType(Binding.Format, Image->GetDescription().Format);
+                    VkImageView View = Image->GetSubresourceView(Subresource, Binding.Dimension, Binding.Format, VK_IMAGE_USAGE_SAMPLED_BIT, ViewType).View;
+                    
                     VkDescriptorImageInfo& ImageInfo = ImageWriteInfos.emplace_back();
-                    ImageInfo.imageView = Image->GetImageView();
+                    ImageInfo.imageView = View;
                     ImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
                     ImageInfo.sampler = TStaticRHISampler<>::GetRHI()->GetAPIResource<VkSampler>();
 
@@ -810,8 +856,13 @@ namespace Lumina
             case ERHIBindingResourceType::Texture_UAV:
                 {
                     FVulkanImage* Image = static_cast<FVulkanImage*>(Binding.ResourceHandle);
+
+                    const FTextureSubresourceSet Subresource = Binding.TextureResource.Subresources.Resolve(Image->GetDescription(), true);
+                    FVulkanImage::ESubresourceViewType ViewType = GetTextureViewType(Binding.Format, Image->GetDescription().Format);
+                    VkImageView View = Image->GetSubresourceView(Subresource, Binding.Dimension, Binding.Format, VK_IMAGE_USAGE_STORAGE_BIT, ViewType).View;
+                    
                     VkDescriptorImageInfo& ImageInfo = ImageWriteInfos.emplace_back();
-                    ImageInfo.imageView = Image->GetImageView();
+                    ImageInfo.imageView = View;
                     ImageInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
                     
                     Write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;

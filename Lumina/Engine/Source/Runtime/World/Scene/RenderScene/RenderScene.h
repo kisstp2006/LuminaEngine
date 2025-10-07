@@ -27,6 +27,8 @@ namespace Lumina
 
 namespace Lumina
 {
+
+    static constexpr int NumCascades = 4;
     
     class FRenderScene : public ISceneInterface
     {
@@ -62,8 +64,9 @@ namespace Lumina
         void CompileDrawCommands();
 
         //~ Begin Render Passes
-        void FrustumCull(FRenderGraph& RenderGraph, const FViewVolume& View);
+        void CullPass(FRenderGraph& RenderGraph, const FViewVolume& View);
         void DepthPrePass(FRenderGraph& RenderGraph, const FViewVolume& View);
+        void ShadowMappingPass(FRenderGraph& RenderGraph);
         void GBufferPass(FRenderGraph& RenderGraph, const FViewVolume& View);
         void SSAOPass(FRenderGraph& RenderGraph);
         void EnvironmentPass(FRenderGraph& RenderGraph);
@@ -78,6 +81,7 @@ namespace Lumina
         void InitBuffers();
         void CreateImages();
         void OnSwapchainResized();
+        void GrowBufferIfNeeded(FRHIBufferRef& Buffer, SIZE_T DesiredSize, SIZE_T Padding);
     
     private:
 
@@ -109,6 +113,9 @@ namespace Lumina
         FRHIInputLayoutRef                  SimpleVertexLayoutInput;
 
         FSceneGlobalData                    SceneGlobalData;
+
+        FRHIBindingSetRef                   ShadowPassSet;
+        FRHIBindingLayoutRef                ShadowPassLayout;
         
         FRHIBindingSetRef                   LightingPassSet;
         FRHIBindingLayoutRef                LightingPassLayout;
@@ -143,20 +150,24 @@ namespace Lumina
         FRHIImageRef                        DebugVisualizationImage;
 
         ERenderSceneDebugFlags              DebugVisualizationMode;
-        
-        
+
+        TArray<FShadowCascade, NumCascades>           ShadowCascades;
         
         /** Packed array of per-instance data */
         TRenderVector<FInstanceData>                  InstanceData;
 
         /** Packed array of all cached mesh draw commands */
         TRenderVector<FMeshDrawCommand>               MeshDrawCommands;
-        TRenderVector<FMeshDrawCommand>               DepthMeshDrawCommands;
 
 
         /** Packed indirect draw arguments, gets sent directly to the GPU */
         TRenderVector<FDrawIndexedIndirectArguments>  IndirectDrawArguments;
 
+
+
+        uint32 bHasDirectionalLight:1 = false;
+
+        
     };
     
 }

@@ -192,7 +192,14 @@ namespace Lumina
             GTaskSystem->ParallelFor(std::forward<TBegin>(Begin), std::forward<TEnd>(End), std::forward<TFunc>(Func), Priority);
         }
 
-        template<typename TContainer, typename TFunc>
+        template<typename T>
+        concept CTHasBeginEnd = requires(T t)
+        {
+            { t.begin() } -> std::input_or_output_iterator;
+            { t.end() }   -> std::input_or_output_iterator;
+        };
+
+        template<CTHasBeginEnd TContainer, typename TFunc>
         void ParallelFor(TContainer&& Container, TFunc&& Func, ETaskPriority Priority = ETaskPriority::Medium)
         {
             GTaskSystem->ParallelFor(std::forward<TContainer>(Container).begin(), std::forward<TContainer>(Container).end(), std::forward<TFunc>(Func), Priority);

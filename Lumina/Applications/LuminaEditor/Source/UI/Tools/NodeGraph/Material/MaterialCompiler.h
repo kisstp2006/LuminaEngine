@@ -64,14 +64,22 @@ namespace Lumina
         void DefineConstantFloat4(const FString& ID, float Value[4]);
 
         void DefineTextureSample(const FString& ID);
-        void TextureSample(const FString& ID, CTexture* Texture);
+        void TextureSample(const FString& ID, CTexture* Texture, CMaterialInput* Input);
 
         void NewLine();
-        
+
+        void VertexNormal(const FString& ID);
+        void TexCoords(const FString& ID);
         void Time(const FString& ID);
         void WorldPos(const FString& ID);
         void CameraPos(const FString& ID);
-        
+        void EntityID(const FString& ID);
+
+        void Saturate(CMaterialInput* A, CMaterialInput* B);
+        void Normalize(CMaterialInput* A, CMaterialInput* B);
+        void Distance(CMaterialInput* A, CMaterialInput* B);
+        void Abs(CMaterialInput* A, CMaterialInput* B);
+        void SmoothStep(CMaterialInput* A, CMaterialInput* B, CMaterialInput* C);
         void Multiply(CMaterialInput* A, CMaterialInput* B);
         void Divide(CMaterialInput* A, CMaterialInput* B);
         void Add(CMaterialInput* A, CMaterialInput* B);

@@ -3,6 +3,7 @@
 #include "VulkanDevice.h"
 #include "VulkanMacros.h"
 #include "VulkanRenderContext.h"
+#include "Containers/Tuple.h"
 #include "Renderer/RenderResource.h"
 #include "Renderer/Shader.h"
 
@@ -43,7 +44,7 @@ namespace Lumina
         FRHIBufferRef Buffer;
         uint64 Version = 0;
         uint64 BufferSize = 0;
-        uint64 WritePointer = 0;
+        std::atomic_uint64_t WritePointer{0};
         void* MappedMemory = nullptr;
 
         static constexpr uint64 c_sizeAlignment = 4096; // GPU page size
@@ -175,30 +176,94 @@ namespace Lumina
         FSamplerDesc    Desc;
         VkSampler       Sampler;
     };
+
+    struct FTextureSubresourceView
+    {
+        class FVulkanImage& Image;
+        FTextureSubresourceSet Subresource;
+
+        VkImageView View = nullptr;
+        VkImageSubresourceRange SubresourceRange;
+
+        FTextureSubresourceView(FVulkanImage& InImage)
+            : Image(InImage)
+            , SubresourceRange({})
+        {
+        }
+
+        FTextureSubresourceView(const FTextureSubresourceView&) = delete;
+
+        bool operator==(const FTextureSubresourceView& Other) const
+        {
+            return &Image == &Other.Image && Subresource == Other.Subresource && View == Other.View
+                && SubresourceRange.aspectMask == Other.SubresourceRange.aspectMask
+                && SubresourceRange.baseArrayLayer == Other.SubresourceRange.baseArrayLayer
+                && SubresourceRange.baseMipLevel == Other.SubresourceRange.baseMipLevel
+                && SubresourceRange.layerCount == Other.SubresourceRange.layerCount
+                && SubresourceRange.levelCount == Other.SubresourceRange.levelCount;
+        }
+    };
     
     class FVulkanImage : public FRHIImage, public IDeviceChild
     {
     public:
 
+        enum class ESubresourceViewType
+        {
+            AllAspects,
+            DepthOnly,
+            StencilOnly,
+        };
+
+        using FSubresourceViewKey = TTuple<FTextureSubresourceSet, ESubresourceViewType, EImageDimension, EFormat, VkImageUsageFlags>;
+
+        struct Hash
+        {
+            std::size_t operator()(FSubresourceViewKey const& s) const noexcept
+            {
+                const auto& [subresources, viewType, dimension, format, usage] = s;
+
+                size_t hash = 0;
+
+                Lumina::Hash::HashCombine(hash, subresources.BaseMipLevel);
+                Lumina::Hash::HashCombine(hash, subresources.NumMipLevels);
+                Lumina::Hash::HashCombine(hash, subresources.BaseArraySlice);
+                Lumina::Hash::HashCombine(hash, subresources.NumArraySlices);
+                Lumina::Hash::HashCombine(hash, viewType);
+                Lumina::Hash::HashCombine(hash, dimension);
+                Lumina::Hash::HashCombine(hash, format);
+                Lumina::Hash::HashCombine(hash, static_cast<uint32>(usage));
+
+                return hash;
+            }
+        };
+
         FVulkanImage(FVulkanDevice* InDevice, const FRHIImageDesc& InDescription);
-        FVulkanImage(FVulkanDevice* InDevice, const FRHIImageDesc& InDescription, VkImage RawImage, VkImageView RawView);
+        FVulkanImage(FVulkanDevice* InDevice, const FRHIImageDesc& InDescription, VkImage RawImage, bool bManagedExternal);
         ~FVulkanImage() override;
 
         void* GetAPIResourceImpl(EAPIResourceType Type) override;
 
         VkImage GetImage() const { return Image; }
-        VkImageView GetImageView() const { return ImageView; }
+        void* GetRHIView(EFormat Format, FTextureSubresourceSet Subresources, EImageDimension Dimension, bool bReadyOnlyDSV) override;
         
         VkImageAspectFlags GetFullAspectMask() const { return FullAspectMask; }
         VkImageAspectFlags GetPartialAspectMask() const { return PartialAspectMask; }
+        FTextureSubresourceView& GetSubresourceView(const FTextureSubresourceSet& Subresource, EImageDimension Dimension, EFormat Format, VkImageUsageFlags Usage, ESubresourceViewType ViewType = ESubresourceViewType::AllAspects);
 
+        uint32 GetNumSubresources() const;
+        uint32 GetSubresourceIndex(uint32 MipLevel, uint32 ArrayLayer) const;
+        
     private:
+        
+        THashMap<FSubresourceViewKey, FTextureSubresourceView, Hash> SubresourceViews;
 
+        
+        FMutex                      SubresourceMutex;                      
         bool                        bImageManagedExternal = false;  // Mostly for swapchain.
         VkImageAspectFlags          FullAspectMask =        VK_IMAGE_ASPECT_NONE;
         VkImageAspectFlags          PartialAspectMask =     VK_IMAGE_ASPECT_NONE;
         VkImage                     Image =                 VK_NULL_HANDLE;
-        VkImageView                 ImageView =             VK_NULL_HANDLE;
     };
 
     class FVulkanStagingImage : public FRHIStagingImage, public IDeviceChild

@@ -1,10 +1,10 @@
 ﻿#include "MeshEditorTool.h"
 
 #include "ImGuiDrawUtils.h"
-#include "Core/Engine/Engine.h"
 #include "Core/Object/Cast.h"
 #include "Core/Reflection/Type/LuminaTypes.h"
-#include "glm/gtc/type_ptr.inl"
+#include "glm/glm.hpp"
+#include "glm/gtx/string_cast.hpp"
 #include "Tools/UI/ImGui/ImGuiFonts.h"
 #include "Tools/UI/ImGui/ImGuiX.h"
 #include "World/Entity/Components/LightComponent.h"
@@ -41,7 +41,7 @@ namespace Lumina
             const FMeshResource& Resource = StaticMesh->GetMeshResource();
             TVector<FGeometrySurface> Surfaces = Resource.GeometrySurfaces;
             
-            if (ImGui::CollapsingHeader("Mesh Resources"))
+            if (ImGui::CollapsingHeader("Mesh Resources", ImGuiTreeNodeFlags_DefaultOpen))
             {
                 ImGui::Indent();
 
@@ -60,6 +60,11 @@ namespace Lumina
                            ImGui::TextUnformatted(value.c_str());
                     };
 
+                    Row("Vertex Buffer Size (KB)", eastl::to_string(Resource.Vertices.size() * sizeof(FVertex) / 1024));
+                    Row("Index Buffer Size (KB)", eastl::to_string(Resource.Indices.size() * sizeof(uint32_t) / 1024));
+                    Row("Bounding Box Min", glm::to_string(StaticMesh->GetAABB().Min).c_str());
+                    Row("Bounding Box Max", glm::to_string(StaticMesh->GetAABB().Max).c_str());
+                    Row("Triangles", eastl::to_string(Resource.Vertices.size() / 3));
                     Row("Vertices", eastl::to_string(Resource.Vertices.size()));
                     Row("Indices", eastl::to_string(Resource.Indices.size()));
                     Row("Shadow Indices", eastl::to_string(Resource.ShadowIndices.size()));
@@ -160,6 +165,10 @@ namespace Lumina
                 "Material",
                 "Depth",
                 "Overdraw",
+                "Cascade1",
+                "Cascade2",
+                "Cascade3",
+                "Cascade4",
             };
 
             ERenderSceneDebugFlags DebugMode = SceneRenderer->GetDebugMode();

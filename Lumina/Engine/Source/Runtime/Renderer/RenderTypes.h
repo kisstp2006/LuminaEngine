@@ -1,13 +1,13 @@
 ﻿#pragma once
 
-#include "Lumina.h"
 #include <glm/glm.hpp>
+#include "Lumina.h"
 
 #include "Format.h"
 #include "RHIFwd.h"
-#include "Core/Math/Color.h"
 #include "Vertex.h"
 #include "Core/LuminaMacros.h"
+#include "Core/Math/Color.h"
 #include "Core/Math/Hash/Hash.h"
 
 #define NO_TEXTURE (-1)
@@ -250,123 +250,6 @@ namespace Lumina
 
         NODISCARD int width() const { return MaxX - MinX; }
         NODISCARD int height() const { return MaxY - MinY; }
-    };
-    
-    struct FRenderPassBeginInfo
-    {
-        TFixedVector<FRHIImageRef, 4> ColorAttachments;
-        TFixedVector<ERenderLoadOp, 4> ColorLoadOps;
-        TFixedVector<ERenderStoreOp, 4> ColorStoreOps;
-        TFixedVector<FColor, 4> ClearColorValues;
-        
-        FRHIImageRef DepthAttachment;
-        ERenderLoadOp DepthLoadOp = ERenderLoadOp::Clear;
-        ERenderStoreOp DepthStoreOp = ERenderStoreOp::Store;
-        float ClearDepth = 1.0f; 
-        uint32 ClearStencil = 0;
-        FString DebugName;
-        FIntVector2D RenderArea;
-
-        bool IsValid() const
-        {
-            return RenderArea.X != 0 && RenderArea.Y != 0;
-        }
-        
-        // Fluent API for adding color attachments
-        FRenderPassBeginInfo& AddColorAttachment(const FRHIImageRef& Attachment)
-        {
-            ColorAttachments.push_back(Attachment);
-            return *this;
-        }
-    
-        // Set a LoadOp for the most recently added color attachment
-        FRenderPassBeginInfo& SetColorLoadOp(ERenderLoadOp LoadOp)
-        {
-            ColorLoadOps.push_back(LoadOp);
-            return *this;
-        }
-    
-        // Set a StoreOp for the most recently added color attachment
-        FRenderPassBeginInfo& SetColorStoreOp(ERenderStoreOp StoreOp)
-        {
-            ColorStoreOps.push_back(StoreOp);
-            return *this;
-        }
-    
-        // Set the clear color for the most recently added color attachment
-        FRenderPassBeginInfo& SetColorClearColor(const FColor& ClearColor)
-        {
-            ClearColorValues.push_back(ClearColor);
-            return *this;
-        }
-    
-        // Fluent API for adding a depth attachment
-        FRenderPassBeginInfo& SetDepthAttachment(const FRHIImageRef& Attachment)
-        {
-            DepthAttachment = Attachment;
-            return *this;
-        }
-    
-        // Set a LoadOp for the depth attachment
-        FRenderPassBeginInfo& SetDepthLoadOp(ERenderLoadOp LoadOp)
-        {
-            DepthLoadOp = LoadOp;
-            return *this;
-        }
-    
-        // Set a StoreOp for the depth attachment
-        FRenderPassBeginInfo& SetDepthStoreOp(ERenderStoreOp StoreOp)
-        {
-            DepthStoreOp = StoreOp;
-            return *this;
-        }
-    
-        // Set clear depth value for the depth attachment
-        FRenderPassBeginInfo& SetDepthClearValue(float Depth)
-        {
-            ClearDepth = Depth;
-            return *this;
-        }
-    
-        // Set clear stencil value for the depth attachment
-        FRenderPassBeginInfo& SetDepthClearStencil(uint32 Stencil)
-        {
-            ClearStencil = Stencil;
-            return *this;
-        }
-    
-        // Set the render area
-        FRenderPassBeginInfo& SetRenderArea(const FIntVector2D& Area)
-        {
-            RenderArea = Area;
-            return *this;
-        }
-
-        FRenderPassBeginInfo& SetDebugName(const FString& Name)
-        {
-            DebugName = Name;
-            return *this;
-        }
-
-        bool operator==(const FRenderPassBeginInfo& Other) const
-        {
-            return ColorAttachments   == Other.ColorAttachments
-                && ColorLoadOps       == Other.ColorLoadOps
-                && ColorStoreOps      == Other.ColorStoreOps
-                && ClearColorValues   == Other.ClearColorValues
-                && DepthAttachment    == Other.DepthAttachment
-                && DepthLoadOp        == Other.DepthLoadOp
-                && DepthStoreOp       == Other.DepthStoreOp
-                && ClearDepth         == Other.ClearDepth
-                && ClearStencil       == Other.ClearStencil
-                && DebugName          == Other.DebugName
-                && RenderArea         == Other.RenderArea;
-        }
-
-        bool operator!=(const FRenderPassBeginInfo& Other) const
-        {
-            return !(*this == Other);
-        }
     };
     
     struct FDescriptorBinding
@@ -837,40 +720,6 @@ namespace Lumina
     {
         FViewport   Viewport;
         FRect       Scissor;
-    };
-    
-    struct LUMINA_API FGraphicsState
-    {
-        FRHIGraphicsPipeline* Pipeline = nullptr;
-        FRenderPassBeginInfo RenderPass = {};
-        FViewportState ViewportState;
-        TFixedVector<FRHIBindingSet*, 1> Bindings;
-        
-        TFixedVector<FVertexBufferBinding, 1> VertexBuffers;
-        FIndexBufferBinding IndexBuffer;
-
-        FRHIBuffer* IndirectParams = nullptr;
-
-        FGraphicsState& SetRenderPass(const FRenderPassBeginInfo& value) { RenderPass = value; return *this; }
-        FGraphicsState& SetPipeline(FRHIGraphicsPipeline* value) { Pipeline = value; return *this; }
-        FGraphicsState& SetViewport(const FViewportState& value) { ViewportState = value; return *this; }
-        FGraphicsState& AddBindingSet(FRHIBindingSet* value) { Bindings.push_back(value); return *this; }
-        FGraphicsState& AddVertexBuffer(const FVertexBufferBinding& value) { VertexBuffers.push_back(value); return *this; }
-        FGraphicsState& SetIndexBuffer(const FIndexBufferBinding& value) { IndexBuffer = value; return *this; }
-        FGraphicsState& SetIndirectParams(FRHIBuffer* value) { IndirectParams = value; return *this; }
-    };
-
-    struct LUMINA_API FComputeState
-    {
-        FRHIComputePipeline* Pipeline = nullptr;
-        TFixedVector<FRHIBindingSet*, 1> Bindings;
-
-        FRHIBuffer* IndirectParams = nullptr;
-
-        FComputeState& SetPipeline(FRHIComputePipeline* value) { Pipeline = value; return *this; }
-        FComputeState& AddBindingSet(FRHIBindingSet* value) { Bindings.push_back(value); return *this; }
-        FComputeState& SetIndirectParams(FRHIBuffer* value) { IndirectParams = value; return *this; }
-        
     };
     
     

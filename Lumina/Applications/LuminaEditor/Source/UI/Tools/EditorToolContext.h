@@ -2,7 +2,6 @@
 #include "imgui.h"
 #include "Core/UpdateContext.h"
 #include "Containers/Function.h"
-#include "Platform/WindowsPlatform.h"
 
 namespace Lumina
 {

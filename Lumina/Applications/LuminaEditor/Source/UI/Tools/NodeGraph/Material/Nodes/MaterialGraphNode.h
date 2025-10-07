@@ -23,7 +23,7 @@ namespace Lumina
         { }
         
         virtual uint32 GenerateExpression(FMaterialCompiler* Compiler) { return INDEX_NONE; }
-        virtual void GenerateDefinition(FMaterialCompiler* Compiler) { }
+        virtual void GenerateDefinition(FMaterialCompiler* Compiler) { LUMINA_NO_ENTRY() }
         
         virtual void* GetNodeDefaultValue() { return nullptr; }
         virtual void SetNodeValue(void* Value) { }

@@ -31,7 +31,7 @@ namespace Lumina
         }
 
         bool bOldResult = false;
-        for (const CStruct* Temp=this; Temp; Temp=Temp->GetSuperStruct())
+        for (const CStruct* Temp = this; Temp; Temp = Temp->GetSuperStruct())
         {
             if (Temp == Base)
             {

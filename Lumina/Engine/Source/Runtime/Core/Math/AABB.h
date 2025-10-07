@@ -8,7 +8,8 @@ namespace Lumina
 {
     struct FAABB
     {
-        glm::vec3 Min, Max;
+        glm::vec3 Min;
+        glm::vec3 Max;
         
         FAABB()
             : Min(0.0f), Max(0.0f)
@@ -23,8 +24,8 @@ namespace Lumina
 
         NODISCARD FAABB ToWorld(const glm::mat4& World) const
         {
-            glm::vec3 newMin(std::numeric_limits<float>::max());
-            glm::vec3 newMax(-std::numeric_limits<float>::max());
+            glm::vec3 NewMin(std::numeric_limits<float>::max());
+            glm::vec3 NewMax(-std::numeric_limits<float>::max());
 
             for (int i = 0; i < 8; i++)
             {
@@ -38,11 +39,11 @@ namespace Lumina
                 glm::vec4 transformed = World * glm::vec4(corner, 1.0f);
                 glm::vec3 p = glm::vec3(transformed) / transformed.w;
 
-                newMin = glm::min(newMin, p);
-                newMax = glm::max(newMax, p);
+                NewMin = glm::min(NewMin, p);
+                NewMax = glm::max(NewMax, p);
             }
 
-            return FAABB(newMin, newMax);
+            return FAABB(NewMin, NewMax);
         }
     };
 }

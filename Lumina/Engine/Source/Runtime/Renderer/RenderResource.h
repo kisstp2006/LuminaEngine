@@ -629,7 +629,7 @@ namespace Lumina
 		constexpr FTextureSlice& SetMipLevel(uint32 level) { MipLevel = level; return *this; }
 		constexpr FTextureSlice& SetArraySlice(uint32 slice) { ArraySlice = slice; return *this; }
 	};
-
+	
 	struct FTextureSubresourceSet
     {
         static constexpr uint32 AllMipLevels = uint32(-1);
@@ -690,14 +690,140 @@ namespace Lumina
 		MirrorClampToEdge = MirrorOnce
 	};
 
-#define AM_Clamp ESamplerAddressMode::Clamp
-#define AM_Wrap ESamplerAddressMode::Wrap
-#define AM_Repeat ESamplerAddressMode::Repeat
-#define AM_Border ESamplerAddressMode::Border
-#define AM_Mirror ESamplerAddressMode::Mirror
-#define AM_MirrorOnce ESamplerAddressMode::MirrorOnce
+	#define AM_Clamp ESamplerAddressMode::Clamp
+	#define AM_Wrap ESamplerAddressMode::Wrap
+	#define AM_Repeat ESamplerAddressMode::Repeat
+	#define AM_Border ESamplerAddressMode::Border
+	#define AM_Mirror ESamplerAddressMode::Mirror
+	#define AM_MirrorOnce ESamplerAddressMode::MirrorOnce
 
-	enum class LUMINA_API ESamplerReductionType : uint8_t
+	struct FRenderPassDesc
+    {
+        struct FAttachment
+        {
+            FRHIImage*		Image = nullptr;
+        	FTextureSubresourceSet Subresources = FTextureSubresourceSet(0, 1, 0 ,1);
+        	ERenderLoadOp	LoadOp = ERenderLoadOp::Clear;
+        	ERenderStoreOp	StoreOp = ERenderStoreOp::Store;
+        	glm::vec4		ClearColor = glm::vec4(0.0f);
+        	bool			bReadOnly = false;
+
+        	constexpr FAttachment& SetImage(FRHIImage* t) { Image = t; return *this; }
+        	constexpr FAttachment& SetLoadOp(ERenderLoadOp Op) { LoadOp = Op; return *this; }
+        	constexpr FAttachment& SetStoreOp(ERenderStoreOp Op) { StoreOp = Op; return *this; }
+        	constexpr FAttachment& SetDepthClearValue(float Value) { ClearColor.r = Value; return *this; }
+        	constexpr FAttachment& SetClearColor(glm::vec4 Col) { ClearColor = Col; return *this; }
+        	constexpr FAttachment& SetSubresources(FTextureSubresourceSet value) { Subresources = value; return *this; }
+        	constexpr FAttachment& SetArraySlice(uint32 index) { Subresources.BaseArraySlice = index; Subresources.NumArraySlices = 1; return *this; }
+        	constexpr FAttachment& SetArraySliceRange(uint32 index, uint32 count) { Subresources.BaseArraySlice = index; Subresources.NumArraySlices = count; return *this; }
+        	constexpr FAttachment& SetMipLevel(uint32 level) { Subresources.BaseMipLevel = level; Subresources.NumMipLevels = 1; return *this; }
+        	constexpr FAttachment& SetReadOnly(bool ro) { bReadOnly = ro; return *this; }
+        	
+        	FORCEINLINE bool IsValid() const { return Image != nullptr; }
+        };
+        
+        TFixedVector<FAttachment, 8>	ColorAttachments;
+        FAttachment						DepthAttachment;
+		FIntVector2D					RenderArea;
+
+		FRenderPassDesc& SetRenderArea(const FIntVector2D& Area) { RenderArea = Area; return *this; }
+		FRenderPassDesc& AddColorAttachment(const FAttachment& a) { ColorAttachments.push_back(a); return *this; }
+		FRenderPassDesc& AddColorAttachment(FRHIImage* texture) { ColorAttachments.push_back(FAttachment().SetImage(texture)); return *this; }
+		FRenderPassDesc& AddColorAttachment(FRHIImage* texture, FTextureSubresourceSet subresources) { ColorAttachments.push_back(FAttachment().SetImage(texture).SetSubresources(subresources)); return *this; }
+		FRenderPassDesc& SetDepthAttachment(const FAttachment& d) { DepthAttachment = d; return *this; }
+		FRenderPassDesc& SetDepthAttachment(const FAttachment& d, FTextureSubresourceSet subresources) { DepthAttachment = d; DepthAttachment.SetSubresources(subresources); return *this; }
+		FRenderPassDesc& SetDepthAttachment(FRHIImage* texture) { DepthAttachment = FAttachment().SetImage(texture); return *this; }
+		FRenderPassDesc& SetDepthAttachment(FRHIImage* texture, FTextureSubresourceSet subresources) { DepthAttachment = FAttachment().SetImage(texture).SetSubresources(subresources); return *this; }
+
+		bool operator==(const FRenderPassDesc& Other) const
+		{
+			if (RenderArea != Other.RenderArea)
+			{
+				return false;
+			}
+
+			if (ColorAttachments.size() != Other.ColorAttachments.size())
+			{
+				return false;
+			}
+
+			for (size_t i = 0; i < ColorAttachments.size(); ++i)
+			{
+				const auto& A = ColorAttachments[i];
+				const auto& B = Other.ColorAttachments[i];
+
+				if (A.Image != B.Image)
+				{
+					return false;
+				}
+				if (A.Subresources != B.Subresources)
+				{
+					return false;
+				}
+				if (A.LoadOp != B.LoadOp)
+				{
+					return false;
+				}
+				if (A.StoreOp != B.StoreOp)
+				{
+					return false;
+				}
+				if (A.ClearColor != B.ClearColor)
+				{
+					return false;
+				}
+				if (A.bReadOnly != B.bReadOnly)
+				{
+					return false;
+				}
+			}
+
+			const auto& DA = DepthAttachment;
+			const auto& DB = Other.DepthAttachment;
+
+			if (DA.IsValid() != DB.IsValid())
+			{
+				return false;
+			}
+
+			if (DA.IsValid())
+			{
+				if (DA.Image != DB.Image)
+				{
+					return false;
+				}
+				if (DA.Subresources != DB.Subresources)
+				{
+					return false;
+				}
+				if (DA.LoadOp != DB.LoadOp)
+				{
+					return false;
+				}
+				if (DA.StoreOp != DB.StoreOp)
+				{
+					return false;
+				}
+				if (DA.ClearColor != DB.ClearColor)
+				{
+					return false;
+				}
+				if (DA.bReadOnly != DB.bReadOnly)
+				{
+					return false;
+				}
+			}
+
+			return true;
+		}
+		
+        bool IsValid() const
+        {
+            return (!ColorAttachments.empty()) || DepthAttachment.IsValid();
+        }
+    };
+	
+	enum class LUMINA_API ESamplerReductionType : uint8
 	{
 		Standard,
 		Comparison,
@@ -762,6 +888,8 @@ namespace Lumina
 		FORCEINLINE uint32 GetSizeY() const { return Description.Extent.Y; }
 		FORCEINLINE EFormat GetFormat() const { return Description.Format; }
 		FORCEINLINE TBitFlags<EImageCreateFlags> GetFlags() const { return Description.Flags; }
+
+		virtual void* GetRHIView(EFormat Format, FTextureSubresourceSet Subresources, EImageDimension Dimension, bool bReadyOnlyDSV = false) = 0;
 		
 	
 	private:
@@ -1620,6 +1748,40 @@ namespace Lumina
         FGraphicsPipelineDesc& SetVariableRateShadingState(const FVariableRateShadingState& value) { ShadingRateState = value; return *this; }
         FGraphicsPipelineDesc& AddBindingLayout(FRHIBindingLayout* layout) { BindingLayouts.push_back(layout); return *this; }
     };
+
+	struct LUMINA_API FGraphicsState
+	{
+		FRHIGraphicsPipeline* Pipeline = nullptr;
+		FRenderPassDesc RenderPass = {};
+		FViewportState ViewportState;
+		TFixedVector<FRHIBindingSet*, 1> Bindings;
+        
+		TFixedVector<FVertexBufferBinding, 1> VertexBuffers;
+		FIndexBufferBinding IndexBuffer;
+
+		FRHIBuffer* IndirectParams = nullptr;
+
+		FGraphicsState& SetRenderPass(const FRenderPassDesc& value) { RenderPass = value; return *this; }
+		FGraphicsState& SetPipeline(FRHIGraphicsPipeline* value) { Pipeline = value; return *this; }
+		FGraphicsState& SetViewport(const FViewportState& value) { ViewportState = value; return *this; }
+		FGraphicsState& AddBindingSet(FRHIBindingSet* value) { Bindings.push_back(value); return *this; }
+		FGraphicsState& AddVertexBuffer(const FVertexBufferBinding& value) { VertexBuffers.push_back(value); return *this; }
+		FGraphicsState& SetIndexBuffer(const FIndexBufferBinding& value) { IndexBuffer = value; return *this; }
+		FGraphicsState& SetIndirectParams(FRHIBuffer* value) { IndirectParams = value; return *this; }
+	};
+
+	struct LUMINA_API FComputeState
+	{
+		FRHIComputePipeline* Pipeline = nullptr;
+		TFixedVector<FRHIBindingSet*, 1> Bindings;
+
+		FRHIBuffer* IndirectParams = nullptr;
+
+		FComputeState& SetPipeline(FRHIComputePipeline* value) { Pipeline = value; return *this; }
+		FComputeState& AddBindingSet(FRHIBindingSet* value) { Bindings.push_back(value); return *this; }
+		FComputeState& SetIndirectParams(FRHIBuffer* value) { IndirectParams = value; return *this; }
+        
+	};
 
 	
 	class LUMINA_API FRHIGraphicsPipeline : public IRHIResource

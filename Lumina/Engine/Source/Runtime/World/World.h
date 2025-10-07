@@ -108,6 +108,9 @@ namespace Lumina
         void SetIsPlayInEditorWorld(bool bValue) { bIsPlayInEditorWorld = bValue; }
 
         void SetEntityTransform(Entity Entt, const FTransform& NewTransform);
+
+        void SetSelectedEntity(entt::entity EntityID) { SelectedEntity = EntityID; }
+        FORCEINLINE entt::entity GetSelectedEntity() const { return SelectedEntity; }
         
     private:
         
@@ -122,15 +125,14 @@ namespace Lumina
         FRenderScene*                                   RenderScene = nullptr;
         
         TVector<TObjectHandle<CEntitySystem>>           SystemUpdateList[(int32)EUpdateStage::Max];
-
-    private:
-
+        
         int64                                           WorldIndex = -1;
         double                                          DeltaTime = 0.0;
         double                                          TimeSinceCreation = 0.0;
         uint32                                          bPaused:1=1;
         uint32                                          bActive:1=1;
         uint32                                          bIsPlayInEditorWorld:1=0;
+        entt::entity                                    SelectedEntity;
         
     };
 }

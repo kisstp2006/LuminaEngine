@@ -218,17 +218,38 @@ namespace Lumina
 
     void FWorldEditorTool::DrawToolMenu(const FUpdateContext& UpdateContext)
     {
-        if (ImGui::BeginMenu(LE_ICON_CAMERA_CONTROL" Camera Control"))
+        if (ImGui::BeginMenu(LE_ICON_CAMERA_CONTROL" Camera"))
         {
+            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(8, 4));
+            
+            ImGui::TextColored(ImVec4(0.7f, 0.9f, 1.0f, 1.0f), "Movement Settings");
+            ImGui::Separator();
+            ImGui::Spacing();
+            
             float Speed = EditorEntity.GetComponent<SVelocityComponent>().Speed;
-            ImGui::SliderFloat("Camera Speed", &Speed, 1.0f, 200.0f);
-            EditorEntity.GetComponent<SVelocityComponent>().Speed = Speed;
+            ImGui::SetNextItemWidth(200);
+            if (ImGui::SliderFloat("##CameraSpeed", &Speed, 1.0f, 200.0f, "%.1f units/s"))
+            {
+                EditorEntity.GetComponent<SVelocityComponent>().Speed = Speed;
+            }
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Camera movement speed");
+            
+            ImGui::PopStyleVar();
             ImGui::EndMenu();
         }
         
-        if (ImGui::BeginMenu(LE_ICON_MOVE_RESIZE " Gizmo Control"))
+        if (ImGui::BeginMenu(LE_ICON_MOVE_RESIZE" Gizmo"))
         {
+            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(8, 4));
+            
             static int currentOpIndex = 0;
+            static int currentModeIndex = 0;
+
+            // Operation Selection
+            ImGui::TextColored(ImVec4(1.0f, 0.78f, 0.4f, 1.0f), "Transform Operation");
+            ImGui::Separator();
+            ImGui::Spacing();
 
             const char* operations[] = { "Translate", "Rotate", "Scale" };
             constexpr int operationsCount = IM_ARRAYSIZE(operations);
@@ -241,7 +262,8 @@ namespace Lumina
             default:                  currentOpIndex = 0; break;
             }
 
-            if (ImGui::Combo("Operation", &currentOpIndex, operations, operationsCount))
+            ImGui::SetNextItemWidth(180);
+            if (ImGui::Combo("##Operation", &currentOpIndex, operations, operationsCount))
             {
                 switch (currentOpIndex)
                 {
@@ -250,10 +272,16 @@ namespace Lumina
                 case 2: GuizmoOp = ImGuizmo::SCALE;     break;
                 }
             }
+            
+            ImGui::Spacing();
+            ImGui::Spacing();
 
-            static int currentModeIndex = 0;
+            // Mode Selection
+            ImGui::TextColored(ImVec4(1.0f, 0.78f, 0.4f, 1.0f), "Transform Space");
+            ImGui::Separator();
+            ImGui::Spacing();
 
-            const char* modes[] = { "World", "Local" };
+            const char* modes[] = { "World Space", "Local Space" };
             constexpr int modesCount = IM_ARRAYSIZE(modes);
 
             switch (GuizmoMode)
@@ -263,7 +291,8 @@ namespace Lumina
             default:              currentModeIndex = 0; break;
             }
 
-            if (ImGui::Combo("Mode", &currentModeIndex, modes, modesCount))
+            ImGui::SetNextItemWidth(180);
+            if (ImGui::Combo("##Mode", &currentModeIndex, modes, modesCount))
             {
                 switch (currentModeIndex)
                 {
@@ -272,52 +301,104 @@ namespace Lumina
                 }
             }
 
+            ImGui::PopStyleVar();
             ImGui::EndMenu();
         }
-
-        if (ImGui::BeginMenu(LE_ICON_DEBUG_STEP_INTO " Render Debug"))
+        
+        if (ImGui::BeginMenu(LE_ICON_DEBUG_STEP_INTO" Renderer"))
         {
+            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(8, 4));
+            
             FRenderScene* SceneRenderer = World->GetRenderer();
             const FSceneRenderStats& Stats = SceneRenderer->GetSceneRenderStats();
 
-            ImGui::TextColored(ImVec4(1.0f, 0.78f, 0.16f, 1.0f), "Scene Statistics");
+            // Scene Statistics Section
+            ImGui::TextColored(ImVec4(0.4f, 1.0f, 0.6f, 1.0f), "Performance Statistics");
             ImGui::Separator();
-            ImGui::Text("Draw Calls");    ImGui::SameLine(150); ImGui::Text("%u", Stats.NumDrawCalls);
-            ImGui::Text("Vertices");      ImGui::SameLine(150); ImGui::Text("%llu", Stats.NumVertices);
-            ImGui::Text("Indices");       ImGui::SameLine(150); ImGui::Text("%llu", Stats.NumIndices);
-
+            ImGui::Spacing();
+            
+            ImGui::BeginTable("##StatsTable", 2, ImGuiTableFlags_None);
+            ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, 120.0f);
+            ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthFixed, 100.0f);
+            
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn();
+            ImGui::TextUnformatted("Draw Calls");
+            ImGui::TableNextColumn();
+            ImGui::Text("%u", Stats.NumDrawCalls);
+            
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn();
+            ImGui::TextUnformatted("Vertices");
+            ImGui::TableNextColumn();
+            ImGui::Text("%llu", Stats.NumVertices);
+            
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn();
+            ImGui::TextUnformatted("Indices");
+            ImGui::TableNextColumn();
+            ImGui::Text("%llu", Stats.NumIndices);
+            
+            ImGui::EndTable();
+            
+            ImGui::Spacing();
             ImGui::Spacing();
     
-            ImGui::TextColored(ImVec4(0.58f, 0.86f, 1.0f, 1.0f), "Debug Visualization");
+            // Debug Visualization Section
+            ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.8f, 1.0f), "Debug Visualization");
             ImGui::Separator();
+            ImGui::Spacing();
 
             static const char* DebugLabels[] =
             {
                 "None",
-                "Position",
-                "Normals",
-                "Albedo",
-                "SSAO",
-                "Material",
-                "Depth",
-                "Overdraw",
+                "Position Buffer",
+                "Normal Vectors",
+                "Albedo Color",
+                "SSAO Map",
+                "Material Properties",
+                "Depth Buffer",
+                "Overdraw Heatmap",
+                "Shadow Cascade 1",
+                "Shadow Cascade 2",
+                "Shadow Cascade 3",
+                "Shadow Cascade 4",
             };
 
             ERenderSceneDebugFlags DebugMode = SceneRenderer->GetDebugMode();
             int DebugModeInt = static_cast<int>(DebugMode);
-            ImGui::PushItemWidth(200);
-            if (ImGui::Combo("Debug Visualization", &DebugModeInt, DebugLabels, IM_ARRAYSIZE(DebugLabels)))
+            
+            ImGui::SetNextItemWidth(220);
+            if (ImGui::Combo("##DebugVis", &DebugModeInt, DebugLabels, IM_ARRAYSIZE(DebugLabels)))
             {
                 SceneRenderer->SetDebugMode(static_cast<ERenderSceneDebugFlags>(DebugModeInt));
             }
-            ImGui::PopItemWidth();
+            
+            ImGui::Spacing();
+            ImGui::Spacing();
+
+            // Render Options Section
+            ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.8f, 1.0f), "Render Options");
+            ImGui::Separator();
+            ImGui::Spacing();
 
             bool bDrawAABB = (bool)SceneRenderer->GetSceneRenderSettings().bDrawAABB;
-            if (ImGui::Checkbox("Draw AABB", &bDrawAABB))
+            if (ImGui::Checkbox("Show Bounding Boxes", &bDrawAABB))
             {
                 SceneRenderer->GetSceneRenderSettings().bDrawAABB = bDrawAABB;
             }
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Visualize axis-aligned bounding boxes");
 
+            bool bUseInstancing = (bool)SceneRenderer->GetSceneRenderSettings().bUseInstancing;
+            if (ImGui::Checkbox("GPU Instancing", &bUseInstancing))
+            {
+                SceneRenderer->GetSceneRenderSettings().bUseInstancing = bUseInstancing;
+            }
+            if (ImGui::IsItemHovered())
+                ImGui::SetTooltip("Enable hardware instancing for repeated meshes");
+
+            ImGui::PopStyleVar();
             ImGui::EndMenu();
         }
     }
@@ -621,10 +702,11 @@ namespace Lumina
         {
             return;
         }
-        
+
         SelectedEntity = NewEntity;
         OutlinerListView.MarkTreeDirty();
         RebuildPropertyTables();
+        World->SetSelectedEntity(SelectedEntity.GetHandle());
     }
 
     void FWorldEditorTool::RebuildSceneOutliner(FTreeListView* View)

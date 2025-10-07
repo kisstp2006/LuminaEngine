@@ -218,6 +218,23 @@ namespace Lumina
         return AssetsByPath[Path];
     }
 
+    void FAssetRegistry::GetAssetsByClass(const CClass* Class, TVector<FAssetData>& OutAssets)
+    {
+        for (FAssetData* AssetData : Assets)
+        {
+            CClass* AssetClass = FindObject<CClass>(nullptr, AssetData->AssetClass);
+            if (AssetClass == nullptr)
+            {
+                continue;
+            }
+            
+            if (AssetClass->IsChildOf(Class))
+            {
+                OutAssets.push_back(*AssetData);
+            }
+        }
+    }
+
     const THashSet<FName>& FAssetRegistry::GetReferences(const FName& Asset)
     {
         return ReferenceMap[Asset];

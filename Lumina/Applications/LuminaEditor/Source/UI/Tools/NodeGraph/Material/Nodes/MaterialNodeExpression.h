@@ -61,6 +61,97 @@ namespace Lumina
     };
 
     LUM_CLASS()
+    class CMaterialExpression_Saturate : public CMaterialExpression_Math
+    {
+        GENERATED_BODY()
+        
+    public:
+        
+        
+        void BuildNode() override;
+
+        FString GetNodeDisplayName() const override { return "Saturate"; }
+        void* GetNodeDefaultValue() override { return &ConstA; }
+        uint32 GenerateExpression(FMaterialCompiler* Compiler) override { return 0; }
+        void GenerateDefinition(FMaterialCompiler* Compiler) override;
+        
+    };
+    
+    LUM_CLASS()
+    class CMaterialExpression_Normalize : public CMaterialExpression_Math
+    {
+        GENERATED_BODY()
+        
+    public:
+        
+        
+        void BuildNode() override;
+
+        FString GetNodeDisplayName() const override { return "Normalize"; }
+        void* GetNodeDefaultValue() override { return &ConstA; }
+        uint32 GenerateExpression(FMaterialCompiler* Compiler) override { return 0; }
+        void GenerateDefinition(FMaterialCompiler* Compiler) override;
+        
+    };
+
+    LUM_CLASS()
+    class CMaterialExpression_Distance : public CMaterialExpression_Math
+    {
+        GENERATED_BODY()
+        
+    public:
+        
+        
+        void BuildNode() override;
+
+        FString GetNodeDisplayName() const override { return "Distance"; }
+        void* GetNodeDefaultValue() override { return &ConstA; }
+        uint32 GenerateExpression(FMaterialCompiler* Compiler) override { return 0; }
+        void GenerateDefinition(FMaterialCompiler* Compiler) override;
+        
+    };
+
+    LUM_CLASS()
+    class CMaterialExpression_Abs : public CMaterialExpression_Math
+    {
+        GENERATED_BODY()
+        
+    public:
+        
+        
+        void BuildNode() override;
+
+        FString GetNodeDisplayName() const override { return "Abs"; }
+        void* GetNodeDefaultValue() override { return &ConstA; }
+        uint32 GenerateExpression(FMaterialCompiler* Compiler) override { return 0; }
+        void GenerateDefinition(FMaterialCompiler* Compiler) override;
+        
+    };
+    
+    LUM_CLASS()
+    class CMaterialExpression_SmoothStep : public CMaterialExpression_Math
+    {
+        GENERATED_BODY()
+        
+    public:
+        
+        
+        void BuildNode() override;
+
+        FString GetNodeDisplayName() const override { return "SmoothStep"; }
+        void* GetNodeDefaultValue() override { return &ConstA; }
+        uint32 GenerateExpression(FMaterialCompiler* Compiler) override { return 0; }
+        void GenerateDefinition(FMaterialCompiler* Compiler) override;
+
+        CMaterialInput* C = nullptr;
+
+        
+        LUM_PROPERTY(Editable, Category = "Value")
+        float X = 0.5f;
+        
+    };
+    
+    LUM_CLASS()
     class CMaterialExpression_Subtraction : public CMaterialExpression_Math
     {
         GENERATED_BODY()
@@ -301,6 +392,51 @@ namespace Lumina
 
         FInlineString GetNodeCategory() const override { return "Utility"; }
         FString GetNodeDisplayName() const override { return "CameraPosition"; }
+        void* GetNodeDefaultValue() override { return nullptr; }
+        uint32 GenerateExpression(FMaterialCompiler* Compiler) override { return 0; }
+        void GenerateDefinition(FMaterialCompiler* Compiler) override;
+    };
+
+    LUM_CLASS()
+    class CMaterialExpression_EntityID : public CMaterialExpression
+    {
+        GENERATED_BODY()
+    public:
+        
+        void BuildNode() override;
+
+        FInlineString GetNodeCategory() const override { return "Utility"; }
+        FString GetNodeDisplayName() const override { return "EntityID"; }
+        void* GetNodeDefaultValue() override { return nullptr; }
+        uint32 GenerateExpression(FMaterialCompiler* Compiler) override { return 0; }
+        void GenerateDefinition(FMaterialCompiler* Compiler) override;
+    };
+
+    LUM_CLASS()
+    class CMaterialExpression_VertexNormal : public CMaterialExpression
+    {
+        GENERATED_BODY()
+    public:
+        
+        void BuildNode() override;
+
+        FInlineString GetNodeCategory() const override { return "Utility"; }
+        FString GetNodeDisplayName() const override { return "VertexNormal"; }
+        void* GetNodeDefaultValue() override { return nullptr; }
+        uint32 GenerateExpression(FMaterialCompiler* Compiler) override { return 0; }
+        void GenerateDefinition(FMaterialCompiler* Compiler) override;
+    };
+
+    LUM_CLASS()
+    class CMaterialExpression_TexCoords : public CMaterialExpression
+    {
+        GENERATED_BODY()
+    public:
+        
+        void BuildNode() override;
+
+        FInlineString GetNodeCategory() const override { return "Utility"; }
+        FString GetNodeDisplayName() const override { return "TexCoords"; }
         void* GetNodeDefaultValue() override { return nullptr; }
         uint32 GenerateExpression(FMaterialCompiler* Compiler) override { return 0; }
         void GenerateDefinition(FMaterialCompiler* Compiler) override;

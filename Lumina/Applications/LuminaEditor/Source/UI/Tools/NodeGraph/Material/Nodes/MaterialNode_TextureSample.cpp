@@ -19,6 +19,11 @@ namespace Lumina
         ValuePin->SetPinName("RGBA");
         ValuePin->InputType = EMaterialInputType::Texture;
 
+        UV = Cast<CMaterialInput>(CreatePin(CMaterialInput::StaticClass(), "UV", ENodePinDirection::Input, EMaterialInputType::Float2));
+        UV->SetPinColor(IM_COL32(255, 10, 10, 255));
+        UV->SetHideDuringConnection(false);
+        UV->SetPinName("UV");
+        
         CMaterialOutput* R = Cast<CMaterialOutput>(CreatePin(CMaterialOutput::StaticClass(), "R", ENodePinDirection::Output, EMaterialInputType::Float));
         R->SetPinColor(IM_COL32(255, 10, 10, 255));
         R->SetHideDuringConnection(false);
@@ -51,7 +56,7 @@ namespace Lumina
 
     void CMaterialExpression_TextureSample::GenerateDefinition(FMaterialCompiler* Compiler)
     {
-        Compiler->TextureSample(FullName, Texture);
+        Compiler->TextureSample(FullName, Texture, UV);
     }
 
     void CMaterialExpression_TextureSample::SetNodeValue(void* Value)

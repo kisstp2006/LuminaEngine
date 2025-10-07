@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "Containers/Array.h"
+#include "Core/Threading/Thread.h"
 #include "Renderer/RHIFwd.h"
 
 
@@ -32,6 +33,7 @@ namespace Lumina
         
     private:
 
+        FMutex ShaderMutex;
         THashMap<SIZE_T, FRHIGraphicsPipelineRef>   GraphicsPipelines;
         THashMap<SIZE_T, FRHIComputePipelineRef>    ComputePipelines;
         

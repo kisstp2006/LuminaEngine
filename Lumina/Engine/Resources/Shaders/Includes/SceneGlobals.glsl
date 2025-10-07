@@ -16,7 +16,7 @@ struct FInstanceData
 {
     mat4    ModelMatrix;
     vec4    SphereBounds;
-    uvec4   PackedID;
+    uvec4   PackedID; // X: EntityID (32 bits) | Y: BatchedDrawID (32 bits) | 
 };
 
 struct FLight
@@ -36,6 +36,10 @@ layout(set = 0, binding = 0) readonly uniform SceneGlobals
     float DeltaTime;
     float NearPlane;
     float FarPlane;
+
+    mat4    LightViewProj[4];
+    vec4    CascadeSplits;
+
 } SceneUBO;
 
 layout(set = 0, binding = 1) readonly buffer FModelData
@@ -61,7 +65,6 @@ layout(set = 0, binding = 4) uniform FEnvironmentUBO
     vec4 AmbientLight;
 } EnvironmentUBO;
 
-//layout(set = 0, binding = 5, r32ui) uniform uimage2D uOverdrawImage;
 
 uint DrawIDToInstanceID(uint ID)
 {
@@ -91,6 +94,16 @@ float GetTime()
 float GetDeltaTime()
 {
     return SceneUBO.DeltaTime;
+}
+
+float GetNearPlane()
+{
+    return SceneUBO.NearPlane;
+}
+
+float GetFarPlane()
+{
+    return SceneUBO.FarPlane;
 }
 
 vec3 GetCameraPosition()

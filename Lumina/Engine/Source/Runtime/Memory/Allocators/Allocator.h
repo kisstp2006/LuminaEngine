@@ -147,8 +147,6 @@ namespace Lumina
          
         void* Allocate(SIZE_T Size, SIZE_T Alignment) override 
         {
-            LUMINA_PROFILE_SCOPE();
-            
             if (Size > GetUsableBlockSize()) [[unlikely]]
             {
                 LUM_ASSERT(false)

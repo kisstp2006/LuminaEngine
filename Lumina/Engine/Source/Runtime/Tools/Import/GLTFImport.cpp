@@ -7,13 +7,13 @@
 #include <fastgltf/types.hpp>
 #include <glm/glm.hpp>
 
+#include "ImportHelpers.h"
 #include "Memory/Memory.h"
 #include "Paths/Paths.h"
 #include "Renderer/MeshData.h"
 #include "Renderer/RenderContext.h"
 #include "Renderer/RenderResource.h"
 #include "Renderer/Vertex.h"
-#include "ImportHelpers.h"
 
 namespace Lumina::Import::Mesh::GLTF
 {
@@ -165,6 +165,10 @@ namespace Lumina::Import::Mesh::GLTF
                     fastgltf::iterateAccessorWithIndex<glm::vec2>(Asset, Asset.accessors[uv->second], [&](glm::vec2 v, size_t index)
                     {
                         // Convert float UVs to uint16 (0.0-1.0 -> 0-65535)
+                        if (ImportOptions.bFlipUVs)
+                        {
+                            v.y = 1.0f - v.y;
+                        }
                         NewResource->Vertices[InitialVert + index].UV.x = (uint16)(glm::clamp(v.x, 0.0f, 1.0f) * 65535.0f);
                         NewResource->Vertices[InitialVert + index].UV.y = (uint16)(glm::clamp(v.y, 0.0f, 1.0f) * 65535.0f);
                     });

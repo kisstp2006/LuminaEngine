@@ -214,13 +214,25 @@ namespace Lumina
         }
         else
         {
-            int lastMipLevelPlusOne = std::min(BaseMipLevel + NumMipLevels, (uint32)Desc.NumMips);
-            ret.NumMipLevels = uint32(std::max(0u, lastMipLevelPlusOne - BaseMipLevel));
+            uint32 LastMipLevelPlusOne = std::min<uint32>(BaseMipLevel + NumMipLevels, Desc.NumMips);
+            ret.NumMipLevels = std::max<uint32>(0u, LastMipLevelPlusOne - BaseMipLevel);
         }
 
-        switch (Desc.Dimension)  // NOLINT(clang-diagnostic-switch-enum)
+        switch (Desc.Dimension)
         {
-        default: 
+        case EImageDimension::Unknown:
+        case EImageDimension::Texture2DArray:
+        case EImageDimension::Texture3D:
+        case EImageDimension::TextureCube:
+        case EImageDimension::TextureCubeArray:
+            {
+                ret.BaseArraySlice = BaseArraySlice;
+                uint32 lastArraySlicePlusOne = std::min<uint32>(BaseArraySlice + NumArraySlices, Desc.ArraySize);
+                ret.NumArraySlices = std::max<uint32>(0u, lastArraySlicePlusOne - BaseArraySlice);
+                break;
+            }
+        default:
+            
             ret.BaseArraySlice = 0;
             ret.NumArraySlices = 1;
             break;

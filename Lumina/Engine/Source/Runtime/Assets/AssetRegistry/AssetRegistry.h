@@ -76,6 +76,7 @@ namespace Lumina
 		const THashMap<FName, TVector<FAssetData*>>& GetAssetsByPath() const { return AssetsByPath; }
 		const TVector<FAssetData*>& GetAssetsForPath(const FName& Path);
 		const FAssetDataMap& GetAssets() const { return Assets; }
+		void GetAssetsByClass(const CClass* Class, TVector<FAssetData>& OutAssets);
 
 		const THashSet<FName>& GetReferences(const FName& Asset);
 		

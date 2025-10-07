@@ -7,16 +7,21 @@
 #include "Includes/SceneGlobals.glsl"
 
 // Input attributes
-layout(location = 0) in vec4 inPosition;
+layout(location = 0) in vec3 inPosition;
 
 precise invariant gl_Position;
 
+//******* IMPORTANT *******
+// Changes to any calculations to gl_Position here, must be exactly reflected in Material.vert.
+
 void main()
 {
-	mat4 ModelMatrix = GetModelMatrix(gl_InstanceIndex);
-	mat4 View = GetCameraView();
-	
-	vec4 ViewPosition = View * ModelMatrix * vec4(inPosition.xyz, 1.0);
+    mat4 ModelMatrix = GetModelMatrix(gl_InstanceIndex);
+    mat4 View = GetCameraView();
+    mat4 Projection = GetCameraProjection();
 
-	gl_Position = GetCameraProjection() * ViewPosition;
+    vec4 WorldPos = ModelMatrix * vec4(inPosition, 1.0);
+    vec4 ViewPos = View * WorldPos;
+    
+    gl_Position = Projection * ViewPos;
 }

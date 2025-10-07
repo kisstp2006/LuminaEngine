@@ -38,21 +38,10 @@ namespace Lumina
         
         friend FArchive& operator<<(FArchive& Ar, FVertex& Data)
         {
-            // Position
-            Ar << Data.Position.x;
-            Ar << Data.Position.y;
-            Ar << Data.Position.z;
-
-            // Normal
+            Ar << Data.Position;
             Ar << Data.Normal;
-
-            // UV
-            Ar << Data.UV.x;
-            Ar << Data.UV.y;
-            
-            // Color
+            Ar << Data.UV;
             Ar << Data.Color;
-
             
             return Ar;
         }

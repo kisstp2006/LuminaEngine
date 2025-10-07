@@ -5,10 +5,12 @@
 #include "Includes/SceneGlobals.glsl"
 
 layout(set = 1, binding = 0) uniform sampler2D uRenderTarget;
-layout(set = 1, binding = 1) uniform sampler2D uPositionDepth;
-layout(set = 1, binding = 2) uniform sampler2D uNormal;
-layout(set = 1, binding = 3) uniform sampler2D uAlbedo;
-layout(set = 1, binding = 4) uniform sampler2D uSSAO;
+layout(set = 1, binding = 1) uniform sampler2D uPosition;
+layout(set = 1, binding = 2) uniform sampler2D uDepth;
+layout(set = 1, binding = 3) uniform sampler2D uNormal;
+layout(set = 1, binding = 4) uniform sampler2D uAlbedo;
+layout(set = 1, binding = 5) uniform sampler2D uSSAO;
+layout(set = 1, binding = 6) uniform sampler2DArray uShadowCascade;
 
 layout(location = 0) in vec2 inUV;
 layout(location = 0) out vec4 OutFragColor;
@@ -21,6 +23,10 @@ layout(location = 0) out vec4 OutFragColor;
 #define DEBUG_MATERIAL 5
 #define DEBUG_DEPTH    6
 #define DEBUG_OVERDRAW 7
+#define DEBUG_CASCADE1 8
+#define DEBUG_CASCADE2 9
+#define DEBUG_CASCADE3 10
+#define DEBUG_CASCADE4 11
 
 layout(push_constant) uniform DebugInfo
 {
@@ -37,7 +43,7 @@ void main()
 
     if (Debug.DebugFlags == DEBUG_POSITION)
     {
-        vec3 pos = texture(uPositionDepth, inUV).xyz;
+        vec3 pos = texture(uPosition, inUV).xyz;
         OutFragColor = vec4(pos, 1.0);
         return;
     }
@@ -72,10 +78,47 @@ void main()
     
     if (Debug.DebugFlags == DEBUG_DEPTH)
     {
-        float depth = texture(uPositionDepth, inUV).a;
+        float depth = texture(uDepth, inUV).r;
+        float LinearDepth = LinearizeDepth(depth, GetFarPlane(), GetNearPlane());
+        float VisualizedDepth = LinearDepth / GetFarPlane();
+
+        OutFragColor = vec4(vec3(VisualizedDepth), 1.0);
+
+        return;
+    }
+
+    if (Debug.DebugFlags == DEBUG_CASCADE1)
+    {
+        float depth = texture(uShadowCascade, vec3(inUV, 0)).r;
+        float LinearDepth = LinearizeDepth(depth, GetFarPlane(), GetNearPlane());
+        float VisualizedDepth = LinearDepth / GetFarPlane();
+
         OutFragColor = vec4(vec3(depth), 1.0);
         return;
     }
+
+    if (Debug.DebugFlags == DEBUG_CASCADE2)
+    {
+        float depth = texture(uShadowCascade, vec3(inUV, 1)).r;
+        OutFragColor = vec4(vec3(depth), 1.0);
+        return;
+    }
+    
+    if (Debug.DebugFlags == DEBUG_CASCADE3)
+    {
+        float depth = texture(uShadowCascade, vec3(inUV, 2)).r;
+        OutFragColor = vec4(vec3(depth), 1.0);
+        return;
+    }
+    
+    if (Debug.DebugFlags == DEBUG_CASCADE4)
+    {
+        float depth = texture(uShadowCascade, vec3(inUV, 3)).r;
+        OutFragColor = vec4(vec3(depth), 1.0);
+        return;
+    }
+
+
 
     //if (Debug.DebugFlags == DEBUG_OVERDRAW)
     //{

@@ -9,7 +9,6 @@ PRAGMA_DISABLE_ALL_WARNINGS
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 PRAGMA_ENABLE_ALL_WARNINGS
-#include "Platform/WindowsPlatform.h"
 
 namespace Lumina
 {
@@ -20,25 +19,30 @@ namespace Lumina
 
         FViewVolume(float fov = 90.0f, float aspect = 16.0f / 9.0f);
 
+        void SetNear(float InNear);
+        void SetFar(float InFar);
         void SetViewPosition(const glm::vec3& Position);
         void SetView(const glm::vec3& Position, const glm::vec3& ViewDirection, const glm::vec3& UpDirection);
         void SetPerspective(float InFov, float InAspect);
         void SetAspectRatio(float InAspect);
         void SetFOV(float InFOV);
     
-        const glm::vec3& GetViewPosition() const { return ViewPosition; }
+        FORCEINLINE const glm::vec3& GetViewPosition() const { return ViewPosition; }
 
-        const glm::mat4& GetViewMatrix() const { return ViewMatrix; }
-        const glm::mat4& GetInverseViewMatrix() const { return InverseViewMatrix; }
-        const glm::mat4& GetViewProjectionMatrix() const { return ViewProjectionMatrix; }
-        const glm::mat4& GetProjectionMatrix() const { return ProjectionMatrix; }
-        const glm::mat4& GetInverseProjectionMatrix() const { return InverseProjectionMatrix; }
-        const glm::vec3& GetForwardVector() const { return ForwardVector; }
-        const glm::vec3& GetRightVector() const { return RightVector; }
+        FORCEINLINE const glm::mat4& GetViewMatrix() const { return ViewMatrix; }
+        FORCEINLINE const glm::mat4& GetInverseViewMatrix() const { return InverseViewMatrix; }
+        FORCEINLINE const glm::mat4& GetViewProjectionMatrix() const { return ViewProjectionMatrix; }
+        FORCEINLINE const glm::mat4& GetProjectionMatrix() const { return ProjectionMatrix; }
+        FORCEINLINE const glm::mat4& GetInverseProjectionMatrix() const { return InverseProjectionMatrix; }
+        FORCEINLINE const glm::vec3& GetForwardVector() const { return ForwardVector; }
+        FORCEINLINE const glm::vec3& GetRightVector() const { return RightVector; }
+        glm::mat4 ToReverseDepthViewProjectionMatrix() const;
 
-        FFrustum GetFrustum() const;
-        float GetFOV() const { return FOV; }
-        float GetAspectRatio() const { return AspectRatio; }
+        FORCEINLINE float GetNear() const { return Near; }
+        FORCEINLINE float GetFar() const { return Far; }
+        FORCEINLINE FFrustum GetFrustum() const;
+        FORCEINLINE float GetFOV() const { return FOV; }
+        FORCEINLINE float GetAspectRatio() const { return AspectRatio; }
 
         static glm::vec3 UpAxis;
         static glm::vec3 RightAxis;
@@ -58,6 +62,9 @@ namespace Lumina
         glm::mat4           ViewMatrix;
         glm::mat4           InverseViewMatrix;
         glm::mat4           ViewProjectionMatrix;
+
+        float               Near;
+        float               Far;
         
         float               FOV = 90.0f;
         float               AspectRatio = 16.0f/9.0f;

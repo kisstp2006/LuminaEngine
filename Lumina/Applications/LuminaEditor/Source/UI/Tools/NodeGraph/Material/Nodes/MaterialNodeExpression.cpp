@@ -47,9 +47,40 @@ namespace Lumina
         Compiler->CameraPos(FullName);
     }
 
+    void CMaterialExpression_EntityID::BuildNode()
+    {
+        CMaterialExpression::BuildNode();
+    }
+
+    void CMaterialExpression_EntityID::GenerateDefinition(FMaterialCompiler* Compiler)
+    {
+        Compiler->EntityID(FullName);
+    }
+
+    void CMaterialExpression_VertexNormal::BuildNode()
+    {
+        CMaterialExpression::BuildNode();
+    }
+
+    void CMaterialExpression_VertexNormal::GenerateDefinition(FMaterialCompiler* Compiler)
+    {
+        Compiler->VertexNormal(FullName);
+    }
+
+    void CMaterialExpression_TexCoords::BuildNode()
+    {
+        CMaterialExpression::BuildNode();
+    }
+
+    void CMaterialExpression_TexCoords::GenerateDefinition(FMaterialCompiler* Compiler)
+    {
+        Compiler->TexCoords(FullName);
+    }
+
     void CMaterialExpression_Constant::Serialize(FArchive& Ar)
     {
         CMaterialExpression::Serialize(Ar);
+        Ar << Value;
     }
 
     void CMaterialExpression_Constant::DrawContextMenu()
@@ -297,6 +328,71 @@ namespace Lumina
     void CMaterialExpression_Addition::GenerateDefinition(FMaterialCompiler* Compiler)
     {
         Compiler->Add(A, B);
+    }
+
+    void CMaterialExpression_Saturate::BuildNode()
+    {
+        CMaterialExpression_Math::BuildNode();
+    }
+
+    void CMaterialExpression_Saturate::GenerateDefinition(FMaterialCompiler* Compiler)
+    {
+        Compiler->Saturate(A, B);
+    }
+
+    void CMaterialExpression_Normalize::BuildNode()
+    {
+        CMaterialExpression_Math::BuildNode();
+    }
+
+    void CMaterialExpression_Normalize::GenerateDefinition(FMaterialCompiler* Compiler)
+    {
+        Compiler->Normalize(A, B);
+    }
+
+    void CMaterialExpression_Distance::BuildNode()
+    {
+        CMaterialExpression_Math::BuildNode();
+    }
+
+    void CMaterialExpression_Distance::GenerateDefinition(FMaterialCompiler* Compiler)
+    {
+        Compiler->Distance(A, B);
+    }
+
+    void CMaterialExpression_Abs::BuildNode()
+    {
+        CMaterialExpression_Math::BuildNode();
+    }
+
+    void CMaterialExpression_Abs::GenerateDefinition(FMaterialCompiler* Compiler)
+    {
+        Compiler->Abs(A, B);
+    }
+
+    void CMaterialExpression_SmoothStep::BuildNode()
+    {
+        CMaterialExpression_Math::BuildNode();
+
+        A = Cast<CMaterialInput>(CreatePin(CMaterialInput::StaticClass(), "Edge0", ENodePinDirection::Input, EMaterialInputType::Float));
+        A->SetPinName("Edge0");
+        A->SetShouldDrawEditor(true);
+        A->SetIndex(0);
+        
+        B = Cast<CMaterialInput>(CreatePin(CMaterialInput::StaticClass(), "Edge1", ENodePinDirection::Input, EMaterialInputType::Float));
+        B->SetPinName("Edge1");
+        B->SetShouldDrawEditor(true);
+        B->SetIndex(1);
+
+        C = Cast<CMaterialInput>(CreatePin(CMaterialInput::StaticClass(), "X", ENodePinDirection::Input, EMaterialInputType::Float));
+        C->SetPinName("X");
+        C->SetShouldDrawEditor(true);
+        C->SetIndex(2);
+    }
+
+    void CMaterialExpression_SmoothStep::GenerateDefinition(FMaterialCompiler* Compiler)
+    {
+        Compiler->SmoothStep(A, B, C);
     }
 
     void CMaterialExpression_Subtraction::BuildNode()

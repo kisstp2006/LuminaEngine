@@ -94,17 +94,19 @@ namespace Lumina
                     FARFilter Filter;
                     Filter.ClassNames.push_back(ObjectProperty->GetPropertyClass()->GetName().ToString());
 
-                    const FAssetDataMap& FilteredAssets = GEngine->GetEngineSubsystem<FAssetRegistry>()->GetAssets();
-                    for (const FAssetData* Asset : FilteredAssets)
+                    
+                    TVector<FAssetData> Assets;
+                    GEngine->GetEngineSubsystem<FAssetRegistry>()->GetAssetsByClass(ObjectProperty->GetPropertyClass(), Assets);
+                    for (const FAssetData& Asset : Assets)
                     {
-                        if (!SearchFilter.PassFilter(Asset->AssetName.c_str()))
+                        if (!SearchFilter.PassFilter(Asset.AssetName.c_str()))
                         {
                             continue;
                         }
                         
-                        if (ImGui::Selectable(Asset->FullPath.c_str()))
+                        if (ImGui::Selectable(Asset.FullPath.c_str()))
                         {
-                            Obj = LoadObject<CObject>(nullptr, Asset->FullPath);
+                            Obj = LoadObject<CObject>(nullptr, Asset.FullPath);
                             ObjectHandle = GObjectArray.ToHandle(Obj);
                             ImGui::CloseCurrentPopup();
                     

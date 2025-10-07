@@ -104,25 +104,6 @@ namespace Lumina
     	
         for (VkImage RawImage : RawImages)
         {
-        	VkImageView ImageView = VK_NULL_HANDLE;
-        	
-            VkImageViewCreateInfo ImageViewCreateInfo = {};
-			ImageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-			ImageViewCreateInfo.image = RawImage;
-			ImageViewCreateInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-			ImageViewCreateInfo.format = SurfaceFormat.format;
-			ImageViewCreateInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-			ImageViewCreateInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-			ImageViewCreateInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-			ImageViewCreateInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-			ImageViewCreateInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-			ImageViewCreateInfo.subresourceRange.baseArrayLayer = 0;
-			ImageViewCreateInfo.subresourceRange.layerCount = 1;
-			ImageViewCreateInfo.subresourceRange.baseMipLevel = 0;
-			ImageViewCreateInfo.subresourceRange.levelCount = 1;
-
-			VK_CHECK(vkCreateImageView(Device, &ImageViewCreateInfo, VK_ALLOC_CALLBACK, &ImageView));
-
         	FRHIImageDesc ImageDescription;
         	ImageDescription.Extent = Extent;
         	ImageDescription.Format = EFormat::R8_UNORM;
@@ -132,7 +113,7 @@ namespace Lumina
         	ImageDescription.bKeepInitialState = true;
         	ImageDescription.DebugName = "Swapchain Image";
 
-        	TRefCountPtr<FVulkanImage> Image = MakeRefCount<FVulkanImage>(Context->GetDevice(), ImageDescription, RawImage, ImageView);
+        	TRefCountPtr<FVulkanImage> Image = MakeRefCount<FVulkanImage>(Context->GetDevice(), ImageDescription, RawImage, true);
         	
 			SwapchainImages.push_back(Image);
         }

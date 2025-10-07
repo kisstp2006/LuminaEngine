@@ -54,6 +54,7 @@ namespace Lumina::Import
             bool bMergeMeshes = false;           // Whether to merge all meshes into a single static mesh
             bool bApplyTransforms = true;        // Whether to bake transforms into the mesh
             bool bUseCompression = false;        // Whether to compress vertex/index data after import
+            bool bFlipUVs = false;               // Flip UVs on import.
             float Scale = 1.0f;                  // Scene-wide scale factor
         };
 

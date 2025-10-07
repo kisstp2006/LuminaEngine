@@ -35,7 +35,7 @@ namespace Lumina
     }
 
     FCommandListResourceStateTracker::FCommandListResourceStateTracker()
-        : LinearAllocator(1024 * 1024)
+        : LinearAllocator(1024)
     {
         
     }
@@ -323,6 +323,8 @@ namespace Lumina
 
     void FCommandListResourceStateTracker::KeepBufferInitialStates()
     {
+        LUMINA_PROFILE_SCOPE();
+        
         for (auto& [buffer, tracking] : BufferStates)
         {
             if (buffer->DescRef.bKeepInitialState && !buffer->permanentState && !buffer->DescRef.Usage.IsFlagSet(EBufferUsageFlags::Dynamic) &&!tracking->permanentTransition)
@@ -334,6 +336,8 @@ namespace Lumina
 
     void FCommandListResourceStateTracker::KeepTextureInitialStates()
     {
+        LUMINA_PROFILE_SCOPE();
+
         for (auto& [texture, tracking] : TextureStates)
         {
             if (texture->DescRef.bKeepInitialState && !texture->permanentState && !tracking->bPermanentTransition)

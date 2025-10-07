@@ -6,20 +6,20 @@
 #include "Includes/SceneGlobals.glsl"
 
 // Input attributes
-layout(location = 0) in vec4 inPosition;
-layout(location = 1) in vec4 inColor;
-layout(location = 2) in vec4 inNormal;
-layout(location = 3) in vec2 inUV;
+layout(location = 0) in vec3 inPosition;      // RGB32_FLOAT
+layout(location = 1) in uint inNormal;        // R32_UINT (packed 10:10:10:2)
+layout(location = 2) in uvec2 inUV;           // RG16_UINT
+layout(location = 3) in vec4 inColor;         // RGBA8_UNORM
+
+layout(push_constant) uniform PushConstants
+{
+    mat4 uLightSpaceMatrix;
+} PC;
 
 
 void main()
 {
-    for(uint i = 0; i < GetNumLights(); ++i)
-    { 
-        FLight Light = GetLightAt(i);
-        if(Light.Type != LIGHT_TYPE_POINT)
-        {
-            mat4 Model = GetModelMatrix(gl_InstanceIndex);
-        }   
-    }
+    mat4 ModelMatrix = GetModelMatrix(gl_InstanceIndex);
+    
+    gl_Position = PC.uLightSpaceMatrix * ModelMatrix * vec4(inPosition, 1.0);
 }

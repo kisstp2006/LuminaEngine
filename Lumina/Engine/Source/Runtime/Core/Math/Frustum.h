@@ -54,5 +54,28 @@ namespace Lumina
 
             return true;
         }
+
+        static void ComputeFrustumCorners(const glm::mat4& ViewProjection, glm::vec3 OutCorners[8])
+        {
+            glm::mat4 invVP = glm::inverse(ViewProjection);
+
+            glm::vec3 FrustumCorners[8] =
+            {
+                glm::vec3(-1.0f,  1.0f, 0.0f),
+                glm::vec3( 1.0f,  1.0f, 0.0f),
+                glm::vec3( 1.0f, -1.0f, 0.0f),
+                glm::vec3(-1.0f, -1.0f, 0.0f),
+                glm::vec3(-1.0f,  1.0f,  1.0f),
+                glm::vec3( 1.0f,  1.0f,  1.0f),
+                glm::vec3( 1.0f, -1.0f,  1.0f),
+                glm::vec3(-1.0f, -1.0f,  1.0f),
+            };
+
+            for (int i = 0; i < 8; i++)
+            {
+                glm::vec4 InvCorner = invVP * glm::vec4(FrustumCorners[i], 1.0f);
+                OutCorners[i] = InvCorner / InvCorner.w;
+            }
+        }
     };
 }

@@ -38,6 +38,7 @@ namespace Lumina
     LUMINA_API bool IsValid(const CObjectBase* Obj);
     LUMINA_API bool IsValid(CObjectBase* Obj);
 
+    
     template<typename T>
     requires(std::is_base_of_v<CObject, T>)
     T* FindObject(CPackage* Package, const FName& Name, bool bExactClass = false)

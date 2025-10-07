@@ -32,8 +32,8 @@ namespace Lumina
 
         const uint32 Width = ImageDescription.Extent.X;
         const uint32 Height = ImageDescription.Extent.Y;
-        const SIZE_T RowPitch = Width * 4; // 4 bytes per pixel (RGBA8)
-        const SIZE_T DepthPitch = RowPitch * Height; // 2D texture → no slices
+        const SIZE_T RowPitch = Width * 4;
+        const SIZE_T DepthPitch = RowPitch * Height;
 
         FRHICommandListRef TransferCommandList = GRenderContext->CreateCommandList(FCommandListInfo::Transfer());
         TransferCommandList->Open();

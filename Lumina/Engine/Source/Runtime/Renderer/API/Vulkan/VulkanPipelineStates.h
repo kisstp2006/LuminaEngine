@@ -31,6 +31,6 @@ namespace Lumina
         FVertexStream                           PendingStreams[17];
         FVulkanGraphicsPipeline*                Pipeline = nullptr;
         TVector<TPair<FRHIBindingSet*, uint32>> CurrentBindings;
-        FRenderPassBeginInfo                    CurrentRenderPassInfo;
+        FRenderPassDesc                         CurrentRenderPassInfo;
     };
 }

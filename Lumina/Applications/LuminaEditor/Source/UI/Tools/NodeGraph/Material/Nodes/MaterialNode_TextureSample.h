@@ -29,5 +29,7 @@ namespace Lumina
 
         LUM_PROPERTY(Editable, Category = "Texture")
         TObjectHandle<CTexture> Texture;
+
+        CMaterialInput* UV = nullptr;
     };
 }

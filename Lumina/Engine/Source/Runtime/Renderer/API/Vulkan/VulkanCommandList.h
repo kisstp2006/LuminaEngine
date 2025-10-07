@@ -37,10 +37,12 @@ namespace Lumina
     class FVulkanCommandList : public ICommandList
     {
     public:
-        
+
+        friend class FQueue;
         
         FVulkanCommandList(FVulkanRenderContext* InContext, const FCommandListInfo& InInfo)
             : UploadManager(MakeUniquePtr<FUploadManager>(InContext, InInfo.UploadChunkSize, 0, false))
+            , ScratchManager(MakeUniquePtr<FUploadManager>(InContext, InInfo.ScratchChunkSize, InInfo.ScratchMaxMemory, true))
             , RenderContext(InContext)
             , Info(InInfo)
             , PushConstantVisibility(0)
@@ -78,15 +80,18 @@ namespace Lumina
         
         EResourceStates GetImageSubresourceState(FRHIImage* Image, uint32 ArraySlice, uint32 MipLevel) override;
         EResourceStates GetBufferState(FRHIBuffer* Buffer) override;
+
+        void EnableAutomaticBarriers() override;
+        void DisableAutomaticBarriers() override;
         
         void CommitBarriers() override;
         void SetResourceStatesForBindingSet(FRHIBindingSet* BindingSet) override;
-        void SetResourceStateForRenderPass(const FRenderPassBeginInfo& PassInfo) override;
+        void SetResourceStateForRenderPass(const FRenderPassDesc& PassInfo) override;
 
         void AddMarker(const char* Name, const FColor& Color = FColor::Red) override;
         void PopMarker() override;
 
-        void BeginRenderPass(const FRenderPassBeginInfo& PassInfo) override;
+        void BeginRenderPass(const FRenderPassDesc& PassInfo) override;
         void EndRenderPass() override;
         
         void ClearImageColor(FRHIImage* Image, const FColor& Color) override;
@@ -123,26 +128,30 @@ namespace Lumina
         FPendingCommandState& GetPendingCommandState() override { return PendingState; }
         
         
-        TRefCountPtr<FTrackedCommandBuffer>  CurrentCommandBuffer;
         
 
     private:
 
-        TUniquePtr<FUploadManager>                      UploadManager;
+        TRefCountPtr<FTrackedCommandBuffer>                     CurrentCommandBuffer;
+        FMutex                                                  DynamicBufferWriteMutex;
         
-        THashMap<FRHIBufferRef, FDynamicBufferWrite>    DynamicBufferWrites;
-        bool                                            bHasDynamicBufferWrites = false;
+        TUniquePtr<FUploadManager>                              UploadManager;
+        TUniquePtr<FUploadManager>                              ScratchManager;
 
-        FGraphicsState                                  CurrentGraphicsState;
-        FComputeState                                   CurrentComputeState;
-                                                        
-        FCommandListResourceStateTracker                StateTracker;
-        FPendingCommandState                            PendingState;
-        FVulkanRenderContext*                           RenderContext = nullptr;
-        FCommandListInfo                                Info;
-        VkShaderStageFlags                              PushConstantVisibility;
-        VkPipelineLayout                                CurrentPipelineLayout;
+        TFixedHashMap<FRHIBufferRef, FDynamicBufferWrite, 2>    DynamicBufferWrites;
 
+        FGraphicsState                                          CurrentGraphicsState;
+        FComputeState                                           CurrentComputeState;
+                                                                
+        FCommandListResourceStateTracker                        StateTracker;
+        FPendingCommandState                                    PendingState;
+        FVulkanRenderContext*                                   RenderContext = nullptr;
+        FCommandListInfo                                        Info;
+        VkShaderStageFlags                                      PushConstantVisibility;
+        VkPipelineLayout                                        CurrentPipelineLayout;
+                                                                
+        bool                                                    bHasDynamicBufferWrites = false;
+        bool                                                    bEnableAutomaticBarriers = true;
         
     };
     

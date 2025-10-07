@@ -94,7 +94,13 @@ namespace Lumina
         }
         
         RegisterGraphNode(CEdNode_Reroute::StaticClass());
-        
+
+        RegisterGraphNode(CMaterialExpression_SmoothStep::StaticClass());
+        RegisterGraphNode(CMaterialExpression_Saturate::StaticClass());
+        RegisterGraphNode(CMaterialExpression_Normalize::StaticClass());
+        RegisterGraphNode(CMaterialExpression_Distance::StaticClass());
+        RegisterGraphNode(CMaterialExpression_Abs::StaticClass());
+
         RegisterGraphNode(CMaterialExpression_Addition::StaticClass());
         RegisterGraphNode(CMaterialExpression_Subtraction::StaticClass());
         RegisterGraphNode(CMaterialExpression_Division::StaticClass());
@@ -110,9 +116,12 @@ namespace Lumina
         RegisterGraphNode(CMaterialExpression_Step::StaticClass());
         RegisterGraphNode(CMaterialExpression_Lerp::StaticClass());
 
+        RegisterGraphNode(CMaterialExpression_VertexNormal::StaticClass());
+        RegisterGraphNode(CMaterialExpression_TexCoords::StaticClass());
         RegisterGraphNode(CMaterialNodeGetTime::StaticClass());
         RegisterGraphNode(CMaterialExpression_CameraPos::StaticClass());
         RegisterGraphNode(CMaterialExpression_WorldPos::StaticClass());
+        RegisterGraphNode(CMaterialExpression_EntityID::StaticClass());
 
         RegisterGraphNode(CMaterialExpression_ConstantFloat::StaticClass());
         RegisterGraphNode(CMaterialExpression_ConstantFloat2::StaticClass());
