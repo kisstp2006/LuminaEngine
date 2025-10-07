@@ -49,6 +49,12 @@
 
 
 
+<img width="1912" height="552" alt="image" src="https://github.com/user-attachments/assets/8c81055c-f46a-447d-a79c-31b51fded805" />
+<img width="2229" height="1222" alt="image" src="https://github.com/user-attachments/assets/a6b973ba-851e-4732-b30b-eb0bf14b08e1" />
+<img width="2225" height="1222" alt="image" src="https://github.com/user-attachments/assets/944c2569-a969-42b9-b0e6-88050fb5037c" />
+
+
+
 ---
 
 # 🛠️ Building Lumina (Windows Only, please see disclaimer near top)
