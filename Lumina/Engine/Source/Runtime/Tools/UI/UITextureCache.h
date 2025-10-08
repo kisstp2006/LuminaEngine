@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "imgui.h"
+#include "Containers/SparseArray.h"
 #include "Memory/Allocators/Allocator.h"
 #include "Renderer/RHIFwd.h"
 
@@ -16,9 +17,10 @@ namespace Lumina
             Ready,
         };
         
-        struct FEntry
+        struct LUMINA_API FEntry
         {
             FName Name;
+            uint64 Index;
             std::atomic_uint64_t LastUseFrame{0};
             std::atomic<ETextureState> State = ETextureState::Empty;
             FRHIImageRef RHIImage;
@@ -44,9 +46,7 @@ namespace Lumina
         FEntry* GetOrCreateGroup(const FName& PathName);
         
     private:
-        
-        TVector<FEntry*>            Entries;
-        
+
         THashMap<FName, FEntry*>    Images;
         
         TPair<FName, FEntry*>       SquareWhiteTexture;

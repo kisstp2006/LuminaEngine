@@ -1,4 +1,7 @@
 #pragma once
+
+#include <algorithm>
+#include <stdexcept>
 #include "Array.h"
 
 
@@ -133,19 +136,6 @@ namespace Lumina
         {
             if (idx >= Data.size() || !Occupied[idx])
             {
-                return false;
-            }
-            
-            reinterpret_cast<T*>(&Data[idx])->~T();
-            Occupied[idx] = false;
-            FreeList.push_back(idx);
-            return true;
-        }
-    
-        // Fast erase without maintaining free list order (better performance)
-        bool EraseFast(Index idx)
-        {
-            if (idx >= Data.size() || !Occupied[idx]) {
                 return false;
             }
             

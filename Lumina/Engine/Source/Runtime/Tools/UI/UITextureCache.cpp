@@ -74,7 +74,24 @@ namespace Lumina
     void FUITextureCache::EndFrame()
     {
         LUMINA_PROFILE_SCOPE();
-        
+
+        uint64 CurrentFrame = GEngine->GetUpdateContext().GetFrame();
+
+        eastl::erase_if(Images, [CurrentFrame](auto& pair) -> bool
+        {
+            FEntry* Entry = pair.second;
+            if (Entry->State.load(std::memory_order_acquire) == ETextureState::Ready)
+            {
+                uint64 LastUse = Entry->LastUseFrame.load(std::memory_order_acquire);
+                if (CurrentFrame - LastUse > 1000)
+                {
+                    GEngine->GetEngineSubsystem<FRenderManager>()->GetImGuiRenderer()->DestroyImTexture(Entry->ImTexture);
+                    Memory::Delete(Entry);
+                    return true;
+                }
+            }
+            return false;
+        });
     }
 
     bool FUITextureCache::HasImagesPendingLoad() const
@@ -102,23 +119,24 @@ namespace Lumina
             {
                 return Entry;
             }
-
+            
             return SquareWhiteTexture.second;
         }
-
+    
         FEntry* NewEntry = Memory::New<FEntry>();
         NewEntry->Name = PathName;
         NewEntry->State.store(ETextureState::Empty, std::memory_order_release);
-
+        
+        NewEntry->RHIImage = nullptr;
+        NewEntry->ImTexture = {};
+    
         auto [InsertedIter, Inserted] = Images.try_emplace(PathName, NewEntry);
         FEntry* Entry = InsertedIter->second;
-        Entries.push_back(NewEntry);
-
+        
         if (!Inserted) // Another thread inserted it first
         {
-            Entries.pop_back();
             Memory::Delete(NewEntry);
-
+    
             if (Entry->State.load(std::memory_order_acquire) == ETextureState::Ready)
             {
                 return Entry;
@@ -126,21 +144,24 @@ namespace Lumina
             
             return SquareWhiteTexture.second;
         }
-
-        
+    
         ETextureState Expected = ETextureState::Empty;
         if (Entry->State.compare_exchange_strong(Expected, ETextureState::Loading, std::memory_order_acq_rel))
         {
             Task::AsyncTask(1, [Entry, PathName](uint32, uint32, uint32)
             {
                 FString PathString = PathName.ToString();
-                Entry->RHIImage = Import::Textures::CreateTextureFromImport(GRenderContext, PathString, false);
-                Entry->ImTexture = ImGuiX::ToImTextureRef(Entry->RHIImage);
-
+                FRHIImage* NewImage = Import::Textures::CreateTextureFromImport(GRenderContext, PathString, false);
+                ImTextureRef NewImTexture = ImGuiX::ToImTextureRef(NewImage);
+                
+                Entry->RHIImage = NewImage;
+                Entry->ImTexture = NewImTexture;
+                Entry->LastUseFrame.store(GEngine->GetUpdateContext().GetFrame(), std::memory_order_release);
+                
                 Entry->State.store(ETextureState::Ready, std::memory_order_release);
             });
         }
-
+    
         return SquareWhiteTexture.second;
     }
 }

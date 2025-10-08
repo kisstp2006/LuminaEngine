@@ -93,7 +93,7 @@ namespace Lumina
         
         FMutex Mutex;
         TQueue<int32> FreeList;
-        TVector<IRHIResource*> ResourceList;
+        TFixedVector<IRHIResource*, 400> ResourceList;
 		
     };
 
@@ -137,6 +137,11 @@ namespace Lumina
         }
 
         FRHIResourceList::Get().Clear();
+    }
+
+    const TFixedVector<IRHIResource*, 400>& IRHIResource::GetAllRHIResources()
+    {
+        return FRHIResourceList::Get().ResourceList;
     }
 
     void IRHIResource::Destroy() const

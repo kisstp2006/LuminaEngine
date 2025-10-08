@@ -20,9 +20,11 @@ namespace Lumina
 
         void DrawRenderDebugInformationWindow(bool* bOpen, const FUpdateContext& Context) override;
 
-        /** An ImTextureID in this context is castable to a VkDescriptorset. */
+        /** An ImTextureID in this context is castable to a VkDescriptorSet. */
         ImTextureID GetOrCreateImTexture(FRHIImageRef Image) override;
-
+        void DestroyImTexture(ImTextureRef Image) override;
+        
+        
     private:
 
         FMutex TextureMutex;
@@ -30,6 +32,7 @@ namespace Lumina
         FVulkanRenderContext* VulkanRenderContext = nullptr;
 
         THashMap<VkImage, VkDescriptorSet> ImageCache;
+        
         TFixedVector<FRHIImageRef, 10> ReferencedImages;
     };
     

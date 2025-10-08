@@ -182,6 +182,7 @@ namespace Lumina
 {
 
 	LUMINA_API extern SIZE_T GTotalRenderResourcesAllocated;
+	LUMINA_API extern TFixedHashMap<EAPIResourceType, uint64, 64> AllocatedRHIResourcesMap;
 	
 	constexpr uint64 GVersionSubmittedFlag = 0x8000000000000000;
 	constexpr uint32 GVersionQueueShift = 60;
@@ -253,6 +254,7 @@ namespace Lumina
     	IRHIResource& operator=(const IRHIResource&&) = delete;
 
     	static void ReleaseAllRHIResources();
+    	static const TFixedVector<IRHIResource*, 400>& GetAllRHIResources();
     	
     	template<typename T, EAPIResourceType Type = EAPIResourceType::Default>
 		T GetAPIResource()

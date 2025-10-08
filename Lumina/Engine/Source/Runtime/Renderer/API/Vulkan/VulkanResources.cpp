@@ -396,15 +396,14 @@ namespace Lumina
         , DefaultChunkSize(InDefaultChunkSize)
         , MemoryLimit(InMemoryLimit)
         , bIsScratchBuffer(bInIsScratchBuffer)
-        , ChunkAllocator(1024)
     {
         
     }
 
-    FBufferChunk* FUploadManager::CreateChunk(uint64 Size)
+    TSharedPtr<FBufferChunk> FUploadManager::CreateChunk(uint64 Size)
     {
-        FBufferChunk* Chunk = ChunkAllocator.TAlloc<FBufferChunk>();
-
+        TSharedPtr<FBufferChunk> Chunk = MakeSharedPtr<FBufferChunk>();
+        
         if (bIsScratchBuffer)
         {
             FRHIBufferDesc Desc;
@@ -433,7 +432,7 @@ namespace Lumina
 
     bool FUploadManager::SuballocateBuffer(uint64 Size, FRHIBuffer** Buffer, uint64* Offset, void** CpuVA, uint64 CurrentVersion, uint32 Alignment)
     {
-        FBufferChunk* ChunkToRetire = nullptr;
+        TSharedPtr<FBufferChunk> ChunkToRetire = nullptr;
 
         if (CurrentChunk)
         {
@@ -465,7 +464,7 @@ namespace Lumina
 
         for (auto it = ChunkPool.begin(); it != ChunkPool.end(); ++it)
         {
-            FBufferChunk* Chunk = *it;
+            const TSharedPtr<FBufferChunk>& Chunk = *it;
 
             if (VersionGetSubmitted(Chunk->Version) && VersionGetInstance(Chunk->Version) <= completedInstance)
             {
@@ -518,7 +517,7 @@ namespace Lumina
             CurrentChunk = nullptr;
         }
 
-        for (FBufferChunk* chunk : ChunkPool)
+        for (TSharedPtr<FBufferChunk> chunk : ChunkPool)
         {
             if (chunk->Version == CurrentVersion)
             {

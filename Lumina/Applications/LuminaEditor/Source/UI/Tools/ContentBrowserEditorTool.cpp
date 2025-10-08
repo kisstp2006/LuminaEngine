@@ -758,7 +758,7 @@ namespace Lumina
 
                     if (Factory->HasImportDialogue())
                     {
-                        ToolContext->PushModal("Import", {800, 800}, [this, Factory, FStringFileName, PathString](const FUpdateContext& DrawContext)
+                        ToolContext->PushModal("Import", {500, 800}, [this, Factory, FStringFileName, PathString](const FUpdateContext& DrawContext)
                         {
                             bool bShouldClose = CFactory::ShowImportDialogue(Factory, FStringFileName, PathString);
                             if (bShouldClose)

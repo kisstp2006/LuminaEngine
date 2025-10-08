@@ -56,7 +56,7 @@ namespace Lumina
         
         FUploadManager(FVulkanRenderContext* Ctx, uint64 InDefaultChunkSize, uint64 InMemoryLimit, bool bInIsScratchBuffer);
 
-        FBufferChunk* CreateChunk(uint64 Size);
+        TSharedPtr<FBufferChunk> CreateChunk(uint64 Size);
 
         bool SuballocateBuffer(uint64 Size, FRHIBuffer** Buffer, uint64* Offset, void** CpuVA, uint64 CurrentVersion, uint32 Alignment = 256);
         void SubmitChunks(uint64 CurrentVersion, uint64 submittedVersion);
@@ -69,9 +69,8 @@ namespace Lumina
         uint64 AllocatedMemory = 0;
         bool bIsScratchBuffer = false;
 
-        FBlockLinearAllocator           ChunkAllocator;
-        TFixedList<FBufferChunk*, 8>    ChunkPool;
-        FBufferChunk*                   CurrentChunk = nullptr;
+        TFixedList<TSharedPtr<FBufferChunk>, 8>    ChunkPool;
+        TSharedPtr<FBufferChunk>                   CurrentChunk = nullptr;
     };
     
     class FVulkanEventQuery : public IEventQuery
