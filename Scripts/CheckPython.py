@@ -1,10 +1,21 @@
 import subprocess
+import sys
+
+def EnsurePip():
+    try:
+        import pip
+    except ImportError:
+        print("pip not found. Installing pip...")
+        subprocess.check_call([sys.executable, "-m", "ensurepip", "--upgrade"])
 
 def InstallPackage(package):
     print(f"Installing {package} module...")
-    subprocess.check_call(['python', '-m', 'pip', 'install', package])
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", package])
 
-# Mandatory
+# Make sure pip exists
+EnsurePip()
+
+# Mandatory packages
 InstallPackage('setuptools')
 
 import pkg_resources
@@ -21,3 +32,5 @@ def ValidatePackages():
     ValidatePackage('requests')
     ValidatePackage('fake-useragent')
     ValidatePackage('colorama')
+
+ValidatePackages()
