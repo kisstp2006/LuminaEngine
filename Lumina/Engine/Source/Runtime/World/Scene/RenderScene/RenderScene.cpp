@@ -1,18 +1,16 @@
 #include "RenderScene.h"
-
+#include <execution>
+#include <variant>
 #include "Assets/AssetRegistry/AssetRegistry.h"
 #include "Assets/AssetTypes/Mesh/StaticMesh/StaticMesh.h"
 #include "Core/Windows/Window.h"
 #include "Renderer/RHIIncl.h"
-#define GLM_ENABLE_EXPERIMENTAL
-#include <execution>
-#include <variant>
-
 #include "Assets/AssetTypes/Material/Material.h"
 #include "Assets/AssetTypes/Textures/Texture.h"
 #include "Core/Engine/Engine.h"
 #include "Core/Profiler/Profile.h"
 #include "EASTL/sort.h"
+#define GLM_ENABLE_EXPERIMENTAL
 #include "glm/gtx/quaternion.hpp"
 #include "Paths/Paths.h"
 #include "Renderer/RenderContext.h"
@@ -467,6 +465,13 @@
                         return;
                     }
 
+                    FRenderPassDesc::FAttachment SSAOAttachment; SSAOAttachment
+                        .SetImage(SSAOImage);
+
+                    FRenderPassDesc RenderPass; RenderPass
+                        .AddColorAttachment(SSAOAttachment)
+                        .SetRenderArea(GetRenderTarget()->GetExtent());
+
                     FRasterState RasterState;
                     RasterState.SetCullNone();
         
@@ -497,15 +502,6 @@
                     GraphicsState.SetPipeline(Pipeline);
                     GraphicsState.AddBindingSet(BindingSet);
                     GraphicsState.AddBindingSet(SSAOPassSet);
-
-                    FRenderPassDesc::FAttachment SSAOAttachment; SSAOAttachment
-                        .SetImage(SSAOImage);
-
-                    FRenderPassDesc RenderPass; RenderPass
-                        .AddColorAttachment(SSAOAttachment)
-                        .SetRenderArea(GetRenderTarget()->GetExtent());
-                    
-
                     GraphicsState.SetRenderPass(RenderPass);
                     GraphicsState.SetViewport(MakeViewportStateFromImage(GetRenderTarget()));
 
@@ -525,6 +521,13 @@
                     {
                         return;
                     }
+
+                    FRenderPassDesc::FAttachment SSAOAttachment; SSAOAttachment
+                        .SetImage(SSAOBlur);
+
+                    FRenderPassDesc RenderPass; RenderPass
+                        .AddColorAttachment(SSAOAttachment)
+                        .SetRenderArea(GetRenderTarget()->GetExtent());
 
                     FRasterState RasterState;
                     RasterState.SetCullNone();
@@ -556,14 +559,6 @@
                     GraphicsState.SetPipeline(Pipeline);
                     GraphicsState.AddBindingSet(BindingSet);
                     GraphicsState.AddBindingSet(SSAOBlurPassSet);
-
-                    FRenderPassDesc::FAttachment SSAOAttachment; SSAOAttachment
-                        .SetImage(SSAOBlur);
-
-                    FRenderPassDesc RenderPass; RenderPass
-                        .AddColorAttachment(SSAOAttachment)
-                        .SetRenderArea(GetRenderTarget()->GetExtent());
-                    
                     GraphicsState.SetRenderPass(RenderPass);
                     GraphicsState.SetViewport(MakeViewportStateFromImage(GetRenderTarget()));
 
@@ -595,6 +590,19 @@
                     {
                         return;
                     }
+
+                    FRenderPassDesc::FAttachment Attachment; Attachment
+                        .SetImage(GetRenderTarget());
+
+                    FRenderPassDesc::FAttachment Depth; Depth
+                        .SetImage(DepthAttachment)
+                        .SetLoadOp(ERenderLoadOp::Load)
+                        .SetStoreOp(ERenderStoreOp::Store);
+
+                    FRenderPassDesc RenderPass; RenderPass
+                        .AddColorAttachment(Attachment)
+                        .SetDepthAttachment(Depth)
+                        .SetRenderArea(GetRenderTarget()->GetExtent());
             
                     FRasterState RasterState;
                     RasterState.SetCullNone();
@@ -624,24 +632,9 @@
                     FGraphicsState GraphicsState;
                     GraphicsState.AddBindingSet(BindingSet);
                     GraphicsState.SetPipeline(Pipeline);
-
-                    FRenderPassDesc::FAttachment Attachment; Attachment
-                        .SetImage(GetRenderTarget());
-
-                    FRenderPassDesc::FAttachment Depth; Depth
-                        .SetImage(DepthAttachment)
-                        .SetLoadOp(ERenderLoadOp::Load)
-                        .SetStoreOp(ERenderStoreOp::Store);
-
-                    FRenderPassDesc RenderPass; RenderPass
-                        .AddColorAttachment(Attachment)
-                        .SetDepthAttachment(Depth)
-                        .SetRenderArea(GetRenderTarget()->GetExtent());
-                    
                     GraphicsState.SetRenderPass(RenderPass);
-            
                     GraphicsState.SetViewport(MakeViewportStateFromImage(GetRenderTarget()));
-            
+          
                     CmdList.SetGraphicsState(GraphicsState);
                 
                     CmdList.Draw(3, 1, 0, 0); 
@@ -661,6 +654,20 @@
                 {
                     return;
                 }
+
+                FRenderPassDesc::FAttachment Attachment; Attachment
+                    .SetLoadOp(ERenderLoadOp::Load)
+                    .SetImage(GetRenderTarget());
+
+                FRenderPassDesc::FAttachment Depth; Depth
+                    .SetImage(DepthAttachment)
+                    .SetLoadOp(ERenderLoadOp::Load)
+                    .SetStoreOp(ERenderStoreOp::Store);
+
+                FRenderPassDesc RenderPass; RenderPass
+                    .AddColorAttachment(Attachment)
+                    .SetDepthAttachment(Depth)
+                    .SetRenderArea(GetRenderTarget()->GetExtent());
                 
                 FRasterState RasterState;
                 RasterState.SetCullNone();
@@ -695,23 +702,7 @@
                 GraphicsState.SetPipeline(Pipeline);
                 GraphicsState.AddBindingSet(BindingSet);
                 GraphicsState.AddBindingSet(LightingPassSet);
-                
-                FRenderPassDesc::FAttachment Attachment; Attachment
-                    .SetLoadOp(ERenderLoadOp::Load)
-                    .SetImage(GetRenderTarget());
-
-                FRenderPassDesc::FAttachment Depth; Depth
-                    .SetImage(DepthAttachment)
-                    .SetLoadOp(ERenderLoadOp::Load)
-                    .SetStoreOp(ERenderStoreOp::Store);
-
-                FRenderPassDesc RenderPass; RenderPass
-                    .AddColorAttachment(Attachment)
-                    .SetDepthAttachment(Depth)
-                    .SetRenderArea(GetRenderTarget()->GetExtent());
-
-                GraphicsState.SetRenderPass(RenderPass);
-                
+                GraphicsState.SetRenderPass(RenderPass);                
                 GraphicsState.SetViewport(MakeViewportStateFromImage(GetRenderTarget()));
 
                 CmdList.SetGraphicsState(GraphicsState);
@@ -732,6 +723,22 @@
                 {
                     return;
                 }
+
+
+                FRenderPassDesc::FAttachment Attachment; Attachment
+                    .SetLoadOp(ERenderLoadOp::Load)
+                    .SetImage(GetRenderTarget());
+
+                FRenderPassDesc::FAttachment Depth; Depth
+                    .SetImage(DepthAttachment)
+                    .SetLoadOp(ERenderLoadOp::Load)
+                    .SetStoreOp(ERenderStoreOp::Store);
+
+                FRenderPassDesc RenderPass; RenderPass
+                    .AddColorAttachment(Attachment)
+                    .SetDepthAttachment(Depth)
+                    .SetRenderArea(GetRenderTarget()->GetExtent());
+
                 
                 FRasterState RasterState;
                 RasterState.SetCullNone();
@@ -763,26 +770,8 @@
 
                 FGraphicsState GraphicsState;
                 GraphicsState.SetPipeline(Pipeline);
-
-                FRenderPassDesc::FAttachment Attachment; Attachment
-                    .SetLoadOp(ERenderLoadOp::Load)
-                    .SetImage(GetRenderTarget());
-
-                FRenderPassDesc::FAttachment Depth; Depth
-                    .SetImage(DepthAttachment)
-                    .SetLoadOp(ERenderLoadOp::Load)
-                    .SetStoreOp(ERenderStoreOp::Store);
-
-                FRenderPassDesc RenderPass; RenderPass
-                    .AddColorAttachment(Attachment)
-                    .SetDepthAttachment(Depth)
-                    .SetRenderArea(GetRenderTarget()->GetExtent());
-
-                FVertexBufferBinding Binding;
-                Binding.Buffer = SimpleVertexBuffer;
-                GraphicsState.AddVertexBuffer(Binding);
+                GraphicsState.AddVertexBuffer({ SimpleVertexBuffer });
                 GraphicsState.SetRenderPass(RenderPass);
-                
                 GraphicsState.SetViewport(MakeViewportStateFromImage(GetRenderTarget()));
 
                 CmdList.SetGraphicsState(GraphicsState);
@@ -807,6 +796,14 @@
                     return;
                 }
                 
+                FRenderPassDesc::FAttachment Attachment; Attachment
+                    .SetImage(DebugVisualizationImage);
+
+                FRenderPassDesc RenderPass; RenderPass
+                    .AddColorAttachment(Attachment)
+                    .SetRenderArea(DebugVisualizationImage->GetExtent());
+
+
                 FRasterState RasterState;
                 RasterState.SetCullNone();
                 
@@ -837,16 +834,7 @@
                 GraphicsState.SetPipeline(Pipeline);
                 GraphicsState.AddBindingSet(BindingSet);
                 GraphicsState.AddBindingSet(DebugPassSet);
-
-                FRenderPassDesc::FAttachment Attachment; Attachment
-                    .SetImage(DebugVisualizationImage);
-
-                FRenderPassDesc RenderPass; RenderPass
-                    .AddColorAttachment(Attachment)
-                    .SetRenderArea(DebugVisualizationImage->GetExtent());
-
-                GraphicsState.SetRenderPass(RenderPass);
-                
+                GraphicsState.SetRenderPass(RenderPass);               
                 GraphicsState.SetViewport(MakeViewportStateFromImage(DebugVisualizationImage));
 
                 CmdList.SetGraphicsState(GraphicsState);
@@ -1133,7 +1121,7 @@
                     DirectionalLight.Color = glm::vec4(DirectionalLightComponent.Color, DirectionalLightComponent.Intensity);
                     DirectionalLight.Direction = glm::vec4(glm::normalize(DirectionalLightComponent.Direction), 1.0f);
             
-                    RenderSettings.EnvironmentSettings.SunDirection = DirectionalLight.Direction;
+                    SceneGlobalData.SunDirection = DirectionalLight.Direction;
                     LightData.Lights[LightData.NumLights++] = DirectionalLight;
 
                     const FViewVolume& ViewVolume = SceneViewport->GetViewVolume();
@@ -1195,25 +1183,30 @@
 			            }
 			            Radius = glm::ceil(Radius * 16.0f) / 16.0f;
 
-                        // Snap frustum center to shadow map texels.
-                        float TexelSize = (Radius * 2.0f) / (float)GShadowMapResolution;
-                        FrustumCenter.x = glm::floor(FrustumCenter.x / TexelSize) * TexelSize;
-                        FrustumCenter.y = glm::floor(FrustumCenter.y / TexelSize) * TexelSize;
-                        FrustumCenter.z = glm::floor(FrustumCenter.z / TexelSize) * TexelSize;
-                        
                         glm::vec3 MaxExtents = glm::vec3(Radius);
-			            glm::vec3 MinExtents = -MaxExtents;
+                        glm::vec3 MinExtents = -MaxExtents;
 
                         glm::vec3 LightDir = -DirectionalLight.Direction;
-			            glm::mat4 LightViewMatrix = glm::lookAt(FrustumCenter - LightDir * -MinExtents.z, FrustumCenter, FViewVolume::UpAxis);
-			            glm::mat4 LightOrthoMatrix = glm::ortho(MinExtents.x, MaxExtents.x, MinExtents.y, MaxExtents.y, 0.0f, MaxExtents.z - MinExtents.z);
+                        glm::mat4 LightViewMatrix = glm::lookAt(FrustumCenter - LightDir * -MinExtents.z, FrustumCenter, FViewVolume::UpAxis);
+
+                        glm::vec3 FrustumCenterLS = LightViewMatrix * glm::vec4(FrustumCenter, 1.0f);
+                        float TexelSize = (Radius * 2.0f) / (float)GShadowMapResolution;
+                        FrustumCenterLS.x = glm::floor(FrustumCenterLS.x / TexelSize) * TexelSize;
+                        FrustumCenterLS.y = glm::floor(FrustumCenterLS.y / TexelSize) * TexelSize;
+
+                        glm::mat4 InvLightViewMatrix = glm::inverse(LightViewMatrix);
+                        glm::vec3 SnappedFrustumCenter = InvLightViewMatrix * glm::vec4(FrustumCenterLS, 1.0f);
+
+                        LightViewMatrix = glm::lookAt(SnappedFrustumCenter - LightDir * -MinExtents.z, SnappedFrustumCenter, FViewVolume::UpAxis);
+
+                        glm::mat4 LightOrthoMatrix = glm::ortho(MinExtents.x, MaxExtents.x, MinExtents.y, MaxExtents.y, 0.0f, MaxExtents.z - MinExtents.z);
 
                         Cascade.SplitDepth = (NearClip + SplitDist * ClipRange) * -1.0f;
 			            Cascade.LightViewProjection = LightOrthoMatrix * LightViewMatrix;
 
                         SceneGlobalData.LightViewProj[i] = Cascade.LightViewProjection;
                         
-                        Cascade.ShadowMapSize = glm::ivec2(4096);
+                        Cascade.ShadowMapSize = glm::ivec2(GShadowMapResolution);
 
                         LastSplitDist = CascadeSplits[i];
                     }
@@ -1225,17 +1218,17 @@
         
             {
                 RenderSettings.bHasEnvironment = false;
-                RenderSettings.EnvironmentSettings.AmbientLight = glm::vec4(0.0f);
+                SceneGlobalData.AmbientLight = glm::vec4(0.0f);
                 RenderSettings.bSSAO = false;
                 auto View = World->GetEntityRegistry().view<SEnvironmentComponent>();
                 View.each([this] (const SEnvironmentComponent& EnvironmentComponent)
                 {
-                    RenderSettings.EnvironmentSettings.AmbientLight     = glm::vec4(EnvironmentComponent.AmbientLight.Color, EnvironmentComponent.AmbientLight.Intensity);
+                    SceneGlobalData.AmbientLight                        = glm::vec4(EnvironmentComponent.AmbientLight.Color, EnvironmentComponent.AmbientLight.Intensity);
                     RenderSettings.bHasEnvironment                      = true;
                     RenderSettings.bSSAO                                = EnvironmentComponent.bSSAOEnabled;
-                    RenderSettings.SSAOSettings.Intensity               = EnvironmentComponent.SSAOInfo.Intensity;
-                    RenderSettings.SSAOSettings.Power                   = EnvironmentComponent.SSAOInfo.Power;
-                    RenderSettings.SSAOSettings.Radius                  = EnvironmentComponent.SSAOInfo.Radius;
+                    SceneGlobalData.SSAOSettings.Intensity              = EnvironmentComponent.SSAOInfo.Intensity;
+                    SceneGlobalData.SSAOSettings.Power                  = EnvironmentComponent.SSAOInfo.Power;
+                    SceneGlobalData.SSAOSettings.Radius                 = EnvironmentComponent.SSAOInfo.Radius;
                 });
             }
 
@@ -1252,8 +1245,6 @@
                 CommandList->SetBufferState(IndirectDrawBuffer, EResourceStates::CopyDest);
                 CommandList->SetBufferState(SimpleVertexBuffer, EResourceStates::CopyDest);
                 CommandList->SetBufferState(LightDataBuffer, EResourceStates::CopyDest);
-                CommandList->SetBufferState(SSAOSettingsBuffer, EResourceStates::CopyDest);
-                CommandList->SetBufferState(EnvironmentBuffer, EResourceStates::CopyDest);
                 CommandList->CommitBarriers();
 
                 CommandList->DisableAutomaticBarriers();
@@ -1262,8 +1253,6 @@
                 CommandList->WriteBuffer(IndirectDrawBuffer, IndirectDrawArguments.data(), 0, IndirectArgsSize);
                 CommandList->WriteBuffer(SimpleVertexBuffer, SimpleVertices.data(), 0, SimpleVertexSize);
                 CommandList->WriteBuffer(LightDataBuffer, &LightData, 0, LightUploadSize);
-                CommandList->WriteBuffer(SSAOSettingsBuffer, &RenderSettings.SSAOSettings);
-                CommandList->WriteBuffer(EnvironmentBuffer, &RenderSettings.EnvironmentSettings);
                 CommandList->EnableAutomaticBarriers();
             }
         }
@@ -1331,7 +1320,6 @@
                 BindingSetDesc.AddItem(FBindingSetItem::BufferSRV(1, InstanceDataBuffer));
                 BindingSetDesc.AddItem(FBindingSetItem::BufferSRV(2, InstanceMappingBuffer));
                 BindingSetDesc.AddItem(FBindingSetItem::BufferSRV(3, LightDataBuffer));
-                BindingSetDesc.AddItem(FBindingSetItem::BufferCBV(4, EnvironmentBuffer));
                 //BindingSetDesc.AddItem(FBindingSetItem::TextureUAV(5, OverdrawImage));
 
                 TBitFlags<ERHIShaderType> Visibility;
@@ -1393,8 +1381,6 @@
                 SetDesc.AddItem(FBindingSetItem::TextureSRV(0, GBuffer.Position));
                 SetDesc.AddItem(FBindingSetItem::TextureSRV(1, GBuffer.Normals));
                 SetDesc.AddItem(FBindingSetItem::TextureSRV(2, NoiseImage, TStaticRHISampler<true, AM_Repeat, AM_Repeat, AM_Repeat>::GetRHI()));
-                SetDesc.AddItem(FBindingSetItem::BufferCBV(3, SSAOKernalBuffer));
-                SetDesc.AddItem(FBindingSetItem::BufferCBV(4, SSAOSettingsBuffer));
 
                 TBitFlags<ERHIShaderType> Visibility;
                 Visibility.SetMultipleFlags(ERHIShaderType::Fragment);
@@ -1469,52 +1455,29 @@
                 LightDataBuffer = GRenderContext->CreateBuffer(LightBufferDesc);
             }
 
-            {
-                SSAOSettingsBuffer = FRHITypedBufferRef<FSSAOSettings>::CreateEmptyUniformBuffer(true, 3);
-            }
-
-            {
-                EnvironmentBuffer = FRHITypedBufferRef<FEnvironmentSettings>::CreateEmptyUniformBuffer(true, 3);
-            }
 
             {
                 
                 // SSAO
-                std::default_random_engine rndEngine;
-                std::uniform_real_distribution rndDist(0.0f, 1.0f);
+                std::default_random_engine RndEngine;
+                std::uniform_real_distribution RndDist(0.0f, 1.0f);
 
                 // Sample kernel
-                TVector<glm::vec4> SSAOKernel(32);
                 for (uint32_t i = 0; i < 32; ++i)
                 {
-                    glm::vec3 sample(rndDist(rndEngine) * 2.0 - 1.0, rndDist(rndEngine) * 2.0 - 1.0, rndDist(rndEngine));
+                    glm::vec3 sample(RndDist(RndEngine) * 2.0 - 1.0, RndDist(RndEngine) * 2.0 - 1.0, RndDist(RndEngine));
                     sample = glm::normalize(sample);
-                    sample *= rndDist(rndEngine);
+                    sample *= RndDist(RndEngine);
                     float scale = float(i) / float(32);
                     scale = lerp(0.1f, 1.0f, scale * scale);
-                    SSAOKernel[i] = glm::vec4(sample * scale, 0.0f);
+                    SceneGlobalData.SSAOSettings.Samples[i] = glm::vec4(sample * scale, 0.0f);
                 }
 
-                FRHICommandListRef CommandList = GRenderContext->CreateCommandList(FCommandListInfo::Transfer());
+
+
+                FRHICommandListRef CommandList = GRenderContext->CreateCommandList(FCommandListInfo::Graphics());
                 CommandList->Open();
             
-                FRHIBufferDesc SSAOBufferDesc;
-                SSAOBufferDesc.Size = SSAOKernel.size() * sizeof(glm::vec4);
-                SSAOBufferDesc.Stride = sizeof(glm::vec4);
-                SSAOBufferDesc.Usage.SetMultipleFlags(BUF_UniformBuffer);
-                SSAOBufferDesc.bKeepInitialState = true;
-                SSAOBufferDesc.InitialState = EResourceStates::ShaderResource;
-                SSAOBufferDesc.DebugName = "SSAO Kernal Buffer";
-                SSAOKernalBuffer = GRenderContext->CreateBuffer(SSAOBufferDesc);
-
-                CommandList->WriteBuffer(SSAOKernalBuffer, SSAOKernel.data(), 0, SSAOBufferDesc.Size);
-                
-                CommandList->Close();
-                GRenderContext->ExecuteCommandList(CommandList, ECommandQueue::Transfer);
-
-                CommandList = GRenderContext->CreateCommandList(FCommandListInfo::Graphics());
-                CommandList->Open();
-                
                 FRHIImageDesc SSAONoiseDesc = {};
                 SSAONoiseDesc.Extent = {4, 4};
                 SSAONoiseDesc.Format = EFormat::RGBA32_FLOAT;
@@ -1530,7 +1493,7 @@
                 TVector<glm::vec4> NoiseValues(32);
                 for (SIZE_T i = 0; i < NoiseValues.size(); i++)
                 {
-                    NoiseValues[i] = glm::vec4(rndDist(rndEngine) * 2.0f - 1.0f, rndDist(rndEngine) * 2.0f - 1.0f, 0.0f, 0.0f);
+                    NoiseValues[i] = glm::vec4(RndDist(RndEngine) * 2.0f - 1.0f, RndDist(RndEngine) * 2.0f - 1.0f, 0.0f, 0.0f);
                 }
                 
                 CommandList->WriteImage(NoiseImage, 0, 0, NoiseValues.data(), 4 * 16, 0);

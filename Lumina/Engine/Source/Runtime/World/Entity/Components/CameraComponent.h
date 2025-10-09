@@ -45,6 +45,9 @@ namespace Lumina
         const FViewVolume& GetViewVolume() const { return ViewVolume; }
         const glm::vec3& GetForwardVector() const { return ViewVolume.GetForwardVector(); }
         const glm::vec3& GetRightVector() const { return ViewVolume.GetRightVector(); }
+
+        LUM_PROPERTY(Editable, Category = "Camera")
+        float FOV = 0.0f;
         
     private:
         

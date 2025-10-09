@@ -52,18 +52,15 @@ const vec3 uSkyZenith = vec3(0.05, 0.1, 0.4);
 const vec3 uSkyHorizon = vec3(0.6, 0.8, 1.0);
 const vec3 uGroundColor = vec3(0.4, 0.25, 0.1);
 
-// Improved scattering coefficients
 const vec3 rayleighCoeff = vec3(5.8e-6, 13.5e-6, 33.1e-6);
 const float mieCoeff = 2.1e-5;
 const float mieG = 0.76;
 
-// Atmosphere parameters
 const float atmosphereRadius = 6420e2;
 const float planetRadius = 6360e2;
 const float rayleighHeight = 8e2;
 const float mieHeight = 1.2e2;
 
-// Improved view ray calculation
 vec3 getViewRay(vec2 uv) 
 {
     vec2 ndc = uv * 2.0 - 1.0;
@@ -76,7 +73,6 @@ vec3 getViewRay(vec2 uv)
     return normalize(rayWorld);
 }
 
-// Optimized phase functions
 float rayleighPhase(float cosTheta)
 {
     const float factor = 3.0 / (16.0 * 3.14159);
@@ -91,7 +87,6 @@ float miePhase(float cosTheta, float g)
     return factor * (1.0 - g2) / (denom * sqrt(denom));
 }
 
-// Ray-sphere intersection
 vec2 raySphereIntersect(vec3 rayOrigin, vec3 rayDir, float radius)
 {
     float b = dot(rayOrigin, rayDir);
@@ -106,7 +101,6 @@ vec2 raySphereIntersect(vec3 rayOrigin, vec3 rayDir, float radius)
     return vec2(-b - sqrt_disc, -b + sqrt_disc);
 }
 
-// Optimized optical depth calculation
 vec2 computeOpticalDepth(vec3 rayOrigin, vec3 rayDir, float rayLength)
 {
     const int steps = 8;
@@ -120,7 +114,6 @@ vec2 computeOpticalDepth(vec3 rayOrigin, vec3 rayDir, float rayLength)
 
         if (height < 0.0) break;
 
-        // Precompute exponentials
         float rayleighDensity = exp(-height / rayleighHeight);
         float mieDensity = exp(-height / mieHeight);
 
@@ -130,7 +123,6 @@ vec2 computeOpticalDepth(vec3 rayOrigin, vec3 rayDir, float rayLength)
     return opticalDepth;
 }
 
-// Enhanced atmospheric scattering with better performance
 vec3 computeAtmosphericScattering(vec3 rayOrigin, vec3 rayDir)
 {
     vec2 atmosphereIntersect = raySphereIntersect(rayOrigin, rayDir, atmosphereRadius);
@@ -143,7 +135,6 @@ vec3 computeAtmosphericScattering(vec3 rayOrigin, vec3 rayDir)
     float rayStart = max(atmosphereIntersect.x, 0.0);
     float rayEnd = atmosphereIntersect.y;
 
-    // Check ground intersection
     vec2 groundIntersect = raySphereIntersect(rayOrigin, rayDir, planetRadius);
     if (groundIntersect.x > 0.0) 
     {
@@ -200,10 +191,8 @@ vec3 renderSun(vec3 rayDir)
 {
     float sunDot = dot(rayDir, GetSunDirection());
 
-    // Main sun disc
     float sunDisc = smoothstep(cos(uSunSize * 0.5), cos(uSunSize * 0.25), sunDot);
 
-    // Sun corona/glow effect
     float sunGlow = smoothstep(cos(uSunSize * 1.8), cos(uSunSize * 1.1), sunDot);
     sunGlow = pow(sunGlow, 3.0);
 
@@ -250,25 +239,5 @@ void main()
     color = mix(color, color * color * (3.0 - 2.0 * color), 0.1);
 
     fragColor = vec4(color, 1.0);
-
-    vec3 DebugColor = vec3(0.0);
-
-    DebugColor.r = vUV.x;   // X grows -> right
-    DebugColor.g = vUV.y;   // Y grows -> down (in Vulkan, top-left is (0,0))
-    DebugColor.b = 0.0;
-
-    float cornerSize = 0.02;
-    if (vUV.x < cornerSize && vUV.y < cornerSize)
-    DebugColor = vec3(1.0, 0.0, 0.0);
-
-    if (vUV.x > 1.0 - cornerSize && vUV.y < cornerSize)
-    DebugColor = vec3(0.0, 1.0, 0.0);
-
-    if (vUV.x < cornerSize && vUV.y > 1.0 - cornerSize)
-    DebugColor = vec3(0.0, 0.0, 1.0);
-
-    if (vUV.x > 1.0 - cornerSize && vUV.y > 1.0 - cornerSize)
-    DebugColor = vec3(1.0, 1.0, 0.0);
-
-    fragColor = vec4(DebugColor, 1.0);
+    
 }

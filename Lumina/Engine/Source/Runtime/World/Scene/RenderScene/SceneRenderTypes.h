@@ -9,6 +9,8 @@
 #include "Renderer/RHIFwd.h"
 
 #define MAX_LIGHTS 1024
+#define SSAO_KERNEL_SIZE 32
+
 
 namespace Lumina
 {
@@ -90,14 +92,12 @@ namespace Lumina
         float Radius = 1.0f;
         float Intensity = 2.0f;
         float Power = 1.5f;
+
+        uint32 Padding;
+
+        glm::vec4 Samples[SSAO_KERNEL_SIZE];
     };
 
-    struct FEnvironmentSettings
-    {
-        glm::vec4 SunDirection;
-        glm::vec4 AmbientLight; // W is intensity.
-    };
-    
     struct FGBuffer
     {
         FRHIImageRef Position;
@@ -132,6 +132,7 @@ namespace Lumina
     struct FSceneGlobalData
     {
         FCameraData     CameraData;
+
         float           Time;
         float           DeltaTime;
         float           NearPlane;
@@ -139,6 +140,11 @@ namespace Lumina
 
         glm::mat4       LightViewProj[4];
         glm::vec4       CascadeSplits;
+
+        glm::vec4       SunDirection;
+        glm::vec4       AmbientLight;
+
+        FSSAOSettings   SSAOSettings;
     };
 
 
@@ -149,8 +155,6 @@ namespace Lumina
         uint8 bHasEnvironment:1 = false;
         uint8 bDrawAABB:1 = false;
         uint8 bSSAO:1 = false;
-        FSSAOSettings SSAOSettings;
-        FEnvironmentSettings EnvironmentSettings;
     };
 
 

@@ -8,9 +8,23 @@ struct FCameraView
     mat4 InverseCameraProjection; // Inverse Camera Projection.
 };
 
+//////////////////////////////////////////////////////////
+
+const int SSAO_KERNEL_SIZE        = 32;
 const uint LIGHT_TYPE_DIRECTIONAL = 0;
 const uint LIGHT_TYPE_POINT       = 1;
 const uint LIGHT_TYPE_SPOT        = 2;
+
+//////////////////////////////////////////////////////////
+
+struct FSSAOSettings
+{
+    float Radius;
+    float Intensity;
+    float Power;
+    
+    vec4 Samples[SSAO_KERNEL_SIZE];
+};
 
 struct FInstanceData
 {
@@ -29,6 +43,9 @@ struct FLight
     uint Type;          // Type of the light
 };
 
+//////////////////////////////////////////////////////////
+
+
 layout(set = 0, binding = 0) readonly uniform SceneGlobals
 {
     FCameraView CameraView;
@@ -39,6 +56,11 @@ layout(set = 0, binding = 0) readonly uniform SceneGlobals
 
     mat4    LightViewProj[4];
     vec4    CascadeSplits;
+
+    vec4    SunDirection;
+    vec4    AmbientLight;
+
+    FSSAOSettings SSAOSettings;
 
 } SceneUBO;
 
@@ -59,11 +81,8 @@ layout(set = 0, binding = 3) readonly buffer FLightData
     FLight  Lights[];
 } LightData;
 
-layout(set = 0, binding = 4) uniform FEnvironmentUBO
-{
-    vec4 SunDirection;
-    vec4 AmbientLight;
-} EnvironmentUBO;
+
+//////////////////////////////////////////////////////////
 
 
 uint DrawIDToInstanceID(uint ID)
@@ -73,17 +92,17 @@ uint DrawIDToInstanceID(uint ID)
 
 vec3 GetSunDirection()
 {
-    return EnvironmentUBO.SunDirection.xyz;
+    return SceneUBO.SunDirection.xyz;
 }
 
 vec3 GetAmbientLightColor()
 {
-    return EnvironmentUBO.AmbientLight.xyz;
+    return SceneUBO.AmbientLight.xyz;
 }
 
 float GetAmbientLightIntensity()
 {
-    return EnvironmentUBO.AmbientLight.w;
+    return SceneUBO.AmbientLight.w;
 }
 
 float GetTime()
@@ -147,9 +166,9 @@ uint GetEntityID(uint Index)
     return ModelData.Instances[DrawIDToInstanceID(Index)].PackedID.x;
 }
 
-vec3 WorldToView(vec3 worldPos)
+vec3 WorldToView(vec3 WorldPos)
 {
-    return (GetCameraView() * vec4(worldPos, 1.0)).xyz;
+    return (GetCameraView() * vec4(WorldPos, 1.0)).xyz;
 }
 
 vec3 NormalWorldToView(vec3 Normal)
@@ -157,14 +176,14 @@ vec3 NormalWorldToView(vec3 Normal)
     return mat3(GetCameraView()) * Normal;
 }
 
-vec4 ViewToClip(vec3 viewPos)
+vec4 ViewToClip(vec3 ViewPos)
 {
-    return GetCameraProjection() * vec4(viewPos, 1.0);
+    return GetCameraProjection() * vec4(ViewPos, 1.0);
 }
 
-vec4 WorldToClip(vec3 worldPos)
+vec4 WorldToClip(vec3 WorldPos)
 {
-    return GetCameraProjection() * GetCameraView() * vec4(worldPos, 1.0);
+    return GetCameraProjection() * GetCameraView() * vec4(WorldPos, 1.0);
 }
 
 float SineWave(float speed, float amplitude)

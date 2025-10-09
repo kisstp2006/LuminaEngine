@@ -72,4 +72,5 @@ void main()
     outFragColor    = inColor;
     outEntityID     = GetEntityID(gl_InstanceIndex);
     gl_Position     = Projection * ViewPos;
+    //gl_Position.y   = -gl_Position.y;     
 }

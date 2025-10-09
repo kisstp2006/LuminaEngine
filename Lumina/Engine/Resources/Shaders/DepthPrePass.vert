@@ -24,4 +24,5 @@ void main()
     vec4 ViewPos = View * WorldPos;
     
     gl_Position = Projection * ViewPos;
+    //gl_Position.y = -gl_Position.y;
 }

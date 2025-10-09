@@ -438,6 +438,7 @@ namespace Lumina
     
         glm::mat4 ViewMatrix = CameraComponent.GetViewMatrix();
         glm::mat4 ProjectionMatrix = CameraComponent.GetProjectionMatrix();
+        ProjectionMatrix[1][1] *= -1.0f;
 
         ImGuizmo::SetDrawlist(ImGui::GetCurrentWindow()->DrawList);
         ImGuizmo::SetRect(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y, ViewportSize.x, ViewportSize.y);
@@ -818,7 +819,7 @@ namespace Lumina
                 ImGui::PushStyleColor(ImGuiCol_HeaderHovered, 0);
                 ImGui::PushStyleColor(ImGuiCol_HeaderActive,  0);
 
-                if (ImGui::CollapsingHeader(Table->GetType()->GetName().c_str(), ImGuiTreeNodeFlags_DefaultOpen))
+                if (ImGui::CollapsingHeader(Table->GetType()->GetName().c_str()))
                 {
                     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.45f, 0.15f, 0.15f, 1.0f));
                     ImGui::PushID(Table.get());
@@ -837,13 +838,18 @@ namespace Lumina
                                     auto ReturnValue = entt::resolve(Set.type()).invoke("staticstruct"_hs, {});
                                     void** Type = ReturnValue.try_cast<void*>();
 
-                                    if (Table->GetType() == *(CStruct**)Type)
+                                    if (Type != nullptr && Table->GetType() == *(CStruct**)Type)
                                     {
                                         Set.remove(SelectedEntity.GetHandle());
                                         bWasRemoved = true;
                                         break;
                                     }
                                 }
+                            }
+
+                            if (!bWasRemoved)
+                            {
+                                ImGuiX::Notifications::NotifyError("Failed to remove component: %s", Table->GetType()->GetName().c_str());
                             }
                         }
                     }

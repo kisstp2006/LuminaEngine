@@ -101,13 +101,10 @@ namespace Lumina
 
         FRHITypedVertexBuffer<FSimpleElementVertex> SimpleVertexBuffer;
         FRHIBufferRef                               SceneDataBuffer;
-        FRHITypedBufferRef<FEnvironmentSettings>    EnvironmentBuffer;
         FRHIBufferRef                               InstanceDataBuffer;
         FRHIBufferRef                               InstanceMappingBuffer;
         FRHIBufferRef                               InstanceReadbackBuffer;
         FRHIBufferRef                               LightDataBuffer;
-        FRHIBufferRef                               SSAOKernalBuffer;
-        FRHITypedBufferRef<FSSAOSettings>           SSAOSettingsBuffer;
         FRHIBufferRef                               IndirectDrawBuffer;
 
         FRHIInputLayoutRef                  VertexLayoutInput;

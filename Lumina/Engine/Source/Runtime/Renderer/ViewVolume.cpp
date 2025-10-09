@@ -27,7 +27,6 @@ namespace Lumina
     {
         Near = InNear;
         ProjectionMatrix = glm::perspective(glm::radians(FOV), AspectRatio, Far, Near);
-        //ProjectionMatrix[1][1] *= -1.0f;
         InverseProjectionMatrix = glm::inverse(ProjectionMatrix);
         UpdateMatrices();
     }
@@ -36,7 +35,6 @@ namespace Lumina
     {
         Far = InFar;
         ProjectionMatrix = glm::perspective(glm::radians(FOV), AspectRatio, Far, Near);
-        //ProjectionMatrix[1][1] *= -1.0f;
         InverseProjectionMatrix = glm::inverse(ProjectionMatrix);
         UpdateMatrices();
     }
@@ -67,7 +65,6 @@ namespace Lumina
         AspectRatio = aspect;
 
         ProjectionMatrix = glm::perspective(glm::radians(FOV), AspectRatio, Far, Near);
-        //ProjectionMatrix[1][1] *= -1.0f;
         InverseProjectionMatrix = glm::inverse(ProjectionMatrix);
         UpdateMatrices();
     }
@@ -78,7 +75,6 @@ namespace Lumina
         AspectRatio = InAspect;
 
         ProjectionMatrix = glm::perspective(glm::radians(FOV), AspectRatio, Far, Near);
-        //ProjectionMatrix[1][1] *= -1.0f;
         InverseProjectionMatrix = glm::inverse(ProjectionMatrix);
         UpdateMatrices();
     }
@@ -87,7 +83,6 @@ namespace Lumina
     {
         FOV = InFOV;
         ProjectionMatrix = glm::perspective(glm::radians(FOV), AspectRatio, Far, Near);
-        //ProjectionMatrix[1][1] *= -1.0f;
         InverseProjectionMatrix = glm::inverse(ProjectionMatrix);
         UpdateMatrices();
     }
@@ -95,7 +90,6 @@ namespace Lumina
     glm::mat4 FViewVolume::ToReverseDepthViewProjectionMatrix() const
     {
         glm::mat4 ReverseProjectionMatrix = glm::perspective(glm::radians(FOV), AspectRatio, Near, Far);
-        //ReverseProjectionMatrix[1][1] *= -1.0f;
         return ReverseProjectionMatrix * ViewMatrix;
     }
 

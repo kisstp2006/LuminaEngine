@@ -161,7 +161,7 @@ void main()
     
 
     int CascadeIndex = 3;
-    float ViewDepth = -PositionVS.z;
+    float ViewDepth = PositionVS.z;
     float LinearDepth = ViewDepth / SceneUBO.FarPlane;
     LinearDepth = clamp(LinearDepth, 0.0, 1.0);
 
