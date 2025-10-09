@@ -19,6 +19,7 @@
 #include "Tools/UI/ImGui/ImGuiX.h"
 #include "UI/Tools/NodeGraph/Material/MaterialCompiler.h"
 #include "UI/Tools/NodeGraph/Material/MaterialNodeGraph.h"
+#include "world/entity/components/environmentcomponent.h"
 
 namespace Lumina
 {
@@ -35,15 +36,17 @@ namespace Lumina
 
         Entity DirectionalLightEntity = World->ConstructEntity("Directional Light");
         DirectionalLightEntity.Emplace<SDirectionalLightComponent>();
-        
+        DirectionalLightEntity.Emplace<SEnvironmentComponent>();
+
         MeshEntity = World->ConstructEntity("MeshEntity");
         
         MeshEntity.Emplace<SStaticMeshComponent>().StaticMesh = Cast<CStaticMesh>(InAsset);
-        MeshEntity.GetComponent<STransformComponent>().SetLocation(glm::vec3(0.0f, 0.0f,  -2.5f));
+        MeshEntity.GetComponent<STransformComponent>().SetLocation(glm::vec3(0.0f, 0.0f,  0.0f));
         
-        MeshEntity.GetComponent<SStaticMeshComponent>().StaticMesh = CThumbnailManager::Get().CubeMesh;
-        MeshEntity.GetComponent<SStaticMeshComponent>().MaterialOverrides.resize(CThumbnailManager::Get().CubeMesh->Materials.size());
+        MeshEntity.GetComponent<SStaticMeshComponent>().StaticMesh = CThumbnailManager::Get().SphereMesh;
+        MeshEntity.GetComponent<SStaticMeshComponent>().MaterialOverrides.resize(CThumbnailManager::Get().SphereMesh->Materials.size());
         MeshEntity.GetComponent<SStaticMeshComponent>().MaterialOverrides[0] = Cast<CMaterialInterface>(InAsset);
+        
     }
 
 
@@ -133,7 +136,92 @@ namespace Lumina
 
     void FMaterialEditorTool::DrawGLSLPreview(const FUpdateContext& UpdateContext)
     {
-        ImGui::TextUnformatted(Tree.c_str());
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(12, 12));
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8, 8));
+    
+        if (Tree.empty())
+        {
+            ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.15f, 0.15f, 0.18f, 1.0f));
+            ImGui::BeginChild("##empty_preview", ImVec2(0, 0), true);
+    
+            ImVec2 available = ImGui::GetContentRegionAvail();
+            ImVec2 textSize = ImGui::CalcTextSize("Compile to see preview");
+            ImGui::SetCursorPos(ImVec2(
+                (available.x - textSize.x) * 0.5f,
+                (available.y - textSize.y) * 0.5f
+            ));
+    
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.6f, 0.65f, 1.0f));
+            ImGui::TextUnformatted("Compile to see preview");
+            ImGui::PopStyleColor();
+    
+            ImGui::EndChild();
+            ImGui::PopStyleColor();
+        }
+        else
+        {
+            ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.12f, 0.12f, 0.15f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.3f, 0.3f, 0.35f, 1.0f));
+    
+            ImGui::BeginChild("##glsl_preview", ImVec2(0, 0), true, ImGuiWindowFlags_HorizontalScrollbar);
+    
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.7f, 0.85f, 1.0f, 1.0f));
+            ImGui::TextUnformatted("GLSL Shader Tree");
+            ImGui::PopStyleColor();
+            ImGui::Separator();
+            ImGui::Spacing();
+    
+            ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]);
+            
+            if (ReplacementStart != std::string::npos && ReplacementEnd != std::string::npos)
+            {
+                FString BeforeReplacement = Tree.substr(0, ReplacementStart);
+                FString ReplacedCode = Tree.substr(ReplacementStart, ReplacementEnd - ReplacementStart);
+                FString AfterReplacement = Tree.substr(ReplacementEnd);
+    
+                if (!BeforeReplacement.empty())
+                {
+                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.9f, 0.92f, 1.0f));
+                    ImGui::TextUnformatted(ReplacedCode.c_str());
+                    ImGui::PopStyleColor();
+                }
+    
+                if (!ReplacedCode.empty())
+                {
+                    ImDrawList* drawList = ImGui::GetWindowDrawList();
+                    ImVec2 cursorPos = ImGui::GetCursorScreenPos();
+                    ImVec2 textSize = ImGui::CalcTextSize(ReplacedCode.c_str());
+                    
+                    ImVec2 rectMin = cursorPos;
+                    ImVec2 rectMax = ImVec2(cursorPos.x + textSize.x + 8.0f, cursorPos.y + textSize.y);
+                    drawList->AddRectFilled(rectMin, rectMax, IM_COL32(40, 80, 60, 100));
+    
+                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 1.0f, 0.7f, 1.0f));
+                    ImGui::TextUnformatted(ReplacedCode.c_str());
+                    ImGui::PopStyleColor();
+                }
+    
+                if (!AfterReplacement.empty())
+                {
+                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.9f, 0.92f, 1.0f));
+                    ImGui::TextUnformatted(AfterReplacement.c_str());
+                    ImGui::PopStyleColor();
+                }
+            }
+            else
+            {
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.9f, 0.92f, 1.0f));
+                ImGui::TextUnformatted(Tree.c_str());
+                ImGui::PopStyleColor();
+            }
+    
+            ImGui::PopFont();
+    
+            ImGui::EndChild();
+            ImGui::PopStyleColor(2);
+        }
+    
+        ImGui::PopStyleVar(2);
     }
 
     void FMaterialEditorTool::Compile()
@@ -153,7 +241,7 @@ namespace Lumina
         }
         else
         {
-            Tree = Compiler.BuildTree();
+            Tree = Compiler.BuildTree(ReplacementStart, ReplacementEnd);
             CompilationResult.CompilationLog = "Generated GLSL: \n \n \n" + Tree;
             CompilationResult.bIsError = false;
             bGLSLPreviewDirty = true;
@@ -162,17 +250,24 @@ namespace Lumina
             FShaderHeader CompiledHeader;
             ShaderCompiler->CompilerShaderRaw(Tree, {}, [this, &CompiledHeader](const FShaderHeader& Header) mutable 
             {
-                CompiledHeader = Header;
-                
-                FRHIPixelShaderRef PixelShader = GRenderContext->CreatePixelShader(Header);
-                
-                FName Key = eastl::to_string(Hash::GetHash64(Header.Binaries.data(), Header.Binaries.size()));
-                PixelShader->SetKey(Key);
-                    
-                FRHIVertexShaderRef VertexShader = GRenderContext->GetShaderLibrary()->GetShader("Material.vert").As<FRHIVertexShader>();
                 CMaterial* Material = Cast<CMaterial>(Asset.Get());
-                Material->VertexShader = VertexShader;
-                Material->PixelShader = PixelShader;
+                CompiledHeader = Header;
+
+                FRHIPixelShaderRef PixelShader = GRenderContext->CreatePixelShader(Header);
+                FRHIVertexShaderRef VertexShader = GRenderContext->GetShaderLibrary()->GetShader("Material.vert").As<FRHIVertexShader>();
+                
+                {
+                    FString Key = eastl::to_string(Hash::GetHash64(Header.Binaries.data(), Header.Binaries.size()));
+                    Key += Material->GetQualifiedName().ToString();
+                    PixelShader->SetKey(Key);
+                    Material->PixelShaderBinaries.assign(Header.Binaries.begin(), Header.Binaries.end());
+                    Material->PixelShader = PixelShader;
+                }
+                
+                {
+                    Material->VertexShaderBinaries.assign(VertexShader->GetShaderHeader().Binaries.begin(), VertexShader->GetShaderHeader().Binaries.end());
+                    Material->VertexShader = VertexShader;
+                }
                 
                 GRenderContext->OnShaderCompiled(PixelShader);
             });
@@ -181,42 +276,6 @@ namespace Lumina
             
             CMaterial* Material = Cast<CMaterial>(Asset.Get());
             Compiler.GetBoundTextures(Material->Textures);
-            
-            FRHIBufferDesc BufferDesc;
-            BufferDesc.Size = sizeof(FMaterialUniforms);
-            BufferDesc.DebugName = "Material Uniforms";
-            BufferDesc.InitialState = EResourceStates::ConstantBuffer;
-            BufferDesc.bKeepInitialState = true;
-            BufferDesc.Usage.SetFlag(BUF_UniformBuffer);
-            Material->UniformBuffer = GRenderContext->CreateBuffer(BufferDesc);
-            GRenderContext->SetObjectName(Material->UniformBuffer, Material->GetName().c_str(), EAPIResourceType::Buffer);
-
-            FBindingSetDesc SetDesc;
-            SetDesc.AddItem(FBindingSetItem::BufferCBV(0, Material->UniformBuffer));
-            
-            FBindingLayoutDesc LayoutDesc;
-            LayoutDesc.StageFlags.SetMultipleFlags(ERHIShaderType::Fragment);
-
-            FBindingLayoutItem BufferItem;
-            BufferItem.Slot = 0;
-            BufferItem.Type = ERHIBindingResourceType::Buffer_Uniform;
-            LayoutDesc.AddItem(BufferItem);
-
-            for (const FShaderBinding& Binding : CompiledHeader.Reflection.Bindings)
-            {
-                if (Binding.Type == ERHIBindingResourceType::Texture_SRV)
-                {
-                    FRHIImageRef Image = Material->Textures[Binding.Set - 1]->RHIImage;
-                
-                    FBindingLayoutItem Item;
-                    Item.Slot = Binding.Binding;
-                    Item.Type = ERHIBindingResourceType::Texture_SRV;
-                
-                    LayoutDesc.AddItem(Item);
-                
-                    SetDesc.AddItem(FBindingSetItem::TextureSRV(Item.Slot, Image));
-                }
-            }
             
             Memory::Memzero(&Material->MaterialUniforms, sizeof(FMaterialUniforms));
             Material->Parameters.clear();
@@ -240,16 +299,8 @@ namespace Lumina
                 Material->Parameters.push_back(NewParam);
                 Material->SetVectorValue(Name, Value.Value);
             }
-            
-            GRenderContext->GetCommandList(ECommandQueue::Graphics)->WriteBuffer(Material->UniformBuffer, &Material->MaterialUniforms, 0, sizeof(FMaterialUniforms));
-            Material->BindingLayout = GRenderContext->CreateBindingLayout(LayoutDesc);
-            
-            GRenderContext->SetObjectName(Material->BindingLayout, Material->GetName().c_str(), EAPIResourceType::DescriptorSetLayout);
-            
-            Material->BindingSet = GRenderContext->CreateBindingSet(SetDesc, Material->BindingLayout);
-            GRenderContext->SetObjectName(Material->BindingSet, Material->GetName().c_str(), EAPIResourceType::DescriptorSet);
 
-            Material->SetReadyForRender(true);
+            Material->PostLoad();
             
             OnSave();
         }
@@ -266,10 +317,12 @@ namespace Lumina
 
         // 2. Split right dock vertically: Top (Material Preview), Bottom (GLSL Preview)
         ImGui::DockBuilderSplitNode(rightDockID, ImGuiDir_Down, 0.3f, &rightBottomDockID, &rightDockID);
+        
 
         // Dock windows
         ImGui::DockBuilderDockWindow(GetToolWindowName(MaterialGraphName).c_str(), leftDockID);
         ImGui::DockBuilderDockWindow(GetToolWindowName(ViewportWindowName).c_str(), rightDockID);
         ImGui::DockBuilderDockWindow(GetToolWindowName(GLSLPreviewName).c_str(), rightBottomDockID);
+        ImGui::DockBuilderDockWindow(GetToolWindowName(MaterialPropertiesName).c_str(), rightBottomDockID);
     }
 }

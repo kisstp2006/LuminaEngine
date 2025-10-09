@@ -59,7 +59,7 @@ namespace Lumina
         ListItems.clear();
     }
 
-    void FTreeListView::RebuildTree(FTreeListViewContext Context)
+    void FTreeListView::RebuildTree(const FTreeListViewContext& Context)
     {
         Assert(bCurrentlyDrawing == false)
         Assert(Context.RebuildTreeFunction)
@@ -91,7 +91,7 @@ namespace Lumina
         bDirty = false;
     }
 
-    void FTreeListView::DrawListItem(FTreeListViewItem* ItemToDraw, FTreeListViewContext Context)
+    void FTreeListView::DrawListItem(FTreeListViewItem* ItemToDraw, const FTreeListViewContext& Context)
     {
         bool bSelectedItem = VectorContains(Selections, ItemToDraw);
         Assert(bSelectedItem == ItemToDraw->bSelected)
@@ -194,7 +194,7 @@ namespace Lumina
         ImGui::PopID();
     }
 
-    void FTreeListView::SetSelection(FTreeListViewItem* Item, FTreeListViewContext Context)
+    void FTreeListView::SetSelection(FTreeListViewItem* Item, const FTreeListViewContext& Context)
     {
         bool bWasSelected = Item->bSelected;
         

@@ -41,6 +41,13 @@ namespace Lumina
         PFN_vkCmdDebugMarkerEndEXT vkCmdDebugMarkerEndEXT = nullptr;
     };
 
+    enum class EVulkanExtensions : uint8
+    {
+        None,
+        PushDescriptors,
+        ConservativeRasterization,
+    };
+
     VkImageAspectFlags GuessImageAspectFlags(VkFormat Format);
     
     class FQueue : public IDeviceChild
@@ -177,10 +184,11 @@ namespace Lumina
         
         void SetVulkanObjectName(FString Name, VkObjectType ObjectType, uint64 Handle);
         FVulkanRenderContextFunctions& GetDebugUtils();
-
     
     private:
 
+        TBitFlags<EVulkanExtensions>                    EnabledExtensions;
+        
         THashMap<uint64, FRHIInputLayoutRef>            InputLayoutMap;
         THashMap<uint64, FRHISamplerRef>                SamplerMap;
         
@@ -202,5 +210,4 @@ namespace Lumina
         FSpirVShaderCompiler*                           ShaderCompiler;
         FRHIShaderLibraryRef                            ShaderLibrary;
     };
-    
 }

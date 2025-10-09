@@ -122,7 +122,6 @@ namespace Lumina
             BufferDesc.bKeepInitialState = true;
             BufferDesc.Usage.SetFlag(BUF_UniformBuffer);
             UniformBuffer = GRenderContext->CreateBuffer(BufferDesc);
-            GRenderContext->SetObjectName(UniformBuffer, GetName().c_str(), EAPIResourceType::Buffer);
 
 
             FBindingSetDesc SetDesc;

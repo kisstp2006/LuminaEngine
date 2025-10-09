@@ -9,14 +9,32 @@
 namespace Lumina::Reflection
 {
 
-    static char const* const GIncludePaths[] =
+    static const char* const GIncludePaths[] =
     {
-        "/Lumina/Engine",
-        "/Lumina/Engine/ThirdParty/glm",
+        "/Lumina/Engine/",
         "/Lumina/Engine/Source",
+        "/Lumina/Engine/ThirdParty/",
         "/Lumina/Engine/Source/Runtime",
-        "/Lumina/Engine/ThirdParty/EA/EABase/include/common",
+
+        "/Lumina/Engine/ThirdParty/spdlog/include",
+        "/Lumina/Engine/ThirdParty/GLFW/include",
+        "/Lumina/Engine/ThirdParty/imgui",
+        "/Lumina/Engine/ThirdParty/vk-bootstrap",
+        "/Lumina/Engine/ThirdParty/VulkanMemoryAllocator",
+        "/Lumina/Engine/ThirdParty/fastgltf/include",
+        "/Lumina/Engine/ThirdParty/stb_image",
+        "/Lumina/Engine/ThirdParty/meshoptimizer/src",
+        "/Lumina/Engine/ThirdParty/EnkiTS/src",
+        "/Lumina/Engine/ThirdParty/SPIRV-Reflect",
+        "/Lumina/Engine/ThirdParty/json/include",
+        "/Lumina/Engine/ThirdParty/entt/single_include",
+        "/Lumina/Engine/ThirdParty/ImGuizmo",
         "/Lumina/Engine/ThirdParty/EA/EASTL/include",
+        "/Lumina/Engine/ThirdParty/EA/EABase/include/Common",
+        "/Lumina/Engine/ThirdParty/rpmalloc",
+        "/Lumina/Engine/ThirdParty/xxhash",
+        "/Lumina/Engine/ThirdParty/tracy/public",
+        "/External/Physx/physx/include",
     };
 
     
@@ -59,10 +77,15 @@ namespace Lumina::Reflection
         eastl::fixed_vector<const char*, 24> clangArgs;
 
         eastl::string PrjPath = Project.ParentPath + "/Source/";
-        FullIncludePaths.push_back("-I " + PrjPath);
+        FullIncludePaths.push_back("-I" + PrjPath);
         clangArgs.push_back(FullIncludePaths.back().c_str());
 
         eastl::string LuminaDirectory = std::getenv("LUMINA_DIR");
+        if (!LuminaDirectory.empty() && LuminaDirectory.back() == '/' )
+        {
+            LuminaDirectory.pop_back();
+        }
+        
         for (const char* Path : GIncludePaths)
         {
             eastl::string FullPath = LuminaDirectory + Path;
@@ -81,12 +104,15 @@ namespace Lumina::Reflection
         clangArgs.emplace_back("-O0");
         
         clangArgs.emplace_back("-D REFLECTION_PARSER");
+
         clangArgs.emplace_back("-D NDEBUG");
 
         clangArgs.emplace_back("-fsyntax-only");
         clangArgs.emplace_back("-fparse-all-comments");
         clangArgs.emplace_back("-fms-extensions");
         clangArgs.emplace_back("-fms-compatibility");
+        clangArgs.emplace_back("-Wfatal-errors=0");
+        clangArgs.emplace_back("-Werror");
 
         clangArgs.emplace_back("-w");
         

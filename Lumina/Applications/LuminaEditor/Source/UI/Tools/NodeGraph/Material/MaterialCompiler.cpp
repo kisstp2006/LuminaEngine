@@ -10,7 +10,7 @@
 
 namespace Lumina
 {
-    FString FMaterialCompiler::BuildTree()
+    FString FMaterialCompiler::BuildTree(SIZE_T& StartReplacement, SIZE_T& EndReplacement)
     {
         FString FragmentPath = Paths::GetEngineResourceDirectory() + "/MaterialShader/Material.frag";
 
@@ -22,7 +22,9 @@ namespace Lumina
 
         if (Pos != FString::npos)
         {
+            StartReplacement = Pos;
             LoadedString.replace(Pos, strlen(Token), ShaderChunks);
+            EndReplacement = Pos + ShaderChunks.length();
         }
         
         return LoadedString;
@@ -129,7 +131,7 @@ namespace Lumina
             return;
         }
 
-        FString UVData = "GetTexCoords()";
+        FString UVData = "UV0";
         if (Input->HasConnection())
         {
             CMaterialOutput* AConn = Cast<CMaterialOutput>(Input->GetConnections()[0]);
@@ -148,12 +150,12 @@ namespace Lumina
 
     void FMaterialCompiler::VertexNormal(const FString& ID)
     {
-        ShaderChunks.append("vec4 " + ID + " = vec4(inNormalWS.xyz, 1.0);\n");
+        ShaderChunks.append("vec4 " + ID + " = vec4(WorldNormal.xyz, 1.0);\n");
     }
 
     void FMaterialCompiler::TexCoords(const FString& ID)
     {
-        ShaderChunks.append("vec4 " + ID + " = vec4(GetTexCoords(), 1.0, 1.0);\n");
+        ShaderChunks.append("vec4 " + ID + " = vec4(UV0, 1.0, 1.0);\n");
     }
 
     void FMaterialCompiler::WorldPos(const FString& ID)
@@ -168,7 +170,7 @@ namespace Lumina
 
     void FMaterialCompiler::EntityID(const FString& ID)
     {
-        ShaderChunks.append("float " + ID + " = float(inEntityID);\n");
+        ShaderChunks.append("float " + ID + " = float(EntityID);\n");
     }
 
     void FMaterialCompiler::Saturate(CMaterialInput* A, CMaterialInput* /*B*/)

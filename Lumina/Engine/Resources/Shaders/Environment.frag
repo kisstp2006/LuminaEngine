@@ -66,7 +66,6 @@ const float mieHeight = 1.2e2;
 // Improved view ray calculation
 vec3 getViewRay(vec2 uv) 
 {
-    uv.y = 1.0 - uv.y;
     vec2 ndc = uv * 2.0 - 1.0;
 
     vec4 rayClip = vec4(ndc, 1.0, 1.0);
@@ -251,4 +250,25 @@ void main()
     color = mix(color, color * color * (3.0 - 2.0 * color), 0.1);
 
     fragColor = vec4(color, 1.0);
+
+    vec3 DebugColor = vec3(0.0);
+
+    DebugColor.r = vUV.x;   // X grows -> right
+    DebugColor.g = vUV.y;   // Y grows -> down (in Vulkan, top-left is (0,0))
+    DebugColor.b = 0.0;
+
+    float cornerSize = 0.02;
+    if (vUV.x < cornerSize && vUV.y < cornerSize)
+    DebugColor = vec3(1.0, 0.0, 0.0);
+
+    if (vUV.x > 1.0 - cornerSize && vUV.y < cornerSize)
+    DebugColor = vec3(0.0, 1.0, 0.0);
+
+    if (vUV.x < cornerSize && vUV.y > 1.0 - cornerSize)
+    DebugColor = vec3(0.0, 0.0, 1.0);
+
+    if (vUV.x > 1.0 - cornerSize && vUV.y > 1.0 - cornerSize)
+    DebugColor = vec3(1.0, 1.0, 0.0);
+
+    fragColor = vec4(DebugColor, 1.0);
 }

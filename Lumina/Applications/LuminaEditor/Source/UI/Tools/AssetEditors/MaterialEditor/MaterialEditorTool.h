@@ -42,10 +42,13 @@ namespace Lumina
         void InitializeDockingLayout(ImGuiID InDockspaceID, const ImVec2& InDockspaceSize) const override;
 
     private:
-        FString Tree;
-        Entity MeshEntity;
-        CEdGraphNode* SelectedNode = nullptr;
-        FCompilationResultInfo CompilationResult;
+        
+        FString                 Tree;
+        SIZE_T                  ReplacementStart = 0;
+        SIZE_T                  ReplacementEnd = 0;
+        Entity                  MeshEntity;
+        CEdGraphNode*           SelectedNode = nullptr;
+        FCompilationResultInfo  CompilationResult;
         
         TObjectHandle<CMaterialNodeGraph> NodeGraph;
         bool bGLSLPreviewDirty = false;

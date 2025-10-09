@@ -15,21 +15,53 @@ namespace Lumina
 
     void CThumbnailManager::Initialize()
     {
-        CubeMesh = NewObject<CStaticMesh>();
-        
-        TUniquePtr<FMeshResource> Resource = MakeUniquePtr<FMeshResource>();
-        GenerateCube(Resource->Vertices, Resource->Indices);
-        
-        
-        FGeometrySurface Surface;
-        Surface.ID = "Mesh";
-        Surface.IndexCount = Resource->Indices.size();
-        Surface.StartIndex = 0;
-        Surface.MaterialIndex = 0;
-        Resource->GeometrySurfaces.push_back(Surface);
+        {
+            TUniquePtr<FMeshResource> Resource = MakeUniquePtr<FMeshResource>();
+            PrimitiveMeshes::GenerateCube(Resource->Vertices, Resource->Indices);
+            
+            FGeometrySurface Surface;
+            Surface.ID = "CubeMesh";
+            Surface.IndexCount = (uint32)Resource->Indices.size();
+            Surface.StartIndex = 0;
+            Surface.MaterialIndex = 0;
+            Resource->GeometrySurfaces.push_back(Surface);
 
-        CubeMesh->Materials.resize(1);
-        CubeMesh->SetMeshResource(eastl::move(Resource));
+            CubeMesh = NewObject<CStaticMesh>();
+            CubeMesh->Materials.resize(1);
+            CubeMesh->SetMeshResource(eastl::move(Resource));
+        }
+
+        {
+            TUniquePtr<FMeshResource> Resource = MakeUniquePtr<FMeshResource>();
+            PrimitiveMeshes::GenerateSphere(Resource->Vertices, Resource->Indices);
+            
+            FGeometrySurface Surface;
+            Surface.ID = "SphereMesh";
+            Surface.IndexCount = (uint32)Resource->Indices.size();
+            Surface.StartIndex = 0;
+            Surface.MaterialIndex = 0;
+            Resource->GeometrySurfaces.push_back(Surface);
+
+            SphereMesh = NewObject<CStaticMesh>();
+            SphereMesh->Materials.resize(1);
+            SphereMesh->SetMeshResource(eastl::move(Resource));
+        }
+
+        {
+            TUniquePtr<FMeshResource> Resource = MakeUniquePtr<FMeshResource>();
+            PrimitiveMeshes::GeneratePlane(Resource->Vertices, Resource->Indices);
+            
+            FGeometrySurface Surface;
+            Surface.ID = "PlaneMesh";
+            Surface.IndexCount = (uint32)Resource->Indices.size();
+            Surface.StartIndex = 0;
+            Surface.MaterialIndex = 0;
+            Resource->GeometrySurfaces.push_back(Surface);
+
+            PlaneMesh = NewObject<CStaticMesh>();
+            PlaneMesh->Materials.resize(1);
+            PlaneMesh->SetMeshResource(eastl::move(Resource));
+        }
     }
 
     CThumbnailManager& CThumbnailManager::Get()

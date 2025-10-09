@@ -58,12 +58,12 @@ namespace Lumina
 
         void SetViewVolume(const FViewVolume& ViewVolume);
 
-        void ResetState();
         
         /** Compiles all renderers from the world into draw commands for dispatch */
         void CompileDrawCommands();
 
         //~ Begin Render Passes
+        void ResetPass(FRenderGraph& RenderGraph);
         void CullPass(FRenderGraph& RenderGraph, const FViewVolume& View);
         void DepthPrePass(FRenderGraph& RenderGraph, const FViewVolume& View);
         void ShadowMappingPass(FRenderGraph& RenderGraph);
@@ -93,6 +93,7 @@ namespace Lumina
 
         FRHIViewportRef                     SceneViewport;
 
+        uint32                                      LineBatches;
         TRenderVector<FSimpleElementVertex>         SimpleVertices;
         FRHIBindingLayoutRef                        SimplePassLayout;
         
@@ -158,15 +159,13 @@ namespace Lumina
 
         /** Packed array of all cached mesh draw commands */
         TRenderVector<FMeshDrawCommand>               MeshDrawCommands;
-
-
+        
         /** Packed indirect draw arguments, gets sent directly to the GPU */
         TRenderVector<FDrawIndexedIndirectArguments>  IndirectDrawArguments;
 
-
-
+        
+        
         uint32 bHasDirectionalLight:1 = false;
-
         
     };
     

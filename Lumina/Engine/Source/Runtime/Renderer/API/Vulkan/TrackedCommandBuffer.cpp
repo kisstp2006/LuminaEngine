@@ -13,10 +13,7 @@ namespace Lumina
     {
         if (bCreateTraceContext)
         {
-            TracyContext = TracyVkContext(InDevice->GetPhysicalDevice(),
-                InDevice->GetDevice(),
-                InQueue,
-                CommandBuffer)
+            TracyContext = TracyVkContext(InDevice->GetPhysicalDevice(), InDevice->GetDevice(), InQueue, CommandBuffer)
         }
     }
 
@@ -25,8 +22,12 @@ namespace Lumina
         if (TracyContext)
         {
             TracyVkDestroy(TracyContext)
+            TracyContext = nullptr;
+            
         }
+        
         vkDestroyCommandPool(Device->GetDevice(), CommandPool, VK_ALLOC_CALLBACK);
+        CommandPool = VK_NULL_HANDLE;
     }
 
     void FTrackedCommandBuffer::AddReferencedResource(const TRefCountPtr<IRHIResource>& InResource)

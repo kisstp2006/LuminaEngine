@@ -50,6 +50,10 @@ namespace Lumina
         // Opacity (For transparent materials)
         OpacityPin = CreatePin(CMaterialInput::StaticClass(), "Opacity", ENodePinDirection::Input, EMaterialInputType::Float);
         OpacityPin->SetPinName("Opacity");
+
+        // Opacity (For transparent materials)
+        WorldPositionOffsetPin = CreatePin(CMaterialInput::StaticClass(), "World Position Offset (WPO)", ENodePinDirection::Input, EMaterialInputType::Float3);
+        WorldPositionOffsetPin->SetPinName("World Position Offset (WPO)");
     }
 
     void CMaterialOutputNode::GenerateDefinition(FMaterialCompiler* Compiler)

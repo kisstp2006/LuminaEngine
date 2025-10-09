@@ -18,6 +18,7 @@ workspace "Lumina"
 		"EASTL_USER_DEFINED_ALLOCATOR=1",
 		"_CRT_SECURE_NO_WARNINGS",
 		"GLM_FORCE_DEPTH_ZERO_TO_ONE",
+		"GLM_FORCE_LEFT_HANDED",
 		"IMGUI_DEFINE_MATH_OPERATORS",
 	}
 
@@ -29,6 +30,8 @@ workspace "Lumina"
 	buildoptions {
 		"/Zm2000"
 	}
+
+
 
     -- Platform-specific settings
     filter "system:windows"

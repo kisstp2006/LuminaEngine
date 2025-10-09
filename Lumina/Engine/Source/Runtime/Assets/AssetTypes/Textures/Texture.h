@@ -20,6 +20,8 @@ namespace Lumina
         void Serialize(IStructuredArchive::FSlot Slot) override;
         void PostLoad() override;
 
+        FORCEINLINE FRHIImageRef GetRHIRef() const { return RHIImage; }
+
         bool IsAsset() const override { return true; }
         
         FRHIImageDesc   ImageDescription;

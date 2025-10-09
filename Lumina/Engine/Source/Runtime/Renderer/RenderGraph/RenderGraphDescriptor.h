@@ -24,6 +24,11 @@ namespace Lumina
             ERenderStoreOp  StoreOp;
         };
 
+        struct FShaderBindings
+        {
+            
+        };
+
         FRGPassDescriptor& AddSRVBuffer(FRGBuffer* Buffer)
         {
             SRVBuffers.push_back(Buffer);
@@ -61,6 +66,7 @@ namespace Lumina
         }
 
     private:
+        
         TVector<FRGBuffer*> UAVBuffers;
         TVector<FRGImage*>  UAVImages;
         TVector<FRGBuffer*> SRVBuffers;

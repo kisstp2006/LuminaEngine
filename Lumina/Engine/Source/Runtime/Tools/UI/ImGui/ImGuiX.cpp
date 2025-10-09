@@ -256,6 +256,22 @@ namespace Lumina::ImGuiX
         return GEngine->GetEngineSubsystem<FRenderManager>()->GetImGuiRenderer()->GetOrCreateImTexture(Image);
     }
 
+    FString FormatSize(size_t bytes)
+    {
+        const char* suffixes[] = { "B", "KB", "MB", "GB" };
+        double size = static_cast<double>(bytes);
+        int suffix = 0;
+
+        while (size >= 1024.0 && suffix < 3)
+        {
+            size /= 1024.0;
+            ++suffix;
+        }
+
+        char buffer[64];
+        snprintf(buffer, sizeof(buffer), "%.2f %s", size, suffixes[suffix]);
+        return FString(buffer);
+    }
     void ApplicationTitleBar::DrawWindowControls()
     {
         ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0);

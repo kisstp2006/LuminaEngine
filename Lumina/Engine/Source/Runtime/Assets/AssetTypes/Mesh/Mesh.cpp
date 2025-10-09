@@ -110,7 +110,6 @@ namespace Lumina
         
         MeshResources->MeshBuffers.VertexBuffer = FRHITypedVertexBuffer<FVertex>::Create(CommandList, MeshResources->Vertices.data(), MeshResources->Vertices.size());
         CommandList->SetPermanentBufferState(MeshResources->MeshBuffers.VertexBuffer, EResourceStates::VertexBuffer);
-        GRenderContext->SetObjectName(MeshResources->MeshBuffers.VertexBuffer, "Vertex Buffer", EAPIResourceType::Buffer);
         
 
         FRHIBufferDesc IndexBufferDesc;
@@ -119,12 +118,11 @@ namespace Lumina
         IndexBufferDesc.InitialState = EResourceStates::CopyDest;
         IndexBufferDesc.DebugName = GetName().ToString() + "Index Buffer";
         MeshResources->MeshBuffers.IndexBuffer = GRenderContext->CreateBuffer(IndexBufferDesc);
-        GRenderContext->SetObjectName(MeshResources->MeshBuffers.IndexBuffer, IndexBufferDesc.DebugName.c_str(), EAPIResourceType::Buffer);
 
         CommandList->BeginTrackingBufferState(MeshResources->MeshBuffers.IndexBuffer, EResourceStates::CopyDest);
         CommandList->WriteBuffer(MeshResources->MeshBuffers.IndexBuffer, MeshResources->Indices.data(), 0, MeshResources->Indices.size() * sizeof(uint32));
         CommandList->SetPermanentBufferState(MeshResources->MeshBuffers.IndexBuffer, EResourceStates::IndexBuffer);
-
+        
 
         if (!MeshResources->ShadowIndices.empty())
         {
@@ -136,8 +134,8 @@ namespace Lumina
             ShadowIndexBufferDesc.bKeepInitialState = true;
             ShadowIndexBufferDesc.DebugName = GetName().ToString() + "Index Buffer";
             MeshResources->MeshBuffers.ShadowIndexBuffer = GRenderContext->CreateBuffer(ShadowIndexBufferDesc);
-            GRenderContext->SetObjectName(MeshResources->MeshBuffers.ShadowIndexBuffer, ShadowIndexBufferDesc.DebugName.c_str(), EAPIResourceType::Buffer);
             CommandList->WriteBuffer(MeshResources->MeshBuffers.ShadowIndexBuffer, MeshResources->ShadowIndices.data(), 0, MeshResources->ShadowIndices.size() * sizeof(uint32));
+            CommandList->SetPermanentBufferState(MeshResources->MeshBuffers.ShadowIndexBuffer, EResourceStates::IndexBuffer);
         }
         else
         {

@@ -3,6 +3,7 @@
 
 #include "TrackedCommandBuffer.h"
 #include "VulkanPipelineStates.h"
+#include "Memory/SmartPtr.h"
 #include "Renderer/CommandList.h"
 
 

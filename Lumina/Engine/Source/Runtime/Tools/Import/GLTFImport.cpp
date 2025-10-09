@@ -137,9 +137,9 @@ namespace Lumina::Import::Mesh::GLTF
                 // Initialize all vertices with defaults
                 for (size_t i = InitialVert; i < NewResource->Vertices.size(); ++i)
                 {
-                    NewResource->Vertices[i].Normal = PackNormal(glm::vec3(0.0f, 1.0f, 0.0f)); // Default up normal
+                    NewResource->Vertices[i].Normal = PackNormal(FViewVolume::UpAxis);
                     NewResource->Vertices[i].UV = glm::u16vec2(0, 0);
-                    NewResource->Vertices[i].Color = 0xFFFFFFFF; // White
+                    NewResource->Vertices[i].Color = 0xFFFFFFFF;
                 }
             
                 // Load positions

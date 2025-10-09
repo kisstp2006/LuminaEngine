@@ -243,7 +243,11 @@ namespace Lumina
         FRHIBuffer* UploadBuffer;
         uint64 UploadOffset;
         void* UploadCPUVA;
-        UploadManager->SuballocateBuffer(DeviceMemSize, &UploadBuffer, &UploadOffset, &UploadCPUVA, MakeVersion(CurrentCommandBuffer->RecordingID, Info.CommandQueue, false));
+        if (!UploadManager->SuballocateBuffer(DeviceMemSize, &UploadBuffer, &UploadOffset, &UploadCPUVA, MakeVersion(CurrentCommandBuffer->RecordingID, Info.CommandQueue, false)))
+        {
+            LOG_ERROR("Failed to suballocate buffer for size: %s", DeviceMemSize);
+            return;
+        }
 
         SIZE_T MinRowPitch = std::min(SIZE_T(DeviceRowPitch), RowPitch);
         uint8* MappedPtr = (uint8*)UploadCPUVA;
@@ -629,9 +633,8 @@ namespace Lumina
 
         if (!Allocations.empty())
         {
-            VK_CHECK(vmaFlushAllocations(
-                RenderContext->GetDevice()->GetAllocator()->GetVMA(),
-                static_cast<uint32>(Allocations.size()),
+            VK_CHECK(vmaFlushAllocations(RenderContext->GetDevice()->GetAllocator()->GetVMA(),
+                uint32(Allocations.size()),
                 Allocations.data(),
                 Offsets.data(),
                 Sizes.data()
@@ -963,6 +966,11 @@ namespace Lumina
     void FVulkanCommandList::BindBindingSets(VkPipelineBindPoint BindPoint, VkPipelineLayout PipelineLayout, TFixedVector<FRHIBindingSet*, 1> BindingSets)
     {
         LUMINA_PROFILE_SCOPE();
+
+        //@ TODO This might not be possible to support both, since we allocate binding sets, so having an API that expects both
+        // Is possibly even more wasteful, because they'd be allocating binding sets, but never using any of the data inside while all we would need
+        // more-or-less is the binding set description...
+        //bool bUsePushDescriptors = static_cast<FVulkanRenderContext*>(GRenderContext)->IsExtensionEnabled(EVulkanExtensions::PushDescriptors);
         
         uint32 CurrentBatchStart = UINT32_MAX;
         TFixedVector<VkDescriptorSet, 4> CurrentDescriptorBatch;
@@ -981,7 +989,7 @@ namespace Lumina
     
             if (CurrentBatchStart == UINT32_MAX)
             {
-                CurrentBatchStart = i;
+                CurrentBatchStart = (uint32)i;
             }
     
             // Handle gaps — flush current batch if gap detected
@@ -1000,10 +1008,10 @@ namespace Lumina
     
                     CurrentDescriptorBatch.clear();
                     DynamicOffsets.clear();
-                    CurrentBatchStart = SetIndex;
+                    CurrentBatchStart = (uint32)SetIndex;
                 }
             }
-    
+
             CurrentDescriptorBatch.push_back(VulkanSet->DescriptorSet);
     
             if (VulkanSet->GetDesc())
@@ -1052,7 +1060,9 @@ namespace Lumina
     void FVulkanCommandList::SetViewport(float MinX, float MinY, float MinZ, float MaxX, float MaxY, float MaxZ)
     {
         LUMINA_PROFILE_SCOPE();
+#define FLIP 0;
 
+#if FLIP
         VkViewport Viewport = {};
         Viewport.x        = MinX;
         Viewport.y        = MaxY;
@@ -1060,7 +1070,15 @@ namespace Lumina
         Viewport.height   = -(MaxY - MinY);
         Viewport.minDepth = MinZ;
         Viewport.maxDepth = MaxZ;
-
+#else
+        VkViewport Viewport = {};
+        Viewport.x = MinX;
+        Viewport.y = MinY;
+        Viewport.width = MaxX - MinX;
+        Viewport.height = MaxY - MinY;
+        Viewport.minDepth = MinZ;
+        Viewport.maxDepth = MaxZ;
+#endif
         TracyVkZone(CurrentCommandBuffer->TracyContext, CurrentCommandBuffer->CommandBuffer, "vkCmdSetViewport")        
         vkCmdSetViewport(CurrentCommandBuffer->CommandBuffer, 0, 1, &Viewport);
     }
@@ -1068,6 +1086,7 @@ namespace Lumina
     void FVulkanCommandList::SetScissorRect(uint32 MinX, uint32 MinY, uint32 MaxX, uint32 MaxY)
     {
         LUMINA_PROFILE_SCOPE();
+
 
         VkRect2D Scissor = {};
         Scissor.offset.x = (int32)MinX;

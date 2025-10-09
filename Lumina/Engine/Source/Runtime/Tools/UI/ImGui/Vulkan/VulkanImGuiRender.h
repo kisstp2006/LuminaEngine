@@ -34,6 +34,7 @@ namespace Lumina
         THashMap<VkImage, VkDescriptorSet> ImageCache;
         
         TFixedVector<FRHIImageRef, 10> ReferencedImages;
+        FRHICommandListRef CommandList;
     };
     
 }

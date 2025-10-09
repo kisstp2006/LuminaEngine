@@ -39,8 +39,10 @@ namespace Lumina
 
     void CEdNodeGraph::Initialize()
     {
+        SaveFileName = GetName().ToString().append("EdNodeGraph.json");
         ax::NodeEditor::Config config;
-        config.SettingsFile = "Simple.json";
+        config.EnableSmoothZoom = true;
+        config.SettingsFile = SaveFileName.c_str();
         Context = ax::NodeEditor::CreateEditor(&config);
         
     }
@@ -64,10 +66,11 @@ namespace Lumina
         
         NodeEditor::SetCurrentEditor(Context);
 
-        NodeEditor::Begin("Node Editor");
+        NodeEditor::Begin(GetPathName().c_str());
 
         Graph::GraphNodeBuilder NodeBuilder;
 
+        
         THashMap<uint32, uint64> NodeIDToIndex;
         TVector<TPair<CEdNodeGraphPin*, CEdNodeGraphPin*>> Links;
         Links.reserve(40);
@@ -210,13 +213,19 @@ namespace Lumina
                     for (CEdGraphNode* Node : Nodes)
                     {
                         StartPin = Node->GetPin(StartPinID.Get(), ENodePinDirection::Output);
-                        if (StartPin) break;
+                        if (StartPin)
+                        {
+                            break;
+                        }
                     }
 
                     for (CEdGraphNode* Node : Nodes)
                     {
                         EndPin = Node->GetPin(EndPinID.Get(), ENodePinDirection::Input);
-                        if (EndPin) break;
+                        if (EndPin)
+                        {
+                            break;
+                        }
                     }
 
                     bool bValid = true;

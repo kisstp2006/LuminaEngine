@@ -47,22 +47,6 @@
 
 namespace Lumina
 {
-    static FString FormatSize(size_t bytes)
-    {
-        const char* suffixes[] = { "B", "KB", "MB", "GB" };
-        double size = static_cast<double>(bytes);
-        int suffix = 0;
-
-        while (size >= 1024.0 && suffix < 3) {
-            size /= 1024.0;
-            ++suffix;
-        }
-
-        char buffer[64];
-        snprintf(buffer, sizeof(buffer), "%.2f %s", size, suffixes[suffix]);
-        return FString(buffer);
-    }
-    
     FEditorUI::FEditorUI()
     {
     }
@@ -387,7 +371,7 @@ namespace Lumina
                 {
                     ImGui::TableNextRow();
                     ImGui::TableSetColumnIndex(0); ImGui::TextUnformatted(label);
-                    ImGui::TableSetColumnIndex(1); ImGui::TextUnformatted(FormatSize(value).c_str());
+                    ImGui::TableSetColumnIndex(1); ImGui::TextUnformatted(ImGuiX::FormatSize(value).c_str());
                 };
                 Row("Current Program Memory", Platform::GetProcessMemoryUsageBytes());
                 Row("Current Mapped",        Memory::GetCurrentMappedMemory());
@@ -418,7 +402,10 @@ namespace Lumina
                 for (TObjectIterator<CObject> It; It; ++It)
                 {
                     CObject* Object = *It;
-                    if (Object == nullptr) continue;
+                    if (Object == nullptr)
+                    {
+                        continue;
+                    }
 
                     FString PackageName = Object->GetPackage() ? Object->GetPackage()->GetName().ToString() : "None";
                     PackageToObjects[PackageName].push_back(Object);
@@ -450,9 +437,13 @@ namespace Lumina
                                 // Column 1: Class
                                 ImGui::TableSetColumnIndex(1);
                                 if (Object->GetClass())
+                                {
                                     ImGui::TextUnformatted(Object->GetClass()->GetName().ToString().c_str());
+                                }
                                 else
+                                {
                                     ImGui::TextUnformatted("None");
+                                }
 
                                 // Column 2: Flags
                                 ImGui::TableSetColumnIndex(2);
@@ -918,14 +909,14 @@ namespace Lumina
                 {
                     LUMINA_PROFILE_SECTION("Draw Viewport");
 
-                    constexpr ImGuiWindowFlags viewportWindowFlags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoNavInputs | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNavFocus;
+                    constexpr ImGuiWindowFlags ViewportWindowFlags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse | ImGuiWindowFlags_NoNavInputs | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoNavFocus;
                     ImGui::SetNextWindowClass(&Tool->ToolWindowsClass);
 
                     //-- Setup viewport for scene.
                     
                     ImGui::SetNextWindowSizeConstraints(ImVec2(128, 128), ImVec2(FLT_MAX, FLT_MAX));
                     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-                    bool const DrawViewportWindow = ImGui::Begin(ToolWindowName.c_str(), nullptr, viewportWindowFlags);
+                    bool const DrawViewportWindow = ImGui::Begin(ToolWindowName.c_str(), nullptr, ViewportWindowFlags);
                     ImGui::PopStyleVar();
                 
                     if (DrawViewportWindow)

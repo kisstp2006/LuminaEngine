@@ -13,7 +13,7 @@ project "Lumina"
     
     prebuildcommands
     {
-        "\"%{LuminaEngineDirectory}/Binaries/Release-windows-x86_64/Reflector.exe\" \"%{wks.location}%{wks.name}.sln\" && echo Reflection completed."
+        --"\"%{LuminaEngineDirectory}/Binaries/Release-windows-x86_64/Reflector.exe\" \"%{wks.location}%{wks.name}.sln\" && echo Reflection completed."
     }
 
     postbuildcommands
@@ -95,7 +95,6 @@ project "Lumina"
         "LUMINA_ENGINE_DIRECTORY=%{LuminaEngineDirectory}",
         "LUMINA_ENGINE",
         "EASTL_USER_DEFINED_ALLOCATOR=1",
-        "GLM_FORCE_DEPTH_ZERO_TO_ONE",
         "GLFW_INCLUDE_NONE",
         "GLFW_STATIC",
         "_SILENCE_ALL_MS_EXT_DEPRECATION_WARNINGS",

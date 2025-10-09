@@ -77,6 +77,7 @@ namespace Lumina
 
         uint64 CurrentFrame = GEngine->GetUpdateContext().GetFrame();
 
+        FScopeLock Lock(Mutex);
         eastl::erase_if(Images, [CurrentFrame](auto& pair) -> bool
         {
             FEntry* Entry = pair.second;
@@ -148,10 +149,12 @@ namespace Lumina
         ETextureState Expected = ETextureState::Empty;
         if (Entry->State.compare_exchange_strong(Expected, ETextureState::Loading, std::memory_order_acq_rel))
         {
-            Task::AsyncTask(1, [Entry, PathName](uint32, uint32, uint32)
+            Task::AsyncTask(1, [this, Entry, PathName](uint32, uint32, uint32)
             {
+                FScopeLock Lock(Mutex);
+
                 FString PathString = PathName.ToString();
-                FRHIImage* NewImage = Import::Textures::CreateTextureFromImport(GRenderContext, PathString, false);
+                FRHIImageRef NewImage = Import::Textures::CreateTextureFromImport(GRenderContext, PathString, false);
                 ImTextureRef NewImTexture = ImGuiX::ToImTextureRef(NewImage);
                 
                 Entry->RHIImage = NewImage;

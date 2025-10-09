@@ -38,24 +38,28 @@ namespace Lumina
             SVelocityComponent& Velocity        = View.get<SVelocityComponent>(EditorEntity);
     
             if (!Editor.bEnabled)
+            {
                 continue;
+            }
     
-            glm::vec3 Forward = Transform.Transform.Rotation * glm::vec3(0.0f, 0.0f, -1.0f);
-            glm::vec3 Right   = Transform.Transform.Rotation * glm::vec3(1.0f, 0.0f,  0.0f);
-            glm::vec3 Up      = Transform.Transform.Rotation * glm::vec3(0.0f, 1.0f,  0.0f);
+            glm::vec3 Forward   = Transform.Transform.Rotation * FViewVolume::ForwardAxis * -1.0f;
+            glm::vec3 Right     = Transform.Transform.Rotation * FViewVolume::RightAxis;
+            glm::vec3 Up        = Transform.Transform.Rotation * FViewVolume::UpAxis;
     
             float Speed = Velocity.Speed;
             if (Input::IsKeyPressed(Key::LeftShift))
-                Speed *= 5.0f;
+            {
+                Speed *= 10.0f;
+            }
     
             glm::vec3 Acceleration(0.0f);
     
-            if (Input::IsKeyPressed(Key::W)) Acceleration += Forward;
-            if (Input::IsKeyPressed(Key::S)) Acceleration -= Forward;
-            if (Input::IsKeyPressed(Key::D)) Acceleration += Right;
-            if (Input::IsKeyPressed(Key::A)) Acceleration -= Right;
-            if (Input::IsKeyPressed(Key::E)) Acceleration += Up;
-            if (Input::IsKeyPressed(Key::Q)) Acceleration -= Up;
+            if (Input::IsKeyPressed(Key::W)) Acceleration += Forward;   // W = forward (+Z)
+            if (Input::IsKeyPressed(Key::S)) Acceleration -= Forward;   // S = backward (-Z)
+            if (Input::IsKeyPressed(Key::D)) Acceleration += Right;     // D = right (+X)
+            if (Input::IsKeyPressed(Key::A)) Acceleration -= Right;     // A = left (-X)
+            if (Input::IsKeyPressed(Key::E)) Acceleration += Up;        // E = up (+Y)
+            if (Input::IsKeyPressed(Key::Q)) Acceleration -= Up;        // Q = down (-Y)
     
             if (glm::length(Acceleration) > 0.0f)
                 Acceleration = glm::normalize(Acceleration) * Speed;
@@ -80,10 +84,10 @@ namespace Lumina
     
                 constexpr float Sensitivity = 0.1f;
                 float YawDelta   = -MouseYawDelta   * Sensitivity;
-                float PitchDelta = MousePitchDelta * Sensitivity;
+                float PitchDelta = -MousePitchDelta * Sensitivity;
     
-                glm::quat yawQuat   = glm::angleAxis(glm::radians(YawDelta), glm::vec3(0.0f, 1.0f, 0.0f));
-                glm::vec3 RightAxis = Transform.Transform.Rotation * glm::vec3(-1.0f, 0.0f, 0.0f);
+                glm::quat yawQuat = glm::angleAxis(glm::radians(YawDelta), FViewVolume::UpAxis);
+                glm::vec3 RightAxis = Transform.Transform.Rotation * FViewVolume::RightAxis;
                 glm::quat pitchQuat = glm::angleAxis(glm::radians(PitchDelta), RightAxis);
     
                 Transform.Transform.Rotation = glm::normalize(yawQuat * pitchQuat * Transform.Transform.Rotation);
@@ -94,8 +98,8 @@ namespace Lumina
             }
     
             // Update camera view
-            glm::vec3 UpdatedForward = Transform.Transform.Rotation * glm::vec3(0.0f, 0.0f, -1.0f);
-            glm::vec3 UpdatedUp      = Transform.Transform.Rotation * glm::vec3(0.0f, 1.0f,  0.0f);
+            glm::vec3 UpdatedForward = Transform.Transform.Rotation * FViewVolume::ForwardAxis;
+            glm::vec3 UpdatedUp = Transform.Transform.Rotation * FViewVolume::UpAxis;
     
             Camera.SetView(Transform.Transform.Location, Transform.Transform.Location + UpdatedForward, UpdatedUp);
         }

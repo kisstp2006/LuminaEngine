@@ -34,7 +34,9 @@ namespace Lumina
 
         CMaterial();
 
+        void Serialize(FArchive& Ar) override;
         bool IsAsset() const override { return true; }
+        void PostLoad() override;
         
         bool SetScalarValue(const FName& Name, const float Value) override;
         bool SetVectorValue(const FName& Name, const glm::vec4& Value) override;
@@ -60,6 +62,9 @@ namespace Lumina
         
         LUM_PROPERTY()
         TVector<TObjectHandle<CTexture>>        Textures;
+        
+        TVector<uint32>                         VertexShaderBinaries;
+        TVector<uint32>                         PixelShaderBinaries;
 
         TVector<FMaterialParameter>             Parameters;
         

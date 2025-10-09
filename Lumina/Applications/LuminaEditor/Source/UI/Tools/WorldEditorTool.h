@@ -135,25 +135,28 @@ namespace Lumina
 
     private:
 
-        FOnGamePreview              OnGamePreviewStartRequested;
-        FOnGamePreview              OnGamePreviewStopRequested;
+        FOnGamePreview                          OnGamePreviewStartRequested;
+        FOnGamePreview                          OnGamePreviewStopRequested;
         
-        ImGuizmo::OPERATION         GuizmoOp;
-        ImGuizmo::MODE              GuizmoMode;
+        ImGuizmo::OPERATION                     GuizmoOp;
+        ImGuizmo::MODE                          GuizmoMode;
         
-        Entity                      SelectedEntity;
-        Entity                      CopiedEntity;
+        Entity                                  SelectedEntity;
+        Entity                                  CopiedEntity;
         
-        FTreeListView               OutlinerListView;
-        FTreeListViewContext        OutlinerContext;
+        FTreeListView                           OutlinerListView;
+        FTreeListViewContext                    OutlinerContext;
 
-        FTreeListView               SystemsListView;
-        FTreeListViewContext        SystemsContext;
+        FTreeListView                           SystemsListView;
+        FTreeListViewContext                    SystemsContext;
         
-        TQueue<Entity>              EntityDestroyRequests;
-        TVector<FPropertyTable*>    PropertyTables;
+        TQueue<Entity>                          EntityDestroyRequests;
+        TVector<TUniquePtr<FPropertyTable>>     PropertyTables;
 
-        bool                        bGamePreviewRunning = false;
+        bool                                    bGamePreviewRunning = false;
+
+        /** Idk, this thing will return IsUsing = true always if it's never been used */
+        bool                                    bImGuizmoUsedOnce = false;
     };
     
 }

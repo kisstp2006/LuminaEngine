@@ -119,7 +119,7 @@ float TextureProj(vec4 ShadowCoord, int cascade)
     vec3 projCoords = ShadowCoord.xyz / ShadowCoord.w;
 
     vec2 shadowUV = projCoords.xy * 0.5 + 0.5;
-    shadowUV.y = 1.0 - shadowUV.y;
+    //shadowUV.y = 1.0 - shadowUV.y;
 
     // PCF: Sample 3x3 grid around the fragment
     vec2 texelSize = 1.0 / vec2(textureSize(uShadowCascade, 0).xy);

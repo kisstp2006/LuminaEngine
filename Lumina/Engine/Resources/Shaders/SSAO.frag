@@ -57,7 +57,7 @@ void main()
         Offset = GetCameraProjection() * Offset; // From View-Space to Clip-Space.
         Offset.xy /= Offset.w; // Perspective divide.
         Offset.xy = Offset.xy * 0.5f + 0.5f; // Transform to range 0.0 - 1.0
-        Offset.y = 1.0 - Offset.y;
+        //Offset.y = 1.0 - Offset.y;
 
         float SampleDepth = texture(uPositionDepth, Offset.xy).z;
         

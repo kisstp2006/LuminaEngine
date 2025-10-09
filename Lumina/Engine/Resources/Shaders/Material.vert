@@ -65,11 +65,11 @@ void main()
     vec3 NormalVS = NormalMatrixVS * NormalOS;
 
     // Outputs
-    outUV           = vec2(uv.x, 1.0 - uv.y);
+    outUV           = vec2(uv.x, uv.y);
     outFragPos      = ViewPos;
     outNormal       = vec4(NormalVS, 1.0);
     outNormalWS     = vec4(NormalWS, 1.0);
     outFragColor    = inColor;
     outEntityID     = GetEntityID(gl_InstanceIndex);
-    gl_Position     = Projection * ViewPos * 2.0;
+    gl_Position     = Projection * ViewPos;
 }

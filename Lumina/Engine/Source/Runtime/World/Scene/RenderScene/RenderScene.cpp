@@ -88,14 +88,9 @@
                 
                 return;
             }
-            
-            RenderGraph.AddPass<RG_Raster>(FRGEvent("Clear Overdraw"), nullptr, [&](ICommandList& CmdList)
-            {
-               CmdList.ClearImageUInt(OverdrawImage, AllSubresources, 0); 
-            });
 
-            
-            ResetState();
+
+            ResetPass(RenderGraph);
             CompileDrawCommands();
             CullPass(RenderGraph, SceneViewport->GetViewVolume());
             DepthPrePass(RenderGraph, SceneViewport->GetViewVolume());
@@ -740,6 +735,7 @@
                 
                 FRasterState RasterState;
                 RasterState.SetCullNone();
+                RasterState.SetLineWidth(2.5f);
         
                 FBlendState BlendState;
                 FBlendState::RenderTarget RenderTarget;
@@ -890,13 +886,19 @@
 
         }
 
-        void FRenderScene::ResetState()
+        void FRenderScene::ResetPass(FRenderGraph& RenderGraph)
         {
             SimpleVertices.clear();
             MeshDrawCommands.clear();
             IndirectDrawArguments.clear();
             InstanceData.clear();
             LightData.NumLights = 0;
+
+            RenderGraph.AddPass<RG_Raster>(FRGEvent("Clear Overdraw"), nullptr, [&](ICommandList& CmdList)
+            {
+               CmdList.ClearImageUInt(OverdrawImage, AllSubresources, 0); 
+            });
+            
         }
 
         void FRenderScene::CompileDrawCommands()
@@ -1023,12 +1025,15 @@
             
             {
                 auto Group = World->GetEntityRegistry().group<FLineBatcherComponent>();
-                Group.each([&](auto& LineBatcherComponent)
+                Group.each([&](FLineBatcherComponent& LineBatcherComponent)
                 {
-                    for (const FBatchedLine& Line : LineBatcherComponent.BatchedLines)
+                    for (const auto& Pair : LineBatcherComponent.BatchedLines)
                     {
-                        SimpleVertices.emplace_back(glm::vec4(Line.Start, 1.0f), Line.Color);
-                        SimpleVertices.emplace_back(glm::vec4(Line.End, 1.0f), Line.Color);
+                        for (const FBatchedLine& Line : Pair.second)
+                        {
+                            SimpleVertices.emplace_back(glm::vec4(Line.Start, 1.0f), Line.Color);
+                            SimpleVertices.emplace_back(glm::vec4(Line.End, 1.0f), Line.Color);
+                        }
                     }
         
                     LineBatcherComponent.Flush();
@@ -1146,11 +1151,10 @@
                     float CascadeSplits[NumCascades];
                     for (uint32 i = 0; i < NumCascades; i++)
                     {
-                        float CascadeSplitLambda = 0.950f;
                         float P = ((float)i + 1) / (float)NumCascades;
 			            float Log = MinZ * glm::pow(Ratio, P);
 			            float Uniform = MinZ + Range * P;
-			            float D = CascadeSplitLambda * (Log - Uniform) + Uniform;
+			            float D = RenderSettings.CascadeSplitLambda * (Log - Uniform) + Uniform;
 			            CascadeSplits[i] = (D - NearClip) / ClipRange;
 		            }
                     
@@ -1201,7 +1205,7 @@
 			            glm::vec3 MinExtents = -MaxExtents;
 
                         glm::vec3 LightDir = -DirectionalLight.Direction;
-			            glm::mat4 LightViewMatrix = glm::lookAt(FrustumCenter - LightDir * -MinExtents.z, FrustumCenter, glm::vec3(0.0f, 1.0f, 0.0f));
+			            glm::mat4 LightViewMatrix = glm::lookAt(FrustumCenter - LightDir * -MinExtents.z, FrustumCenter, FViewVolume::UpAxis);
 			            glm::mat4 LightOrthoMatrix = glm::ortho(MinExtents.x, MaxExtents.x, MinExtents.y, MaxExtents.y, 0.0f, MaxExtents.z - MinExtents.z);
 
                         Cascade.SplitDepth = (NearClip + SplitDist * ClipRange) * -1.0f;
@@ -1424,7 +1428,6 @@
                 BufferDesc.MaxVersions = 3;
                 BufferDesc.DebugName = "Scene Global Data";
                 SceneDataBuffer = GRenderContext->CreateBuffer(BufferDesc);
-                GRenderContext->SetObjectName(SceneDataBuffer, BufferDesc.DebugName.c_str(), EAPIResourceType::Buffer);
             }
 
             {
@@ -1436,7 +1439,6 @@
                 BufferDesc.InitialState = EResourceStates::ShaderResource;
                 BufferDesc.DebugName = "Instance Buffer";
                 InstanceDataBuffer = GRenderContext->CreateBuffer(BufferDesc);
-                GRenderContext->SetObjectName(InstanceDataBuffer, BufferDesc.DebugName.c_str(), EAPIResourceType::Buffer);
             }
 
             {
@@ -1448,13 +1450,11 @@
                 BufferDesc.InitialState = EResourceStates::UnorderedAccess;
                 BufferDesc.DebugName = "Instance Mapping";
                 InstanceMappingBuffer = GRenderContext->CreateBuffer(BufferDesc);
-                GRenderContext->SetObjectName(InstanceMappingBuffer, BufferDesc.DebugName.c_str(), EAPIResourceType::Buffer);
 
                 
                 BufferDesc.Usage.SetFlag(EBufferUsageFlags::CPUReadable);
                 BufferDesc.DebugName = "Instance Readback";
                 InstanceReadbackBuffer = GRenderContext->CreateBuffer(BufferDesc);
-                GRenderContext->SetObjectName(InstanceReadbackBuffer, BufferDesc.DebugName.c_str(), EAPIResourceType::Buffer);
 
             }
 
@@ -1467,17 +1467,14 @@
                 LightBufferDesc.InitialState = EResourceStates::ShaderResource;
                 LightBufferDesc.DebugName = "Light Data Buffer";
                 LightDataBuffer = GRenderContext->CreateBuffer(LightBufferDesc);
-                GRenderContext->SetObjectName(LightDataBuffer, LightBufferDesc.DebugName.c_str(), EAPIResourceType::Buffer);
             }
 
             {
                 SSAOSettingsBuffer = FRHITypedBufferRef<FSSAOSettings>::CreateEmptyUniformBuffer(true, 3);
-                GRenderContext->SetObjectName(SSAOSettingsBuffer, "SSAO Settings", EAPIResourceType::Buffer);
             }
 
             {
                 EnvironmentBuffer = FRHITypedBufferRef<FEnvironmentSettings>::CreateEmptyUniformBuffer(true, 3);
-                GRenderContext->SetObjectName(EnvironmentBuffer, "Environment Buffer", EAPIResourceType::Buffer);
             }
 
             {
@@ -1509,7 +1506,6 @@
                 SSAOBufferDesc.InitialState = EResourceStates::ShaderResource;
                 SSAOBufferDesc.DebugName = "SSAO Kernal Buffer";
                 SSAOKernalBuffer = GRenderContext->CreateBuffer(SSAOBufferDesc);
-                GRenderContext->SetObjectName(SSAOKernalBuffer, SSAOBufferDesc.DebugName.c_str(), EAPIResourceType::Buffer);
 
                 CommandList->WriteBuffer(SSAOKernalBuffer, SSAOKernel.data(), 0, SSAOBufferDesc.Size);
                 
@@ -1529,7 +1525,6 @@
                 SSAONoiseDesc.DebugName = "SSAO Noise";
             
                 NoiseImage = GRenderContext->CreateImage(SSAONoiseDesc);
-                GRenderContext->SetObjectName(NoiseImage, "SSAO Noise", EAPIResourceType::Image);
             
                 // Random noise
                 TVector<glm::vec4> NoiseValues(32);
@@ -1547,7 +1542,6 @@
 
             {
                 SimpleVertexBuffer = FRHITypedVertexBuffer<FSimpleElementVertex>::CreateEmpty(100'000);
-                GRenderContext->SetObjectName(SimpleVertexBuffer, SimpleVertexBuffer->GetDescription().DebugName.c_str(), EAPIResourceType::Buffer);
             }
 
             {
@@ -1559,12 +1553,10 @@
                 BufferDesc.bKeepInitialState = true;
                 BufferDesc.DebugName = "Indirect Draw Buffer";
                 IndirectDrawBuffer = GRenderContext->CreateBuffer(BufferDesc);
-                GRenderContext->SetObjectName(IndirectDrawBuffer, BufferDesc.DebugName.c_str(), EAPIResourceType::Buffer);
 
                 BufferDesc.Usage.SetFlag(EBufferUsageFlags::CPUReadable);
                 BufferDesc.DebugName = "Instance Readback";
                 InstanceReadbackBuffer = GRenderContext->CreateBuffer(BufferDesc);
-                GRenderContext->SetObjectName(InstanceReadbackBuffer, BufferDesc.DebugName.c_str(), EAPIResourceType::Buffer);
             }
         }
         
@@ -1583,7 +1575,6 @@
                 ImageDesc.DebugName = "Debug Visualization";
             
                 DebugVisualizationImage = GRenderContext->CreateImage(ImageDesc);
-                GRenderContext->SetObjectName(DebugVisualizationImage, "Debug Visualization", EAPIResourceType::Image);
             }
             
             {
@@ -1597,7 +1588,6 @@
                 ImageDesc.InitialState = EResourceStates::ShaderResource;
             
                 GBuffer.Position = GRenderContext->CreateImage(ImageDesc);
-                GRenderContext->SetObjectName(GBuffer.Position, "GBuffer - Position", EAPIResourceType::Image);
             }
 
             {
@@ -1611,7 +1601,6 @@
                 ImageDesc.DebugName = "GBuffer - Normals";
             
                 GBuffer.Normals = GRenderContext->CreateImage(ImageDesc);
-                GRenderContext->SetObjectName(GBuffer.Normals, "GBuffer - Normals", EAPIResourceType::Image);
             }
 
             {
@@ -1625,7 +1614,6 @@
                 ImageDesc.DebugName = "GBuffer - Material";
             
                 GBuffer.Material = GRenderContext->CreateImage(ImageDesc);
-                GRenderContext->SetObjectName(GBuffer.Material, "GBuffer - Material", EAPIResourceType::Image);
             }
 
             {
@@ -1639,7 +1627,6 @@
                 ImageDesc.DebugName = "GBuffer - Albedo";
             
                 GBuffer.AlbedoSpec = GRenderContext->CreateImage(ImageDesc);
-                GRenderContext->SetObjectName(GBuffer.AlbedoSpec, "GBuffer - Albedo", EAPIResourceType::Image);
             }
             
 
@@ -1654,7 +1641,6 @@
                 ImageDesc.DebugName = "Depth Attachment";
 
                 DepthAttachment = GRenderContext->CreateImage(ImageDesc);
-                GRenderContext->SetObjectName(DepthAttachment, "Depth Attachment", EAPIResourceType::Image);
             }
 
             {
@@ -1668,7 +1654,6 @@
                 ImageDesc.DebugName = "SSAO";
             
                 SSAOImage = GRenderContext->CreateImage(ImageDesc);
-                GRenderContext->SetObjectName(SSAOImage, "SSAO", EAPIResourceType::Image);
             }
 
             {
@@ -1682,7 +1667,6 @@
                 ImageDesc.DebugName = "SSAO Blur";
             
                 SSAOBlur = GRenderContext->CreateImage(ImageDesc);
-                GRenderContext->SetObjectName(SSAOBlur, "SSAO Blur", EAPIResourceType::Image);
             }
 
             {
@@ -1696,7 +1680,6 @@
                 ImageDesc.DebugName = "Overdraw Visualization";
             
                 OverdrawImage = GRenderContext->CreateImage(ImageDesc);
-                GRenderContext->SetObjectName(OverdrawImage, "Overdraw Visualization", EAPIResourceType::Image);
             }
 
             {
@@ -1710,7 +1693,6 @@
                 ImageDesc.DebugName = "Picker";
                 
                 PickerImage = GRenderContext->CreateImage(ImageDesc);
-                GRenderContext->SetObjectName(PickerImage, "Picker", EAPIResourceType::Image);
             }
 
             {
@@ -1726,7 +1708,6 @@
                 ImageDesc.DebugName = "ShadowCascadeMap";
                 
                 CascadeShadowMap = GRenderContext->CreateImage(ImageDesc);
-                GRenderContext->SetObjectName(CascadeShadowMap, ImageDesc.DebugName.c_str(), EAPIResourceType::Image);   
                 
                 for (int i = 0; i < NumCascades; ++i)
                 {
@@ -1749,7 +1730,6 @@
                 ImageDesc.DebugName = "Skybox CubeMap";
 
                 CubeMap = GRenderContext->CreateImage(ImageDesc);
-                GRenderContext->SetObjectName(CubeMap, "CubeMap", EAPIResourceType::Image);
 
                 static const char* CubeFaceFiles[6] = {
                     "right.jpg", "left.jpg", "top.jpg", "bottom.jpg", "front.jpg", "back.jpg"
@@ -1796,7 +1776,6 @@
                 ImageDesc.DebugName = "Depth Map";
 
                 DepthMap = GRenderContext->CreateImage(ImageDesc);
-                GRenderContext->SetObjectName(DepthMap, "Depth Map", EAPIResourceType::Image);
             }
 
             //==================================================================================================
@@ -1814,7 +1793,6 @@
                 ImageDesc.DebugName = "Shadow Cubemap";
 
                 ShadowCubeMap = GRenderContext->CreateImage(ImageDesc);
-                GRenderContext->SetObjectName(ShadowCubeMap, ImageDesc.DebugName.c_str(), EAPIResourceType::Image);
             }
         }
     }

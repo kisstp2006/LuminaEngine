@@ -450,7 +450,7 @@ namespace Lumina
         CreateDevice(InstBuilder.value());
         
         LOG_TRACE("Vulkan Render Context - {}", GetDevice()->GetPhysicalDeviceProperties().deviceName);
-
+        
 
         DebugUtils.DebugUtilsObjectNameEXT      = (PFN_vkSetDebugUtilsObjectNameEXT)(vkGetInstanceProcAddr(VulkanInstance, "vkSetDebugUtilsObjectNameEXT"));
         DebugUtils.vkCmdDebugMarkerBeginEXT     = (PFN_vkCmdDebugMarkerBeginEXT)vkGetDeviceProcAddr(GetDevice()->GetDevice(), "vkCmdDebugMarkerBeginEXT");
@@ -472,7 +472,7 @@ namespace Lumina
         
         WaitIdle();
         FlushPendingDeletes();
-
+        
         return true;
     }
 
@@ -601,17 +601,11 @@ namespace Lumina
 
     void FVulkanRenderContext::CreateDevice(vkb::Instance Instance)
     {
-        VkPhysicalDeviceTimelineSemaphoreFeatures TimelineFeatures = {};
-        TimelineFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TIMELINE_SEMAPHORE_FEATURES;
-        TimelineFeatures.timelineSemaphore = VK_TRUE;
-        
         VkPhysicalDeviceFeatures DeviceFeatures = {};
         DeviceFeatures.fragmentStoresAndAtomics = VK_TRUE;
         DeviceFeatures.samplerAnisotropy        = VK_TRUE;
         DeviceFeatures.sampleRateShading        = VK_TRUE;
         DeviceFeatures.fillModeNonSolid         = VK_TRUE;
-        DeviceFeatures.wideLines                = VK_TRUE;
-        DeviceFeatures.multiDrawIndirect        = VK_TRUE;
 
         VkPhysicalDeviceVulkan11Features Features11 = {};
         Features11.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
@@ -642,18 +636,28 @@ namespace Lumina
             .select()
             .value();
         
-
         physicalDevice.enable_extension_if_present(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
-        physicalDevice.enable_extension_if_present(VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME);
+
+        if (physicalDevice.enable_extension_if_present(VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME))
+        {
+            EnabledExtensions.SetFlag(EVulkanExtensions::PushDescriptors);
+        }
+        
+        if (physicalDevice.enable_extension_if_present(VK_EXT_CONSERVATIVE_RASTERIZATION_EXTENSION_NAME))
+        {
+            EnabledExtensions.SetFlag(EVulkanExtensions::ConservativeRasterization);
+        }
+        
 
         vkb::DeviceBuilder deviceBuilder(physicalDevice);
         vkb::Device vkbDevice = deviceBuilder.build().value();
-
         
         VkDevice Device = vkbDevice.device;
         VkPhysicalDevice PhysicalDevice = physicalDevice.physical_device;
         VulkanDevice = Memory::New<FVulkanDevice>(this, VulkanInstance, PhysicalDevice, Device);
 
+        
+        
         if (vkbDevice.get_queue(vkb::QueueType::graphics).has_value())
         {
             VkQueue Queue = vkbDevice.get_queue(vkb::QueueType::graphics).value();
@@ -741,16 +745,14 @@ namespace Lumina
 
         *OutRowPitch = wInBlocks * formatInfo.BytesPerBlock;
 
-        uint8* MappedPtr = (uint8*)VulkanDevice->GetAllocator()->MapMemory(VulkanStagingImage->Buffer, VulkanStagingImage->Buffer->GetAllocation());
+        uint8* MappedPtr = (uint8*)VulkanDevice->GetAllocator()->GetMappedMemory(VulkanStagingImage->Buffer);
         MappedPtr += Region.Offset;
         return MappedPtr;
     }
 
     void FVulkanRenderContext::UnMapStagingTexture(FRHIStagingImage* Image)
     {
-        FVulkanStagingImage* VulkanStagingImage = static_cast<FVulkanStagingImage*>(Image);
-
-        VulkanDevice->GetAllocator()->UnmapMemory(VulkanStagingImage->Buffer, VulkanStagingImage->Buffer->GetAllocation());
+        // Vulkan CPU buffers are persistently mapped.
     }
 
     FRHIImageRef FVulkanRenderContext::CreateImage(const FRHIImageDesc& ImageSpec)
@@ -1042,13 +1044,12 @@ namespace Lumina
     void* FVulkanRenderContext::MapBuffer(FRHIBuffer* Buffer)
     {
         FVulkanBuffer* VulkanBuffer = static_cast<FVulkanBuffer*>(Buffer);
-        return VulkanDevice->GetAllocator()->MapMemory(VulkanBuffer, VulkanBuffer->GetAllocation());
+        return VulkanDevice->GetAllocator()->GetMappedMemory(VulkanBuffer);
     }
 
     void FVulkanRenderContext::UnMapBuffer(FRHIBuffer* Buffer)
     {
-        FVulkanBuffer* VulkanBuffer = static_cast<FVulkanBuffer*>(Buffer);
-        return VulkanDevice->GetAllocator()->UnmapMemory(VulkanBuffer, VulkanBuffer->GetAllocation());
+        //... Vulkan CPU buffers are persistently mapped.
     }
 
     FRHIBufferRef FVulkanRenderContext::CreateBuffer(const FRHIBufferDesc& Description)
@@ -1152,7 +1153,7 @@ namespace Lumina
     void FVulkanRenderContext::SetVulkanObjectName(FString Name, VkObjectType ObjectType, uint64 Handle)
     {
         #if LE_DEBUG
-        if (DebugUtils.DebugUtilsObjectNameEXT)
+        if (DebugUtils.DebugUtilsObjectNameEXT && !Name.empty())
         {
             VkDebugUtilsObjectNameInfoEXT NameInfo = {};
             NameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;

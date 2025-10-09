@@ -35,6 +35,8 @@ namespace Lumina::Import::Textures
 
     FRHIImageRef CreateTextureFromImport(IRenderContext* RenderContext, const FString& RawFilePath, bool bFlipVerticalOnLoad)
     {
+        LUMINA_PROFILE_SCOPE();
+        
         TVector<uint8> Pixels;
         FRHIImageDesc ImageDescription;
         ImageDescription.Format = EFormat::RGBA8_UNORM;
@@ -50,7 +52,7 @@ namespace Lumina::Import::Textures
         const uint32 Width = ImageDescription.Extent.X;
         const SIZE_T RowPitch = Width * 4;
 
-        FRHICommandListRef TransferCommandList = RenderContext->GetCommandList(ECommandQueue::Transfer);
+        FRHICommandListRef TransferCommandList = RenderContext->CreateCommandList(FCommandListInfo::Transfer());
         TransferCommandList->Open();
         TransferCommandList->WriteImage(ReturnImage, 0, 0, Pixels.data(), RowPitch, 0);
         TransferCommandList->Close();

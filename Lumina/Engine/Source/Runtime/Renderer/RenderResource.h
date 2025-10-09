@@ -838,6 +838,7 @@ namespace Lumina
 		FColor BorderColor = 1.0f;
 		float MaxAnisotropy = 1.0f;
 		float MipBias = 0.0f;
+		FString DebugName;
 
 		bool MinFilter = true;
 		bool MagFilter = true;
@@ -917,7 +918,7 @@ namespace Lumina
 		void SetKey(const FName& InKey) { Key = InKey; }
 		
 		/** Get the shader's native representation of it's bytecode */
-		virtual void GetByteCode(const void** ByteCode, uint64* Size) = 0;
+		virtual void GetByteCode(void** ByteCode, uint64* Size) = 0;
 
 		virtual const FShaderHeader& GetShaderHeader() const = 0;
 		
@@ -1164,6 +1165,7 @@ namespace Lumina
         int DepthBias = 0;
         float DepthBiasClamp = 0.0f;
         float SlopeScaledDepthBias = 0.0f;
+		float LineWidth = 1.0f;
 
 
         uint8 ForcedSampleCount = 0;
@@ -1172,7 +1174,8 @@ namespace Lumina
         bool QuadFillEnable = false;
         char SamplePositionsX[16]{};
         char SamplePositionsY[16]{};
-        
+
+		constexpr FRasterState& SetLineWidth(float Width) { LineWidth = Width; return *this; } 
         constexpr FRasterState& SetFillMode(ERasterFillMode value) { FillMode = value; return *this; }
         constexpr FRasterState& SetFillSolid() { FillMode = ERasterFillMode::Solid; return *this; }
         constexpr FRasterState& SetFillWireframe() { FillMode = ERasterFillMode::Wireframe; return *this; }
@@ -1434,6 +1437,7 @@ namespace Lumina
 	
 	struct LUMINA_API FBindingLayoutDesc
 	{
+		FString DebugName;
 		TBitFlags<ERHIShaderType> StageFlags;
 		uint32 Index = 0;
 
@@ -1447,6 +1451,7 @@ namespace Lumina
 
 	struct LUMINA_API FBindlessLayoutDesc
 	{
+		FString DebugName;
 		TBitFlags<ERHIShaderType> StageFlags;
 		uint32 FirstSlot = 0;
 		uint32 MaxCapacity = 0;
@@ -1631,6 +1636,7 @@ namespace Lumina
 	
 	struct LUMINA_API FBindingSetDesc
 	{
+		FString DebugName;
 		TFixedVector<FBindingSetItem, 1> Bindings;
 		
 		bool operator ==(const FBindingSetDesc& b) const
@@ -1731,6 +1737,7 @@ namespace Lumina
 	
     struct FGraphicsPipelineDesc
     {
+    	FString									DebugName;
         EPrimitiveType							PrimType = EPrimitiveType::TriangleList;
         uint32									PatchControlPoints = 0;
         FRHIInputLayoutRef						InputLayout;
@@ -1802,6 +1809,7 @@ namespace Lumina
 
 	struct LUMINA_API FComputePipelineDesc
 	{
+		FString									DebugName;
 		FRHIComputeShaderRef					CS;
 		TFixedVector<FRHIBindingLayoutRef, 1>	BindingLayouts;
 

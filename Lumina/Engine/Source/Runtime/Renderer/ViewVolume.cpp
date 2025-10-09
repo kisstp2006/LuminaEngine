@@ -5,7 +5,7 @@ namespace Lumina
 {
 
     glm::vec3 FViewVolume::UpAxis       = glm::vec3(0.0f, 1.0f, 0.0f);
-    glm::vec3 FViewVolume::ForwardAxis  = glm::vec3(0.0f, 0.0f, -1.0f);
+    glm::vec3 FViewVolume::ForwardAxis  = glm::vec3(0.0f, 0.0f, 1.0f);
     glm::vec3 FViewVolume::RightAxis    = glm::vec3(1.0f, 0.0f, 0.0f);
     
     FViewVolume::FViewVolume(float fov, float aspect)
@@ -13,11 +13,13 @@ namespace Lumina
     {
         Near = 0.01f;
         Far = 1000.0f;
+
         ViewPosition =  glm::vec3(1.0f);
         UpVector =      UpAxis;
         ForwardVector = ForwardAxis;
-        RightVector =   glm::normalize(glm::cross(ForwardVector, UpVector));
-        
+        RightVector = glm::normalize(glm::cross(UpVector, ForwardVector));
+        UpVector = glm::normalize(glm::cross(RightVector, ForwardVector));
+
         SetPerspective(fov, aspect);
     }
 
@@ -25,6 +27,7 @@ namespace Lumina
     {
         Near = InNear;
         ProjectionMatrix = glm::perspective(glm::radians(FOV), AspectRatio, Far, Near);
+        //ProjectionMatrix[1][1] *= -1.0f;
         InverseProjectionMatrix = glm::inverse(ProjectionMatrix);
         UpdateMatrices();
     }
@@ -33,6 +36,7 @@ namespace Lumina
     {
         Far = InFar;
         ProjectionMatrix = glm::perspective(glm::radians(FOV), AspectRatio, Far, Near);
+        //ProjectionMatrix[1][1] *= -1.0f;
         InverseProjectionMatrix = glm::inverse(ProjectionMatrix);
         UpdateMatrices();
     }
@@ -47,8 +51,10 @@ namespace Lumina
     void FViewVolume::SetView(const glm::vec3& Position, const glm::vec3& ViewDirection, const glm::vec3& UpDirection)
     {
         ViewPosition = Position;
+
+        UpVector = glm::normalize(UpDirection);
         ForwardVector = glm::normalize(ViewDirection - Position);
-        RightVector = glm::normalize(glm::cross(ForwardVector, glm::normalize(UpDirection)));
+        RightVector = glm::normalize(glm::cross(UpVector, ForwardVector));
         UpVector = glm::normalize(glm::cross(RightVector, ForwardVector));
 
         UpdateMatrices();
@@ -61,6 +67,7 @@ namespace Lumina
         AspectRatio = aspect;
 
         ProjectionMatrix = glm::perspective(glm::radians(FOV), AspectRatio, Far, Near);
+        //ProjectionMatrix[1][1] *= -1.0f;
         InverseProjectionMatrix = glm::inverse(ProjectionMatrix);
         UpdateMatrices();
     }
@@ -71,6 +78,7 @@ namespace Lumina
         AspectRatio = InAspect;
 
         ProjectionMatrix = glm::perspective(glm::radians(FOV), AspectRatio, Far, Near);
+        //ProjectionMatrix[1][1] *= -1.0f;
         InverseProjectionMatrix = glm::inverse(ProjectionMatrix);
         UpdateMatrices();
     }
@@ -79,6 +87,7 @@ namespace Lumina
     {
         FOV = InFOV;
         ProjectionMatrix = glm::perspective(glm::radians(FOV), AspectRatio, Far, Near);
+        //ProjectionMatrix[1][1] *= -1.0f;
         InverseProjectionMatrix = glm::inverse(ProjectionMatrix);
         UpdateMatrices();
     }
@@ -86,14 +95,15 @@ namespace Lumina
     glm::mat4 FViewVolume::ToReverseDepthViewProjectionMatrix() const
     {
         glm::mat4 ReverseProjectionMatrix = glm::perspective(glm::radians(FOV), AspectRatio, Near, Far);
+        //ReverseProjectionMatrix[1][1] *= -1.0f;
         return ReverseProjectionMatrix * ViewMatrix;
     }
 
     FFrustum FViewVolume::GetFrustum() const
     {
-        FFrustum Frustum;
         const glm::mat4& matrix = ViewProjectionMatrix;
 
+        FFrustum Frustum = {};
         Frustum.Planes[FFrustum::LEFT].x = matrix[0].w + matrix[0].x;
         Frustum.Planes[FFrustum::LEFT].y = matrix[1].w + matrix[1].x;
         Frustum.Planes[FFrustum::LEFT].z = matrix[2].w + matrix[2].x;

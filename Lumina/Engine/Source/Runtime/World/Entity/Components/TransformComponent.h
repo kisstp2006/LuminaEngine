@@ -1,8 +1,8 @@
 #pragma once
 
 #include "Component.h"
-#include "glm/glm.hpp"
 #include "Core/Math/Transform.h"
+#include <glm/glm.hpp>
 #include "TransformComponent.generated.h"
 
 namespace Lumina
@@ -22,35 +22,39 @@ namespace Lumina
             :Transform(InPosition)
         {}
         
-        FTransform& GetTransform() { return Transform; }
-        void SetTransform(const FTransform& InTransform) { Transform = InTransform; }
+        FORCEINLINE FTransform& GetTransform() { return Transform; }
+        FORCEINLINE void SetTransform(const FTransform& InTransform) { Transform = InTransform; }
 
-        glm::vec3 GetLocation() const    { return Transform.Location; }
-        glm::quat GetRotation() const    { return Transform.Rotation; }
-        glm::vec3 GetScale()    const    { return Transform.Scale; }
-        glm::mat4 GetMatrix()   const    { return CachedMatrix; }
+        FORCEINLINE glm::vec3 GetLocation() const    { return Transform.Location; }
+        FORCEINLINE glm::quat GetRotation() const    { return Transform.Rotation; }
+        FORCEINLINE glm::vec3 GetScale()    const    { return Transform.Scale; }
+        FORCEINLINE glm::mat4 GetMatrix()   const    { return CachedMatrix; }
         
-        void SetLocation(const glm::vec3& InLocation) 
+        FORCEINLINE STransformComponent& SetLocation(const glm::vec3& InLocation) 
         { 
-            Transform.Location = InLocation; 
+            Transform.Location = InLocation;
+            return *this;
         }
 
-        void SetRotation(const glm::quat& InRotation)
+        FORCEINLINE STransformComponent& SetRotation(const glm::quat& InRotation)
         { 
-            Transform.Rotation = InRotation; 
+            Transform.Rotation = InRotation;
+            return *this;
         }
 
-        void SetRotationFromEuler(const glm::vec3& EulerRotation)
+        FORCEINLINE STransformComponent& SetRotationFromEuler(const glm::vec3& EulerRotation)
         {
             Transform.Rotation = glm::quat(glm::radians(EulerRotation));
+            return *this;
         }
 
-        void SetScale(const glm::vec3& InScale) 
+        FORCEINLINE STransformComponent& SetScale(const glm::vec3& InScale) 
         { 
-            Transform.Scale = InScale; 
+            Transform.Scale = InScale;
+            return *this;
         }
 
-        glm::vec3 GetRotationAsEuler() const 
+        FORCEINLINE glm::vec3 GetRotationAsEuler() const 
         {
             return glm::degrees(glm::eulerAngles(Transform.Rotation));
         }

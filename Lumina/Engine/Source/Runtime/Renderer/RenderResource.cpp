@@ -173,8 +173,6 @@ namespace Lumina
         Desc.DebugName = "Viewport Render Target";
 
         RenderTarget = RenderContext->CreateImage(Desc);
-        
-        RenderContext->SetObjectName(RenderTarget, "Viewport Render Target", EAPIResourceType::Image);
     }
 
     FTextureSlice FTextureSlice::Resolve(const FRHIImageDesc& desc) const

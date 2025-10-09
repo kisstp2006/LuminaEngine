@@ -131,11 +131,11 @@ namespace Lumina
 
     struct FSceneGlobalData
     {
-        FCameraData    CameraData;
-        float          Time;
-        float          DeltaTime;
-        float          NearPlane;
-        float          FarPlane;
+        FCameraData     CameraData;
+        float           Time;
+        float           DeltaTime;
+        float           NearPlane;
+        float           FarPlane;
 
         glm::mat4       LightViewProj[4];
         glm::vec4       CascadeSplits;
@@ -144,6 +144,7 @@ namespace Lumina
 
     struct FSceneRenderSettings
     {
+        float CascadeSplitLambda = 0.95;
         uint8 bUseInstancing:1 = true;
         uint8 bHasEnvironment:1 = false;
         uint8 bDrawAABB:1 = false;

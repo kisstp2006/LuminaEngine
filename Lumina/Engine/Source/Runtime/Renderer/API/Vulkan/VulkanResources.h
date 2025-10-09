@@ -4,6 +4,7 @@
 #include "VulkanMacros.h"
 #include "VulkanRenderContext.h"
 #include "Containers/Tuple.h"
+#include "Memory/SmartPtr.h"
 #include "Renderer/RenderResource.h"
 #include "Renderer/Shader.h"
 
@@ -47,7 +48,7 @@ namespace Lumina
         std::atomic_uint64_t WritePointer{0};
         void* MappedMemory = nullptr;
 
-        static constexpr uint64 c_sizeAlignment = 4096; // GPU page size
+        static constexpr uint64 GSizeAlignment = 4096; // GPU page size
     };
 
     class FUploadManager : public IDeviceChild
@@ -306,7 +307,7 @@ namespace Lumina
         
         ~IVulkanShader() override;
 
-        void GetByteCodeImpl(const void** ByteCode, uint64* Size)
+        void GetByteCodeImpl(void** ByteCode, uint64* Size)
         {
             *ByteCode = ShaderHeader.Binaries.data();
             *Size = ShaderHeader.Binaries.size() * ShaderBinarySize;
@@ -340,7 +341,7 @@ namespace Lumina
             return ShaderModule;
         }
         
-        void GetByteCode(const void** ByteCode, uint64* Size) override
+        void GetByteCode(void** ByteCode, uint64* Size) override
         {
             GetByteCodeImpl(ByteCode, Size);
         }
@@ -366,7 +367,7 @@ namespace Lumina
             return ShaderModule;
         }
         
-        void GetByteCode(const void** ByteCode, uint64* Size) override
+        void GetByteCode(void** ByteCode, uint64* Size) override
         {
             GetByteCodeImpl(ByteCode, Size);
         }
@@ -391,7 +392,7 @@ namespace Lumina
             return ShaderModule;
         }
         
-        void GetByteCode(const void** ByteCode, uint64* Size) override
+        void GetByteCode(void** ByteCode, uint64* Size) override
         {
             GetByteCodeImpl(ByteCode, Size);
         }
@@ -437,13 +438,13 @@ namespace Lumina
         const FBindlessLayoutDesc* GetBindlessDesc() const override { return bBindless ? &BindlessDesc : nullptr; }
         void* GetAPIResourceImpl(EAPIResourceType Type) override;
         
-        FBindingLayoutDesc                      Desc;
-        FBindlessLayoutDesc                     BindlessDesc;
-        bool                                    bBindless = false;
+        bool                                            bBindless = false;
+        FBindingLayoutDesc                              Desc;
+        FBindlessLayoutDesc                             BindlessDesc;
         
-        VkDescriptorSetLayout                   DescriptorSetLayout;
-        TFixedVector<VkDescriptorSetLayoutBinding, 4>   Bindings;
-        TFixedVector<VkDescriptorPoolSize, 4>           PoolSizes;
+        VkDescriptorSetLayout                           DescriptorSetLayout;
+        TFixedVector<VkDescriptorSetLayoutBinding, 2>   Bindings;
+        TFixedVector<VkDescriptorPoolSize, 2>           PoolSizes;
     };
 
     // Contains a VkDescriptorSet
@@ -459,10 +460,13 @@ namespace Lumina
         const FBindingSetDesc* GetDesc() const override { return &Desc; }
         FRHIBindingLayout* GetLayout() const override { return Layout; }
         void* GetAPIResourceImpl(EAPIResourceType Type) override;
+        
+        
+        TFixedVector<FRHIBufferRef, 2>              DynamicBuffers;
+        TFixedVector<uint32, 4>                     BindingsRequiringTransitions;
+        TFixedVector<FRHIResourceRef, 4>            Resources;
 
-        TFixedVector<FRHIBufferRef, 4>              DynamicBuffers;
-        TFixedVector<uint32, 8>                     BindingsRequiringTransitions;
-        TFixedVector<FRHIResourceRef, 8>            Resources;
+        
         TRefCountPtr<FVulkanBindingLayout>          Layout;
         FBindingSetDesc                             Desc;
         VkDescriptorPool                            DescriptorPool;
@@ -506,7 +510,7 @@ namespace Lumina
         {
         }
         
-        void CreatePipelineLayout(const TFixedVector<FRHIBindingLayoutRef, 1>& BindingLayouts, VkShaderStageFlags& OutStageFlags);
+        void CreatePipelineLayout(FString DebugName, const TFixedVector<FRHIBindingLayoutRef, 1>& BindingLayouts, VkShaderStageFlags& OutStageFlags);
         
         VkPipelineLayout            PipelineLayout;
         VkPipeline                  Pipeline;

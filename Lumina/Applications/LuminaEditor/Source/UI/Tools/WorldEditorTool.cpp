@@ -13,7 +13,6 @@
 #include "World/Entity/Components/CameraComponent.h"
 #include "World/Entity/Components/DirtyComponent.h"
 #include "World/Entity/Components/EditorComponent.h"
-#include "World/Entity/Components/LightComponent.h"
 #include "World/Entity/Components/NameComponent.h"
 #include "World/Entity/Components/RelationshipComponent.h"
 #include "World/Entity/Components/VelocityComponent.h"
@@ -114,9 +113,7 @@ namespace Lumina
         {
             HandleEntityEditorDragDrop(Item);  
         };
-
-        OutlinerListView.MarkTreeDirty();
-
+        
         //------------------------------------------------------------------------------------------------------
 
 
@@ -131,8 +128,8 @@ namespace Lumina
             }
         };
 
+        OutlinerListView.MarkTreeDirty();
         SystemsListView.MarkTreeDirty();
-        
     }
 
     void FWorldEditorTool::OnDeinitialize(const FUpdateContext& UpdateContext)
@@ -226,15 +223,14 @@ namespace Lumina
             ImGui::Separator();
             ImGui::Spacing();
             
-            float Speed = EditorEntity.GetComponent<SVelocityComponent>().Speed;
+            SVelocityComponent& VelocityComponent = EditorEntity.GetComponent<SVelocityComponent>();
             ImGui::SetNextItemWidth(200);
-            if (ImGui::SliderFloat("##CameraSpeed", &Speed, 1.0f, 200.0f, "%.1f units/s"))
-            {
-                EditorEntity.GetComponent<SVelocityComponent>().Speed = Speed;
-            }
+            ImGui::SliderFloat("##CameraSpeed", &VelocityComponent.Speed, 1.0f, 200.0f, "%.1f units/s");
             if (ImGui::IsItemHovered())
+            {
                 ImGui::SetTooltip("Camera movement speed");
-            
+            }
+
             ImGui::PopStyleVar();
             ImGui::EndMenu();
         }
@@ -315,7 +311,6 @@ namespace Lumina
             // Scene Statistics Section
             ImGui::TextColored(ImVec4(0.4f, 1.0f, 0.6f, 1.0f), "Performance Statistics");
             ImGui::Separator();
-            ImGui::Spacing();
             
             ImGui::BeginTable("##StatsTable", 2, ImGuiTableFlags_None);
             ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, 120.0f);
@@ -340,14 +335,10 @@ namespace Lumina
             ImGui::Text("%llu", Stats.NumIndices);
             
             ImGui::EndTable();
-            
-            ImGui::Spacing();
-            ImGui::Spacing();
     
             // Debug Visualization Section
             ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.8f, 1.0f), "Debug Visualization");
             ImGui::Separator();
-            ImGui::Spacing();
 
             static const char* DebugLabels[] =
             {
@@ -373,14 +364,10 @@ namespace Lumina
             {
                 SceneRenderer->SetDebugMode(static_cast<ERenderSceneDebugFlags>(DebugModeInt));
             }
-            
-            ImGui::Spacing();
-            ImGui::Spacing();
 
             // Render Options Section
             ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.8f, 1.0f), "Render Options");
             ImGui::Separator();
-            ImGui::Spacing();
 
             bool bDrawAABB = (bool)SceneRenderer->GetSceneRenderSettings().bDrawAABB;
             if (ImGui::Checkbox("Show Bounding Boxes", &bDrawAABB))
@@ -388,15 +375,22 @@ namespace Lumina
                 SceneRenderer->GetSceneRenderSettings().bDrawAABB = bDrawAABB;
             }
             if (ImGui::IsItemHovered())
+            {
                 ImGui::SetTooltip("Visualize axis-aligned bounding boxes");
+            }
 
             bool bUseInstancing = (bool)SceneRenderer->GetSceneRenderSettings().bUseInstancing;
             if (ImGui::Checkbox("GPU Instancing", &bUseInstancing))
             {
                 SceneRenderer->GetSceneRenderSettings().bUseInstancing = bUseInstancing;
             }
+
+            ImGui::SliderFloat("Cascade Split Lambda", &SceneRenderer->GetSceneRenderSettings().CascadeSplitLambda, 0.0f, 1.0f);
+            
             if (ImGui::IsItemHovered())
+            {
                 ImGui::SetTooltip("Enable hardware instancing for repeated meshes");
+            }
 
             ImGui::PopStyleVar();
             ImGui::EndMenu();
@@ -439,7 +433,50 @@ namespace Lumina
             }
         }
         
+    
+        SCameraComponent& CameraComponent = EditorEntity.GetComponent<SCameraComponent>();
+    
+        glm::mat4 ViewMatrix = CameraComponent.GetViewMatrix();
+        glm::mat4 ProjectionMatrix = CameraComponent.GetProjectionMatrix();
+
         ImGuizmo::SetDrawlist(ImGui::GetCurrentWindow()->DrawList);
+        ImGuizmo::SetRect(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y, ViewportSize.x, ViewportSize.y);
+
+        if (SelectedEntity.IsValid() && CameraComponent.GetViewVolume().GetFrustum().IsInside(SelectedEntity.GetWorldTransform().Location))
+        {
+            glm::mat4 EntityMatrix = SelectedEntity.GetWorldMatrix();
+            ImGuizmo::Manipulate(glm::value_ptr(ViewMatrix), glm::value_ptr(ProjectionMatrix), GuizmoOp, GuizmoMode, glm::value_ptr(EntityMatrix));
+            
+            if (ImGuizmo::IsUsing())
+            {
+                bImGuizmoUsedOnce = true;
+                
+                glm::mat4 WorldMatrix = EntityMatrix;
+                glm::vec3 Translation, Scale, Skew;
+                glm::quat Rotation;
+                glm::vec4 Perspective;
+
+                if (SelectedEntity.IsChild())
+                {
+                    glm::mat4 ParentWorldMatrix = SelectedEntity.GetParent().GetWorldTransform().GetMatrix();
+                    glm::mat4 ParentWorldInverse = glm::inverse(ParentWorldMatrix);
+                    glm::mat4 LocalMatrix = ParentWorldInverse * WorldMatrix;
+                
+                    glm::decompose(LocalMatrix, Scale, Rotation, Translation, Skew, Perspective);
+                }
+                else
+                {
+                    glm::decompose(WorldMatrix, Scale, Rotation, Translation, Skew, Perspective);
+                }
+        
+                STransformComponent& TransformComponent = SelectedEntity.GetComponent<STransformComponent>();
+        
+                if (Translation != TransformComponent.GetLocation() || Rotation != TransformComponent.GetRotation() || Scale != TransformComponent.GetScale())
+                {
+                    TransformComponent.SetLocation(Translation).SetRotation(Rotation).SetScale(Scale);
+                }
+            }
+        }
 
         if (ImGui::IsWindowHovered(ImGuiHoveredFlags_RootAndChildWindows))
         {
@@ -461,8 +498,10 @@ namespace Lumina
 
             uint32 texX = static_cast<uint32>(MousePosInViewport.x * scaleX);
             uint32 texY = static_cast<uint32>(MousePosInViewport.y * scaleY);
-
-            if ((!ImGuizmo::IsOver()) && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+            
+            bool bOverImGuizmo = bImGuizmoUsedOnce ? ImGuizmo::IsOver() : false;
+            bool bLeftMouseButtonClicked = ImGui::IsMouseClicked(ImGuiMouseButton_Left);
+            if ((!bOverImGuizmo) && bLeftMouseButtonClicked)
             {
                 entt::entity EntityHandle = World->GetRenderer()->GetEntityAtPixel(texX, texY);
                 if (EntityHandle == entt::null)
@@ -474,79 +513,6 @@ namespace Lumina
                     SetSelectedEntity(Entity(EntityHandle, World));
                 }
             
-            }
-        }
-    
-        SCameraComponent& CameraComponent = EditorEntity.GetComponent<SCameraComponent>();
-    
-        glm::mat4 ViewMatrix = CameraComponent.GetViewMatrix();
-        glm::mat4 ProjectionMatrix = CameraComponent.GetProjectionMatrix();
-
-        ImGuizmo::SetRect(ImGui::GetWindowPos().x, ImGui::GetWindowPos().y, ViewportSize.x, ViewportSize.y);
-        
-        if (SelectedEntity.IsValid() && CameraComponent.GetViewVolume().GetFrustum().IsInside(SelectedEntity.GetWorldTransform().Location))
-        {
-            glm::mat4 EntityMatrix = SelectedEntity.GetWorldMatrix();
-
-            ImGuizmo::Manipulate(glm::value_ptr(ViewMatrix), glm::value_ptr(ProjectionMatrix), GuizmoOp, GuizmoMode, glm::value_ptr(EntityMatrix));
-    
-            if (ImGuizmo::IsUsing())
-            {
-                glm::mat4 worldMatrix = EntityMatrix;
-        
-                // Check for parent transform
-                if (SelectedEntity.IsChild())
-                {
-                    glm::mat4 ParentWorldMatrix = SelectedEntity.GetParent().GetWorldTransform().GetMatrix();
-                    glm::mat4 ParentWorldInverse = glm::inverse(ParentWorldMatrix);
-                   
-                    // Convert world transform to local transform by applying inverse parent transform
-                    glm::mat4 LocalMatrix = ParentWorldInverse * worldMatrix;
-        
-                    // Decompose local matrix instead of world
-                    glm::vec3 translation, scale, skew;
-                    glm::quat rotation;
-                    glm::vec4 perspective;
-        
-                    glm::decompose(LocalMatrix, scale, rotation, translation, skew, perspective);
-        
-                    STransformComponent& TransformComponent = SelectedEntity.GetComponent<STransformComponent>();
-        
-                    if (translation != TransformComponent.GetLocation() ||
-                        rotation != TransformComponent.GetRotation() ||
-                        scale != TransformComponent.GetScale())
-                    {
-                        SelectedEntity.Patch<STransformComponent>([&](auto& Transform)
-                        {
-                            Transform.SetLocation(translation);
-                            Transform.SetRotation(rotation);
-                            Transform.SetScale(scale);
-                        });
-                    }
-                }
-                else
-                {
-                    // No parent, set world transform as local directly
-                    glm::vec3 translation, scale, skew;
-                    glm::quat rotation;
-                    glm::vec4 perspective;
-        
-                    glm::decompose(worldMatrix, scale, rotation, translation, skew, perspective);
-        
-                    STransformComponent& TransformComponent = SelectedEntity.GetComponent<STransformComponent>();
-        
-                    if (translation != TransformComponent.GetLocation() ||
-                        rotation != TransformComponent.GetRotation() ||
-                        scale != TransformComponent.GetScale())
-                    {
-                        SelectedEntity.Patch<STransformComponent>([&](auto& Transform)
-                        {
-                            Transform.SetLocation(translation);
-                            Transform.SetRotation(rotation);
-                            Transform.SetScale(scale);
-                        });
-                    }
-                }
             }
         }
     }
@@ -730,21 +696,21 @@ namespace Lumina
                 OutlinerListView.SetSelection(Item, OutlinerContext);
             }
 
-            if (SRelationshipComponent* rel = Item->GetEntity().TryGetComponent<SRelationshipComponent>())
+            if (SRelationshipComponent* Rel = Item->GetEntity().TryGetComponent<SRelationshipComponent>())
             {
-                for (SIZE_T i = 0; i < rel->NumChildren; ++i)
+                for (SIZE_T i = 0; i < Rel->NumChildren; ++i)
                 {
-                    AddEntityRecursive(rel->Children[i], Item);
+                    AddEntityRecursive(Rel->Children[i], Item);
                 }
             }
         };
         
 
-        for (auto EntityHandle : World->GetEntityRegistry().view<SNameComponent>(entt::exclude<SHiddenComponent>))
+        for (entt::entity EntityHandle : World->GetEntityRegistry().view<entt::entity>(entt::exclude<SHiddenComponent>))
         {
             Entity entity(EntityHandle, World);
 
-            if (auto* Rel = entity.TryGetComponent<SRelationshipComponent>())
+            if (SRelationshipComponent* Rel = entity.TryGetComponent<SRelationshipComponent>())
             {
                 if (Rel->Parent.IsValid())
                 {
@@ -787,7 +753,7 @@ namespace Lumina
         ImGui::PopStyleColor();
 
         ImGui::SeparatorText("Entities");
-        ImGui::Text("Num: %i", World->GetEntityRegistry().view<SNameComponent>().size());
+        ImGui::Text("Num: %i", World->GetEntityRegistry().view<entt::entity>().size());
 
         OutlinerListView.Draw(OutlinerContext);
     }
@@ -807,12 +773,13 @@ namespace Lumina
 
         ImGui::BeginChild("EntityEditor", ImGui::GetContentRegionAvail(), true);
 
-        if (ImGui::CollapsingHeader(SelectedEntity.GetComponent<SNameComponent>().Name.c_str(), ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Framed))
+        FName EntityName = SelectedEntity.GetComponent<SNameComponent>().Name;
+        if (ImGui::CollapsingHeader(EntityName.c_str(), ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_Framed))
         {
             ImGui::BeginDisabled();
             int ID = (int)SelectedEntity.GetHandle();
             ImGui::DragInt("ID", &ID);
-            ImGui::InputText("Name", (char*)SelectedEntity.GetComponent<SNameComponent>().Name.c_str(), 256);
+            ImGui::InputText("Name", (char*)EntityName.c_str(), 256);
             ImGui::EndDisabled();
 
             ImGui::Separator();
@@ -837,7 +804,7 @@ namespace Lumina
             ImGui::SeparatorText("Components");
             ImGui::Spacing();
         
-            for (FPropertyTable* Table : PropertyTables)
+            for (TUniquePtr<FPropertyTable>& Table : PropertyTables)
             {
                 ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0.0f);
                 ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4, 6));
@@ -854,7 +821,7 @@ namespace Lumina
                 if (ImGui::CollapsingHeader(Table->GetType()->GetName().c_str(), ImGuiTreeNodeFlags_DefaultOpen))
                 {
                     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.45f, 0.15f, 0.15f, 1.0f));
-                    ImGui::PushID(Table);
+                    ImGui::PushID(Table.get());
                 
                     bool bWasRemoved = false;
                     if (Table->GetType() != STransformComponent::StaticStruct() && Table->GetType() != SNameComponent::StaticStruct())
@@ -917,11 +884,7 @@ namespace Lumina
     void FWorldEditorTool::RebuildPropertyTables()
     {
         using namespace entt::literals;
-        for (FPropertyTable* Table : PropertyTables)
-        {
-            Memory::Delete(Table);
-        }
-
+        
         PropertyTables.clear();
 
         if (SelectedEntity.IsValid())
@@ -938,8 +901,8 @@ namespace Lumina
                         if (Type != nullptr)
                         {
                             void* ComponentPtr = Set.value(SelectedEntity.GetHandle());
-                            FPropertyTable* NewTable = Memory::New<FPropertyTable>(ComponentPtr, *(CStruct**)Type);
-                            PropertyTables.emplace_back(NewTable)->RebuildTree();
+                            TUniquePtr<FPropertyTable> NewTable = MakeUniquePtr<FPropertyTable>(ComponentPtr, *(CStruct**)Type);
+                            PropertyTables.emplace_back(Memory::Move(NewTable))->RebuildTree();
                         }
                     }
                 }

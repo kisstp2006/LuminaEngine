@@ -50,7 +50,7 @@ namespace Lumina
         FORCEINLINE void AddError(const FError& Error) { Errors.push_back(Error); }
         FORCEINLINE const TVector<FError>& GetErrors() const { return Errors; }
 
-        FString BuildTree();
+        FString BuildTree(SIZE_T& StartReplacement, SIZE_T& EndReplacement);
 
         
         void DefineFloatParameter(const FString& NodeID, const FName& ParamID, float Value);

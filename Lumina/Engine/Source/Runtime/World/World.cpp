@@ -66,7 +66,6 @@ namespace Lumina
         }
         else if (Ar.IsReading())
         {
-            
             GetEntityRegistry().clear<>();
             SIZE_T NumEntities = 0;
             Ar << NumEntities;
@@ -75,7 +74,6 @@ namespace Lumina
             {
                 Entity NewEntity(GetEntityRegistry().create(), this);
                 NewEntity.Serialize(Ar);
-                GetEntityRegistry().emplace_or_replace<FNeedsTransformUpdate>(NewEntity.GetHandle());
             }
         }
     }
@@ -233,6 +231,18 @@ namespace Lumina
                 storage.push(To.GetHandle(), storage.value(From.GetHandle()));
             }
         }
+
+        FString OldName = From.GetConstComponent<SNameComponent>().Name.ToString();
+
+        FString BaseName = OldName;
+        size_t Pos = OldName.find_last_of('_');
+        if (Pos != FString::npos && Pos + 1 < OldName.size())
+        {
+            BaseName = OldName.substr(0, Pos);
+        }
+
+        FString NewName = BaseName + "_" +  eastl::to_string((uint64)NewEntity);
+        To.GetComponent<SNameComponent>().Name = NewName;
     }
 
     void CWorld::ReparentEntity(Entity Child, Entity Parent)
@@ -243,44 +253,33 @@ namespace Lumina
             return;
         }
     
-        // Step 1: Get child's current world transform matrix
-        glm::mat4 childWorldMatrix = Child.GetWorldTransform().GetMatrix();
+        glm::mat4 ChildWorldMatrix = Child.GetWorldTransform().GetMatrix();
     
-        // Step 2: Get parent's world transform matrix
-        glm::mat4 parentWorldMatrix = glm::mat4(1.0f); // Identity if no parent
+        glm::mat4 ParentWorldMatrix = glm::mat4(1.0f);
         if (Parent.IsValid())
         {
-            parentWorldMatrix = Parent.GetWorldTransform().GetMatrix();
+            ParentWorldMatrix = Parent.GetWorldTransform().GetMatrix();
         }
     
-        // Step 3: Calculate child's new local matrix relative to new parent
-        glm::mat4 newLocalMatrix = glm::inverse(parentWorldMatrix) * childWorldMatrix;
+        glm::mat4 NewLocalMatrix = glm::inverse(ParentWorldMatrix) * ChildWorldMatrix;
     
-        // Step 4: Decompose newLocalMatrix
-        glm::vec3 translation, scale, skew;
-        glm::quat rotation;
-        glm::vec4 perspective;
+        glm::vec3 Translation, Scale, Skew;
+        glm::quat Rotation;
+        glm::vec4 Perspective;
     
-        glm::decompose(newLocalMatrix, scale, rotation, translation, skew, perspective);
+        glm::decompose(NewLocalMatrix, Scale, Rotation, Translation, Skew, Perspective);
     
-        // Step 5: Update child's local transform component
         if (Child.HasComponent<STransformComponent>())
         {
             FTransform NewTransform;
-            NewTransform.Location = translation;
-            NewTransform.Rotation = rotation;
-            NewTransform.Scale = scale;
+            NewTransform.Location = Translation;
+            NewTransform.Rotation = Rotation;
+            NewTransform.Scale = Scale;
             
             SetEntityTransform(Child, NewTransform);
             
         }
-        else
-        {
-            // If no transform component, optionally add one here
-            // Child.AddComponent<STransformComponent>(translation, rotation, scale);
-        }
     
-        // Now proceed with your existing parenting logic
         SRelationshipComponent& ParentRelationshipComponent = Parent.GetOrAddComponent<SRelationshipComponent>();
         if (ParentRelationshipComponent.NumChildren >= SRelationshipComponent::MaxChildren)
         {

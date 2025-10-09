@@ -145,7 +145,8 @@ namespace Lumina
         InitInfo.UseDynamicRendering = true;
         InitInfo.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
 
-
+		CommandList = VulkanRenderContext->GetCommandList(ECommandQueue::Graphics);
+		
         Assert(ImGui_ImplVulkan_Init(&InitInfo))
     }
 
@@ -172,7 +173,8 @@ namespace Lumina
     void FVulkanImGuiRender::OnStartFrame(const FUpdateContext& UpdateContext)
     {
     	LUMINA_PROFILE_SCOPE();
-
+		ReferencedImages.clear();
+		
         ImGui_ImplVulkan_NewFrame();
         ImGui_ImplGlfw_NewFrame();
         ImGui::NewFrame();
@@ -185,8 +187,6 @@ namespace Lumina
     	
 		if(ImDrawData* DrawData = ImGui::GetDrawData())
 		{
-			FRHICommandListRef CommandList = VulkanRenderContext->GetCommandList(ECommandQueue::Graphics);
-
 			FRenderPassDesc::FAttachment Attachment; Attachment
 				.SetImage(GEngine->GetEngineViewport()->GetRenderTarget())
 				.SetLoadOp(ERenderLoadOp::Load);
@@ -201,10 +201,7 @@ namespace Lumina
 			ImGui_ImplVulkan_RenderDrawData(DrawData, CommandList->GetAPIResource<VkCommandBuffer>());
 
 			CommandList->EndRenderPass();
-
 		}
-		
-		ReferencedImages.clear();
     }
 
 	void FVulkanImGuiRender::DrawRenderDebugInformationWindow(bool* bOpen, const FUpdateContext& Context)
@@ -577,10 +574,11 @@ namespace Lumina
     	{
     		return 0;
     	}
+		CommandList->SetImageState(Image, AllSubresources, EResourceStates::ShaderResource);
     	
 		ReferencedImages.push_back(Image);
 	    VkImage VulkanImage = Image->GetAPIResource<VkImage>();
-
+		
 		const FTextureSubresourceSet Subresource = AllSubresources;
 		FVulkanImage::ESubresourceViewType ViewType = GetTextureViewType(EFormat::UNKNOWN, Image->GetDescription().Format);
 		VkImageView View = Image.As<FVulkanImage>()->GetSubresourceView(Subresource, Image->GetDescription().Dimension, Image->GetDescription().Format, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, ViewType).View;
@@ -606,14 +604,18 @@ namespace Lumina
     void FVulkanImGuiRender::DestroyImTexture(ImTextureRef Image)
     {
 		FScopeLock Lock(TextureMutex);
+		VkDescriptorSet TargetDescriptor = (VkDescriptorSet)Image.GetTexID();
 
 		ImGui_ImplVulkan_RemoveTexture((VkDescriptorSet)Image.GetTexID());
-		for (auto& [VulkanImage, Descriptor] : ImageCache)
+		for (auto it = ImageCache.begin(); it != ImageCache.end(); )
 		{
-			if (Descriptor == (VkDescriptorSet)Image.GetTexID())
+			if (it->second == TargetDescriptor)
 			{
-				ImageCache.erase(VulkanImage);
+				it = ImageCache.erase(it);
+				break;
 			}
+			
+			++it;
 		}
     }
 }

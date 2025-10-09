@@ -14,23 +14,22 @@ namespace Lumina
         glm::vec4 Color = glm::vec4(1.0f);
 
         float Thickness = 1.0f;
-
-        float Duration = 0.0f;
     };
     
     struct FLineBatcherComponent : SRenderComponent
     {
-        TFixedVector<FBatchedLine, 2024> BatchedLines;
+        THashMap<int32, TFixedVector<FBatchedLine, 2024>> BatchedLines;
 
         LUMINA_API void DrawLine(const glm::vec3& Start, const glm::vec3& End, const glm::vec4& Color, float Thickness = 1.0f, float Duration = 1.0f)
         {
-            FBatchedLine Line;
-            Line.Start = Start;
-            Line.End = End;
-            Line.Color = Color;
-            Line.Thickness = Thickness;
-            Line.Duration = Duration;
-            BatchedLines.push_back(Line);
+            int32 Key = static_cast<int32>(Duration * 1000.0f);
+            BatchedLines[Key].emplace_back(FBatchedLine
+            {
+                .Start = Start,
+                .End = End,
+                .Color = Color,
+                .Thickness = Thickness,
+            });
         }
 
         LUMINA_API void DrawBox(const glm::vec3& Center, const glm::vec3& Extents, const glm::quat& Rotation, const glm::vec4& Color, float Thickness = 1.0f, float Duration = 1.0f)

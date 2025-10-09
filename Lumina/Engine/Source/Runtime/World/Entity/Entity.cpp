@@ -1,10 +1,13 @@
 
 #include "Entity.h"
+
+#include "Components/DirtyComponent.h"
 #include "Components/RelationshipComponent.h"
 #include "Core/Object/Class.h"
 
 namespace Lumina
 {
+
     FArchive& Entity::Serialize(FArchive& Ar)
     {
         if (Ar.IsWriting())
@@ -83,10 +86,6 @@ namespace Lumina
                         Struct->SerializeTaggedProperties(Ar, *Type);
                     }
                 }
-                else
-                {
-                    
-                }
             }
     
             SIZE_T NumChildren = 0;
@@ -119,6 +118,9 @@ namespace Lumina
                     }
                 }
             }
+
+            EmplaceOrReplace<FNeedsTransformUpdate>();
+
         }
     
         return Ar;

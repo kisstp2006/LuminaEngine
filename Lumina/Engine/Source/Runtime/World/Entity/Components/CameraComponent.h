@@ -16,7 +16,7 @@ namespace Lumina
             :ViewVolume(fov, aspect)
         {}
 
-        void SetView(const glm::vec3& Position, const glm::vec3& ViewDirection, const glm::vec3& UpDirection = glm::vec3(0, 1, 0))
+        void SetView(const glm::vec3& Position, const glm::vec3& ViewDirection, const glm::vec3& UpDirection)
         {
             ViewVolume.SetView(Position, ViewDirection, UpDirection);
         }

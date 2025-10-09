@@ -1,7 +1,6 @@
 ﻿#pragma once
 
 #include "RenderTypes.h"
-#include "Memory/SmartPtr.h"
 #include "Memory/Allocators/Allocator.h"
 #include "Types/BitFlags.h"
 
@@ -15,10 +14,16 @@ namespace Lumina
 
 namespace Lumina
 {
+    namespace VkStateTracking
+    {
+        bool VerifyPermanentResourceState(EResourceStates PermanentState, EResourceStates RequiredState, bool bIsTexture, FStringView DebugName);
+    }
+
+    
     struct FBufferStateExtension
     {
         const FRHIBufferDesc& DescRef;
-        EResourceStates permanentState = EResourceStates::Unknown;
+        EResourceStates PermanentState = EResourceStates::Unknown;
 
         explicit FBufferStateExtension(const FRHIBufferDesc& desc)
             : DescRef(desc)
@@ -32,7 +37,7 @@ namespace Lumina
         { }
         
         const FRHIImageDesc& DescRef;
-        EResourceStates permanentState = EResourceStates::Unknown;
+        EResourceStates PermanentState = EResourceStates::Unknown;
         bool stateInitialized = false;
         bool isSamplerFeedback = false;
 

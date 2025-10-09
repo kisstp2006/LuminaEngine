@@ -7,6 +7,7 @@
 #include "glm/gtx/string_cast.hpp"
 #include "Tools/UI/ImGui/ImGuiFonts.h"
 #include "Tools/UI/ImGui/ImGuiX.h"
+#include "world/entity/components/environmentcomponent.h"
 #include "World/Entity/Components/LightComponent.h"
 #include "World/Entity/Components/StaticMeshComponent.h"
 #include "World/Entity/Components/VelocityComponent.h"
@@ -25,7 +26,8 @@ namespace Lumina
 
         Entity DirectionalLightEntity = World->ConstructEntity("Directional Light");
         DirectionalLightEntity.Emplace<SDirectionalLightComponent>();
-        
+        DirectionalLightEntity.Emplace<SEnvironmentComponent>();
+
         MeshEntity = World->ConstructEntity("MeshEntity");
         
         MeshEntity.Emplace<SStaticMeshComponent>().StaticMesh = Cast<CStaticMesh>(InAsset);

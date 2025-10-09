@@ -139,7 +139,7 @@ namespace Lumina
         Task::AsyncTask(1, [this, Request = Memory::Move(Request)] (uint32, uint32, uint32)
         {
             FString FileName = Paths::FileName(Request.Path);
-            LOG_DEBUG("Compiling Shader: {0} - Thread: {1}", FileName, Threading::GetThreadID());
+            LOG_TRACE("Compiling Shader: {0} - Thread: {1}", FileName, Threading::GetThreadID());
     
             TVector<uint32> Binaries;
 
@@ -252,6 +252,8 @@ namespace Lumina
         
         Task::AsyncTask(1, [this, Request = Memory::Move(Request)] (uint32 Start, uint32 End, uint32 ThreadNum_)
         {
+            LOG_TRACE("Compiling Raw Shader - Thread: {0}", Threading::GetThreadID());
+
             shaderc::CompileOptions Options;
             Options.SetIncluder(std::make_unique<FShaderCIncluder>());
             Options.SetOptimizationLevel(shaderc_optimization_level_performance);

@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "imgui.h"
 #include "Containers/SparseArray.h"
+#include "Core/Threading/Thread.h"
 #include "Memory/Allocators/Allocator.h"
 #include "Renderer/RHIFwd.h"
 
@@ -46,6 +47,8 @@ namespace Lumina
         FEntry* GetOrCreateGroup(const FName& PathName);
         
     private:
+
+        FMutex                      Mutex;
 
         THashMap<FName, FEntry*>    Images;
         

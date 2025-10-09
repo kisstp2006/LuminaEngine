@@ -422,8 +422,7 @@ namespace Lumina
             Desc.DebugName = FString("UploadChunk [ " + eastl::to_string(Size) + " ]");
 
             Chunk->Buffer = Context->CreateBuffer(Desc);
-            FVulkanBuffer* VkBuffer = Chunk->Buffer.As<FVulkanBuffer>();
-            Chunk->MappedMemory = VkBuffer->GetMappedMemory();
+            Chunk->MappedMemory = Chunk->Buffer.As<FVulkanBuffer>()->GetMappedMemory();
             Chunk->BufferSize = Size;
         }
 
@@ -432,6 +431,9 @@ namespace Lumina
 
     bool FUploadManager::SuballocateBuffer(uint64 Size, FRHIBuffer** Buffer, uint64* Offset, void** CpuVA, uint64 CurrentVersion, uint32 Alignment)
     {
+        LUM_ASSERT(Buffer)
+        LUM_ASSERT(Size)
+        
         TSharedPtr<FBufferChunk> ChunkToRetire = nullptr;
 
         if (CurrentChunk)
@@ -454,7 +456,7 @@ namespace Lumina
             }
 
             ChunkToRetire = CurrentChunk;
-            CurrentChunk = nullptr;
+            CurrentChunk.reset();
         }
 
         ECommandQueue queue = VersionGetQueue(CurrentVersion);
@@ -486,7 +488,7 @@ namespace Lumina
 
         if (!CurrentChunk)
         {
-            uint64 SizeToAllocate = Align(std::max(Size, DefaultChunkSize), FBufferChunk::c_sizeAlignment);
+            uint64 SizeToAllocate = Align(std::max(Size, DefaultChunkSize), FBufferChunk::GSizeAlignment);
 
             if ((MemoryLimit > 0) && (AllocatedMemory + SizeToAllocate > MemoryLimit))
             {
@@ -506,7 +508,7 @@ namespace Lumina
             *CpuVA = CurrentChunk->MappedMemory;
         }
 
-        return true;
+        return *Buffer != nullptr;
     }
 
     void FUploadManager::SubmitChunks(uint64 CurrentVersion, uint64 submittedVersion)
@@ -619,6 +621,7 @@ namespace Lumina
         BufferCreateInfo.flags = 0;
         
         Allocation = Device->GetAllocator()->AllocateBuffer(&BufferCreateInfo, VmaFlags, &Buffer, GetDescription().DebugName.c_str());
+        static_cast<FVulkanRenderContext*>(GRenderContext)->SetVulkanObjectName(GetDescription().DebugName, VK_OBJECT_TYPE_BUFFER, (uintptr_t)Buffer);
     }
 
     FVulkanBuffer::~FVulkanBuffer()
@@ -660,6 +663,7 @@ namespace Lumina
         Info.maxLod = 0.0f; // TEMP WAS VK_LOD_CLAMP_NONE
 
         VK_CHECK(vkCreateSampler(Device->GetDevice(), &Info, VK_ALLOC_CALLBACK, &Sampler));
+        static_cast<FVulkanRenderContext*>(GRenderContext)->SetVulkanObjectName(InDesc.DebugName, VK_OBJECT_TYPE_SAMPLER, (uintptr_t)Sampler);
     }
 
     FVulkanSampler::~FVulkanSampler()
@@ -745,6 +749,7 @@ namespace Lumina
         ImageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
     
         Device->GetAllocator()->AllocateImage(&ImageCreateInfo, AllocationFlags, &Image, InDescription.DebugName.c_str());
+        static_cast<FVulkanRenderContext*>(GRenderContext)->SetVulkanObjectName(InDescription.DebugName, VK_OBJECT_TYPE_IMAGE, (uintptr_t)Image);
     }
 
 
@@ -860,6 +865,22 @@ namespace Lumina
 
         VK_CHECK(vkCreateImageView(Device->GetDevice(), &ImageViewCreateInfo, VK_ALLOC_CALLBACK, &View.View));
 
+#if defined(LE_DEBUG)
+        
+        FString Name = GetDescription().DebugName;
+        Name += "_View_";
+        Name += "_";
+        Name += eastl::to_string(Subresource.BaseMipLevel);
+        Name += "-";
+        Name += eastl::to_string(Subresource.BaseMipLevel + Subresource.NumMipLevels - 1);
+        Name += "_";
+        Name += eastl::to_string(Subresource.BaseArraySlice);
+        Name += "-";
+        Name += eastl::to_string(Subresource.BaseArraySlice + Subresource.NumArraySlices - 1);
+        
+        static_cast<FVulkanRenderContext*>(GRenderContext)->SetVulkanObjectName(Name, VK_OBJECT_TYPE_IMAGE_VIEW, (uintptr_t)View.View);
+#endif
+        
         return View;
     }
 
@@ -965,6 +986,8 @@ namespace Lumina
         CreateInfo.flags        = Flags;
 
         VK_CHECK(vkCreateShaderModule(Device->GetDevice(), &CreateInfo, VK_ALLOC_CALLBACK, &ShaderModule));
+        static_cast<FVulkanRenderContext*>(GRenderContext)->SetVulkanObjectName(ShaderHeader.DebugName, VK_OBJECT_TYPE_SHADER_MODULE, (uintptr_t)ShaderModule);
+
     }
 
     IVulkanShader::~IVulkanShader()
@@ -1164,6 +1187,8 @@ namespace Lumina
 
         auto Result = vkCreateDescriptorSetLayout(Device->GetDevice(), &CreateInfo, VK_ALLOC_CALLBACK, &DescriptorSetLayout);
         VK_CHECK(Result);
+        static_cast<FVulkanRenderContext*>(GRenderContext)->SetVulkanObjectName(Desc.DebugName, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, (uintptr_t)DescriptorSetLayout);
+
 
         THashMap<VkDescriptorType, uint32> PoolSizeMap;
         for (VkDescriptorSetLayoutBinding Binding : Bindings)
@@ -1221,8 +1246,8 @@ namespace Lumina
 
     FVulkanBindingSet::FVulkanBindingSet(FVulkanRenderContext* RenderContext, const FBindingSetDesc& InDesc, FVulkanBindingLayout* InLayout)
         : IDeviceChild(RenderContext->GetDevice())
-        , Desc(InDesc)
         , Layout(InLayout)
+        , Desc(InDesc)
         , DescriptorPool(nullptr)
     {
         Assert(InLayout->DescriptorSetLayout)
@@ -1234,6 +1259,8 @@ namespace Lumina
         PoolCreateInfo.maxSets = 1;
 
         VK_CHECK(vkCreateDescriptorPool(Device->GetDevice(), &PoolCreateInfo, VK_ALLOC_CALLBACK, &DescriptorPool));
+        static_cast<FVulkanRenderContext*>(GRenderContext)->SetVulkanObjectName(Desc.DebugName, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, (uintptr_t)DescriptorPool);
+
         
         VkDescriptorSetAllocateInfo AllocateInfo = {};
         AllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
@@ -1242,34 +1269,29 @@ namespace Lumina
         AllocateInfo.pSetLayouts = &InLayout->DescriptorSetLayout;
         
         VK_CHECK(vkAllocateDescriptorSets(Device->GetDevice(), &AllocateInfo, &DescriptorSet));
+        static_cast<FVulkanRenderContext*>(GRenderContext)->SetVulkanObjectName(Desc.DebugName, VK_OBJECT_TYPE_DESCRIPTOR_SET, (uintptr_t)DescriptorSet);
 
 
         TFixedVector<VkDescriptorBufferInfo, 2> BufferInfos;
         TFixedVector<VkDescriptorImageInfo, 2> ImageInfos;
-        TFixedVector<VkWriteDescriptorSet, 2> Writes;
+        TFixedVector<VkWriteDescriptorSet, 4> Writes;
         BufferInfos.reserve(InDesc.Bindings.size());
         ImageInfos.reserve(InDesc.Bindings.size());
-        Writes.reserve(4);
 
         
         for (SIZE_T BindingIndex = 0; BindingIndex < InDesc.Bindings.size(); ++BindingIndex)
         {
             const FBindingSetItem& Item = InDesc.Bindings[BindingIndex];
-            if (Item.Type == ERHIBindingResourceType::PushConstants)
+            if (Item.Type == ERHIBindingResourceType::PushConstants || (Item.bUnused) || (Item.ResourceHandle == nullptr))
             {
                 continue;
             }
 
             
-            const VkDescriptorSetLayoutBinding VkBinding = Layout->Bindings[BindingIndex];
-
-            
-            if ((Item.bUnused) || (Item.ResourceHandle == nullptr))
-            {
-                continue;
-            }
-
             Resources.push_back(Item.ResourceHandle);
+            
+
+            const VkDescriptorSetLayoutBinding VkBinding = Layout->Bindings[BindingIndex];
 
             VkWriteDescriptorSet Write = {};
             Write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -1283,7 +1305,6 @@ namespace Lumina
             {
             case ERHIBindingResourceType::Texture_SRV:
                 {
-                    BindingsRequiringTransitions.push_back((uint32)BindingIndex);
                     FVulkanImage* Image = static_cast<FVulkanImage*>(Item.ResourceHandle);
                     
                     const FTextureSubresourceSet Subresource = Item.TextureResource.Subresources.Resolve(Image->GetDescription(), true);
@@ -1299,11 +1320,19 @@ namespace Lumina
                     
                     Write.pImageInfo = &ImageInfo;
                     Write.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+
+                    if (!Image->PermanentState)
+                    {
+                        BindingsRequiringTransitions.push_back((uint32)BindingIndex);
+                    }
+                    else
+                    {
+                        VkStateTracking::VerifyPermanentResourceState(Image->PermanentState, EResourceStates::ShaderResource, true, Image->GetDescription().DebugName);
+                    }
                 }
                 break;
             case ERHIBindingResourceType::Texture_UAV:
                 {
-                    BindingsRequiringTransitions.push_back((uint32)BindingIndex);
 
                     FVulkanImage* Image = static_cast<FVulkanImage*>(Item.ResourceHandle);
                     const FTextureSubresourceSet Subresource = Item.TextureResource.Subresources.Resolve(Image->GetDescription(), true);
@@ -1316,6 +1345,15 @@ namespace Lumina
                     
                     Write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
                     Write.pImageInfo = &ImageInfo;
+
+                    if (!Image->PermanentState)
+                    {
+                        BindingsRequiringTransitions.push_back((uint32)BindingIndex);
+                    }
+                    else
+                    {
+                        VkStateTracking::VerifyPermanentResourceState(Image->PermanentState, EResourceStates::UnorderedAccess, true, Image->GetDescription().DebugName);
+                    }
                 }
                 break;
             case ERHIBindingResourceType::Buffer_CBV:
@@ -1328,6 +1366,15 @@ namespace Lumina
                         
                     Write.pBufferInfo = &BufferInfo;
                     Write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+
+                    if (!Buffer->PermanentState)
+                    {
+                        BindingsRequiringTransitions.push_back((uint32)BindingIndex);
+                    }
+                    else
+                    {
+                        VkStateTracking::VerifyPermanentResourceState(Buffer->PermanentState, EResourceStates::ConstantBuffer, true, Buffer->GetDescription().DebugName);
+                    }
                 }
                 break;
             case ERHIBindingResourceType::Buffer_SRV:
@@ -1340,6 +1387,15 @@ namespace Lumina
                         
                     Write.pBufferInfo = &BufferInfo;
                     Write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+
+                    if (!Buffer->PermanentState)
+                    {
+                        BindingsRequiringTransitions.push_back((uint32)BindingIndex);
+                    }
+                    else
+                    {
+                        VkStateTracking::VerifyPermanentResourceState(Buffer->PermanentState, EResourceStates::ShaderResource, true, Buffer->GetDescription().DebugName);
+                    }
                 }
                 break;
             case ERHIBindingResourceType::Buffer_UAV:
@@ -1352,6 +1408,15 @@ namespace Lumina
                         
                     Write.pBufferInfo = &BufferInfo;
                     Write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
+                    
+                    if (!Buffer->PermanentState)
+                    {
+                        BindingsRequiringTransitions.push_back((uint32)BindingIndex);
+                    }
+                    else
+                    {
+                        VkStateTracking::VerifyPermanentResourceState(Buffer->PermanentState, EResourceStates::UnorderedAccess, true, Buffer->GetDescription().DebugName);
+                    }
                 }
                 break;
             case ERHIBindingResourceType::Buffer_Uniform_Dynamic:
@@ -1365,6 +1430,15 @@ namespace Lumina
                     Write.pBufferInfo = &BufferInfo;
                     Write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
                     DynamicBuffers.push_back(Buffer);
+                    
+                    if (!Buffer->PermanentState)
+                    {
+                        BindingsRequiringTransitions.push_back((uint32)BindingIndex);
+                    }
+                    else
+                    {
+                        VkStateTracking::VerifyPermanentResourceState(Buffer->PermanentState, EResourceStates::ConstantBuffer, true, Buffer->GetDescription().DebugName);
+                    }
                 }
                 break;
             case ERHIBindingResourceType::Buffer_Storage_Dynamic:
@@ -1378,6 +1452,15 @@ namespace Lumina
                     Write.pBufferInfo = &BufferInfo;
                     Write.descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC;
                     DynamicBuffers.push_back(Buffer);
+
+                    if (!Buffer->PermanentState)
+                    {
+                        BindingsRequiringTransitions.push_back((uint32)BindingIndex);
+                    }
+                    else
+                    {
+                        VkStateTracking::VerifyPermanentResourceState(Buffer->PermanentState, EResourceStates::ShaderResource, true, Buffer->GetDescription().DebugName);
+                    }
                 }
                 break;
             }
@@ -1419,6 +1502,7 @@ namespace Lumina
         AllocateInfo.pSetLayouts = &InLayout->DescriptorSetLayout;
         
         VK_CHECK(vkAllocateDescriptorSets(Device->GetDevice(), &AllocateInfo, &DescriptorSet));
+
     }
 
     FVulkanDescriptorTable::~FVulkanDescriptorTable()
@@ -1437,7 +1521,7 @@ namespace Lumina
         vkDestroyPipelineLayout(Device->GetDevice(), PipelineLayout, VK_ALLOC_CALLBACK);
     }
 
-    void FVulkanPipeline::CreatePipelineLayout(const TFixedVector<FRHIBindingLayoutRef, 1>& BindingLayouts, VkShaderStageFlags& OutStageFlags)
+    void FVulkanPipeline::CreatePipelineLayout(FString DebugName, const TFixedVector<FRHIBindingLayoutRef, 1>& BindingLayouts, VkShaderStageFlags& OutStageFlags)
     {
         TFixedVector<VkDescriptorSetLayout, 2> Layouts;
         uint32 PushConstantSize = 0;
@@ -1475,6 +1559,8 @@ namespace Lumina
         CreateInfo.pPushConstantRanges = &Range;
         
         VK_CHECK(vkCreatePipelineLayout(Device->GetDevice(), &CreateInfo, VK_ALLOC_CALLBACK, &PipelineLayout));
+        static_cast<FVulkanRenderContext*>(GRenderContext)->SetVulkanObjectName(DebugName, VK_OBJECT_TYPE_PIPELINE_LAYOUT, (uintptr_t)PipelineLayout);
+
     }
 
     FVulkanGraphicsPipeline::FVulkanGraphicsPipeline(FVulkanDevice* InDevice, const FGraphicsPipelineDesc& InDesc)
@@ -1485,14 +1571,13 @@ namespace Lumina
         FVulkanInputLayout* InputLayout = InDesc.InputLayout.As<FVulkanInputLayout>();
         bool bHasInputLayout = (InputLayout != nullptr);
 
-        CreatePipelineLayout(InDesc.BindingLayouts, PushConstantVisibility);
+        CreatePipelineLayout(InDesc.DebugName, InDesc.BindingLayouts, PushConstantVisibility);
         
         VkDynamicState DynamicStates[] =
         {
             VK_DYNAMIC_STATE_SCISSOR,
             VK_DYNAMIC_STATE_VIEWPORT
         };
-
         
         TFixedVector<VkPipelineShaderStageCreateInfo, 2> ShaderStages;
         if (InDesc.VS)
@@ -1556,7 +1641,7 @@ namespace Lumina
         RasterizationState.depthBiasConstantFactor = float(RasterState.DepthBias);
         RasterizationState.depthBiasClamp = RasterState.DepthBiasClamp;
         RasterizationState.depthBiasSlopeFactor = RasterState.SlopeScaledDepthBias;
-        RasterizationState.lineWidth = 1.0f;
+        RasterizationState.lineWidth = Device->GetFeatures10().wideLines ? RasterState.LineWidth : 1.0f;
         
         VkPipelineMultisampleStateCreateInfo MultisampleState = {};
         MultisampleState.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
@@ -1612,23 +1697,24 @@ namespace Lumina
         RenderingCreateInfo.stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
         
         VkGraphicsPipelineCreateInfo CreateInfo = {};
-        CreateInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-        CreateInfo.pNext = &RenderingCreateInfo;
-        CreateInfo.pVertexInputState = &VertexInputState;
-        CreateInfo.pInputAssemblyState = &InputAssemblyState;
-        CreateInfo.pViewportState = &ViewportState;
-        CreateInfo.pRasterizationState = &RasterizationState;
-        CreateInfo.pMultisampleState = &MultisampleState;
-        CreateInfo.pDepthStencilState = &DepthStencilState;
-        CreateInfo.pColorBlendState = &ColorBlendState;
-        CreateInfo.pDynamicState = &DynamicState;
-        CreateInfo.stageCount = (uint32)ShaderStages.size();
-        CreateInfo.pStages = ShaderStages.data();
-        CreateInfo.layout = PipelineLayout;
-        CreateInfo.renderPass = VK_NULL_HANDLE;
-        CreateInfo.subpass = 0;
+        CreateInfo.sType                        = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+        CreateInfo.pNext                        = &RenderingCreateInfo;
+        CreateInfo.pVertexInputState            = &VertexInputState;
+        CreateInfo.pInputAssemblyState          = &InputAssemblyState;
+        CreateInfo.pViewportState               = &ViewportState;
+        CreateInfo.pRasterizationState          = &RasterizationState;
+        CreateInfo.pMultisampleState            = &MultisampleState;
+        CreateInfo.pDepthStencilState           = &DepthStencilState;
+        CreateInfo.pColorBlendState             = &ColorBlendState;
+        CreateInfo.pDynamicState                = &DynamicState;
+        CreateInfo.stageCount                   = (uint32)ShaderStages.size();
+        CreateInfo.pStages                      = ShaderStages.data();
+        CreateInfo.layout                       = PipelineLayout;
+        CreateInfo.renderPass                   = VK_NULL_HANDLE;
+        CreateInfo.subpass                      = 0;
         
         VK_CHECK(vkCreateGraphicsPipelines(Device->GetDevice(), nullptr, 1, &CreateInfo, VK_ALLOC_CALLBACK, &Pipeline));
+        static_cast<FVulkanRenderContext*>(GRenderContext)->SetVulkanObjectName(Desc.DebugName, VK_OBJECT_TYPE_PIPELINE, (uintptr_t)Pipeline);
 
     }
 
@@ -1648,7 +1734,7 @@ namespace Lumina
     {
         Desc = InDesc;
 
-        CreatePipelineLayout(InDesc.BindingLayouts, PushConstantVisibility);
+        CreatePipelineLayout(InDesc.DebugName, InDesc.BindingLayouts, PushConstantVisibility);
         
         VkPipelineShaderStageCreateInfo StageInfo = {};
         StageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -1662,6 +1748,7 @@ namespace Lumina
         CreateInfo.layout = PipelineLayout;
         
         VK_CHECK(vkCreateComputePipelines(Device->GetDevice(), nullptr, 1, &CreateInfo, VK_ALLOC_CALLBACK, &Pipeline));
+        static_cast<FVulkanRenderContext*>(GRenderContext)->SetVulkanObjectName(Desc.DebugName, VK_OBJECT_TYPE_PIPELINE, (uintptr_t)Pipeline);
     }
 
     void* FVulkanComputePipeline::GetAPIResourceImpl(EAPIResourceType Type)

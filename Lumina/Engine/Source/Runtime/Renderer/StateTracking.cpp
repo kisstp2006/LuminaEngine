@@ -7,16 +7,15 @@
 
 namespace Lumina
 {
-
-    namespace
+    namespace VkStateTracking
     {
-        bool VerifyPermanentResourceState(EResourceStates permanentState, EResourceStates requiredState, bool bIsTexture, const FString& DebugName)
+        bool VerifyPermanentResourceState(EResourceStates PermanentState, EResourceStates RequiredState, bool bIsTexture, FStringView DebugName)
         {
-            if ((permanentState & requiredState) != requiredState)
+            if ((PermanentState & RequiredState) != RequiredState)
             {
                 std::ostringstream ossRequired, ossPresent;
-                ossRequired << "0x" << std::hex << std::uppercase << uint32(requiredState);
-                ossPresent  << "0x" << std::hex << std::uppercase << uint32(permanentState);
+                ossRequired << "0x" << std::hex << std::uppercase << uint32(RequiredState);
+                ossPresent  << "0x" << std::hex << std::uppercase << uint32(PermanentState);
 
                 LOG_ERROR("Permanent {0} - {1} doesn't have the right state bits. Requires: {2}, Present: {3}",
                     bIsTexture ? "Texture" : "Buffer", DebugName, ossRequired.str(), ossPresent.str());
@@ -26,6 +25,11 @@ namespace Lumina
 
             return true;
         }
+    }
+
+    
+    namespace
+    {
     
         uint32 CalcSubresource(uint32 MipLevel, uint32 ArraySlice, const FRHIImageDesc& Desc)
         {
@@ -159,9 +163,9 @@ namespace Lumina
     {
         LUMINA_PROFILE_SCOPE();
 
-        if (texture->permanentState != EResourceStates::Unknown)
+        if (texture->PermanentState != EResourceStates::Unknown)
         {
-            VerifyPermanentResourceState(texture->permanentState, state, true, texture->DescRef.DebugName);
+            VkStateTracking::VerifyPermanentResourceState(texture->PermanentState, state, true, texture->DescRef.DebugName);
             return;
         }
 
@@ -261,10 +265,9 @@ namespace Lumina
             return;
         }
 
-        if (buffer->permanentState != EResourceStates::Unknown)
+        if (buffer->PermanentState != EResourceStates::Unknown)
         {
-            VerifyPermanentResourceState(buffer->permanentState, state, false, buffer->DescRef.DebugName);
-
+            VkStateTracking::VerifyPermanentResourceState(buffer->PermanentState, state, false, buffer->DescRef.DebugName);
             return;
         }
 
@@ -327,7 +330,7 @@ namespace Lumina
         
         for (auto& [buffer, tracking] : BufferStates)
         {
-            if (buffer->DescRef.bKeepInitialState && !buffer->permanentState && !buffer->DescRef.Usage.IsFlagSet(EBufferUsageFlags::Dynamic) &&!tracking->permanentTransition)
+            if (buffer->DescRef.bKeepInitialState && !buffer->PermanentState && !buffer->DescRef.Usage.IsFlagSet(EBufferUsageFlags::Dynamic) &&!tracking->permanentTransition)
             {
                 RequireBufferState(buffer, buffer->DescRef.InitialState);
             }
@@ -340,7 +343,7 @@ namespace Lumina
 
         for (auto& [texture, tracking] : TextureStates)
         {
-            if (texture->DescRef.bKeepInitialState && !texture->permanentState && !tracking->bPermanentTransition)
+            if (texture->DescRef.bKeepInitialState && !texture->PermanentState && !tracking->bPermanentTransition)
             {
                 RequireTextureState(texture, AllSubresources, texture->DescRef.InitialState);
             }
@@ -353,32 +356,32 @@ namespace Lumina
 
         for (auto& [texture, state] : PermanentTextureStates)
         {
-            if (texture->permanentState != EResourceStates::Unknown && texture->permanentState != state)
+            if (texture->PermanentState != EResourceStates::Unknown && texture->PermanentState != state)
             {
                 LOG_ERROR("Attempted to switch permanent state of texture {0} from 0x{1:X} to 0x{2:X}.",
                           texture->DescRef.DebugName,
-                          static_cast<uint32>(texture->permanentState),
+                          static_cast<uint32>(texture->PermanentState),
                           static_cast<uint32>(state));
                 continue;
             }
 
-            texture->permanentState = state;
+            texture->PermanentState = state;
         }
         
         PermanentTextureStates.clear();
 
         for (auto& [buffer, state] : PermanentBufferStates)
         {
-            if (buffer->permanentState != EResourceStates::Unknown && buffer->permanentState != state)
+            if (buffer->PermanentState != EResourceStates::Unknown && buffer->PermanentState != state)
             {
                 LOG_ERROR("Attempted to switch permanent state of buffer {0} from 0x{1:X} to 0x{2:X}.",
                           buffer->DescRef.DebugName,
-                          static_cast<uint32>(buffer->permanentState),
+                          static_cast<uint32>(buffer->PermanentState),
                           static_cast<uint32>(state));
                 continue;
             }
 
-            buffer->permanentState = state;
+            buffer->PermanentState = state;
         }
         
         PermanentBufferStates.clear();

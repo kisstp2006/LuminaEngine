@@ -21,6 +21,11 @@ namespace Lumina::Reflection::Visitor
 
         CXType FieldType = clang_getCursorType(Cursor);
         clang::QualType FieldQualType = ClangUtils::GetQualType(FieldType);
+        if (FieldQualType.isNull())
+        {
+            Context->LogError("Failed to qualify typename for member: %s in class: %s", CursorName.c_str(), Context->ParentReflectedType->GetTypeName().c_str());
+            return FFieldInfo();
+        }
 
         eastl::string TypeSpelling;
         ClangUtils::GetQualifiedNameForType(FieldQualType, TypeSpelling);
@@ -66,6 +71,12 @@ namespace Lumina::Reflection::Visitor
     static FFieldInfo CreateSubFieldInfo(FClangParserContext* Context, const CXType& FieldType, const FFieldInfo& ParentField)
     {
         clang::QualType FieldQualType = ClangUtils::GetQualType(FieldType);
+        if (FieldQualType.isNull())
+        {
+            Context->LogError("Failed to qualify typename for member: %s in class: %s", ParentField.Name.c_str(), Context->ParentReflectedType->GetTypeName().c_str());
+            Context->FlushLogs();
+            return FFieldInfo();
+        }
         
         eastl::string FieldName; 
         ClangUtils::GetQualifiedNameForType(FieldQualType, FieldName);

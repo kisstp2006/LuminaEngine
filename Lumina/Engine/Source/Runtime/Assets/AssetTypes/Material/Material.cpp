@@ -1,5 +1,10 @@
 ﻿
 #include "Material.h"
+
+#include "Assets/AssetTypes/Textures/Texture.h"
+#include "Core/Engine/Engine.h"
+#include "Renderer/RenderContext.h"
+#include "Renderer/RHIGlobals.h"
 #include "Renderer/RHIIncl.h"
 
 namespace Lumina
@@ -8,6 +13,59 @@ namespace Lumina
     {
         MaterialType = EMaterialType::PBR;
         Memory::Memzero(&MaterialUniforms, sizeof(FMaterialUniforms));
+    }
+
+    void CMaterial::Serialize(FArchive& Ar)
+    {
+        CMaterialInterface::Serialize(Ar);
+        Ar << VertexShaderBinaries;
+        Ar << PixelShaderBinaries;
+    }
+
+    void CMaterial::PostLoad()
+    {
+        FRHICommandListRef CommandList = GRenderContext->GetCommandList(ECommandQueue::Graphics);
+        FShaderHeader Header;
+        Header.DebugName = "Test";
+        
+        if (!VertexShaderBinaries.empty() && !PixelShaderBinaries.empty())
+        {
+            Header.Binaries = VertexShaderBinaries;
+            VertexShader = GRenderContext->CreateVertexShader(Header);
+
+            Header.Binaries = PixelShaderBinaries;
+            PixelShader = GRenderContext->CreatePixelShader(Header);
+
+            FRHIBufferDesc BufferDesc;
+            BufferDesc.Size = sizeof(FMaterialUniforms);
+            BufferDesc.DebugName = GetName().ToString() + "Material Uniforms";
+            BufferDesc.InitialState = EResourceStates::ConstantBuffer;
+            BufferDesc.bKeepInitialState = true;
+            BufferDesc.Usage.SetFlag(BUF_UniformBuffer);
+            UniformBuffer = GRenderContext->CreateBuffer(BufferDesc);
+        
+            Memory::Memzero(&MaterialUniforms, sizeof(FMaterialUniforms));
+        
+            CommandList->WriteBuffer(UniformBuffer, &MaterialUniforms, 0, sizeof(FMaterialUniforms));
+
+            FBindingSetDesc SetDesc;
+            SetDesc.AddItem(FBindingSetItem::BufferCBV(0, UniformBuffer));
+
+            uint32 Index = 1;
+            for (CTexture* Binding : Textures)
+            {
+                FRHIImageRef Image = Binding->GetRHIRef();
+                SetDesc.AddItem(FBindingSetItem::TextureSRV(Index, Image));
+                Index++;
+            }
+        
+            TBitFlags<ERHIShaderType> Visibility;
+            Visibility.SetMultipleFlags(ERHIShaderType::Vertex, ERHIShaderType::Fragment);
+            GRenderContext->CreateBindingSetAndLayout(Visibility, 0, SetDesc, BindingLayout, BindingSet);
+
+            SetReadyForRender(true);
+        }
+
     }
 
     bool CMaterial::SetScalarValue(const FName& Name, const float Value)

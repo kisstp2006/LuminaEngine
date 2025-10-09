@@ -31,7 +31,7 @@ namespace Lumina
         TracyVkCtx                  TracyContext = nullptr;
 
         
-        /** Here we keep alive any resources that this current command buffer needs/uses */
+        /** Keep alive any resources that this current command buffer uses */
         TFixedVector<TRefCountPtr<IRHIResource>, 20>    ReferencedResources;
         TFixedVector<TRefCountPtr<FRHIBuffer>, 20>      ReferencedStagingResources;
 
