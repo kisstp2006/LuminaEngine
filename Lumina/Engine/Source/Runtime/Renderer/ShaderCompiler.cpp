@@ -17,34 +17,38 @@ namespace Lumina
     {
         shaderc_include_result* GetInclude(const char* requested_source, shaderc_include_type type, const char* requesting_source, size_t include_depth) override
         {
-            std::filesystem::path RequestingPath = requesting_source;
-            std::filesystem::path TruePath = RequestingPath.parent_path() / requested_source;
-            FString IncludePath = FString(TruePath.string().c_str());
-            FString ShaderData;
+            FString RequestingPath = requesting_source;
+            if (include_depth > 1)
+            {
+                RequestingPath = Paths::GetEngineShadersDirectory() + "/" + RequestingPath;
+            }
+            FString IncludePath = Paths::Parent(RequestingPath) + "/" + FString(requested_source);
             
+            FString ShaderData;
             if (FileHelper::LoadFileIntoString(ShaderData, IncludePath))
             {
-                auto* result = new shaderc_include_result;
+                auto* result = Memory::New<shaderc_include_result>();
                 result->source_name = requested_source;
                 result->source_name_length = strlen(requested_source);
-                result->content = new char[ShaderData.size() + 1];
+                result->content = Memory::NewArray<char>(ShaderData.size() + 1);
                 result->content_length = ShaderData.size();
 
                 memcpy((void*)result->content, ShaderData.data(), ShaderData.size() + 1);
                 return result;
             }
 
+            LOG_ERROR("Failed to find shader include at path: {}", IncludePath);
             return nullptr;
         }
 
         void ReleaseInclude(shaderc_include_result* data) override
         {
-            delete[] data->content;
-            delete data;
+            Memory::DeleteArray(const_cast<char*>(data->content));
+            Memory::Delete(data);
         }
     };
 
-    void FSpirVShaderCompiler::ReflectSpirv(TSpan<uint32> SpirV, FShaderReflection& Reflection)
+    void FSpirVShaderCompiler::ReflectSpirv(TSpan<uint32> SpirV, FShaderReflection& Reflection, bool bReflectFull)
     {
         SpvReflectShaderModule Module;
         SpvReflectResult Result = spvReflectCreateShaderModule(SpirV.size_bytes(), SpirV.data(), &Module);
@@ -65,6 +69,11 @@ namespace Lumina
         case SPV_REFLECT_SHADER_STAGE_COMPUTE_BIT:
             Reflection.ShaderType = ERHIShaderType::Compute;
             break;
+        }
+
+        if (!bReflectFull)
+        {
+            return;
         }
 
         uint32 NumDescriptorSets = 0;
@@ -128,104 +137,121 @@ namespace Lumina
     }
     
     
-    bool FSpirVShaderCompiler::CompileShader(const FString& ShaderPath, const FShaderCompileOptions& CompileOptions, CompletedFunc OnCompleted)
+    bool FSpirVShaderCompiler::CompileShaderPath(FString ShaderPath, const FShaderCompileOptions& CompileOptions, CompletedFunc OnCompleted)
     {
-        FRequest Request;
-        Request.Path = ShaderPath;
-        Request.CompileOptions = CompileOptions;
-        Request.OnCompleted = Memory::Move(OnCompleted);
-        PushRequest(Request);
-        
-        Task::AsyncTask(1, [this, Request = Memory::Move(Request)] (uint32, uint32, uint32)
+        TVector<FString> ShaderPaths = { Memory::Move(ShaderPath) };
+        TVector<FShaderCompileOptions> Options = { CompileOptions };
+        TVector<CompletedFunc> Callbacks = { Memory::Move(OnCompleted) };
+
+        return CompileShaderPaths(TSpan<FString>(ShaderPaths), TSpan<FShaderCompileOptions>(Options), OnCompleted);
+    }
+
+    bool FSpirVShaderCompiler::CompileShaderPaths(TSpan<FString> ShaderPaths, TSpan<FShaderCompileOptions> CompileOptions, CompletedFunc OnCompleted)
+    {
+        LUM_ASSERT(ShaderPaths.size() == CompileOptions.size())
+    
+        uint32 NumShaders = (uint32)ShaderPaths.size();
+        if (NumShaders == 0)
         {
-            FString FileName = Paths::FileName(Request.Path);
-            LOG_TRACE("Compiling Shader: {0} - Thread: {1}", FileName, Threading::GetThreadID());
-    
-            TVector<uint32> Binaries;
+            return false;
+        }
 
-            shaderc::CompileOptions Options;
-            Options.SetIncluder(std::make_unique<FShaderCIncluder>());
-            Options.SetOptimizationLevel(shaderc_optimization_level_performance);
-            Options.SetGenerateDebugInfo();
-            Options.SetTargetEnvironment(shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_3);
-            
-            for (const FString& Macro : Request.CompileOptions.MacroDefinitions)
-            {
-                Options.AddMacroDefinition(Macro.c_str());
-            }
-    
-            FString RawShaderString;
-            if (!FileHelper::LoadFileIntoString(RawShaderString, Request.Path))
-            {
-                LOG_ERROR("Failed to load shader: {0}", Request.Path);
-                PopRequest();
-                return;
-            }
-
-            
-            auto Preprocessed = Compiler.PreprocessGlsl(RawShaderString.c_str(),
-                                                        RawShaderString.size(),
-                                                        shaderc_glsl_infer_from_source,
-                                                        Request.Path.c_str(), Options);
-    
-            if (Preprocessed.GetCompilationStatus() != shaderc_compilation_status_success)
-            {
-                LOG_ERROR("Preprocessing failed: {0} - {1}", Request.Path, Preprocessed.GetErrorMessage());
-                PopRequest();
-                return;
-            }
-    
-            FString PreprocessedShader(Preprocessed.begin(), Preprocessed.end());
-    
-            auto CompileResult = Compiler.CompileGlslToSpv(PreprocessedShader.c_str(),
-                                                           PreprocessedShader.size(),
-                                                           shaderc_glsl_infer_from_source,
-                                                           Request.Path.c_str(), Options);
-            
-            if (CompileResult.GetCompilationStatus() != shaderc_compilation_status_success)
-            {
-                LOG_ERROR("Compilation failed: {0} - {1}", Request.Path, CompileResult.GetErrorMessage());
-                PopRequest();
-                return;
-            }
-    
-            Binaries.assign(CompileResult.begin(), CompileResult.end());
-    
-            if (Binaries.empty())
-            {
-                LOG_ERROR("Shader compiled to empty SPIR-V: {0}", Request.Path);
-                PopRequest();
-                return;
-            }
-
-            
-            FShaderHeader Shader;
-            Shader.Binaries = Memory::Move(Binaries);
-            
-            ReflectSpirv(Shader.Binaries, Shader.Reflection);
-            
-            Request.OnCompleted(Memory::Move(Shader));
-            
-            PopRequest();
-        });
         
+        PendingTasks.fetch_add(NumShaders, std::memory_order_relaxed);
+        
+        // Capture copies for thread safety
+        TVector<FString> Paths(ShaderPaths.begin(), ShaderPaths.end());
+        TVector<FShaderCompileOptions> Options(CompileOptions.begin(), CompileOptions.end());
+    
+        Task::AsyncTask(NumShaders, [this,
+            Paths = Memory::Move(Paths),
+            Options = Memory::Move(Options),
+            Callback = Memory::Move(OnCompleted)] (uint32 Start, uint32 End, uint32 Thread)
+        {
+            shaderc::CompileOptions CompileOpts;
+            CompileOpts.SetIncluder(std::make_unique<FShaderCIncluder>());
+            CompileOpts.SetOptimizationLevel(shaderc_optimization_level_performance);
+            CompileOpts.SetGenerateDebugInfo();
+            CompileOpts.SetTargetEnvironment(shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_3);
+    
+            for (uint32 i = Start; i < End; ++i)
+            {
+                auto CompileStart = std::chrono::high_resolution_clock::now();
+
+                const FString& Path = Paths[i];
+                FString Filename = Paths::FileName(Path);
+                const FShaderCompileOptions& Opt = Options[i];
+                
+                for (const FString& Macro : Opt.MacroDefinitions)
+                {
+                    CompileOpts.AddMacroDefinition(Macro.c_str());
+                }
+    
+                FString RawShaderString;
+                if (!FileHelper::LoadFileIntoString(RawShaderString, Path))
+                {
+                    LOG_ERROR("Failed to load shader: {0}", Path);
+                    PendingTasks.fetch_sub(1, std::memory_order_acq_rel);
+                    continue;
+                }
+    
+                auto Preprocessed = Compiler.PreprocessGlsl(
+                    RawShaderString.c_str(),
+                    RawShaderString.size(),
+                    shaderc_glsl_infer_from_source,
+                    Path.c_str(),
+                    CompileOpts);
+    
+                if (Preprocessed.GetCompilationStatus() != shaderc_compilation_status_success)
+                {
+                    LOG_ERROR("Preprocessing failed: {0} - {1}", Path, Preprocessed.GetErrorMessage());
+                    PendingTasks.fetch_sub(1, std::memory_order_acq_rel);
+                    continue;
+                }
+    
+                FString PreprocessedShader(Preprocessed.begin(), Preprocessed.end());
+    
+                auto CompileResult = Compiler.CompileGlslToSpv(
+                    PreprocessedShader.c_str(),
+                    PreprocessedShader.size(),
+                    shaderc_glsl_infer_from_source,
+                    Path.c_str(),
+                    CompileOpts);
+    
+                if (CompileResult.GetCompilationStatus() != shaderc_compilation_status_success)
+                {
+                    LOG_ERROR("Compilation failed: {0} - {1}", Path, CompileResult.GetErrorMessage());
+                    continue;
+                }
+    
+                TVector<uint32> Binaries(CompileResult.begin(), CompileResult.end());
+                if (Binaries.empty())
+                {
+                    LOG_ERROR("Shader compiled to empty SPIR-V: {0}", Path);
+                    PendingTasks.fetch_sub(1, std::memory_order_acq_rel);
+                    continue;
+                }
+
+                
+                FShaderHeader Shader;
+                Shader.Binaries = Memory::Move(Binaries);
+                Shader.DebugName = Filename;
+                
+                ReflectSpirv(Shader.Binaries, Shader.Reflection, Options[i].bGenerateReflectionData);
+
+                auto CompileEnd = std::chrono::high_resolution_clock::now();
+                std::chrono::duration<double, std::milli> DurationMs = CompileEnd - CompileStart;
+                
+                LOG_TRACE("Compiled shader {0} in {1:.2f} ms (Thread {2})", Filename, DurationMs.count(), Thread);
+                
+                PendingTasks.fetch_sub(1, std::memory_order_acq_rel);
+                
+                Callback(Memory::Move(Shader));
+            }
+        }, ETaskPriority::High);
+    
         return true;
     }
-    
-    void FSpirVShaderCompiler::PushRequest(const FRequest& Request)
-    {
-        FScopeLock Lock(RequestMutex);
-
-        PendingRequest.push(Request);
-    }
-
-    void FSpirVShaderCompiler::PopRequest()
-    {
-        FScopeLock Lock(RequestMutex);
-
-        PendingRequest.pop();
-    }
-
 
     FSpirVShaderCompiler::FSpirVShaderCompiler()
     {
@@ -247,8 +273,6 @@ namespace Lumina
         Request.Path = ShaderString;
         Request.CompileOptions = CompileOptions;
         Request.OnCompleted = Memory::Move(OnCompleted);
-        
-        PushRequest(Request);
         
         Task::AsyncTask(1, [this, Request = Memory::Move(Request)] (uint32 Start, uint32 End, uint32 ThreadNum_)
         {
@@ -276,7 +300,6 @@ namespace Lumina
             if (Preprocessed.GetCompilationStatus() != shaderc_compilation_status_success)
             {
                 LOG_ERROR("Preprocessing failed: - {}", Preprocessed.GetErrorMessage());
-                PopRequest();
                 return;
             }
     
@@ -290,7 +313,6 @@ namespace Lumina
             if (CompileResult.GetCompilationStatus() != shaderc_compilation_status_success)
             {
                 LOG_ERROR("Compilation failed: - {}", CompileResult.GetErrorMessage());
-                PopRequest();
                 return;
             }
     
@@ -299,7 +321,6 @@ namespace Lumina
             if (Binaries.empty())
             {
                 LOG_ERROR("Shader compiled to empty SPIR-V");
-                PopRequest();
                 return;
             }
 
@@ -307,10 +328,8 @@ namespace Lumina
             FShaderHeader Shader;
             Shader.Binaries = Memory::Move(Binaries);
             
-            ReflectSpirv(Shader.Binaries, Shader.Reflection);
+            ReflectSpirv(Shader.Binaries, Shader.Reflection, true);
             Request.OnCompleted(Memory::Move(Shader));
-            
-            PopRequest();
         });
         
         return true;

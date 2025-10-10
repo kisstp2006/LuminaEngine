@@ -170,7 +170,7 @@ namespace Lumina::FileHelper
         return true;
     }
 
-    bool DoesFileExist(FStringView FilePath)
+    bool DoesDirectoryExist(FStringView FilePath)
     {
         return std::filesystem::exists(FilePath.data());
     }

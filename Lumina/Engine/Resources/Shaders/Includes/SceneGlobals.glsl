@@ -1,50 +1,6 @@
-
-struct FCameraView
-{
-    vec4 CameraPosition;    // Camera Position
-    mat4 CameraView;        // View matrix
-    mat4 InverseCameraView;
-    mat4 CameraProjection;  // Projection matrix
-    mat4 InverseCameraProjection; // Inverse Camera Projection.
-};
-
 //////////////////////////////////////////////////////////
 
-const int SSAO_KERNEL_SIZE        = 32;
-const uint LIGHT_TYPE_DIRECTIONAL = 0;
-const uint LIGHT_TYPE_POINT       = 1;
-const uint LIGHT_TYPE_SPOT        = 2;
-
-//////////////////////////////////////////////////////////
-
-struct FSSAOSettings
-{
-    float Radius;
-    float Intensity;
-    float Power;
-    
-    vec4 Samples[SSAO_KERNEL_SIZE];
-};
-
-struct FInstanceData
-{
-    mat4    ModelMatrix;
-    vec4    SphereBounds;
-    uvec4   PackedID; // X: EntityID (32 bits) | Y: BatchedDrawID (32 bits) | 
-};
-
-struct FLight
-{
-    vec4 Position;      // xyz: position, w: range or falloff scale
-    vec4 Direction;     // xyz: direction (normalized), w: inner cone cos angle
-    vec4 Color;         // rgb: color * intensity, a: unused or padding
-    vec2 ConeAngles;    // x: cos(inner cone), y: cos(outer cone)
-    float Radius;       // Radius.
-    uint Type;          // Type of the light
-};
-
-//////////////////////////////////////////////////////////
-
+#include "Common.glsl"
 
 layout(set = 0, binding = 0) readonly uniform SceneGlobals
 {
@@ -57,10 +13,13 @@ layout(set = 0, binding = 0) readonly uniform SceneGlobals
     float NearPlane;
     float FarPlane;
 
+
     mat4    LightViewProj[4];
     vec4    CascadeSplits;
 
-    vec4    SunDirection;
+    vec3    SunDirection;
+    bool    bHasSun;
+
     vec4    AmbientLight;
 
     FSSAOSettings SSAOSettings;

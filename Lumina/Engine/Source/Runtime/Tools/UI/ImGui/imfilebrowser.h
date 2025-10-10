@@ -185,23 +185,23 @@ namespace ImGui
 
         std::string statusStr_;
 
-        std::vector<std::string> typeFilters_;
+        Lumina::TVector<std::string> typeFilters_;
         unsigned int             typeFilterIndex_;
         bool                     hasAllFilter_;
 
         std::filesystem::path   currentDirectory_;
-        std::vector<FileRecord> fileRecords_;
+        Lumina::TVector<FileRecord> fileRecords_;
 
         unsigned int                    rangeSelectionStart_; // enable range selection when shift is pressed
         std::set<std::filesystem::path> selectedFilenames_;
 
         std::string       openNewDirLabel_;
-        std::vector<char> newDirNameBuffer_;
-        std::vector<char> inputNameBuffer_;
+        Lumina::TVector<char> newDirNameBuffer_;
+        Lumina::TVector<char> inputNameBuffer_;
 
         bool              editDir_;
         bool              setFocusToEditDir_;
-        std::vector<char> currDirBuffer_;
+        Lumina::TVector<char> currDirBuffer_;
 
 #ifdef _WIN32
         std::uint32_t drives_;

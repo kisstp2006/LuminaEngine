@@ -12,6 +12,7 @@ namespace Lumina
 {
     struct FShaderCompileOptions
     {
+        bool bGenerateReflectionData = true;
         TVector<FString> MacroDefinitions;
     };
     
@@ -27,7 +28,8 @@ namespace Lumina
         virtual void Shutdown() = 0;
 
         virtual bool CompilerShaderRaw(FStringView ShaderString, const FShaderCompileOptions& CompileOptions, CompletedFunc OnCompleted) = 0;
-        virtual bool CompileShader(const FString& ShaderPath, const FShaderCompileOptions& CompileOptions, CompletedFunc OnCompleted) = 0;
+        virtual bool CompileShaderPath(FString ShaderPath, const FShaderCompileOptions& CompileOptions, CompletedFunc OnCompleted) = 0;
+        virtual bool CompileShaderPaths(TSpan<FString> ShaderPaths, TSpan<FShaderCompileOptions> CompileOptions, CompletedFunc OnCompleted) = 0;
 
         virtual bool HasPendingRequests() const = 0;
         void Flush() const
@@ -54,16 +56,15 @@ namespace Lumina
         void Shutdown() override;
 
         bool CompilerShaderRaw(FStringView ShaderString, const FShaderCompileOptions& CompileOptions, CompletedFunc OnCompleted) override;
-        bool CompileShader(const FString& ShaderPath, const FShaderCompileOptions& CompileOptions, CompletedFunc OnCompleted) override;
-        void ReflectSpirv(TSpan<uint32> SpirV, FShaderReflection& Reflection);
+        bool CompileShaderPath(FString ShaderPath, const FShaderCompileOptions& CompileOptions, CompletedFunc OnCompleted) override;
+        bool CompileShaderPaths(TSpan<FString> ShaderPaths, TSpan<FShaderCompileOptions> CompileOptions, CompletedFunc OnCompleted) override;
+        void ReflectSpirv(TSpan<uint32> SpirV, FShaderReflection& Reflection, bool bReflectFull);
 
-        void PushRequest(const FRequest& Request);
-        void PopRequest();
-
-        bool HasPendingRequests() const override { return !PendingRequest.empty(); }
+        bool HasPendingRequests() const override { return PendingTasks.load(std::memory_order_relaxed) != 0; }
 
         shaderc::Compiler           Compiler;
         FMutex                      RequestMutex;
-        TQueue<FRequest>            PendingRequest;
+
+        std::atomic_uint32_t        PendingTasks;
     };
 }

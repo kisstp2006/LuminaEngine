@@ -1,7 +1,6 @@
 #version 450
 #pragma shader_stage(fragment)
 
-#include "Includes/Common.glsl"
 #include "Includes/SceneGlobals.glsl"
 
 layout(location = 0) out vec4 fragColor;

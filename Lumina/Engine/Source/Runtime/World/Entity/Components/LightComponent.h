@@ -20,7 +20,12 @@ namespace Lumina
 
         LUM_PROPERTY(Editable, Category = "Light")
         float Attenuation = 10.0f;
+
+        LUM_PROPERTY(Editable, Category = "Light")
+        float Falloff = 0.8f;
         
+        LUM_PROPERTY(Editable, Category = "Shadows")
+        bool bCastShadows = true;
     };
 
     LUM_STRUCT()
@@ -44,6 +49,9 @@ namespace Lumina
         LUM_PROPERTY(Editable, Category = "Light", ClampMin = 0.0f)
         float Attenuation = 10.0f;
 
+        LUM_PROPERTY(Editable, Category = "Light")
+        float Falloff = 0.8f;
+
         LUM_PROPERTY(Editable, Category = "Shadows")
         bool bCastShadows = true;
 
@@ -59,8 +67,8 @@ namespace Lumina
         LUM_PROPERTY(Editable, Category = "Advanced")
         float VolumetricIntensity = 0.5f;
 
-        LUM_PROPERTY(Transient)
-        uint32 ShadowMapIndex = ~0u;
+        LUM_PROPERTY(NotSerialized)
+        int32 ShadowMapIndex = -1;
     };
 
 

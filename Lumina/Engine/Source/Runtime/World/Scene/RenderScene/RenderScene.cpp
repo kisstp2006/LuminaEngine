@@ -32,6 +32,17 @@
 
     namespace Lumina
     {
+
+        uint32 PackColor(const glm::vec3& color, float intensity)
+        {
+            uint32 r = static_cast<uint32>(glm::clamp(color.r, 0.0f, 1.0f) * 255.0f);
+            uint32 g = static_cast<uint32>(glm::clamp(color.g, 0.0f, 1.0f) * 255.0f);
+            uint32 b = static_cast<uint32>(glm::clamp(color.b, 0.0f, 1.0f) * 255.0f);
+            uint32 a = static_cast<uint32>(glm::clamp(intensity, 0.0f, 1.0f) * 255.0f);
+    
+            return (a << 24) | (b << 16) | (g << 8) | r;
+        }
+        
         constexpr unsigned int ClusterGridSizeX = 16;
         constexpr unsigned int ClusterGridSizeY = 9;
         constexpr unsigned int ClusterGridSizeZ = 24;
@@ -287,7 +298,7 @@
             {
                 LUMINA_PROFILE_SECTION_COLORED("Cascaded Shadow Map Pass", tracy::Color::DeepPink2);
 
-                if (!bHasDirectionalLight)
+                if (!SceneGlobalData.bHasSun)
                 {
                     return;
                 }
@@ -945,7 +956,6 @@
                 State.SetPipeline(Pipeline);
                 State.AddBindingSet(LightCullSet);
                 CmdList.SetComputeState(State);
-
                 
                 glm::mat4 ViewProj = View.GetViewMatrix();
                 
@@ -1096,7 +1106,129 @@
             }
         
             //========================================================================================================================
-            
+        
+            {
+                auto Group = World->GetEntityRegistry().group<>(entt::get<SCameraComponent>, entt::exclude<SEditorComponent>);
+                for (uint64 i = 0; i < Group.size(); ++i)
+                {
+                    entt::entity entity = Group[i];
+                    SCameraComponent& CameraComponent = Group.get<SCameraComponent>(entity);
+                    World->DrawArrow(CameraComponent.GetPosition(), CameraComponent.GetForwardVector(), 1.0f, FColor::Blue);
+                    World->DrawFrustum(CameraComponent.GetViewVolume().GetViewProjectionMatrix(), FColor::Green);
+                }
+            }
+        
+            //========================================================================================================================
+
+            {
+                SceneGlobalData.bHasSun = false;
+
+                auto View = World->GetEntityRegistry().view<SDirectionalLightComponent>();
+                View.each([this](const SDirectionalLightComponent& DirectionalLightComponent)
+                {
+                    SceneGlobalData.bHasSun = true;
+
+                    // Setup light data
+                    FLight DirectionalLight;
+                    DirectionalLight.Type = LIGHT_TYPE_DIRECTIONAL;
+                    DirectionalLight.Color = PackColor(DirectionalLightComponent.Color, DirectionalLightComponent.Intensity);
+                    DirectionalLight.Direction = glm::vec4(glm::normalize(DirectionalLightComponent.Direction), 1.0f);
+
+                    SceneGlobalData.SunDirection = DirectionalLight.Direction;
+                    LightData.Lights[0] = DirectionalLight;
+                    LightData.NumLights++;
+
+                    const FViewVolume& ViewVolume = SceneViewport->GetViewVolume();
+
+                    float NearClip = ViewVolume.GetNear();
+                    float FarClip = ViewVolume.GetFar();
+                    float ClipRange = FarClip - NearClip;
+
+                    float MinZ = NearClip;
+                    float MaxZ = NearClip + ClipRange;
+
+                    float Range = MaxZ - MinZ;
+                    float Ratio = MaxZ / MinZ;
+
+                    float CascadeSplits[NumCascades];
+                    for (uint32 i = 0; i < NumCascades; i++)
+                    {
+                        float P = ((float)i + 1) / (float)NumCascades;
+                        float Log = MinZ * glm::pow(Ratio, P);
+                        float Uniform = MinZ + Range * P;
+                        float D = RenderSettings.CascadeSplitLambda * (Log - Uniform) + Uniform;
+                        CascadeSplits[i] = (D - NearClip) / ClipRange;
+                    }
+
+                    // For each cascade
+                    float LastSplitDist = 0.0;
+                    for (int i = 0; i < NumCascades; ++i)
+                    {
+                        float SplitDist = CascadeSplits[i];
+                        SceneGlobalData.CascadeSplits[i] = SplitDist;
+
+                        FShadowCascade& Cascade = ShadowCascades[i];
+                        Cascade.DirectionalLight = DirectionalLight;
+
+                        glm::vec3 FrustumCorners[8];
+                        FFrustum::ComputeFrustumCorners(ViewVolume.ToReverseDepthViewProjectionMatrix(), FrustumCorners);
+
+
+                        for (uint32 j = 0; j < 4; j++)
+                        {
+                            glm::vec3 dist = FrustumCorners[j + 4] - FrustumCorners[j];
+                            FrustumCorners[j + 4] = FrustumCorners[j] + (dist * SplitDist);
+                            FrustumCorners[j] = FrustumCorners[j] + (dist * LastSplitDist);
+                        }
+
+                        glm::vec3 FrustumCenter = glm::vec3(0.0f);
+                        for (uint32 j = 0; j < 8; j++)
+                        {
+                            FrustumCenter += FrustumCorners[j];
+                        }
+                        FrustumCenter /= 8.0f;
+
+
+                        float Radius = 0.0f;
+                        for (uint32 j = 0; j < 8; j++)
+                        {
+                            float distance = glm::length(FrustumCorners[j] - FrustumCenter);
+                            Radius = glm::max(Radius, distance);
+                        }
+                        Radius = glm::ceil(Radius * 16.0f) / 16.0f;
+
+                        glm::vec3 MaxExtents = glm::vec3(Radius);
+                        glm::vec3 MinExtents = -MaxExtents;
+
+                        glm::vec3 LightDir = -DirectionalLight.Direction;
+                        glm::mat4 LightViewMatrix = glm::lookAt(FrustumCenter - LightDir * -MinExtents.z, FrustumCenter, FViewVolume::UpAxis);
+
+                        glm::vec3 FrustumCenterLS = LightViewMatrix * glm::vec4(FrustumCenter, 1.0f);
+                        float TexelSize = (Radius * 2.0f) / (float)GShadowMapResolution;
+                        FrustumCenterLS.x = glm::floor(FrustumCenterLS.x / TexelSize) * TexelSize;
+                        FrustumCenterLS.y = glm::floor(FrustumCenterLS.y / TexelSize) * TexelSize;
+
+                        glm::mat4 InvLightViewMatrix = glm::inverse(LightViewMatrix);
+                        glm::vec3 SnappedFrustumCenter = InvLightViewMatrix * glm::vec4(FrustumCenterLS, 1.0f);
+
+                        LightViewMatrix = glm::lookAt(SnappedFrustumCenter - LightDir * -MinExtents.z, SnappedFrustumCenter, FViewVolume::UpAxis);
+
+                        glm::mat4 LightOrthoMatrix = glm::ortho(MinExtents.x, MaxExtents.x, MinExtents.y, MaxExtents.y, 0.0f, MaxExtents.z - MinExtents.z);
+
+                        Cascade.SplitDepth = (NearClip + SplitDist * ClipRange) * -1.0f;
+                        Cascade.LightViewProjection = LightOrthoMatrix * LightViewMatrix;
+
+                        SceneGlobalData.LightViewProj[i] = Cascade.LightViewProjection;
+
+                        Cascade.ShadowMapSize = glm::ivec2(GShadowMapResolution);
+
+                        LastSplitDist = CascadeSplits[i];
+                    }
+                });
+            }
+
+            //========================================================================================================================
+
             {
                 auto Group = World->GetEntityRegistry().group<SPointLightComponent>(entt::get<STransformComponent>);
                 for (uint64 i = 0; i < Group.size(); ++i)
@@ -1107,28 +1239,14 @@
         
                     FLight Light;
                     Light.Type = LIGHT_TYPE_POINT;
-                    
-                    Light.Color = glm::vec4(PointLightComponent.LightColor, PointLightComponent.Intensity);
+                    Light.Falloff = PointLightComponent.Falloff;
+                    Light.Color = PackColor(PointLightComponent.LightColor, PointLightComponent.Intensity);
                     Light.Radius = PointLightComponent.Attenuation;
                     Light.Position = glm::vec4(TransformComponent.WorldTransform.Location, 1.0f);
                     
                     LightData.Lights[LightData.NumLights++] = Memory::Move(Light);
         
                     //Scene->DrawDebugSphere(Transform.Location, 0.25f, Light.Color);
-                }
-            }
-        
-            //========================================================================================================================
-        
-        
-            {
-                auto Group = World->GetEntityRegistry().group<>(entt::get<SCameraComponent>, entt::exclude<SEditorComponent>);
-                for (uint64 i = 0; i < Group.size(); ++i)
-                {
-                    entt::entity entity = Group[i];
-                    SCameraComponent& CameraComponent = Group.get<SCameraComponent>(entity);
-                    World->DrawArrow(CameraComponent.GetPosition(), CameraComponent.GetForwardVector(), 1.0f, FColor::Blue);
-                    World->DrawFrustum(CameraComponent.GetViewVolume().GetViewProjectionMatrix(), FColor::Green);
                 }
             }
         
@@ -1144,13 +1262,14 @@
         
                     FLight SpotLight;
                     SpotLight.Type = LIGHT_TYPE_SPOT;
-                    
                     SpotLight.Position = glm::vec4(Transform.Location, 1.0f);
+                    
         
                     glm::vec3 Forward = Transform.Rotation * glm::vec3(0.0f, 0.0f, -1.0f);
                     SpotLight.Direction = glm::vec4(glm::normalize(Forward), 0.0f);
-                    
-                    SpotLight.Color = glm::vec4(SpotLightComponent.LightColor, SpotLightComponent.Intensity);
+
+                    SpotLight.Falloff = SpotLightComponent.Falloff;
+                    SpotLight.Color = PackColor(SpotLightComponent.LightColor, SpotLightComponent.Intensity);
         
                     float InnerDegrees = SpotLightComponent.InnerConeAngle;
                     float OuterDegrees = SpotLightComponent.OuterConeAngle;
@@ -1173,116 +1292,7 @@
             
             //========================================================================================================================
         
-        
-            {
-                bHasDirectionalLight = false;
-            
-                auto View = World->GetEntityRegistry().view<SDirectionalLightComponent>();
-                View.each([this](const SDirectionalLightComponent& DirectionalLightComponent)
-                {
-                    bHasDirectionalLight = true;
-            
-                    // Setup light data
-                    FLight DirectionalLight;
-                    DirectionalLight.Type = LIGHT_TYPE_DIRECTIONAL;
-                    DirectionalLight.Color = glm::vec4(DirectionalLightComponent.Color, DirectionalLightComponent.Intensity);
-                    DirectionalLight.Direction = glm::vec4(glm::normalize(DirectionalLightComponent.Direction), 1.0f);
-            
-                    SceneGlobalData.SunDirection = DirectionalLight.Direction;
-                    LightData.Lights[LightData.NumLights++] = DirectionalLight;
-
-                    const FViewVolume& ViewVolume = SceneViewport->GetViewVolume();
-                    
-                    float NearClip = ViewVolume.GetNear();
-		            float FarClip = ViewVolume.GetFar();
-		            float ClipRange = FarClip - NearClip;
-                    
-		            float MinZ = NearClip;
-		            float MaxZ = NearClip + ClipRange;
-                    
-		            float Range = MaxZ - MinZ;
-		            float Ratio = MaxZ / MinZ;
-
-                    float CascadeSplits[NumCascades];
-                    for (uint32 i = 0; i < NumCascades; i++)
-                    {
-                        float P = ((float)i + 1) / (float)NumCascades;
-			            float Log = MinZ * glm::pow(Ratio, P);
-			            float Uniform = MinZ + Range * P;
-			            float D = RenderSettings.CascadeSplitLambda * (Log - Uniform) + Uniform;
-			            CascadeSplits[i] = (D - NearClip) / ClipRange;
-		            }
-                    
-                    // For each cascade
-                    float LastSplitDist = 0.0;
-                    for (int i = 0; i < NumCascades; ++i)
-                    {
-                        float SplitDist = CascadeSplits[i];
-                        SceneGlobalData.CascadeSplits[i] = SplitDist;
-                        
-                        FShadowCascade& Cascade = ShadowCascades[i];
-                        Cascade.DirectionalLight = DirectionalLight;
-            
-                        glm::vec3 FrustumCorners[8];
-                        FFrustum::ComputeFrustumCorners(ViewVolume.ToReverseDepthViewProjectionMatrix(), FrustumCorners);
-
-
-                        for (uint32 j = 0; j < 4; j++)
-                        {
-				            glm::vec3 dist = FrustumCorners[j + 4] - FrustumCorners[j];
-				            FrustumCorners[j + 4] = FrustumCorners[j] + (dist * SplitDist);
-				            FrustumCorners[j] = FrustumCorners[j] + (dist * LastSplitDist);
-			            }
-
-			            glm::vec3 FrustumCenter = glm::vec3(0.0f);
-			            for (uint32 j = 0; j < 8; j++)
-			            {
-			            	FrustumCenter += FrustumCorners[j];
-			            }
-			            FrustumCenter /= 8.0f;
-                        
-                        
-                        float Radius = 0.0f;
-			            for (uint32 j = 0; j < 8; j++)
-			            {
-			            	float distance = glm::length(FrustumCorners[j] - FrustumCenter);
-			            	Radius = glm::max(Radius, distance);
-			            }
-			            Radius = glm::ceil(Radius * 16.0f) / 16.0f;
-
-                        glm::vec3 MaxExtents = glm::vec3(Radius);
-                        glm::vec3 MinExtents = -MaxExtents;
-
-                        glm::vec3 LightDir = -DirectionalLight.Direction;
-                        glm::mat4 LightViewMatrix = glm::lookAt(FrustumCenter - LightDir * -MinExtents.z, FrustumCenter, FViewVolume::UpAxis);
-
-                        glm::vec3 FrustumCenterLS = LightViewMatrix * glm::vec4(FrustumCenter, 1.0f);
-                        float TexelSize = (Radius * 2.0f) / (float)GShadowMapResolution;
-                        FrustumCenterLS.x = glm::floor(FrustumCenterLS.x / TexelSize) * TexelSize;
-                        FrustumCenterLS.y = glm::floor(FrustumCenterLS.y / TexelSize) * TexelSize;
-
-                        glm::mat4 InvLightViewMatrix = glm::inverse(LightViewMatrix);
-                        glm::vec3 SnappedFrustumCenter = InvLightViewMatrix * glm::vec4(FrustumCenterLS, 1.0f);
-
-                        LightViewMatrix = glm::lookAt(SnappedFrustumCenter - LightDir * -MinExtents.z, SnappedFrustumCenter, FViewVolume::UpAxis);
-
-                        glm::mat4 LightOrthoMatrix = glm::ortho(MinExtents.x, MaxExtents.x, MinExtents.y, MaxExtents.y, 0.0f, MaxExtents.z - MinExtents.z);
-
-                        Cascade.SplitDepth = (NearClip + SplitDist * ClipRange) * -1.0f;
-			            Cascade.LightViewProjection = LightOrthoMatrix * LightViewMatrix;
-
-                        SceneGlobalData.LightViewProj[i] = Cascade.LightViewProjection;
-                        
-                        Cascade.ShadowMapSize = glm::ivec2(GShadowMapResolution);
-
-                        LastSplitDist = CascadeSplits[i];
-                    }
-                });
-            }
-
-            
-            //========================================================================================================================
-        
+                
             {
                 RenderSettings.bHasEnvironment = false;
                 SceneGlobalData.AmbientLight = glm::vec4(0.0f);

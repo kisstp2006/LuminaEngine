@@ -1,7 +1,6 @@
 #version 450 core
 #pragma shader_stage(vertex)
 
-#include "Includes/Common.glsl"
 #include "Includes/SceneGlobals.glsl"
 
 

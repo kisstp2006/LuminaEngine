@@ -3,19 +3,8 @@
 #pragma shader_stage(fragment)
 layout(early_fragment_tests) in;
 
-#include "Includes/Common.glsl"
 #include "Includes/SceneGlobals.glsl"
 
-struct FCluster
-{
-    vec4 MinPoint;
-    vec4 MaxPoint;
-    uint Count;
-    uint LightIndices[100];
-};
-
-#define LIGHT_INDEX_MASK 0x1FFFu // 13 bits
-#define LIGHTS_PER_UINT 2
 
 
 layout(location = 0) in vec2 vUV;
@@ -88,27 +77,30 @@ vec3 EvaluateLightContribution(FLight Light, vec3 Position, vec3 N, vec3 V, vec3
     }
     else
     {
-        vec3 LightToFrag = Light.Position.xyz - Position;
+        vec3 LightToFrag = Light.Position - Position;
         float Distance = length(LightToFrag);
         L = LightToFrag / Distance; 
         Attenuation = 1.0 / (Distance * Distance);
 
         float DistanceRatio = Distance / Light.Radius;
-        float Cutoff = 1.0 - smoothstep(0.8, 1.0, DistanceRatio); // Fade from 80% to 100%
+        float Cutoff = 1.0 - smoothstep(Light.Falloff, 1.0, DistanceRatio);
         Attenuation *= Cutoff;
 
         if (Light.Type == LIGHT_TYPE_SPOT) 
         {
             vec3 LightDir = normalize(-Light.Direction.xyz);
             float CosTheta = dot(LightDir, L);
-            float InnerCos = Light.ConeAngles.x;
-            float OuterCos = Light.ConeAngles.y;
+            float InnerCos = Light.Angles.x;
+            float OuterCos = Light.Angles.y;
             Falloff = clamp((CosTheta - OuterCos) / max(InnerCos - OuterCos, 0.001), 0.0, 1.0);
         }
     }
 
+    vec4 LightColor = GetLightColor(Light);
+    LightColor.a *= 100.0f;
+    
     // Radiance
-    vec3 Radiance = Light.Color.rgb * Light.Color.a * Attenuation * Falloff;
+    vec3 Radiance = LightColor.rgb * LightColor.a * Attenuation * Falloff;
 
     // Half vector
     vec3 H = normalize(V + L);
@@ -213,22 +205,22 @@ void main()
 
 
     vec3 Lo = vec3(0.0);
+
+    if(SceneUBO.bHasSun)
+    {
+        FLight Light = GetLightAt(0);
+        vec3 LContribution = EvaluateLightContribution(Light, Position, N, V, Albedo, Roughness, Metallic, F0);
+        LContribution *= Shadow;
+        Lo += LContribution;
+    }
+    
     for (uint i = 0; i < LightCount; ++i)
     {
-        // Unpack light index
-        uint arrayIndex = i / 2;
-        uint shift = (i % 2) * 16;
-        uint packedValue = Clusters.Clusters[TileIndex].LightIndices[arrayIndex];
-        uint LightIndex = (packedValue >> shift) & 0xFFFF;
-
+        uint LightIndex = Clusters.Clusters[TileIndex].LightIndices[i];
+        
         FLight Light = GetLightAt(LightIndex);
         vec3 LContribution = EvaluateLightContribution(Light, Position, N, V, Albedo, Roughness, Metallic, F0);
-
-        if (Light.Type == LIGHT_TYPE_DIRECTIONAL)
-        {
-            LContribution *= Shadow;
-        }
-
+        
         Lo += LContribution;
     }
 

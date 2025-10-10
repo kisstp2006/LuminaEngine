@@ -165,11 +165,7 @@ namespace Lumina
         
         /** Packed indirect draw arguments, gets sent directly to the GPU */
         TRenderVector<FDrawIndexedIndirectArguments>  IndirectDrawArguments;
-
-        
-        
-        uint32 bHasDirectionalLight:1 = false;
-        
+                
     };
     
 }

@@ -149,6 +149,65 @@ namespace Lumina::Memory
         return new(Memory) T(eastl::forward<ConstructorParams>(Params)...);
     }
 
+    
+    template<typename T, typename ... TArgs>
+    NODISCARD FORCEINLINE T* NewArray(const size_t NumElements, TArgs&&... Args)
+    {
+        const size_t RequiredAlignment = std::max(alignof(T), size_t(16));
+        const size_t RequiredExtraMemory = std::max(RequiredAlignment, size_t(4));
+        const size_t RequiredMemory = sizeof(T) * NumElements + RequiredExtraMemory;
+
+        uint8* pOriginalAddress = pOriginalAddress = (uint8*) Malloc(RequiredMemory, RequiredAlignment);
+
+        T* pArrayAddress = reinterpret_cast<T*>(pOriginalAddress + RequiredExtraMemory);
+        for (size_t i = 0; i < NumElements; i++)
+        {
+            new(&pArrayAddress[i]) T(std::forward<TArgs>(Args)...);
+        }
+
+        uint32* pNumElements = reinterpret_cast<uint32_t*>( pArrayAddress ) - 1;
+        *pNumElements = uint32(NumElements);
+
+        return reinterpret_cast<T*>( pArrayAddress );
+    }
+
+    template<typename T>
+    NODISCARD FORCEINLINE T* NewArray(const size_t NumElements, const T& Value)
+    {
+        const size_t RequiredAlignment = std::max(alignof(T), size_t(16));
+        const size_t RequiredExtraMemory = std::max(RequiredAlignment, size_t(4));
+        const size_t RequiredMemory = sizeof(T) * NumElements + RequiredExtraMemory;
+
+        uint8* pOriginalAddress = pOriginalAddress = (uint8*) Malloc(RequiredMemory, RequiredAlignment);
+
+        T* pArrayAddress = reinterpret_cast<T*>(pOriginalAddress + RequiredExtraMemory);
+        for (size_t i = 0; i < NumElements; i++)
+        {
+            new(&pArrayAddress[i]) T(Value);
+        }
+
+        uint32* pNumElements = reinterpret_cast<uint32_t*>( pArrayAddress ) - 1;
+        *pNumElements = uint32(NumElements);
+
+        return pArrayAddress;
+    }
+
+    template<typename T>
+    FORCEINLINE void DeleteArray(T* Array)
+    {
+        const size_t RequiredAlignment = std::max(alignof(T), size_t(16));
+        const size_t RequiredExtraMemory = std::max(RequiredAlignment, size_t(4));
+
+        const uint32 NumElements = *(reinterpret_cast<uint32*>(Array) - 1);
+        for (uint32 i = 0; i < NumElements; i++)
+        {
+            Array[i].~T();
+        }
+
+        uint8* pOriginalAddress = reinterpret_cast<uint8*>(Array) - RequiredExtraMemory;
+        Free((void*&) pOriginalAddress);
+    }
+    
     template<typename T>
     void Delete(T* Type)
     {

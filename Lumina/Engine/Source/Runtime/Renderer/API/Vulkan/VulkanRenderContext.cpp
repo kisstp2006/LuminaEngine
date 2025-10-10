@@ -13,6 +13,7 @@
 #include "Core/Profiler/Profile.h"
 #include "Core/Windows/Window.h"
 #include "Paths/Paths.h"
+#include "Platform/Filesystem/FileHelper.h"
 #include "Renderer/CommandList.h"
 #include "Renderer/RHIStaticStates.h"
 #include "Renderer/ShaderCompiler.h"
@@ -1081,6 +1082,11 @@ namespace Lumina
     
     void FVulkanRenderContext::CompileEngineShaders()
     {
+
+        //@TODO - Obviously we don't want to recompile every shader everytime the engine loads, this is starting to become annoying
+        // but for now until we have some data cache setup, we'll just leave it for now.
+        
+        TVector<FString> Shaders;
         for (auto& Dir : std::filesystem::directory_iterator(FString(Paths::GetEngineResourceDirectory() + "/Shaders").c_str()))
         {
             if (!Dir.is_directory())
@@ -1088,43 +1094,49 @@ namespace Lumina
                 if (Dir.path().extension() == ".frag" || Dir.path().extension() == ".vert" || Dir.path().extension() == ".comp")
                 {
                     FString StringPath = Dir.path().string().c_str();
-
-                    ShaderCompiler->CompileShader(StringPath, {}, [&, Dir = Memory::Move(Dir)] (const FShaderHeader& Header)
-                    {
-                        FString FileNameString = Dir.path().filename().string().c_str();
-
-                        switch (Header.Reflection.ShaderType)
-                        {
-                        case ERHIShaderType::None: break;
-                        case ERHIShaderType::Vertex:
-                            {
-                                FRHIVertexShaderRef Shader = CreateVertexShader(Header);
-                                Shader->SetKey(FileNameString.c_str());
-                                ShaderLibrary->AddShader(Shader);
-                                PipelineCache.PostShaderRecompiled(Shader.As<FVulkanVertexShader>());
-                            }
-                            break;
-                        case ERHIShaderType::Fragment:
-                            {
-                                FRHIPixelShaderRef Shader = CreatePixelShader(Header);
-                                Shader->SetKey(FileNameString.c_str());
-                                ShaderLibrary->AddShader(Shader);
-                                PipelineCache.PostShaderRecompiled(Shader.As<FVulkanPixelShader>());
-                            }
-                            break;
-                        case ERHIShaderType::Compute:
-                            {
-                                FRHIComputeShaderRef Shader = CreateComputeShader(Header);
-                                Shader->SetKey(FileNameString.c_str());
-                                ShaderLibrary->AddShader(Shader);
-                                PipelineCache.PostShaderRecompiled(Shader.As<FVulkanComputeShader>());
-                            }
-                            break;
-                        }
-                    });
+                    Shaders.push_back(Memory::Move(StringPath));
                 }
             }
         }
+        
+        TVector<FShaderCompileOptions> Options(Shaders.size());
+        for (int i = 0; i < Shaders.size(); ++i)
+        {
+            Options[i].bGenerateReflectionData = false;
+        }
+        
+        GetShaderCompiler()->CompileShaderPaths(Shaders, Options, [&] (const FShaderHeader& Header)
+        {
+            switch (Header.Reflection.ShaderType)
+            {
+            case ERHIShaderType::None: break;
+            case ERHIShaderType::Vertex:
+                {
+                    FRHIVertexShaderRef Shader = CreateVertexShader(Header);
+                    Shader->SetKey(Header.DebugName);
+                    ShaderLibrary->AddShader(Shader);
+                    PipelineCache.PostShaderRecompiled(Shader.As<FVulkanVertexShader>());
+                }
+                break;
+            case ERHIShaderType::Fragment:
+                {
+                    FRHIPixelShaderRef Shader = CreatePixelShader(Header);
+                    Shader->SetKey(Header.DebugName);
+                    ShaderLibrary->AddShader(Shader);
+                    PipelineCache.PostShaderRecompiled(Shader.As<FVulkanPixelShader>());
+                }
+                break;
+            case ERHIShaderType::Compute:
+                {
+                    FRHIComputeShaderRef Shader = CreateComputeShader(Header);
+                    Shader->SetKey(Header.DebugName);
+                    ShaderLibrary->AddShader(Shader);
+                    PipelineCache.PostShaderRecompiled(Shader.As<FVulkanComputeShader>());
+                }
+                break;
+            }
+        });
+        
     }
 
     void FVulkanRenderContext::OnShaderCompiled(FRHIShader* Shader)

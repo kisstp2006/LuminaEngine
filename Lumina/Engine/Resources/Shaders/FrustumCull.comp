@@ -1,30 +1,9 @@
 #version 450 core
 #pragma shader_stage(compute)
 
+#include "Includes/Common.glsl"
+
 layout (local_size_x = 256) in;
-
-struct FInstanceData // Mirroed in SceneGlobals.glsl
-{
-    mat4    ModelMatrix;
-    vec4    SphereBounds;
-    uvec4   PackedID;
-};
-
-// Frustum is in world space.
-struct FCullData
-{
-    vec4 Planes[6];
-    vec4 View;
-};
-
-struct FDrawIndexedIndirectArguments
-{
-    uint IndexCount;
-    uint InstanceCount;
-    uint StartIndexLocation;
-    int  BaseVertexLocation;
-    uint StartInstanceLocation;
-};
 
 
 layout(set = 0, binding = 0) readonly buffer InstanceData
@@ -89,7 +68,7 @@ void main()
         {
             uint InstanceCount = atomicAdd(uIndirectDrawData.Args[BatchID].InstanceCount, 1);
             
-            uint InstanceIndex = uIndirectDrawData.Args[BatchID].StartInstanceLocation + InstanceCount;
+            uint InstanceIndex = uIndirectDrawData.Args[BatchID].FirstInstance + InstanceCount;
             
             uMappingData.Mapping[InstanceIndex] = gID;
         }

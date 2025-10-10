@@ -15,7 +15,7 @@ namespace Lumina::FileHelper
     
     LUMINA_API bool LoadFileIntoString(FString& OutString, FStringView Path, uint32 ReadFlags = 0);
     LUMINA_API bool SaveStringToFile(FStringView String, FStringView Path, uint32 WriteFlags = 0);
-    LUMINA_API bool DoesFileExist(FStringView FilePath);
+    LUMINA_API bool DoesDirectoryExist(FStringView FilePath);
     LUMINA_API bool CreateNewFile(FStringView FilePath, bool bBinary = false, uint32 Flags = 0);
     LUMINA_API uint64 GetFileSize(FStringView FilePath);
     

@@ -253,7 +253,7 @@ namespace Lumina
             Package->Loader = MakeSharedPtr<FPackageLoader>(HeapData, FileBinary.size(), Package);
         }
 
-        if (!FileHelper::DoesFileExist(PathString))
+        if (!FileHelper::DoesDirectoryExist(PathString))
         {
             FileHelper::CreateNewFile(PathString, true);
         }

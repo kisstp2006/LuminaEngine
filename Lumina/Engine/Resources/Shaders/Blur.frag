@@ -1,7 +1,6 @@
 #version 450 core
 #pragma shader_stage(fragment)
 
-#include "Includes/Common.glsl"
 #include "Includes/SceneGlobals.glsl"
 
 layout(set = 1, binding = 0) uniform sampler2D uPosition;

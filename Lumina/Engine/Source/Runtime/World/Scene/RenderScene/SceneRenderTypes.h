@@ -10,7 +10,16 @@
 
 #define MAX_LIGHTS 3456
 #define SSAO_KERNEL_SIZE 32
+#define LIGHT_INDEX_MASK 0x1FFFu
+#define LIGHTS_PER_UINT 2
+#define LIGHTS_PER_CLUSTER 100
 
+
+#define COL_R_SHIFT 0
+#define COL_G_SHIFT 8
+#define COL_B_SHIFT 16
+#define COL_A_SHIFT 24
+#define COL_A_MASK 0xFF000000
 
 namespace Lumina
 {
@@ -58,12 +67,15 @@ namespace Lumina
 
     struct alignas(16) FLight
     {
-        glm::vec4   Position;       // xyz: position, w: range or falloff scale
-        glm::vec4   Direction;      // xyz: direction (normalized), w: inner cone cos angle
-        glm::vec4   Color;          // rgb: color * intensity, a: unused or padding
-        glm::vec2   Angles;     // x: cos(inner cone), y: cos(outer cone)
-        float       Radius;         // Radius.
-        uint32      Type;           // Type of the light
+        glm::vec3   Position;
+        uint32      Color;
+        
+        glm::vec3   Direction;
+        float       Radius;
+        
+        glm::vec2   Angles;
+        uint32      Type;
+        float       Falloff;
     };
 
     struct FSkyLight
@@ -111,10 +123,10 @@ namespace Lumina
         glm::vec4 MinPoint;
         glm::vec4 MaxPoint;
         glm::uint Count;
-        glm::uint LightIndices[100]; // Packed, 
+        glm::uint LightIndices[LIGHTS_PER_CLUSTER];
     };
 
-    struct FLightClusterPC
+    struct alignas(16) FLightClusterPC
     {
         glm::mat4 InverseProjection;
         glm::vec2 zNearFar;
@@ -122,7 +134,7 @@ namespace Lumina
         glm::uvec4 GridSize;
     };
     
-    struct FInstanceData
+    struct alignas(16) FInstanceData
     {
         glm::mat4   Transform;
         glm::vec4   SphereBounds;
@@ -161,9 +173,13 @@ namespace Lumina
         glm::mat4       LightViewProj[4];
         glm::vec4       CascadeSplits;
 
-        glm::vec4       SunDirection;
-        glm::vec4       AmbientLight;
-
+        glm::vec3       SunDirection;
+        bool            bHasSun;
+        
+        
+        glm::vec3       AmbientLight;
+        uint32          _pad1;
+        
         FSSAOSettings   SSAOSettings;
     };
 
