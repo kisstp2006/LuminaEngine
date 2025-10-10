@@ -254,7 +254,7 @@ namespace Lumina
                 CompiledHeader = Header;
 
                 FRHIPixelShaderRef PixelShader = GRenderContext->CreatePixelShader(Header);
-                FRHIVertexShaderRef VertexShader = GRenderContext->GetShaderLibrary()->GetShader("Material.vert").As<FRHIVertexShader>();
+                FRHIVertexShaderRef VertexShader = GRenderContext->GetShaderLibrary()->GetShader("GeometryPass.vert").As<FRHIVertexShader>();
                 
                 {
                     FString Key = eastl::to_string(Hash::GetHash64(Header.Binaries.data(), Header.Binaries.size()));

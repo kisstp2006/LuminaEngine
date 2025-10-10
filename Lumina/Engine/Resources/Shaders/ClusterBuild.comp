@@ -1,0 +1,80 @@
+#version 450 core
+#pragma shader_stage(compute)
+
+layout(local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
+
+struct FCluster
+{
+    vec4 MinPoint;
+    vec4 MaxPoint;
+    uint Count;
+    uint LightIndices[100];
+};
+
+layout(set = 0, binding = 0) restrict buffer BufferSSBO
+{
+    FCluster Clusters[];
+} Clusters;
+
+layout(push_constant) uniform PushConstants
+{
+    mat4 InverseProjection;
+    vec2 zNearFar;
+    uvec2 ScreenSize;
+    uvec4 GridSize;
+} PC;
+
+vec3 ScreenToView(vec2 ScreenCoord)
+{
+    vec2 uv = ScreenCoord / PC.ScreenSize;
+
+    vec4 NDC = vec4(uv * 2.0 - 1.0, 1.0, 1.0);
+
+    vec4 ViewCoord = PC.InverseProjection * NDC;
+    ViewCoord /= ViewCoord.w;
+
+    return ViewCoord.xyz;
+}
+
+vec3 LineIntersectionWithZPlane(vec3 StartPoint, vec3 EndPoint, float ZDistance)
+{
+    vec3 Direction = EndPoint - StartPoint;
+    vec3 Normal = vec3(0.0, 0.0, -1.0);
+    
+    float T = (ZDistance - dot(Normal, StartPoint)) / dot(Normal, Direction);
+    
+    return StartPoint + T * Direction;
+}
+
+void main()
+{
+    float zNear = PC.zNearFar.x;
+    float zFar = PC.zNearFar.y;
+    
+    
+    uint TileIndex = gl_WorkGroupID.x + (gl_WorkGroupID.y * PC.GridSize.x) + (gl_WorkGroupID.z * PC.GridSize.x * PC.GridSize.y);
+    vec2 TileSize = PC.ScreenSize / PC.GridSize.xy;
+    
+    vec2 MinTileSS = gl_WorkGroupID.xy * TileSize;
+    vec2 MaxTileSS = (gl_WorkGroupID.xy + 1) * TileSize;
+    
+    vec3 MinTile = ScreenToView(MinTileSS);
+    vec3 MaxTile = ScreenToView(MaxTileSS);
+    
+    
+    float PlaneNear = -zNear * pow(zFar / zNear, gl_WorkGroupID.z / float(PC.GridSize.z));
+    float PlaneFar = -zNear * pow(zFar / zNear, (gl_WorkGroupID.z + 1) / float(PC.GridSize.z));
+    
+    vec3 MinPointNear = LineIntersectionWithZPlane(vec3(0.0), MinTile, PlaneNear);
+    vec3 MinPointFar = LineIntersectionWithZPlane(vec3(0.0), MinTile, PlaneFar);
+    vec3 MaxPointNear = LineIntersectionWithZPlane(vec3(0.0), MaxTile, PlaneNear);
+    vec3 MaxPointFar = LineIntersectionWithZPlane(vec3(0.0), MaxTile, PlaneFar);
+
+    vec3 minBounds = min(min(MinPointNear, MinPointFar), min(MaxPointNear, MaxPointFar));
+    vec3 maxBounds = max(max(MinPointNear, MinPointFar), max(MaxPointNear, MaxPointFar));
+
+    Clusters.Clusters[TileIndex].MinPoint = vec4(minBounds, 0.0);
+    Clusters.Clusters[TileIndex].MaxPoint = vec4(maxBounds, 0.0);
+    
+}
+

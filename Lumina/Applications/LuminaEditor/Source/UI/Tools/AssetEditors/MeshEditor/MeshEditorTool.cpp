@@ -144,16 +144,7 @@ namespace Lumina
         if (ImGui::BeginMenu(LE_ICON_DEBUG_STEP_INTO " Render Debug"))
         {
             FRenderScene* SceneRenderer = World->GetRenderer();
-            const FSceneRenderStats& Stats = SceneRenderer->GetSceneRenderStats();
 
-            ImGui::TextColored(ImVec4(1.0f, 0.78f, 0.16f, 1.0f), "Scene Statistics");
-            ImGui::Separator();
-            ImGui::Text("Draw Calls");    ImGui::SameLine(150); ImGui::Text("%u", Stats.NumDrawCalls);
-            ImGui::Text("Vertices");      ImGui::SameLine(150); ImGui::Text("%llu", Stats.NumVertices);
-            ImGui::Text("Indices");       ImGui::SameLine(150); ImGui::Text("%llu", Stats.NumIndices);
-
-            ImGui::Spacing();
-    
             ImGui::TextColored(ImVec4(0.58f, 0.86f, 1.0f, 1.0f), "Debug Visualization");
             ImGui::Separator();
 

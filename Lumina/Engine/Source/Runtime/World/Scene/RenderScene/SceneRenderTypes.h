@@ -8,7 +8,7 @@
 #include "Renderer/RenderResource.h"
 #include "Renderer/RHIFwd.h"
 
-#define MAX_LIGHTS 1024
+#define MAX_LIGHTS 3456
 #define SSAO_KERNEL_SIZE 32
 
 
@@ -56,14 +56,14 @@ namespace Lumina
     constexpr uint32 LIGHT_TYPE_POINT       = 1;
     constexpr uint32 LIGHT_TYPE_SPOT        = 2;
 
-    struct FLight
+    struct alignas(16) FLight
     {
-        glm::vec4 Position      = glm::vec4(0.0f);
-        glm::vec4 Direction     = glm::vec4(0.0f);
-        glm::vec4 Color         = glm::vec4(0.0f);
-        glm::vec2 Angle         = glm::vec2(10.0f);
-        float Radius            = 10.0f;
-        uint32 Type             = 0;
+        glm::vec4   Position;       // xyz: position, w: range or falloff scale
+        glm::vec4   Direction;      // xyz: direction (normalized), w: inner cone cos angle
+        glm::vec4   Color;          // rgb: color * intensity, a: unused or padding
+        glm::vec2   Angles;     // x: cos(inner cone), y: cos(outer cone)
+        float       Radius;         // Radius.
+        uint32      Type;           // Type of the light
     };
 
     struct FSkyLight
@@ -105,6 +105,22 @@ namespace Lumina
         FRHIImageRef Material;
         FRHIImageRef AlbedoSpec;
     };
+
+    struct alignas(16) FCluster
+    {
+        glm::vec4 MinPoint;
+        glm::vec4 MaxPoint;
+        glm::uint Count;
+        glm::uint LightIndices[100]; // Packed, 
+    };
+
+    struct FLightClusterPC
+    {
+        glm::mat4 InverseProjection;
+        glm::vec2 zNearFar;
+        glm::uvec2 ScreenSize;
+        glm::uvec4 GridSize;
+    };
     
     struct FInstanceData
     {
@@ -112,6 +128,7 @@ namespace Lumina
         glm::vec4   SphereBounds;
         glm::uvec4  PackedID; // Contains entity ID, and draw ID.
     };
+    
     static_assert(sizeof(FInstanceData) % 16 == 0, "FInstanceData must be 16-byte aligned");
 
     struct FCullData
@@ -119,6 +136,7 @@ namespace Lumina
         FFrustum    Frustum;
         glm::vec4   View;
     };
+    
     static_assert(sizeof(FCullData) % 16 == 0, "FCullData must be 16-byte aligned");
 
     
@@ -132,6 +150,8 @@ namespace Lumina
     struct FSceneGlobalData
     {
         FCameraData     CameraData;
+        glm::uvec4      ScreenSize;
+        glm::uvec4      GridSize;
 
         float           Time;
         float           DeltaTime;

@@ -1,9 +1,11 @@
 ﻿#pragma once
 #include "EditorTool.h"
 #include "Core/Delegates/Delegate.h"
-#include "World/Entity/Systems/EntitySystem.h"
+#include "Core/Object/Class.h"
+#include "Tools/UI/ImGui/ImGuiFonts.h"
 #include "Tools/UI/ImGui/Widgets/TreeListView.h"
 #include "UI/Properties/PropertyTable.h"
+#include "World/Entity/Systems/EntitySystem.h"
 
 namespace Lumina
 {
@@ -51,6 +53,7 @@ namespace Lumina
 
             Entity Entity;
         };
+
         
 
         class FSystemListViewItem : public FTreeListViewItem
@@ -122,7 +125,7 @@ namespace Lumina
         void DrawOutliner(const FUpdateContext& UpdateContext, bool bFocused);
         void DrawSystems(const FUpdateContext& UpdateContext, bool bFocused);
 
-        void DrawEntityEditor(const FUpdateContext& UpdateContext, bool bFocused);
+        void DrawObjectEditor(const FUpdateContext& UpdateContext, bool bFocused);
 
         void DrawPropertyEditor(const FUpdateContext& UpdateContext, bool bFocused);
 
@@ -140,7 +143,8 @@ namespace Lumina
         
         ImGuizmo::OPERATION                     GuizmoOp;
         ImGuizmo::MODE                          GuizmoMode;
-        
+
+        CEntitySystem*                          SelectedSystem;
         Entity                                  SelectedEntity;
         Entity                                  CopiedEntity;
         
@@ -155,7 +159,7 @@ namespace Lumina
 
         bool                                    bGamePreviewRunning = false;
 
-        /** Idk, this thing will return IsUsing = true always if it's never been used */
+        /** IDK, this thing will return IsUsing = true always if it's never been used */
         bool                                    bImGuizmoUsedOnce = false;
     };
     

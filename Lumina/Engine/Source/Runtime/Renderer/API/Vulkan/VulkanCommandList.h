@@ -128,11 +128,12 @@ namespace Lumina
 
         FPendingCommandState& GetPendingCommandState() override { return PendingState; }
         
-        
-        
+        const FCommandListStatTracker& GetCommandListStats() const override { return CommandListStats; }
+                
 
     private:
 
+        FCommandListStatTracker                                 CommandListStats;
         TRefCountPtr<FTrackedCommandBuffer>                     CurrentCommandBuffer;
         FMutex                                                  DynamicBufferWriteMutex;
         
@@ -152,8 +153,7 @@ namespace Lumina
         VkPipelineLayout                                        CurrentPipelineLayout;
                                                                 
         bool                                                    bHasDynamicBufferWrites = false;
-        bool                                                    bEnableAutomaticBarriers = true;
-        
+        bool                                                    bEnableAutomaticBarriers = true;        
     };
     
 }

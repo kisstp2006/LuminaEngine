@@ -19,7 +19,7 @@ namespace Lumina
         float Intensity = 10.0f;
 
         LUM_PROPERTY(Editable, Category = "Light")
-        float Attenuation = 100.0f;
+        float Attenuation = 10.0f;
         
     };
 
@@ -42,7 +42,7 @@ namespace Lumina
         float OuterConeAngle = 30.0f;
 
         LUM_PROPERTY(Editable, Category = "Light", ClampMin = 0.0f)
-        float Attenuation = 1.0f;
+        float Attenuation = 10.0f;
 
         LUM_PROPERTY(Editable, Category = "Shadows")
         bool bCastShadows = true;

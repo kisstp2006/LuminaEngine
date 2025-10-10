@@ -6,6 +6,18 @@ layout(early_fragment_tests) in;
 #include "Includes/Common.glsl"
 #include "Includes/SceneGlobals.glsl"
 
+struct FCluster
+{
+    vec4 MinPoint;
+    vec4 MaxPoint;
+    uint Count;
+    uint LightIndices[100];
+};
+
+#define LIGHT_INDEX_MASK 0x1FFFu // 13 bits
+#define LIGHTS_PER_UINT 2
+
+
 layout(location = 0) in vec2 vUV;
 layout(location = 0) out vec4 outColor;
 
@@ -15,6 +27,11 @@ layout(set = 1, binding = 2) uniform sampler2D uMaterial;
 layout(set = 1, binding = 3) uniform sampler2D uAlbedoSpec;
 layout(set = 1, binding = 4) uniform sampler2D uSSAO;
 layout(set = 1, binding = 5) uniform sampler2DArray uShadowCascade;
+
+layout(set = 1, binding = 6) readonly buffer ClusterSSBO
+{
+    FCluster Clusters[];
+} Clusters;
 
 
 float DistributionGGX(vec3 N, vec3 H, float roughness)
@@ -75,6 +92,10 @@ vec3 EvaluateLightContribution(FLight Light, vec3 Position, vec3 N, vec3 V, vec3
         float Distance = length(LightToFrag);
         L = LightToFrag / Distance; 
         Attenuation = 1.0 / (Distance * Distance);
+
+        float DistanceRatio = Distance / Light.Radius;
+        float Cutoff = 1.0 - smoothstep(0.8, 1.0, DistanceRatio); // Fade from 80% to 100%
+        Attenuation *= Cutoff;
 
         if (Light.Type == LIGHT_TYPE_SPOT) 
         {
@@ -138,6 +159,13 @@ float TextureProj(vec4 ShadowCoord, int cascade)
 
 void main()
 {
+    float zNear = GetNearPlane();
+    float zFar = GetFarPlane();
+    
+    uvec3 GridSize = SceneUBO.GridSize.xyz;
+    uvec2 ScreenSize = SceneUBO.ScreenSize.xy;
+    
+    
     vec3 PositionVS = texture(uPosition, vUV).rgb;
     vec3 Position = (GetInverseCameraView() * vec4(PositionVS, 1.0f)).xyz;
     
@@ -176,16 +204,28 @@ void main()
 
     vec4 ShadowCoord = SceneUBO.LightViewProj[CascadeIndex] * vec4(Position, 1.0);
     float Shadow = TextureProj(ShadowCoord, CascadeIndex);
+    
+    uint zTile = uint((log(abs(PositionVS.z) / zNear) * GridSize.z) / log(zFar / zNear));
+    vec2 TileSize = ScreenSize / GridSize.xy;
+    uvec3 Tile = uvec3(gl_FragCoord.xy / TileSize, zTile);
+    uint TileIndex = Tile.x + (Tile.y * GridSize.x) + (Tile.z * GridSize.x * GridSize.y);
+    uint LightCount = Clusters.Clusters[TileIndex].Count;
+
 
     vec3 Lo = vec3(0.0);
-    for (uint LightIndex = 0; LightIndex < GetNumLights(); ++LightIndex)
+    for (uint i = 0; i < LightCount; ++i)
     {
+        // Unpack light index
+        uint arrayIndex = i / 2;
+        uint shift = (i % 2) * 16;
+        uint packedValue = Clusters.Clusters[TileIndex].LightIndices[arrayIndex];
+        uint LightIndex = (packedValue >> shift) & 0xFFFF;
+
         FLight Light = GetLightAt(LightIndex);
         vec3 LContribution = EvaluateLightContribution(Light, Position, N, V, Albedo, Roughness, Metallic, F0);
 
         if (Light.Type == LIGHT_TYPE_DIRECTIONAL)
         {
-            // multiply only this light’s contribution by shadow
             LContribution *= Shadow;
         }
 

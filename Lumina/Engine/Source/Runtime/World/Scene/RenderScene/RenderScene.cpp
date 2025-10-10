@@ -32,12 +32,16 @@
 
     namespace Lumina
     {
+        constexpr unsigned int ClusterGridSizeX = 16;
+        constexpr unsigned int ClusterGridSizeY = 9;
+        constexpr unsigned int ClusterGridSizeZ = 24;
+
+        constexpr unsigned int NumClusters = ClusterGridSizeX * ClusterGridSizeY * ClusterGridSizeZ;
 
         constexpr int GShadowMapResolution = 4096;
         
         FRenderScene::FRenderScene(CWorld* InWorld)
             : World(InWorld)
-            , SceneRenderStats()
             , SceneGlobalData()
         {
             DebugVisualizationMode = ERenderSceneDebugFlags::None;
@@ -62,7 +66,6 @@
         void FRenderScene::RenderScene(FRenderGraph& RenderGraph)
         {
             LUMINA_PROFILE_SCOPE();
-            SceneRenderStats = {};
             
             SCameraComponent& CameraComponent = World->GetActiveCamera();
             STransformComponent& CameraTransform = World->GetActiveCameraEntity().GetComponent<STransformComponent>();
@@ -92,6 +95,8 @@
             CompileDrawCommands();
             CullPass(RenderGraph, SceneViewport->GetViewVolume());
             DepthPrePass(RenderGraph, SceneViewport->GetViewVolume());
+            ClusterBuildPass(RenderGraph, SceneViewport->GetViewVolume());
+            LightCullPass(RenderGraph, SceneViewport->GetViewVolume());
             ShadowMappingPass(RenderGraph);
             GBufferPass(RenderGraph, SceneViewport->GetViewVolume());
             SSAOPass(RenderGraph);
@@ -866,11 +871,12 @@
             SceneGlobalData.CameraData.InverseView =        SceneViewport->GetViewVolume().GetInverseViewMatrix();
             SceneGlobalData.CameraData.Projection =         SceneViewport->GetViewVolume().GetProjectionMatrix();
             SceneGlobalData.CameraData.InverseProjection =  SceneViewport->GetViewVolume().GetInverseProjectionMatrix();
+            SceneGlobalData.ScreenSize =                    glm::vec4(SceneViewport->GetSize().X, SceneViewport->GetSize().Y, 0.0f, 0.0f);
+            SceneGlobalData.GridSize =                      glm::vec4(ClusterGridSizeX, ClusterGridSizeY, ClusterGridSizeZ, 0.0f);
             SceneGlobalData.Time =                          (float)World->GetTimeSinceWorldCreation();
             SceneGlobalData.DeltaTime =                     (float)World->GetWorldDeltaTime();
             SceneGlobalData.FarPlane =                      SceneViewport->GetViewVolume().GetFar();
             SceneGlobalData.NearPlane =                     SceneViewport->GetViewVolume().GetNear();
-
 
         }
 
@@ -887,6 +893,67 @@
                CmdList.ClearImageUInt(OverdrawImage, AllSubresources, 0); 
             });
             
+        }
+
+        void FRenderScene::ClusterBuildPass(FRenderGraph& RenderGraph, const FViewVolume& View)
+        {
+            RenderGraph.AddPass<RG_Raster>(FRGEvent("Cluster Build Pass"), nullptr, [&] (ICommandList& CmdList)
+            {
+                LUMINA_PROFILE_SECTION_COLORED("Cluster Build Pass", tracy::Color::Pink2);
+                
+                FRHIComputeShaderRef ComputeShader = FShaderLibrary::GetComputeShader("ClusterBuild.comp");
+
+                FComputePipelineDesc PipelineDesc;
+                PipelineDesc.SetComputeShader(ComputeShader);
+                PipelineDesc.AddBindingLayout(ClusterBuildLayout);
+                    
+                FRHIComputePipelineRef Pipeline = GRenderContext->CreateComputePipeline(PipelineDesc);
+                
+                FComputeState State;
+                State.SetPipeline(Pipeline);
+                State.AddBindingSet(ClusterBuildSet);
+                CmdList.SetComputeState(State);
+
+                FLightClusterPC ClusterPC;
+                ClusterPC.InverseProjection = View.GetInverseProjectionMatrix();
+                ClusterPC.zNearFar = glm::vec2(View.GetNear(), View.GetFar());
+                ClusterPC.GridSize = glm::vec4(ClusterGridSizeX, ClusterGridSizeY, ClusterGridSizeZ, 0.0f);
+                ClusterPC.ScreenSize = glm::vec2(GetRenderTarget()->GetSizeX(), GetRenderTarget()->GetSizeY());
+                
+                CmdList.SetPushConstants(&ClusterPC, sizeof(FLightClusterPC));
+                
+                CmdList.Dispatch(ClusterGridSizeX, ClusterGridSizeY, ClusterGridSizeZ);
+                
+            });
+        }
+
+        void FRenderScene::LightCullPass(FRenderGraph& RenderGraph, const FViewVolume& View)
+        {
+            RenderGraph.AddPass<RG_Raster>(FRGEvent("Light Cull Pass"), nullptr, [&] (ICommandList& CmdList)
+            {
+                LUMINA_PROFILE_SECTION_COLORED("Light Cull Pass", tracy::Color::Pink2);
+                
+                FRHIComputeShaderRef ComputeShader = FShaderLibrary::GetComputeShader("LightCull.comp");
+
+                FComputePipelineDesc PipelineDesc;
+                PipelineDesc.SetComputeShader(ComputeShader);
+                PipelineDesc.AddBindingLayout(LightCullLayout);
+                    
+                FRHIComputePipelineRef Pipeline = GRenderContext->CreateComputePipeline(PipelineDesc);
+                
+                FComputeState State;
+                State.SetPipeline(Pipeline);
+                State.AddBindingSet(LightCullSet);
+                CmdList.SetComputeState(State);
+
+                
+                glm::mat4 ViewProj = View.GetViewMatrix();
+                
+                CmdList.SetPushConstants(&ViewProj, sizeof(glm::mat4));
+                
+                CmdList.Dispatch(27, 1, 1);
+                
+            });
         }
 
         void FRenderScene::CompileDrawCommands()
@@ -1091,7 +1158,7 @@
                     float InnerCos = glm::cos(glm::radians(InnerDegrees));
                     float OuterCos = glm::cos(glm::radians(OuterDegrees));
                     
-                    SpotLight.Angle = glm::vec2(InnerCos, OuterCos);
+                    SpotLight.Angles = glm::vec2(InnerCos, OuterCos);
         
                     SpotLight.Radius = SpotLightComponent.Attenuation;
         
@@ -1335,6 +1402,7 @@
                 SetDesc.AddItem(FBindingSetItem::TextureSRV(3, GBuffer.AlbedoSpec));
                 SetDesc.AddItem(FBindingSetItem::TextureSRV(4, SSAOBlur));
                 SetDesc.AddItem(FBindingSetItem::TextureSRV(5, ShadowCascades[0].ShadowMapImage));
+                SetDesc.AddItem(FBindingSetItem::BufferSRV(6, ClusterBuffer));
 
                 TBitFlags<ERHIShaderType> Visibility;
                 Visibility.SetMultipleFlags(ERHIShaderType::Fragment);
@@ -1364,6 +1432,29 @@
                 LayoutDesc.StageFlags.SetFlag(ERHIShaderType::Vertex);
                 LayoutDesc.AddItem(FBindingLayoutItem::PushConstants(0, 80));
                 SimplePassLayout = GRenderContext->CreateBindingLayout(LayoutDesc);
+            }
+
+            {
+                FBindingSetDesc SetDesc;
+                SetDesc.AddItem(FBindingSetItem::BufferUAV(0, ClusterBuffer));
+                SetDesc.AddItem(FBindingSetItem::PushConstants(0, sizeof(FLightClusterPC)));
+
+                TBitFlags<ERHIShaderType> Visibility;
+                Visibility.SetMultipleFlags(ERHIShaderType::Compute);
+                GRenderContext->CreateBindingSetAndLayout(Visibility, 0, SetDesc, ClusterBuildLayout, ClusterBuildSet);
+
+            }
+
+            {
+                FBindingSetDesc SetDesc;
+                SetDesc.AddItem(FBindingSetItem::BufferUAV(0, ClusterBuffer));
+                SetDesc.AddItem(FBindingSetItem::BufferUAV(1, LightDataBuffer));
+                SetDesc.AddItem(FBindingSetItem::PushConstants(0, sizeof(glm::mat4)));
+
+                TBitFlags<ERHIShaderType> Visibility;
+                Visibility.SetMultipleFlags(ERHIShaderType::Compute);
+                GRenderContext->CreateBindingSetAndLayout(Visibility, 0, SetDesc, LightCullLayout, LightCullSet);
+
             }
 
             {
@@ -1445,16 +1536,25 @@
             }
 
             {
-                FRHIBufferDesc LightBufferDesc;
-                LightBufferDesc.Size = sizeof(FSceneLightData);
-                LightBufferDesc.Stride = sizeof(FSceneLightData);
-                LightBufferDesc.Usage.SetMultipleFlags(BUF_StorageBuffer);
-                LightBufferDesc.bKeepInitialState = true;
-                LightBufferDesc.InitialState = EResourceStates::ShaderResource;
-                LightBufferDesc.DebugName = "Light Data Buffer";
-                LightDataBuffer = GRenderContext->CreateBuffer(LightBufferDesc);
+                FRHIBufferDesc BufferDesc;
+                BufferDesc.Size = sizeof(FSceneLightData);
+                BufferDesc.Stride = sizeof(FSceneLightData);
+                BufferDesc.Usage.SetMultipleFlags(BUF_StorageBuffer);
+                BufferDesc.bKeepInitialState = true;
+                BufferDesc.InitialState = EResourceStates::ShaderResource;
+                BufferDesc.DebugName = "Light Data Buffer";
+                LightDataBuffer = GRenderContext->CreateBuffer(BufferDesc);
             }
 
+            {
+                FRHIBufferDesc BufferDesc;
+                BufferDesc.Size = sizeof(FCluster) * NumClusters;
+                BufferDesc.Usage.SetMultipleFlags(BUF_StorageBuffer);
+                BufferDesc.bKeepInitialState = true;
+                BufferDesc.InitialState = EResourceStates::UnorderedAccess;
+                BufferDesc.DebugName = "Cluster SSBO";
+                ClusterBuffer = GRenderContext->CreateBuffer(BufferDesc);
+            }
 
             {
                 

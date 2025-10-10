@@ -49,6 +49,9 @@ struct FLight
 layout(set = 0, binding = 0) readonly uniform SceneGlobals
 {
     FCameraView CameraView;
+    uvec4 ScreenSize;
+    uvec4 GridSize;
+
     float Time;
     float DeltaTime;
     float NearPlane;

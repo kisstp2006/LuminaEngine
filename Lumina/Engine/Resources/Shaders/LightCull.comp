@@ -1,0 +1,92 @@
+#version 450 core
+#pragma shader_stage(compute)
+
+
+#define LOCAL_SIZE 128
+layout(local_size_x = LOCAL_SIZE, local_size_y = 1, local_size_z = 1) in;
+
+
+struct FLight
+{
+    vec4 Position;      // xyz: position, w: range or falloff scale
+    vec4 Direction;     // xyz: direction (normalized), w: inner cone cos angle
+    vec4 Color;         // rgb: color * intensity, a: unused or padding
+    vec2 ConeAngles;    // x: cos(inner cone), y: cos(outer cone)
+    float Radius;       // Radius.
+    uint Type;          // Type of the light
+};
+
+struct FCluster
+{
+    vec4 MinPoint;
+    vec4 MaxPoint;
+    uint Count;
+    uint LightIndices[100];
+};
+
+layout(set = 0, binding = 0) restrict buffer BufferSSBO
+{
+    FCluster Clusters[];
+} Clusters;
+
+layout(set = 0, binding = 1) restrict buffer LightDataSSBO
+{
+    uint   NumLights;
+    FLight Lights[];
+} Lights;
+
+layout(push_constant) uniform PushConstants
+{
+    mat4 ViewMatrix;
+} PC;
+
+
+bool SphereAABBIntersection(vec3 Center, float Radius, vec3 AABBMin, vec3 AABBMax)
+{
+    vec3 ClosestPoint = clamp(Center, AABBMin, AABBMax);
+    
+    float DistanceSquared = dot(ClosestPoint - Center, ClosestPoint - Center);
+    
+    return DistanceSquared <= Radius * Radius;
+}
+
+bool TestSphereAABB(uint i, FCluster Cluster)
+{
+    vec3 Center = (PC.ViewMatrix * Lights.Lights[i].Position).xyz;
+    float Radius = Lights.Lights[i].Radius;
+    
+    vec3 AABBMin = Cluster.MinPoint.xyz;
+    vec3 AABBMax = Cluster.MaxPoint.xyz;
+    
+    return SphereAABBIntersection(Center, Radius, AABBMin, AABBMax);
+}
+
+void main()
+{
+    uint LightCount = Lights.NumLights;
+    uint Index = gl_WorkGroupID.x * LOCAL_SIZE + gl_LocalInvocationID.x;
+
+    Clusters.Clusters[Index].Count = 0;
+
+    for(uint i = 0; i < LightCount; ++i)
+    {
+        if(TestSphereAABB(i, Clusters.Clusters[Index]) && Clusters.Clusters[Index].Count < 100)
+        {
+            uint lightCount = Clusters.Clusters[Index].Count;
+            uint arrayIndex = lightCount / 2;
+            uint shift = (lightCount % 2) * 16; 
+
+            if (shift == 0)
+            {
+                Clusters.Clusters[Index].LightIndices[arrayIndex] = i & 0xFFFF;
+            }
+            else
+            {
+                Clusters.Clusters[Index].LightIndices[arrayIndex] |= (i & 0xFFFF) << 16;
+            }
+
+            Clusters.Clusters[Index].Count++;
+        }
+    }
+}
+

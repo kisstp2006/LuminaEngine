@@ -53,6 +53,12 @@ namespace Lumina
         }
         
     };
+
+    struct FCommandListStatTracker
+    {
+        uint32 NumDrawCalls = 0;
+        uint32 NumBarriers = 0;
+    };
     
     class ICommandList : public IRHIResource
     {
@@ -94,8 +100,8 @@ namespace Lumina
         
         virtual void CommitBarriers() = 0;
 
-        virtual EResourceStates GetImageSubresourceState(FRHIImage* Image, uint32 ArraySlice, uint32 MipLevel) = 0;
-        virtual EResourceStates GetBufferState(FRHIBuffer* Buffer) = 0; 
+        NODISCARD virtual EResourceStates GetImageSubresourceState(FRHIImage* Image, uint32 ArraySlice, uint32 MipLevel) = 0;
+        NODISCARD virtual EResourceStates GetBufferState(FRHIBuffer* Buffer) = 0;
 
         virtual void AddMarker(const char* Name, const FColor& Color = FColor::Red) = 0;
         virtual void PopMarker() = 0;
@@ -122,8 +128,7 @@ namespace Lumina
         NODISCARD virtual const FCommandListInfo& GetCommandListInfo() const = 0;
         NODISCARD virtual FPendingCommandState& GetPendingCommandState() = 0;
 
-
-        
+        NODISCARD virtual const FCommandListStatTracker& GetCommandListStats() const = 0;
 
         template<typename T>
         void WriteBuffer(FRHIBuffer* Buffer, const T* Data, SIZE_T Offset = 0, SIZE_T Size = sizeof(T))

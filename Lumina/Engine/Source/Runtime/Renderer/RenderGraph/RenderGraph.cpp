@@ -14,9 +14,9 @@ namespace Lumina
     FRenderGraph::FRenderGraph()
         :GraphAllocator(InitialLinearAllocatorSize)
     {
-        GraphicsCommandList = GRenderContext->GetCommandList(ECommandQueue::Graphics);
-        ComputeCommandList = GRenderContext->GetCommandList(ECommandQueue::Compute);
-        TransferCommandList = GRenderContext->GetCommandList(ECommandQueue::Transfer);
+        GraphicsCommandList     = GRenderContext->GetCommandList(ECommandQueue::Graphics);
+        ComputeCommandList      = GRenderContext->GetCommandList(ECommandQueue::Compute);
+        TransferCommandList     = GRenderContext->GetCommandList(ECommandQueue::Transfer);
     }
 
     void FRenderGraph::Execute()

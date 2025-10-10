@@ -67,11 +67,12 @@ namespace Lumina
         
         PendingState.ClearPendingState(EPendingCommandState::Recording);
 
-        PushConstantVisibility =    VK_SHADER_STAGE_FLAG_BITS_MAX_ENUM;
-        CurrentPipelineLayout =     VK_NULL_HANDLE;
-        CurrentComputeState =    {};
-        CurrentGraphicsState =   {};
-        bHasDynamicBufferWrites =   false;
+        PushConstantVisibility      = VK_SHADER_STAGE_FLAG_BITS_MAX_ENUM;
+        CurrentPipelineLayout       = VK_NULL_HANDLE;
+        CurrentComputeState         = {};
+        CurrentGraphicsState        = {};
+        CommandListStats            = {};
+        bHasDynamicBufferWrites     =   false;
         
         FlushDynamicBufferWrites();
     }
@@ -116,35 +117,35 @@ namespace Lumina
         FVulkanImage* VulkanImageSrc = (FVulkanImage*)Src;
         FVulkanImage* VulkanImageDst = (FVulkanImage*)Dst;
         
-        VkBlitImageInfo2 BlitInfo = {};
-        BlitInfo.sType = VK_STRUCTURE_TYPE_BLIT_IMAGE_INFO_2;
-        BlitInfo.srcImage = Src->GetAPIResource<VkImage>();
-        BlitInfo.srcImageLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-        BlitInfo.dstImage = Dst->GetAPIResource<VkImage>();
-        BlitInfo.dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        BlitInfo.filter = VK_FILTER_LINEAR;
+        VkBlitImageInfo2 BlitInfo       = {};
+        BlitInfo.sType                  = VK_STRUCTURE_TYPE_BLIT_IMAGE_INFO_2;
+        BlitInfo.srcImage               = Src->GetAPIResource<VkImage>();
+        BlitInfo.srcImageLayout         = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        BlitInfo.dstImage               = Dst->GetAPIResource<VkImage>();
+        BlitInfo.dstImageLayout         = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        BlitInfo.filter                 = VK_FILTER_LINEAR;
 
         VkImageBlit2 BlitRegion = {};
         BlitRegion.sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2;
     
         // Source Image
-        BlitRegion.srcSubresource.aspectMask = VulkanImageSrc->GetFullAspectMask();
-        BlitRegion.srcSubresource.mipLevel = SrcSlice.MipLevel;
-        BlitRegion.srcSubresource.baseArrayLayer = SrcSlice.ArraySlice;
-        BlitRegion.srcSubresource.layerCount = 1;
-        BlitRegion.srcOffsets[0] = { 0, 0, 0 };
-        BlitRegion.srcOffsets[1] = { (int32)Src->GetSizeX(), (int32)Src->GetSizeY(), 1 };
+        BlitRegion.srcSubresource.aspectMask        = VulkanImageSrc->GetFullAspectMask();
+        BlitRegion.srcSubresource.mipLevel          = SrcSlice.MipLevel;
+        BlitRegion.srcSubresource.baseArrayLayer    = SrcSlice.ArraySlice;
+        BlitRegion.srcSubresource.layerCount        = 1;
+        BlitRegion.srcOffsets[0]                    = { 0, 0, 0 };
+        BlitRegion.srcOffsets[1]                    = { (int32)Src->GetSizeX(), (int32)Src->GetSizeY(), 1 };
 
         // Destination Image
-        BlitRegion.dstSubresource.aspectMask = VulkanImageDst->GetFullAspectMask();
-        BlitRegion.dstSubresource.mipLevel = DstSlice.MipLevel;
-        BlitRegion.dstSubresource.baseArrayLayer = DstSlice.ArraySlice;
-        BlitRegion.dstSubresource.layerCount = 1;
-        BlitRegion.dstOffsets[0] = { 0, 0, 0 };
-        BlitRegion.dstOffsets[1] = { (int32)Dst->GetSizeX(), (int32)Dst->GetSizeY(), 1 };
+        BlitRegion.dstSubresource.aspectMask        = VulkanImageDst->GetFullAspectMask();
+        BlitRegion.dstSubresource.mipLevel          = DstSlice.MipLevel;
+        BlitRegion.dstSubresource.baseArrayLayer    = DstSlice.ArraySlice;
+        BlitRegion.dstSubresource.layerCount        = 1;
+        BlitRegion.dstOffsets[0]                    = { 0, 0, 0 };
+        BlitRegion.dstOffsets[1]                    = { (int32)Dst->GetSizeX(), (int32)Dst->GetSizeY(), 1 };
 
-        BlitInfo.regionCount = 1;
-        BlitInfo.pRegions = &BlitRegion;
+        BlitInfo.regionCount                        = 1;
+        BlitInfo.pRegions                           = &BlitRegion;
 
         vkCmdBlitImage2(CurrentCommandBuffer->CommandBuffer, &BlitInfo);
 
@@ -203,9 +204,9 @@ namespace Lumina
 
     static void ComputeMipLevelInformation(const FRHIImageDesc& Desc, uint32 MipLevel, uint32* WidthOut, uint32* HeightOut, uint32* DepthOut)
     {
-        uint32 Width = std::max((uint32)Desc.Extent.X >> MipLevel, uint32(1));
-        uint32 Height = std::max((uint32)Desc.Extent.Y >> MipLevel, uint32(1));
-        uint32 Depth = std::max((uint32)Desc.Depth >> MipLevel, uint32(1));
+        uint32 Width    = std::max((uint32)Desc.Extent.X >> MipLevel, uint32(1));
+        uint32 Height   = std::max((uint32)Desc.Extent.Y >> MipLevel, uint32(1));
+        uint32 Depth    = std::max((uint32)Desc.Depth >> MipLevel, uint32(1));
 
         if (WidthOut)
         {
@@ -265,15 +266,15 @@ namespace Lumina
         FVulkanImage* VulkanImage = (FVulkanImage*)Dst;
         
         VkBufferImageCopy CopyRegion = {};
-        CopyRegion.bufferOffset = UploadOffset;
-        CopyRegion.bufferRowLength = DeviceNumCols * FormatInfo.BlockSize;
-        CopyRegion.bufferImageHeight = DeviceNumRows * FormatInfo.BlockSize;
-        CopyRegion.imageSubresource.aspectMask = VulkanImage->GetFullAspectMask();
-        CopyRegion.imageSubresource.mipLevel = MipLevel;
-        CopyRegion.imageSubresource.baseArrayLayer = ArraySlice;
-        CopyRegion.imageSubresource.layerCount = 1;
-        CopyRegion.imageOffset = { 0, 0, 0 };
-        CopyRegion.imageExtent = { MipWidth, MipHeight, MipDepth };
+        CopyRegion.bufferOffset                     = UploadOffset;
+        CopyRegion.bufferRowLength                  = DeviceNumCols * FormatInfo.BlockSize;
+        CopyRegion.bufferImageHeight                = DeviceNumRows * FormatInfo.BlockSize;
+        CopyRegion.imageSubresource.aspectMask      = VulkanImage->GetFullAspectMask();
+        CopyRegion.imageSubresource.mipLevel        = MipLevel;
+        CopyRegion.imageSubresource.baseArrayLayer  = ArraySlice;
+        CopyRegion.imageSubresource.layerCount      = 1;
+        CopyRegion.imageOffset                      = { 0, 0, 0 };
+        CopyRegion.imageExtent                      = { MipWidth, MipHeight, MipDepth };
 
         if (bEnableAutomaticBarriers)
         {
@@ -306,12 +307,12 @@ namespace Lumina
         }
         CommitBarriers();
         
-        VkImageSubresourceRange SubresourceRange = {};
-        SubresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        SubresourceRange.baseArrayLayer = Subresource.BaseArraySlice;
-        SubresourceRange.layerCount = Subresource.NumArraySlices;
-        SubresourceRange.baseMipLevel = Subresource.BaseMipLevel;
-        SubresourceRange.levelCount = Subresource.NumMipLevels;
+        VkImageSubresourceRange SubresourceRange    = {};
+        SubresourceRange.aspectMask                 = VK_IMAGE_ASPECT_COLOR_BIT;
+        SubresourceRange.baseArrayLayer             = Subresource.BaseArraySlice;
+        SubresourceRange.layerCount                 = Subresource.NumArraySlices;
+        SubresourceRange.baseMipLevel               = Subresource.BaseMipLevel;
+        SubresourceRange.levelCount                 = Subresource.NumMipLevels;
 
         VkClearColorValue Value = {};
         Value.float32[0] = Color.R;
@@ -336,12 +337,12 @@ namespace Lumina
         }
         CommitBarriers();
         
-        VkImageSubresourceRange SubresourceRange = {};
-        SubresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        SubresourceRange.baseArrayLayer = Subresource.BaseArraySlice;
-        SubresourceRange.layerCount = Subresource.NumArraySlices;
-        SubresourceRange.baseMipLevel = Subresource.BaseMipLevel;
-        SubresourceRange.levelCount = Subresource.NumMipLevels;
+        VkImageSubresourceRange SubresourceRange    = {};
+        SubresourceRange.aspectMask                 = VK_IMAGE_ASPECT_COLOR_BIT;
+        SubresourceRange.baseArrayLayer             = Subresource.BaseArraySlice;
+        SubresourceRange.layerCount                 = Subresource.NumArraySlices;
+        SubresourceRange.baseMipLevel               = Subresource.BaseMipLevel;
+        SubresourceRange.levelCount                 = Subresource.NumMipLevels;
 
         VkClearColorValue Value = {};
         Value.uint32[0] = Color;
@@ -389,9 +390,9 @@ namespace Lumina
         CommitBarriers();
         
         VkBufferCopy copyRegion = {};
-        copyRegion.size = CopySize;
-        copyRegion.srcOffset = SrcOffset;
-        copyRegion.dstOffset = DstOffset;
+        copyRegion.size         = CopySize;
+        copyRegion.srcOffset    = SrcOffset;
+        copyRegion.dstOffset    = DstOffset;
 
         FVulkanBuffer* VkSource = static_cast<FVulkanBuffer*>(Source);
         FVulkanBuffer* VkDestination = static_cast<FVulkanBuffer*>(Destination);
@@ -1196,9 +1197,9 @@ namespace Lumina
     void FVulkanCommandList::Draw(uint32 VertexCount, uint32 InstanceCount, uint32 FirstVertex, uint32 FirstInstance)
     {
         LUMINA_PROFILE_SCOPE();
-
         UpdateGraphicsDynamicBuffers();
         
+        CommandListStats.NumDrawCalls++;
         TracyVkZone(CurrentCommandBuffer->TracyContext, CurrentCommandBuffer->CommandBuffer, "vkCmdDraw")
         vkCmdDraw(CurrentCommandBuffer->CommandBuffer, VertexCount, InstanceCount, FirstVertex, FirstInstance);
     }
@@ -1208,7 +1209,8 @@ namespace Lumina
         LUMINA_PROFILE_SCOPE();
 
         UpdateGraphicsDynamicBuffers();
-        
+
+        CommandListStats.NumDrawCalls++;
         TracyVkZone(CurrentCommandBuffer->TracyContext, CurrentCommandBuffer->CommandBuffer, "vkCmdDrawIndexed")
         vkCmdDrawIndexed(CurrentCommandBuffer->CommandBuffer, IndexCount, InstanceCount, FirstIndex, VertexOffset, FirstInstance);
     }
@@ -1218,7 +1220,8 @@ namespace Lumina
         LUMINA_PROFILE_SCOPE();
 
         UpdateGraphicsDynamicBuffers();
-        
+
+        CommandListStats.NumDrawCalls++;
         TracyVkZone(CurrentCommandBuffer->TracyContext, CurrentCommandBuffer->CommandBuffer, "vkCmdDrawIndirect")
         vkCmdDrawIndirect(CurrentCommandBuffer->CommandBuffer, CurrentGraphicsState.IndirectParams->GetAPIResource<VkBuffer>(), Offset, DrawCount, sizeof(FDrawIndirectArguments));
     }
@@ -1228,7 +1231,8 @@ namespace Lumina
         LUMINA_PROFILE_SCOPE();
 
         UpdateGraphicsDynamicBuffers();
-        
+
+        CommandListStats.NumDrawCalls++;
         TracyVkZone(CurrentCommandBuffer->TracyContext, CurrentCommandBuffer->CommandBuffer, "vkCmdDrawIndexedIndirect")
         vkCmdDrawIndexedIndirect(CurrentCommandBuffer->CommandBuffer, CurrentGraphicsState.IndirectParams->GetAPIResource<VkBuffer>(), Offset, DrawCount, sizeof(FDrawIndexedIndirectArguments));
     }
@@ -1304,7 +1308,6 @@ namespace Lumina
     {
         LUMINA_PROFILE_SCOPE();
     
-        // Group barriers by stage flags
         struct FBarrierBatch
         {
             VkPipelineStageFlags BeforeStage;
@@ -1416,12 +1419,15 @@ namespace Lumina
                 
                 batch->BufferBarriers.push_back(bufBarrier);
             }
+
         }
 
         {
             LUMINA_PROFILE_SECTION("vkCmdPipelineBarrier");
             for (const auto& batch : Batches)
             {
+                CommandListStats.NumBarriers += (batch.BufferBarriers.size() + batch.ImageBarriers.size());
+                
                 if (!batch.ImageBarriers.empty() || !batch.BufferBarriers.empty())
                 {
                     if (Info.CommandQueue != ECommandQueue::Transfer)
@@ -1440,6 +1446,7 @@ namespace Lumina
                 }
             }
         }
+        
         StateTracker.ClearBarriers();
     }
 

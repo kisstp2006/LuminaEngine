@@ -550,7 +550,7 @@ namespace Lumina
     {
         LUMINA_PROFILE_SCOPE();
 
-        GraphicsCommandList->CopyImage(GEngine->GetEngineViewport()->GetRenderTarget(), {}, Swapchain->GetCurrentImage(), {});
+        GraphicsCommandList->CopyImage(GEngine->GetEngineViewport()->GetRenderTarget(), FTextureSlice(), Swapchain->GetCurrentImage(), FTextureSlice());
         
         GraphicsCommandList->Close();
 

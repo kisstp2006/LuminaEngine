@@ -46,7 +46,6 @@ namespace Lumina
         FSceneGlobalData* GetSceneGlobalData() { return &SceneGlobalData; }
 
         FSceneRenderSettings& GetSceneRenderSettings() { return RenderSettings; }
-        const FSceneRenderStats& GetSceneRenderStats() const { return SceneRenderStats; }
         
         ERenderSceneDebugFlags GetDebugMode() const { return DebugVisualizationMode; }
         void SetDebugMode(ERenderSceneDebugFlags Mode) { DebugVisualizationMode = Mode; }
@@ -66,6 +65,8 @@ namespace Lumina
         void ResetPass(FRenderGraph& RenderGraph);
         void CullPass(FRenderGraph& RenderGraph, const FViewVolume& View);
         void DepthPrePass(FRenderGraph& RenderGraph, const FViewVolume& View);
+        void ClusterBuildPass(FRenderGraph& RenderGraph, const FViewVolume& View);
+        void LightCullPass(FRenderGraph& RenderGraph, const FViewVolume& View);
         void ShadowMappingPass(FRenderGraph& RenderGraph);
         void GBufferPass(FRenderGraph& RenderGraph, const FViewVolume& View);
         void SSAOPass(FRenderGraph& RenderGraph);
@@ -87,19 +88,18 @@ namespace Lumina
 
         CWorld*                             World = nullptr;
         
-        FSceneRenderStats                   SceneRenderStats;
         FSceneRenderSettings                RenderSettings;
         FSceneLightData                     LightData;
 
         FRHIViewportRef                     SceneViewport;
 
-        uint32                                      LineBatches;
         TRenderVector<FSimpleElementVertex>         SimpleVertices;
         FRHIBindingLayoutRef                        SimplePassLayout;
         
         
 
         FRHITypedVertexBuffer<FSimpleElementVertex> SimpleVertexBuffer;
+        FRHIBufferRef                               ClusterBuffer;
         FRHIBufferRef                               SceneDataBuffer;
         FRHIBufferRef                               InstanceDataBuffer;
         FRHIBufferRef                               InstanceMappingBuffer;
@@ -127,11 +127,17 @@ namespace Lumina
         FRHIBindingSetRef                   SSAOBlurPassSet;
         FRHIBindingLayoutRef                SSAOBlurPassLayout;
         
-        FRHIBindingLayoutRef                BindingLayout;
         FRHIBindingSetRef                   BindingSet;
+        FRHIBindingLayoutRef                BindingLayout;
 
         FRHIBindingSetRef                   FrustumCullSet;
         FRHIBindingLayoutRef                FrustumCullLayout;
+
+        FRHIBindingSetRef                   ClusterBuildSet;
+        FRHIBindingLayoutRef                ClusterBuildLayout;
+
+        FRHIBindingSetRef                   LightCullSet;
+        FRHIBindingLayoutRef                LightCullLayout;
         
         FGBuffer                            GBuffer;
         

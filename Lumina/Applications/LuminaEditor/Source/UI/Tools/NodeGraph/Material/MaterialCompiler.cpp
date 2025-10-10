@@ -12,7 +12,7 @@ namespace Lumina
 {
     FString FMaterialCompiler::BuildTree(SIZE_T& StartReplacement, SIZE_T& EndReplacement)
     {
-        FString FragmentPath = Paths::GetEngineResourceDirectory() + "/MaterialShader/Material.frag";
+        FString FragmentPath = Paths::GetEngineResourceDirectory() + "/MaterialShader/GeometryPass.frag";
 
         FString LoadedString;
         FileHelper::LoadFileIntoString(LoadedString, FragmentPath);
@@ -25,6 +25,10 @@ namespace Lumina
             StartReplacement = Pos;
             LoadedString.replace(Pos, strlen(Token), ShaderChunks);
             EndReplacement = Pos + ShaderChunks.length();
+        }
+        else
+        {
+            LOG_ERROR("Missing [$MATERIAL_INPUTS] in base shader!");
         }
         
         return LoadedString;
