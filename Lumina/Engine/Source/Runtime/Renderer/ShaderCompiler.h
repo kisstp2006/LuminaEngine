@@ -27,7 +27,7 @@ namespace Lumina
         virtual void Initialize() = 0;
         virtual void Shutdown() = 0;
 
-        virtual bool CompilerShaderRaw(FStringView ShaderString, const FShaderCompileOptions& CompileOptions, CompletedFunc OnCompleted) = 0;
+        virtual bool CompilerShaderRaw(FString ShaderString, const FShaderCompileOptions& CompileOptions, CompletedFunc OnCompleted) = 0;
         virtual bool CompileShaderPath(FString ShaderPath, const FShaderCompileOptions& CompileOptions, CompletedFunc OnCompleted) = 0;
         virtual bool CompileShaderPaths(TSpan<FString> ShaderPaths, TSpan<FShaderCompileOptions> CompileOptions, CompletedFunc OnCompleted) = 0;
 
@@ -55,7 +55,7 @@ namespace Lumina
         void Initialize() override;
         void Shutdown() override;
 
-        bool CompilerShaderRaw(FStringView ShaderString, const FShaderCompileOptions& CompileOptions, CompletedFunc OnCompleted) override;
+        bool CompilerShaderRaw(FString ShaderString, const FShaderCompileOptions& CompileOptions, CompletedFunc OnCompleted) override;
         bool CompileShaderPath(FString ShaderPath, const FShaderCompileOptions& CompileOptions, CompletedFunc OnCompleted) override;
         bool CompileShaderPaths(TSpan<FString> ShaderPaths, TSpan<FShaderCompileOptions> CompileOptions, CompletedFunc OnCompleted) override;
         void ReflectSpirv(TSpan<uint32> SpirV, FShaderReflection& Reflection, bool bReflectFull);

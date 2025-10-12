@@ -142,7 +142,7 @@ namespace Lumina
             return VK_IMAGE_VIEW_TYPE_CUBE_ARRAY;
 
         case EImageDimension::Unknown:
-            LUMINA_NO_ENTRY();
+            LUMINA_NO_ENTRY()
         }
     }
 
@@ -758,6 +758,7 @@ namespace Lumina
         , IDeviceChild(InDevice)
         , Image(RawImage)
     {
+        (void)bManagedExternal;
         bImageManagedExternal = true;
         FullAspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         PartialAspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -834,25 +835,25 @@ namespace Lumina
 
         VkImageAspectFlags AspectFlags = GuessImageAspectFlags(VulkanFormat);
 
-        VkImageSubresourceRange Range = {};
-        Range.aspectMask = AspectFlags;
-        Range.baseMipLevel = Subresource.BaseMipLevel;
-        Range.levelCount = Subresource.NumMipLevels;
-        Range.baseArrayLayer = Subresource.BaseArraySlice;
-        Range.layerCount = Subresource.NumArraySlices;
+        VkImageSubresourceRange Range   = {};
+        Range.aspectMask                = AspectFlags;
+        Range.baseMipLevel              = Subresource.BaseMipLevel;
+        Range.levelCount                = Subresource.NumMipLevels;
+        Range.baseArrayLayer            = Subresource.BaseArraySlice;
+        Range.layerCount                = Subresource.NumArraySlices;
         
         View.SubresourceRange = Range;
 
-        VkImageViewCreateInfo ImageViewCreateInfo = {};
-        ImageViewCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        ImageViewCreateInfo.image = Image;
-        ImageViewCreateInfo.viewType = TextureDimensionToImageViewType(Dimension);
-        ImageViewCreateInfo.format = VulkanFormat;
-        ImageViewCreateInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-        ImageViewCreateInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-        ImageViewCreateInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-        ImageViewCreateInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-        ImageViewCreateInfo.subresourceRange = Range;
+        VkImageViewCreateInfo ImageViewCreateInfo   = {};
+        ImageViewCreateInfo.sType                   = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        ImageViewCreateInfo.image                   = Image;
+        ImageViewCreateInfo.viewType                = TextureDimensionToImageViewType(Dimension);
+        ImageViewCreateInfo.format                  = VulkanFormat;
+        ImageViewCreateInfo.components.r            = VK_COMPONENT_SWIZZLE_IDENTITY;
+        ImageViewCreateInfo.components.g            = VK_COMPONENT_SWIZZLE_IDENTITY;
+        ImageViewCreateInfo.components.b            = VK_COMPONENT_SWIZZLE_IDENTITY;
+        ImageViewCreateInfo.components.a            = VK_COMPONENT_SWIZZLE_IDENTITY;
+        ImageViewCreateInfo.subresourceRange        = Range;
 
         VkImageViewUsageCreateInfo ImageViewUsageInfo = {};
         ImageViewUsageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_USAGE_CREATE_INFO;
@@ -1568,8 +1569,6 @@ namespace Lumina
     {
         Desc = InDesc;
         
-        FVulkanInputLayout* InputLayout = InDesc.InputLayout.As<FVulkanInputLayout>();
-        bool bHasInputLayout = (InputLayout != nullptr);
 
         CreatePipelineLayout(InDesc.DebugName, InDesc.BindingLayouts, PushConstantVisibility);
         
@@ -1583,78 +1582,80 @@ namespace Lumina
         if (InDesc.VS)
         {
             VkPipelineShaderStageCreateInfo VertexStage = {};
-            VertexStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-            VertexStage.module = InDesc.VS->GetAPIResource<VkShaderModule>();
-            VertexStage.pName = "main";
-            VertexStage.pNext = nullptr;
-            VertexStage.stage = VK_SHADER_STAGE_VERTEX_BIT;
-            VertexStage.pSpecializationInfo = nullptr;
+            VertexStage.sType                   = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+            VertexStage.module                  = InDesc.VS->GetAPIResource<VkShaderModule>();
+            VertexStage.pName                   = "main";
+            VertexStage.pNext                   = nullptr;
+            VertexStage.stage                   = VK_SHADER_STAGE_VERTEX_BIT;
+            VertexStage.pSpecializationInfo     = nullptr;
             ShaderStages.push_back(VertexStage);
         }
 
         if (InDesc.PS)
         {
             VkPipelineShaderStageCreateInfo FragmentStage = {};
-            FragmentStage.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-            FragmentStage.module = InDesc.PS->GetAPIResource<VkShaderModule>();
-            FragmentStage.pName = "main";
-            FragmentStage.pNext = nullptr;
-            FragmentStage.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
-            FragmentStage.pSpecializationInfo = nullptr;
+            FragmentStage.sType                 = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+            FragmentStage.module                = InDesc.PS->GetAPIResource<VkShaderModule>();
+            FragmentStage.pName                 = "main";
+            FragmentStage.pNext                 = nullptr;
+            FragmentStage.stage                 = VK_SHADER_STAGE_FRAGMENT_BIT;
+            FragmentStage.pSpecializationInfo   = nullptr;
             ShaderStages.push_back(FragmentStage);
         }
 
         VkPipelineDynamicStateCreateInfo DynamicState = {};
-        DynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
-        DynamicState.dynamicStateCount = (uint32)std::size(DynamicStates);
-        DynamicState.pDynamicStates = DynamicStates;
+        DynamicState.sType                      = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+        DynamicState.dynamicStateCount          = (uint32)std::size(DynamicStates);
+        DynamicState.pDynamicStates             = DynamicStates;
+
+        FVulkanInputLayout* InputLayout = InDesc.InputLayout.As<FVulkanInputLayout>();
         
         VkPipelineVertexInputStateCreateInfo VertexInputState = {};
         VertexInputState.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-        if (bHasInputLayout)
+        if (InputLayout != nullptr)
         {
-            VertexInputState.pVertexAttributeDescriptions = InputLayout->AttributeDesc.data();
-            VertexInputState.vertexAttributeDescriptionCount = (uint32)InputLayout->AttributeDesc.size();
-            VertexInputState.pVertexBindingDescriptions = InputLayout->BindingDesc.data();
-            VertexInputState.vertexBindingDescriptionCount = (uint32)InputLayout->BindingDesc.size();
+            VertexInputState.pVertexAttributeDescriptions       = InputLayout->AttributeDesc.data();
+            VertexInputState.vertexAttributeDescriptionCount    = (uint32)InputLayout->AttributeDesc.size();
+            VertexInputState.pVertexBindingDescriptions         = InputLayout->BindingDesc.data();
+            VertexInputState.vertexBindingDescriptionCount      = (uint32)InputLayout->BindingDesc.size();
         }
         
         VkPipelineInputAssemblyStateCreateInfo InputAssemblyState = {};
-        InputAssemblyState.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-        InputAssemblyState.topology = ToVkPrimitiveTopology(InDesc.PrimType);
-        InputAssemblyState.primitiveRestartEnable = VK_FALSE;
+        InputAssemblyState.sType                    = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+        InputAssemblyState.topology                 = ToVkPrimitiveTopology(InDesc.PrimType);
+        InputAssemblyState.primitiveRestartEnable   = VK_FALSE;
         
         VkPipelineViewportStateCreateInfo ViewportState = {};
-        ViewportState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
-        ViewportState.viewportCount = 1;
-        ViewportState.scissorCount = 1;
+        ViewportState.sType                 = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+        ViewportState.viewportCount         = 1;
+        ViewportState.scissorCount          = 1;
 
         FRasterState RasterState = InDesc.RenderState.RasterState;
         
         VkPipelineRasterizationStateCreateInfo RasterizationState = {};
-        RasterizationState.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-        RasterizationState.polygonMode = ToVkPolygonMode(RasterState.FillMode);
-        RasterizationState.cullMode = ToVkCullModeFlags(RasterState.CullMode);
-        RasterizationState.frontFace = RasterState.FrontCounterClockwise ? VK_FRONT_FACE_COUNTER_CLOCKWISE : VK_FRONT_FACE_CLOCKWISE;
-        RasterizationState.depthClampEnable = VK_FALSE;
-        RasterizationState.depthBiasEnable = RasterState.DepthBias ? VK_TRUE : VK_FALSE;
-        RasterizationState.depthBiasConstantFactor = float(RasterState.DepthBias);
-        RasterizationState.depthBiasClamp = RasterState.DepthBiasClamp;
-        RasterizationState.depthBiasSlopeFactor = RasterState.SlopeScaledDepthBias;
-        RasterizationState.lineWidth = Device->GetFeatures10().wideLines ? RasterState.LineWidth : 1.0f;
+        RasterizationState.sType                        = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+        RasterizationState.polygonMode                  = ToVkPolygonMode(RasterState.FillMode);
+        RasterizationState.cullMode                     = ToVkCullModeFlags(RasterState.CullMode);
+        RasterizationState.frontFace                    = RasterState.FrontCounterClockwise ? VK_FRONT_FACE_COUNTER_CLOCKWISE : VK_FRONT_FACE_CLOCKWISE;
+        RasterizationState.depthClampEnable             = VK_FALSE; // (??)
+        RasterizationState.depthBiasEnable              = RasterState.DepthBias ? VK_TRUE : VK_FALSE;
+        RasterizationState.depthBiasConstantFactor      = float(RasterState.DepthBias);
+        RasterizationState.depthBiasClamp               = RasterState.DepthBiasClamp;
+        RasterizationState.depthBiasSlopeFactor         = RasterState.SlopeScaledDepthBias;
+        RasterizationState.lineWidth                    = Device->GetFeatures10().wideLines ? RasterState.LineWidth : 1.0f;
         
         VkPipelineMultisampleStateCreateInfo MultisampleState = {};
-        MultisampleState.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-        MultisampleState.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+        MultisampleState.sType                  = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+        MultisampleState.rasterizationSamples   = VK_SAMPLE_COUNT_1_BIT;
 
         FDepthStencilState DepthState = InDesc.RenderState.DepthStencilState;
         
         VkPipelineDepthStencilStateCreateInfo DepthStencilState = {};
-        DepthStencilState.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
-        DepthStencilState.depthTestEnable = DepthState.DepthTestEnable;
-        DepthStencilState.depthWriteEnable = DepthState.DepthWriteEnable;
-        DepthStencilState.depthCompareOp = ToVkCompareOp(DepthState.DepthFunc);
-        DepthStencilState.stencilTestEnable = DepthState.StencilEnable;
+        DepthStencilState.sType                     = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+        DepthStencilState.depthTestEnable           = DepthState.DepthTestEnable;
+        DepthStencilState.depthWriteEnable          = DepthState.DepthWriteEnable;
+        DepthStencilState.depthCompareOp            = ToVkCompareOp(DepthState.DepthFunc);
+        DepthStencilState.stencilTestEnable         = DepthState.StencilEnable;
         ConvertStencilOps(DepthState.FrontFaceStencil, DepthStencilState);
         ConvertStencilOps(DepthState.BackFaceStencil, DepthStencilState);
 
@@ -1670,14 +1671,14 @@ namespace Lumina
             }
             
             VkPipelineColorBlendAttachmentState ColorBlendAttachment = {};
-            ColorBlendAttachment.colorWriteMask = VK_COLOR_COMPONENT_FLAG_BITS_MAX_ENUM;
-            ColorBlendAttachment.colorBlendOp = (RenderTarget.BlendOp == EBlendOp::Add) ? VK_BLEND_OP_ADD : VK_BLEND_OP_MAX;
-            ColorBlendAttachment.alphaBlendOp = (RenderTarget.BlendOpAlpha == EBlendOp::Add) ? VK_BLEND_OP_ADD : VK_BLEND_OP_MAX;
-            ColorBlendAttachment.srcColorBlendFactor = ToVkBlendFactor(RenderTarget.SrcBlend);
-            ColorBlendAttachment.dstColorBlendFactor = ToVkBlendFactor(RenderTarget.DestBlend);
-            ColorBlendAttachment.srcAlphaBlendFactor = ToVkBlendFactor(RenderTarget.SrcBlendAlpha);
-            ColorBlendAttachment.dstAlphaBlendFactor = ToVkBlendFactor(RenderTarget.DestBlendAlpha);
-            ColorBlendAttachment.blendEnable = RenderTarget.bBlendEnable;
+            ColorBlendAttachment.colorWriteMask             = VK_COLOR_COMPONENT_FLAG_BITS_MAX_ENUM;
+            ColorBlendAttachment.colorBlendOp               = (RenderTarget.BlendOp == EBlendOp::Add) ? VK_BLEND_OP_ADD : VK_BLEND_OP_MAX;
+            ColorBlendAttachment.alphaBlendOp               = (RenderTarget.BlendOpAlpha == EBlendOp::Add) ? VK_BLEND_OP_ADD : VK_BLEND_OP_MAX;
+            ColorBlendAttachment.srcColorBlendFactor        = ToVkBlendFactor(RenderTarget.SrcBlend);
+            ColorBlendAttachment.dstColorBlendFactor        = ToVkBlendFactor(RenderTarget.DestBlend);
+            ColorBlendAttachment.srcAlphaBlendFactor        = ToVkBlendFactor(RenderTarget.SrcBlendAlpha);
+            ColorBlendAttachment.dstAlphaBlendFactor        = ToVkBlendFactor(RenderTarget.DestBlendAlpha);
+            ColorBlendAttachment.blendEnable                = RenderTarget.bBlendEnable;
             
             ColorAttachmentFormats.push_back(ConvertFormat(RenderTarget.Format));
             ColorBlendAttachmentStates.push_back(Memory::Move(ColorBlendAttachment));
@@ -1685,16 +1686,16 @@ namespace Lumina
         }
         
         VkPipelineColorBlendStateCreateInfo ColorBlendState = {};
-        ColorBlendState.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-        ColorBlendState.attachmentCount = (uint32)ColorBlendAttachmentStates.size();
-        ColorBlendState.pAttachments = ColorBlendAttachmentStates.data();
+        ColorBlendState.sType               = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+        ColorBlendState.attachmentCount     = (uint32)ColorBlendAttachmentStates.size();
+        ColorBlendState.pAttachments        = ColorBlendAttachmentStates.data();
 
         VkPipelineRenderingCreateInfo RenderingCreateInfo = {};
-        RenderingCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
-        RenderingCreateInfo.colorAttachmentCount = (uint32)ColorBlendAttachmentStates.size();
-        RenderingCreateInfo.pColorAttachmentFormats = ColorAttachmentFormats.data();
-        RenderingCreateInfo.depthAttachmentFormat = VK_FORMAT_D32_SFLOAT;
-        RenderingCreateInfo.stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
+        RenderingCreateInfo.sType                       = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+        RenderingCreateInfo.colorAttachmentCount        = (uint32)ColorBlendAttachmentStates.size();
+        RenderingCreateInfo.pColorAttachmentFormats     = ColorAttachmentFormats.data();
+        RenderingCreateInfo.depthAttachmentFormat       = VK_FORMAT_D32_SFLOAT;
+        RenderingCreateInfo.stencilAttachmentFormat     = VK_FORMAT_UNDEFINED;
         
         VkGraphicsPipelineCreateInfo CreateInfo = {};
         CreateInfo.sType                        = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;

@@ -6,6 +6,7 @@
 #include "EASTL/fixed_list.h"
 #include "EASTL/vector_map.h"
 #include "Platform/GenericPlatform.h"
+#include "Platform/Platform.h"
 
 #define LUMINA_USE_EASTL 1
 
@@ -266,37 +267,59 @@ namespace Lumina
 
     template<typename T>
     requires std::is_trivially_constructible_v<T>
-    bool VectorsAreEqual(const TVector<T>& A, const TVector<T>& B)
+    NODISCARD bool VectorsAreEqual(const T& A, const T& B)
     {
         if (A.size() != B.size())
+        {
             return false;
+        }
 
         return std::memcmp(A.data(), B.data(), A.size() * sizeof(T)) == 0;
+    }
+
+    template<typename T>
+    requires !std::is_trivially_constructible_v<T>
+    bool VectorsAreEqual(const T& A, const T& B)
+    {
+        if (A.size() != B.size())
+        {
+            return false;
+        }
+
+        for (size_t i = 0; i < A.size(); ++i)
+        {
+            if (A[i] != B[i])
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
     
 
     template<typename T, typename V, eastl_size_t S>
-    inline bool VectorContains(TFixedVector<T, S> const& vector, V const& value)
+    NODISCARD bool VectorContains(TFixedVector<T, S> const& vector, V const& value)
     {
         return eastl::find( vector.begin(), vector.end(), value ) != vector.end();
     }
 
     template<typename T, eastl_size_t S, typename V, typename Predicate>
-    inline bool VectorContains(TFixedVector<T, S> const& vector, V const& value, Predicate predicate)
+    NODISCARD bool VectorContains(TFixedVector<T, S> const& vector, V const& value, Predicate predicate)
     {
         return eastl::find( vector.begin(), vector.end(), value, eastl::forward<Predicate>( predicate ) ) != vector.end();
     }
 
     // Find an element in a vector
     template<typename T, typename V, eastl_size_t S>
-    inline typename TFixedVector<T, S>::const_iterator VectorFind(TFixedVector<T, S> const& vector, V const& value)
+    NODISCARD typename TFixedVector<T, S>::const_iterator VectorFind(TFixedVector<T, S> const& vector, V const& value)
     {
         return eastl::find( vector.begin(), vector.end(), value );
     }
 
     // Find an element in a vector
     template<typename T, typename V, eastl_size_t S, typename Predicate>
-    inline typename TFixedVector<T, S>::const_iterator VectorFind(TFixedVector<T, S> const& vector, V const& value, Predicate predicate)
+    NODISCARD typename TFixedVector<T, S>::const_iterator VectorFind(TFixedVector<T, S> const& vector, V const& value, Predicate predicate)
     {
         return eastl::find( vector.begin(), vector.end(), value, eastl::forward<Predicate>( predicate ) );
     }
@@ -304,7 +327,7 @@ namespace Lumina
     // Find an element in a vector
     // Require non-const versions since we might want to modify the result
     template<typename T, typename V, eastl_size_t S>
-    inline typename TFixedVector<T, S>::iterator VectorFind(TFixedVector<T, S>& vector, V const& value )
+    NODISCARD typename TFixedVector<T, S>::iterator VectorFind(TFixedVector<T, S>& vector, V const& value )
     {
         return eastl::find( vector.begin(), vector.end(), value );
     }
@@ -312,13 +335,13 @@ namespace Lumina
     // Find an element in a vector
     // Require non-const versions since we might want to modify the result
     template<typename T, typename V, eastl_size_t S, typename Predicate>
-    inline typename TFixedVector<T, S>::iterator VectorFind(TFixedVector<T, S>& vector, V const& value, Predicate predicate )
+    NODISCARD typename TFixedVector<T, S>::iterator VectorFind(TFixedVector<T, S>& vector, V const& value, Predicate predicate )
     {
         return eastl::find( vector.begin(), vector.end(), value, eastl::forward<Predicate>( predicate ) );
     }
 
     template<typename T, typename V, eastl_size_t S>
-    inline int32_t VectorFindIndex(TFixedVector<T, S> const& vector, V const& value )
+    NODISCARD int32 VectorFindIndex(TFixedVector<T, S> const& vector, V const& value )
     {
         auto iter = eastl::find( vector.begin(), vector.end(), value );
         if ( iter == vector.end() )
@@ -332,7 +355,7 @@ namespace Lumina
     }
 
     template<typename T, typename V, eastl_size_t S, typename Predicate>
-    inline int32_t VectorFindIndex(TFixedVector<T, S> const& vector, V const& value, Predicate predicate )
+    NODISCARD int32 VectorFindIndex(TFixedVector<T, S> const& vector, V const& value, Predicate predicate )
     {
         auto iter = eastl::find( vector.begin(), vector.end(), value, predicate );
         if ( iter == vector.end() )

@@ -707,9 +707,11 @@ namespace Lumina
         	FTextureSubresourceSet Subresources = FTextureSubresourceSet(0, 1, 0 ,1);
         	ERenderLoadOp	LoadOp = ERenderLoadOp::Clear;
         	ERenderStoreOp	StoreOp = ERenderStoreOp::Store;
+        	EFormat			Format = EFormat::UNKNOWN;
         	glm::vec4		ClearColor = glm::vec4(0.0f);
         	bool			bReadOnly = false;
 
+        	constexpr FAttachment& SetFormat(EFormat f) { Format = f; return *this; }
         	constexpr FAttachment& SetImage(FRHIImage* t) { Image = t; return *this; }
         	constexpr FAttachment& SetLoadOp(ERenderLoadOp Op) { LoadOp = Op; return *this; }
         	constexpr FAttachment& SetStoreOp(ERenderStoreOp Op) { StoreOp = Op; return *this; }
@@ -1240,9 +1242,9 @@ namespace Lumina
     {
         struct StencilOpDesc
         {
-            EStencilOp FailOp = EStencilOp::Keep;
-            EStencilOp DepthFailOp = EStencilOp::Keep;
-            EStencilOp PassOp = EStencilOp::Keep;
+            EStencilOp FailOp			= EStencilOp::Keep;
+            EStencilOp DepthFailOp		= EStencilOp::Keep;
+            EStencilOp PassOp			= EStencilOp::Keep;
             EComparisonFunc StencilFunc = EComparisonFunc::Always;
 
             constexpr StencilOpDesc& SetFailOp(EStencilOp value) { FailOp = value; return *this; }

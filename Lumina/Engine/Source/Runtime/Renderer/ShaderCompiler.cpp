@@ -155,7 +155,6 @@ namespace Lumina
         {
             return false;
         }
-
         
         PendingTasks.fetch_add(NumShaders, std::memory_order_relaxed);
         
@@ -267,14 +266,15 @@ namespace Lumina
         
     }
 
-    bool FSpirVShaderCompiler::CompilerShaderRaw(FStringView ShaderString, const FShaderCompileOptions& CompileOptions, CompletedFunc OnCompleted)
+    bool FSpirVShaderCompiler::CompilerShaderRaw(FString ShaderString, const FShaderCompileOptions& CompileOptions, CompletedFunc OnCompleted)
     {
-        FRequest Request;
-        Request.Path = ShaderString;
-        Request.CompileOptions = CompileOptions;
-        Request.OnCompleted = Memory::Move(OnCompleted);
-        
-        Task::AsyncTask(1, [this, Request = Memory::Move(Request)] (uint32 Start, uint32 End, uint32 ThreadNum_)
+        PendingTasks.fetch_add(1, std::memory_order_relaxed);
+
+        Task::AsyncTask(1, [this,
+            ShaderString = Memory::Move(ShaderString),
+            CompileOptions = Memory::Move(CompileOptions),
+            Callback = Memory::Move(OnCompleted)]
+            (uint32 Start, uint32 End, uint32 ThreadNum_)
         {
             LOG_TRACE("Compiling Raw Shader - Thread: {0}", Threading::GetThreadID());
 
@@ -284,16 +284,16 @@ namespace Lumina
             Options.SetGenerateDebugInfo();
             Options.SetTargetEnvironment(shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_3);
             
-            FString VertexPath = Paths::GetEngineResourceDirectory() + "/Shaders/Material.frag";
+            FString VertexPath = Paths::GetEngineResourceDirectory() + "/Shaders/GeometryPass.vert";
             
             TVector<uint32> Binaries;
-            for (const FString& Macro : Request.CompileOptions.MacroDefinitions)
+            for (const FString& Macro : CompileOptions.MacroDefinitions)
             {
                 Options.AddMacroDefinition(Macro.c_str());
             }
              
-            auto Preprocessed = Compiler.PreprocessGlsl(Request.Path.c_str(),
-                                                        Request.Path.size(),
+            auto Preprocessed = Compiler.PreprocessGlsl(ShaderString.c_str(),
+                                                        ShaderString.size(),
                                                         shaderc_glsl_infer_from_source,
                                                         VertexPath.c_str(), Options);
     
@@ -326,10 +326,15 @@ namespace Lumina
 
             
             FShaderHeader Shader;
+            Shader.DebugName = "RawShader";
             Shader.Binaries = Memory::Move(Binaries);
             
             ReflectSpirv(Shader.Binaries, Shader.Reflection, true);
-            Request.OnCompleted(Memory::Move(Shader));
+
+            PendingTasks.fetch_sub(1, std::memory_order_acq_rel);
+
+            Callback(Memory::Move(Shader));
+            
         });
         
         return true;

@@ -50,7 +50,10 @@
         constexpr unsigned int NumClusters = ClusterGridSizeX * ClusterGridSizeY * ClusterGridSizeZ;
 
         constexpr int GShadowMapResolution = 4096;
-        
+        constexpr int GShadowAtlasResolution = 8192;
+        constexpr int GShadowCubemapResolution = 512;
+        constexpr int GMaxPointLightShadows = 16;
+
         FRenderScene::FRenderScene(CWorld* InWorld)
             : World(InWorld)
             , SceneGlobalData()
@@ -84,7 +87,7 @@
             glm::vec3 UpdatedForward = CameraTransform.Transform.Rotation * glm::vec3(0.0f, 0.0f, -1.0f);
             glm::vec3 UpdatedUp      = CameraTransform.Transform.Rotation * glm::vec3(0.0f, 1.0f,  0.0f);
         
-            CameraComponent.SetView(CameraTransform.Transform.Location, CameraTransform.Transform.Location + UpdatedForward, UpdatedUp);
+            CameraComponent.SetView(CameraTransform.Transform.Location, UpdatedForward, UpdatedUp);
 
             SetViewVolume(CameraComponent.GetViewVolume());
 
@@ -108,7 +111,8 @@
             DepthPrePass(RenderGraph, SceneViewport->GetViewVolume());
             ClusterBuildPass(RenderGraph, SceneViewport->GetViewVolume());
             LightCullPass(RenderGraph, SceneViewport->GetViewVolume());
-            ShadowMappingPass(RenderGraph);
+            PointLightShadowPass(RenderGraph);
+            CascadedShadowMapPass(RenderGraph);
             GBufferPass(RenderGraph, SceneViewport->GetViewVolume());
             SSAOPass(RenderGraph);
             EnvironmentPass(RenderGraph);
@@ -292,7 +296,7 @@
             });
         }
 
-        void FRenderScene::ShadowMappingPass(FRenderGraph& RenderGraph)
+        void FRenderScene::CascadedShadowMapPass(FRenderGraph& RenderGraph)
         {
             RenderGraph.AddPass<RG_Raster>(FRGEvent("Cascaded Shadow Map Pass"), nullptr, [&](ICommandList& CmdList)
             {
@@ -336,21 +340,21 @@
 
                     
                     FRHIGraphicsPipelineRef Pipeline = GRenderContext->CreateGraphicsPipeline(Desc);
-                
+                    
+                    
                     for (SIZE_T CurrentDraw = 0; CurrentDraw < MeshDrawCommands.size(); ++CurrentDraw)
                     {
                         const FMeshDrawCommand& Batch = MeshDrawCommands[CurrentDraw];
-                    
+
                         FGraphicsState GraphicsState; GraphicsState
-                            .AddVertexBuffer({ Batch.VertexBuffer })
-                            .SetIndexBuffer({ Batch.IndexBuffer })
                             .SetRenderPass(RenderPass)
                             .SetViewport(MakeViewportStateFromImage(Cascade.ShadowMapImage))
                             .SetPipeline(Pipeline)
                             .AddBindingSet(BindingSet)
                             .AddBindingSet(ShadowPassSet)
                             .SetIndirectParams(IndirectDrawBuffer);
-                    
+                        
+                        GraphicsState.AddVertexBuffer({ Batch.VertexBuffer }).SetIndexBuffer({ Batch.IndexBuffer });
                         CmdList.SetGraphicsState(GraphicsState);
 
                         CmdList.SetPushConstants(&Cascade.LightViewProjection, sizeof(glm::mat4));
@@ -877,17 +881,17 @@
         {
             SceneViewport->SetViewVolume(ViewVolume);
             
-            SceneGlobalData.CameraData.Location =           glm::vec4(SceneViewport->GetViewVolume().GetViewPosition(), 1.0f);
-            SceneGlobalData.CameraData.View =               SceneViewport->GetViewVolume().GetViewMatrix();
-            SceneGlobalData.CameraData.InverseView =        SceneViewport->GetViewVolume().GetInverseViewMatrix();
-            SceneGlobalData.CameraData.Projection =         SceneViewport->GetViewVolume().GetProjectionMatrix();
-            SceneGlobalData.CameraData.InverseProjection =  SceneViewport->GetViewVolume().GetInverseProjectionMatrix();
-            SceneGlobalData.ScreenSize =                    glm::vec4(SceneViewport->GetSize().X, SceneViewport->GetSize().Y, 0.0f, 0.0f);
-            SceneGlobalData.GridSize =                      glm::vec4(ClusterGridSizeX, ClusterGridSizeY, ClusterGridSizeZ, 0.0f);
-            SceneGlobalData.Time =                          (float)World->GetTimeSinceWorldCreation();
-            SceneGlobalData.DeltaTime =                     (float)World->GetWorldDeltaTime();
-            SceneGlobalData.FarPlane =                      SceneViewport->GetViewVolume().GetFar();
-            SceneGlobalData.NearPlane =                     SceneViewport->GetViewVolume().GetNear();
+            SceneGlobalData.CameraData.Location             = glm::vec4(SceneViewport->GetViewVolume().GetViewPosition(), 1.0f);
+            SceneGlobalData.CameraData.View                 = SceneViewport->GetViewVolume().GetViewMatrix();
+            SceneGlobalData.CameraData.InverseView          = SceneViewport->GetViewVolume().GetInverseViewMatrix();
+            SceneGlobalData.CameraData.Projection           = SceneViewport->GetViewVolume().GetProjectionMatrix();
+            SceneGlobalData.CameraData.InverseProjection    = SceneViewport->GetViewVolume().GetInverseProjectionMatrix();
+            SceneGlobalData.ScreenSize                      = glm::vec4(SceneViewport->GetSize().X, SceneViewport->GetSize().Y, 0.0f, 0.0f);
+            SceneGlobalData.GridSize                        = glm::vec4(ClusterGridSizeX, ClusterGridSizeY, ClusterGridSizeZ, 0.0f);
+            SceneGlobalData.Time                            = (float)World->GetTimeSinceWorldCreation();
+            SceneGlobalData.DeltaTime                       = (float)World->GetWorldDeltaTime();
+            SceneGlobalData.FarPlane                        = SceneViewport->GetViewVolume().GetFar();
+            SceneGlobalData.NearPlane                       = SceneViewport->GetViewVolume().GetNear();
 
         }
 
@@ -903,7 +907,6 @@
             {
                CmdList.ClearImageUInt(OverdrawImage, AllSubresources, 0); 
             });
-            
         }
 
         void FRenderScene::ClusterBuildPass(FRenderGraph& RenderGraph, const FViewVolume& View)
@@ -963,6 +966,114 @@
                 
                 CmdList.Dispatch(27, 1, 1);
                 
+            });
+        }
+
+        void FRenderScene::PointLightShadowPass(FRenderGraph& RenderGraph)
+        {
+            RenderGraph.AddPass<RG_Raster>(FRGEvent("Point Light Shadow Pass"), nullptr, [&](ICommandList& CmdList)
+            {
+                LUMINA_PROFILE_SECTION_COLORED("Point Light Shadow Pass", tracy::Color::DeepPink2);
+
+                if (LightData.NumLights == 0)
+                {
+                    return;
+                }
+
+                FRHIVertexShaderRef VertexShader = FShaderLibrary::GetVertexShader("ShadowMapping.vert");
+                if (!VertexShader)
+                {
+                    return;
+                }
+
+                
+                for (size_t LightNum = 0; LightNum < 1; ++LightNum)
+                {
+                    FLight& Light = LightData.Lights[LightNum];
+                    
+                    FViewVolume LightView(90.0f, 1.0f, 0.01f, Light.Radius);
+                    
+                    auto SetView = [&Light](FViewVolume& View, uint32 Index)
+                    {
+                        switch (Index)
+                        {
+                        case 0: // + X
+                            View.SetView(Light.Position, FViewVolume::RightAxis, FViewVolume::DownAxis);
+                            break;
+                        case 1: // - X
+                            View.SetView(Light.Position, FViewVolume::LeftAxis, FViewVolume::DownAxis);
+                            break;
+                        case 2: // + Y
+                            View.SetView(Light.Position, FViewVolume::UpAxis, FViewVolume::ForwardAxis);
+                            break;
+                        case 3: // - Y
+                            View.SetView(Light.Position, FViewVolume::DownAxis, FViewVolume::BackwardAxis);
+                            break;
+                        case 4: // + Z
+                            View.SetView(Light.Position, FViewVolume::ForwardAxis, FViewVolume::DownAxis);
+                            break;
+                        case 5: // - Z
+                            View.SetView(Light.Position, FViewVolume::BackwardAxis, FViewVolume::DownAxis);
+                            break;
+                        default:
+                            LUMINA_NO_ENTRY()
+                        }
+                    };
+                    
+                    for (int Face = 0; Face < 6; ++Face)
+                    {
+                        SetView(LightView, Face);
+                        glm::mat4 Transform = LightView.GetViewProjectionMatrix();
+
+                        FRenderPassDesc::FAttachment Depth; Depth
+                            .SetImage(PointLightShadowMap)
+                            .SetArraySliceRange(Face, 1)
+                            .SetDepthClearValue(0.0f);
+                
+                        FRenderPassDesc RenderPass; RenderPass
+                            .SetDepthAttachment(Depth)
+                            .SetRenderArea(FIntVector2D(GShadowCubemapResolution, GShadowCubemapResolution));
+                    
+                    
+                        FRenderState RenderState; RenderState
+                            .SetDepthStencilState(FDepthStencilState()
+                                .SetDepthFunc(EComparisonFunc::GreaterOrEqual))
+                            .SetRasterState(FRasterState()
+                                .DisableDepthClip());
+                        
+                        FGraphicsPipelineDesc Desc; Desc
+                            .SetRenderState(RenderState)
+                            .SetInputLayout(VertexLayoutInput)
+                            .AddBindingLayout(BindingLayout)
+                            .AddBindingLayout(ShadowPassLayout)
+                            .SetVertexShader(VertexShader);
+
+                    
+                        FRHIGraphicsPipelineRef Pipeline = GRenderContext->CreateGraphicsPipeline(Desc);
+                        
+                    
+                        for (SIZE_T CurrentDraw = 0; CurrentDraw < MeshDrawCommands.size(); ++CurrentDraw)
+                        {
+                            const FMeshDrawCommand& Batch = MeshDrawCommands[CurrentDraw];
+
+                            FViewportState ViewportState = MakeViewportStateFromImage(PointLightShadowMap);
+                            
+                            FGraphicsState GraphicsState; GraphicsState
+                                .SetRenderPass(RenderPass)
+                                .SetViewport(ViewportState)
+                                .SetPipeline(Pipeline)
+                                .AddBindingSet(BindingSet)
+                                .AddBindingSet(ShadowPassSet)
+                                .SetIndirectParams(IndirectDrawBuffer);
+
+                            GraphicsState.AddVertexBuffer({ Batch.VertexBuffer }).SetIndexBuffer({ Batch.IndexBuffer });
+                            CmdList.SetGraphicsState(GraphicsState);
+
+                            CmdList.SetPushConstants(&Transform, sizeof(glm::mat4));
+                            CmdList.DrawIndexedIndirect(1, Batch.IndirectDrawOffset * sizeof(FDrawIndexedIndirectArguments));
+                        }
+                    }
+                }
             });
         }
 
@@ -1238,11 +1349,11 @@
                     const STransformComponent& TransformComponent = Group.get<STransformComponent>(entity);
         
                     FLight Light;
-                    Light.Type = LIGHT_TYPE_POINT;
-                    Light.Falloff = PointLightComponent.Falloff;
-                    Light.Color = PackColor(PointLightComponent.LightColor, PointLightComponent.Intensity);
-                    Light.Radius = PointLightComponent.Attenuation;
-                    Light.Position = glm::vec4(TransformComponent.WorldTransform.Location, 1.0f);
+                    Light.Type          = LIGHT_TYPE_POINT;
+                    Light.Falloff       = PointLightComponent.Falloff;
+                    Light.Color         = PackColor(PointLightComponent.LightColor, PointLightComponent.Intensity);
+                    Light.Radius        = PointLightComponent.Attenuation;
+                    Light.Position  = glm::vec4(TransformComponent.WorldTransform.Location, 1.0f);
                     
                     LightData.Lights[LightData.NumLights++] = Memory::Move(Light);
         
@@ -1412,7 +1523,8 @@
                 SetDesc.AddItem(FBindingSetItem::TextureSRV(3, GBuffer.AlbedoSpec));
                 SetDesc.AddItem(FBindingSetItem::TextureSRV(4, SSAOBlur));
                 SetDesc.AddItem(FBindingSetItem::TextureSRV(5, ShadowCascades[0].ShadowMapImage));
-                SetDesc.AddItem(FBindingSetItem::BufferSRV(6, ClusterBuffer));
+                SetDesc.AddItem(FBindingSetItem::TextureSRV(6, PointLightShadowMap));
+                SetDesc.AddItem(FBindingSetItem::BufferSRV(7, ClusterBuffer));
 
                 TBitFlags<ERHIShaderType> Visibility;
                 Visibility.SetMultipleFlags(ERHIShaderType::Fragment);
@@ -1855,17 +1967,29 @@
             
             {
                 FRHIImageDesc ImageDesc;
-                ImageDesc.Extent = {1024, 1024};
-                ImageDesc.Flags.SetFlag(EImageCreateFlags::CubeCompatible);
-                ImageDesc.Flags.SetFlag(EImageCreateFlags::ShaderResource);
-                ImageDesc.Format = EFormat::RGBA8_UNORM;
+                ImageDesc.Extent = {GShadowAtlasResolution, GShadowAtlasResolution};
+                ImageDesc.Flags.SetMultipleFlags(EImageCreateFlags::DepthAttachment, EImageCreateFlags::ShaderResource);
+                ImageDesc.Format = EFormat::D32;
                 ImageDesc.bKeepInitialState = true;
                 ImageDesc.InitialState = EResourceStates::ShaderResource;
                 ImageDesc.Dimension = EImageDimension::Texture2D;
-                ImageDesc.ArraySize = 6;
-                ImageDesc.DebugName = "Shadow Cubemap";
+                ImageDesc.DebugName = "Shadow Atlas";
 
-                ShadowCubeMap = GRenderContext->CreateImage(ImageDesc);
+                ShadowAtlas = GRenderContext->CreateImage(ImageDesc);
+            }
+
+            {
+                FRHIImageDesc ImageDesc;
+                ImageDesc.Extent = {GShadowCubemapResolution, GShadowCubemapResolution};
+                ImageDesc.Flags.SetMultipleFlags(EImageCreateFlags::DepthAttachment, EImageCreateFlags::ShaderResource, EImageCreateFlags::CubeCompatible);
+                ImageDesc.Dimension = EImageDimension::TextureCube;
+                ImageDesc.ArraySize = 6;
+                ImageDesc.Format = EFormat::D32;
+                ImageDesc.bKeepInitialState = true;
+                ImageDesc.InitialState = EResourceStates::DepthWrite;
+                ImageDesc.DebugName = "Point Light Shadow Cubemap";
+
+                PointLightShadowMap = GRenderContext->CreateImage(ImageDesc);
             }
         }
     }

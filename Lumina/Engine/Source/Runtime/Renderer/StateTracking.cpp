@@ -234,14 +234,15 @@ namespace Lumina
 
                     if (transitionNecessary || uavNecessary)
                     {
-                        FTextureBarrier barrier;
-                        barrier.Texture = texture;
-                        barrier.bEntireTexture = false;
-                        barrier.MipLevel = mipLevel;
-                        barrier.ArraySlice = arraySlice;
-                        barrier.StateBefore = priorState;
-                        barrier.StateAfter = state;
-                        TextureBarriers.push_back(barrier);
+                        TextureBarriers.emplace_back(FTextureBarrier
+                        {
+                            .Texture = texture,
+                            .MipLevel = mipLevel,
+                            .ArraySlice = arraySlice,
+                            .bEntireTexture = false,
+                            .StateBefore = priorState,
+                            .StateAfter = state
+                        });
                     }
 
                     tracking->SubresourceStates[subresourceIndex] = state;
@@ -288,8 +289,7 @@ namespace Lumina
         }
 
         bool transitionNecessary = tracking->state != state;
-        bool uavNecessary = ((state & EResourceStates::UnorderedAccess) != EResourceStates::Unknown)
-            && (tracking->enableUavBarriers || !tracking->firstUavBarrierPlaced);
+        bool uavNecessary = ((state & EResourceStates::UnorderedAccess) != EResourceStates::Unknown) && (tracking->enableUavBarriers || !tracking->firstUavBarrierPlaced);
 
         if (transitionNecessary)
         {
@@ -309,11 +309,12 @@ namespace Lumina
 
         if (transitionNecessary || uavNecessary)
         {
-            FBufferBarrier barrier;
-            barrier.Buffer = buffer;
-            barrier.StateBefore = tracking->state;
-            barrier.StateAfter = state;
-            BufferBarriers.push_back(barrier);
+            BufferBarriers.emplace_back(FBufferBarrier
+            {
+                .Buffer = buffer,
+                .StateBefore = tracking->state,
+                .StateAfter = state,
+            });
         }
 
         if (uavNecessary && !transitionNecessary)
@@ -412,7 +413,6 @@ namespace Lumina
         {
             return nullptr;
         }
-
 
         FTextureState* TrackingRef = LinearAllocator.TAlloc<FTextureState>();
         TextureStates.emplace(Texture, TrackingRef);

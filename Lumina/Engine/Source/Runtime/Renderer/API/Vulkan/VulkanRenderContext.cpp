@@ -555,7 +555,7 @@ namespace Lumina
         
         GraphicsCommandList->Close();
 
-        ExecuteCommandList(GraphicsCommandList, Q_Graphics);
+        ExecuteCommandList(GraphicsCommandList);
         
         bool bSuccess = Swapchain->Present();
         

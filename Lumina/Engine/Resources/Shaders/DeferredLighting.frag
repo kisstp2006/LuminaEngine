@@ -16,8 +16,9 @@ layout(set = 1, binding = 2) uniform sampler2D uMaterial;
 layout(set = 1, binding = 3) uniform sampler2D uAlbedoSpec;
 layout(set = 1, binding = 4) uniform sampler2D uSSAO;
 layout(set = 1, binding = 5) uniform sampler2DArray uShadowCascade;
+layout(set = 1, binding = 6) uniform samplerCube uShadowCubemaps;
 
-layout(set = 1, binding = 6) readonly buffer ClusterSSBO
+layout(set = 1, binding = 7) readonly buffer ClusterSSBO
 {
     FCluster Clusters[];
 } Clusters;
@@ -70,6 +71,7 @@ vec3 EvaluateLightContribution(FLight Light, vec3 Position, vec3 N, vec3 V, vec3
     vec3 L;
     float Attenuation = 1.0;
     float Falloff = 1.0;
+    vec4 LightColor = GetLightColor(Light);
 
     if (Light.Type == LIGHT_TYPE_DIRECTIONAL) 
     {
@@ -77,6 +79,7 @@ vec3 EvaluateLightContribution(FLight Light, vec3 Position, vec3 N, vec3 V, vec3
     }
     else
     {
+        LightColor.a *= 100.0f;
         vec3 LightToFrag = Light.Position - Position;
         float Distance = length(LightToFrag);
         L = LightToFrag / Distance; 
@@ -96,8 +99,6 @@ vec3 EvaluateLightContribution(FLight Light, vec3 Position, vec3 N, vec3 V, vec3
         }
     }
 
-    vec4 LightColor = GetLightColor(Light);
-    LightColor.a *= 100.0f;
     
     // Radiance
     vec3 Radiance = LightColor.rgb * LightColor.a * Attenuation * Falloff;
@@ -124,15 +125,13 @@ vec3 EvaluateLightContribution(FLight Light, vec3 Position, vec3 N, vec3 V, vec3
 
 // ----------------------------------------------------------------------------
 
-float TextureProj(vec4 ShadowCoord, int cascade)
+float FindCascadeShadow(float Bias, vec4 ShadowCoord, int cascade)
 {
     float shadow = 0.0;
-    float bias = 0.005;
 
     vec3 projCoords = ShadowCoord.xyz / ShadowCoord.w;
 
     vec2 shadowUV = projCoords.xy * 0.5 + 0.5;
-    //shadowUV.y = 1.0 - shadowUV.y;
 
     // PCF: Sample 3x3 grid around the fragment
     vec2 texelSize = 1.0 / vec2(textureSize(uShadowCascade, 0).xy);
@@ -142,12 +141,13 @@ float TextureProj(vec4 ShadowCoord, int cascade)
         {
             vec2 sampleUV = shadowUV + vec2(x, y) * texelSize;
             float shadowDepth = texture(uShadowCascade, vec3(sampleUV, cascade)).r;
-            shadow += (projCoords.z - bias > shadowDepth) ? 0.0 : 1.0;
+            shadow += (projCoords.z - Bias > shadowDepth) ? 0.0 : 1.0;
         }
     }
 
     return shadow / 9.0;
 }
+
 
 void main()
 {
@@ -193,9 +193,7 @@ void main()
             break;
         }
     }
-
-    vec4 ShadowCoord = SceneUBO.LightViewProj[CascadeIndex] * vec4(Position, 1.0);
-    float Shadow = TextureProj(ShadowCoord, CascadeIndex);
+    
     
     uint zTile = uint((log(abs(PositionVS.z) / zNear) * GridSize.z) / log(zFar / zNear));
     vec2 TileSize = ScreenSize / GridSize.xy;
@@ -205,22 +203,40 @@ void main()
 
 
     vec3 Lo = vec3(0.0);
-
+    
     if(SceneUBO.bHasSun)
     {
         FLight Light = GetLightAt(0);
+
+        vec4 ShadowCoord = SceneUBO.LightViewProj[CascadeIndex] * vec4(Position, 1.0);
+        float CascadeShadow = FindCascadeShadow(0.0005, ShadowCoord, CascadeIndex);
+        
         vec3 LContribution = EvaluateLightContribution(Light, Position, N, V, Albedo, Roughness, Metallic, F0);
-        LContribution *= Shadow;
+        LContribution *= CascadeShadow;
         Lo += LContribution;
     }
-    
+
+
+
     for (uint i = 0; i < LightCount; ++i)
     {
         uint LightIndex = Clusters.Clusters[TileIndex].LightIndices[i];
-        
         FLight Light = GetLightAt(LightIndex);
-        vec3 LContribution = EvaluateLightContribution(Light, Position, N, V, Albedo, Roughness, Metallic, F0);
+
+        vec3 L = Position - Light.Position;
+        float DistanceToLight = length(L);
+        vec3 Dir = normalize(L);
         
+        float ShadowDepth = texture(uShadowCubemaps, Dir).r;
+        float ShadowLinearDepth = ShadowDepth * Light.Radius * 1000.0f;
+
+
+        //float Bias = max(0.05 * (1.0 - dot(N, -Dir)), 0.005);
+        float Shadow = (ShadowLinearDepth > DistanceToLight + 0.005) ? 0.00 : 1.00;
+
+        vec3 LContribution = EvaluateLightContribution(Light, Position, N, V, Albedo, Roughness, Metallic, F0);
+        LContribution *= Shadow;
+
         Lo += LContribution;
     }
 
@@ -233,15 +249,7 @@ void main()
     Color = pow(Color, vec3(1.0/2.2));
 
     outColor = vec4(Color, 1.0);
-
-    vec3 CascadeDebugColors[4] = vec3[4](
-    vec3(1.0, 0.0, 0.0), // Cascade 0 = red
-    vec3(0.0, 1.0, 0.0), // Cascade 1 = green
-    vec3(0.0, 0.0, 1.0), // Cascade 2 = blue
-    vec3(1.0, 1.0, 0.0)  // Cascade 3 = yellow
-    );
     
-    //outColor *= vec4(CascadeDebugColors[CascadeIndex], 1.0);
-
+    
     return;
 }

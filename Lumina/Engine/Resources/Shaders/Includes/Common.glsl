@@ -163,9 +163,10 @@ vec3 ReconstructViewPosition(vec2 uv, float depth, mat4 invProjection)
     return viewSpace.xyz / viewSpace.w;
 }
 
-float LinearizeDepth(float Depth, float Near, float Far)
+float LinearizeDepth(float depth, float near, float far)
 {
-    return Near * Far / (Far + Depth * (Near - Far));
+    float z = depth * 2.0 - 1.0; // Convert to NDC
+    return (2.0 * near * far) / (far + near - z * (far - near));
 }
 
 float LinearizeDepthReverseZ(float depth, float near, float far)

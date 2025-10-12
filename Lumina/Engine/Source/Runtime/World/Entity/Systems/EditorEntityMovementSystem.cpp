@@ -101,7 +101,7 @@ namespace Lumina
             glm::vec3 UpdatedForward = Transform.Transform.Rotation * FViewVolume::ForwardAxis;
             glm::vec3 UpdatedUp = Transform.Transform.Rotation * FViewVolume::UpAxis;
     
-            Camera.SetView(Transform.Transform.Location, Transform.Transform.Location + UpdatedForward, UpdatedUp);
+            Camera.SetView(Transform.Transform.Location, UpdatedForward, UpdatedUp);
         }
     }
 }

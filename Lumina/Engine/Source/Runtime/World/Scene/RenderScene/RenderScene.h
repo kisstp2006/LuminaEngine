@@ -67,7 +67,8 @@ namespace Lumina
         void DepthPrePass(FRenderGraph& RenderGraph, const FViewVolume& View);
         void ClusterBuildPass(FRenderGraph& RenderGraph, const FViewVolume& View);
         void LightCullPass(FRenderGraph& RenderGraph, const FViewVolume& View);
-        void ShadowMappingPass(FRenderGraph& RenderGraph);
+        void PointLightShadowPass(FRenderGraph& RenderGraph);
+        void CascadedShadowMapPass(FRenderGraph& RenderGraph);
         void GBufferPass(FRenderGraph& RenderGraph, const FViewVolume& View);
         void SSAOPass(FRenderGraph& RenderGraph);
         void EnvironmentPass(FRenderGraph& RenderGraph);
@@ -140,12 +141,12 @@ namespace Lumina
         FRHIBindingLayoutRef                LightCullLayout;
         
         FGBuffer                            GBuffer;
-        
+
+        FRHIImageRef                        PointLightShadowMap;
+        FRHIImageRef                        ShadowAtlas;
         FRHIImageRef                        DepthMap;
         FRHIImageRef                        DepthAttachment;
         FRHIImageRef                        CubeMap;
-        FRHIImageRef                        IrradianceCube;
-        FRHIImageRef                        ShadowCubeMap;
         FRHIImageRef                        NoiseImage;
         FRHIImageRef                        SSAOImage;
         FRHIImageRef                        SSAOBlur;

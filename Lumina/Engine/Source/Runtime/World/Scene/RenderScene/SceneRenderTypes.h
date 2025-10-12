@@ -150,14 +150,7 @@ namespace Lumina
     };
     
     static_assert(sizeof(FCullData) % 16 == 0, "FCullData must be 16-byte aligned");
-
     
-    struct FSceneRenderStats
-    {
-        uint32 NumDrawCalls;
-        uint64 NumVertices;
-        uint64 NumIndices;
-    };
 
     struct FSceneGlobalData
     {

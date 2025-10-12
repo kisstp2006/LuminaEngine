@@ -248,8 +248,8 @@ namespace Lumina
         }
         bool operator !=(const FRect& b) const { return !(*this == b); }
 
-        NODISCARD int width() const { return MaxX - MinX; }
-        NODISCARD int height() const { return MaxY - MinY; }
+        NODISCARD int Width() const { return MaxX - MinX; }
+        NODISCARD int Height() const { return MaxY - MinY; }
     };
     
     struct FDescriptorBinding

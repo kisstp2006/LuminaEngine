@@ -29,7 +29,41 @@ namespace Lumina
         
         return FVulkanImage::ESubresourceViewType::AllAspects;
     }
-    
+
+    static EImageDimension GetDimensionForFramebuffer(EImageDimension dimension, bool isArray)
+    {
+        // Can't render into cubes and 3D textures directly, convert them to 2D arrays
+        if (dimension == EImageDimension::TextureCube || dimension == EImageDimension::TextureCubeArray || dimension == EImageDimension::Texture3D)
+        {
+            dimension = EImageDimension::Texture2DArray;
+        }
+
+        if (!isArray)
+        {
+            switch(dimension)  // NOLINT(clang-diagnostic-switch-enum)
+            {
+            case EImageDimension::Texture2DArray:
+                dimension = EImageDimension::Texture2D;
+                break;
+            default:
+                break;
+            }
+        }
+
+        return dimension;
+    }
+
+    FVulkanCommandList::FVulkanCommandList(FVulkanRenderContext* InContext, const FCommandListInfo& InInfo)
+        : RenderContext(InContext)
+        , UploadManager(MakeUniquePtr<FUploadManager>(InContext, InInfo.UploadChunkSize, 0, false))
+        , ScratchManager(MakeUniquePtr<FUploadManager>(InContext, InInfo.ScratchChunkSize, InInfo.ScratchMaxMemory, true))
+        , Info(InInfo)
+        , PushConstantVisibility(0)
+        , CurrentPipelineLayout(nullptr)
+    {
+        PendingState.AddPendingState(EPendingCommandState::AutomaticBarriers);
+    }
+
     void FVulkanCommandList::Open()
     {
         LUMINA_PROFILE_SCOPE();
@@ -66,13 +100,14 @@ namespace Lumina
         VK_CHECK(vkEndCommandBuffer(CurrentCommandBuffer->CommandBuffer));
         
         PendingState.ClearPendingState(EPendingCommandState::Recording);
+        PendingState.ClearPendingState(EPendingCommandState::DynamicBufferWrites);
 
         PushConstantVisibility      = VK_SHADER_STAGE_FLAG_BITS_MAX_ENUM;
         CurrentPipelineLayout       = VK_NULL_HANDLE;
         CurrentComputeState         = {};
         CurrentGraphicsState        = {};
+        CommandListStatLastFrame    = CommandListStats;
         CommandListStats            = {};
-        bHasDynamicBufferWrites     =   false;
         
         FlushDynamicBufferWrites();
     }
@@ -107,7 +142,7 @@ namespace Lumina
         auto ResolvedDstSlice = DstSlice.Resolve(Dst->DescRef);
         auto ResolvedSrcSlice = SrcSlice.Resolve(Src->DescRef);
 
-        if (bEnableAutomaticBarriers)
+        if (PendingState.IsInState(EPendingCommandState::AutomaticBarriers))
         {
             RequireTextureState(Src, FTextureSubresourceSet(ResolvedSrcSlice.MipLevel, 1, ResolvedSrcSlice.ArraySlice, 1), EResourceStates::CopySource);
             RequireTextureState(Dst, FTextureSubresourceSet(ResolvedDstSlice.MipLevel, 1, ResolvedDstSlice.ArraySlice, 1), EResourceStates::CopyDest);
@@ -147,6 +182,7 @@ namespace Lumina
         BlitInfo.regionCount                        = 1;
         BlitInfo.pRegions                           = &BlitRegion;
 
+        CommandListStats.NumBlitCommands++;
         vkCmdBlitImage2(CurrentCommandBuffer->CommandBuffer, &BlitInfo);
 
     }
@@ -188,7 +224,7 @@ namespace Lumina
         ImageCopy.imageExtent.height = ResolvedSrcSlice.Y;
         ImageCopy.imageExtent.depth  = 1;
         
-        if (bEnableAutomaticBarriers)
+        if (PendingState.IsInState(EPendingCommandState::AutomaticBarriers))
         {
             RequireBufferState(Staging->Buffer, EResourceStates::CopyDest);
             RequireTextureState(Source, srcSubresource, EResourceStates::CopySource);
@@ -200,6 +236,7 @@ namespace Lumina
         CurrentCommandBuffer->AddStagingResource(Staging->Buffer);
 
         vkCmdCopyImageToBuffer(CurrentCommandBuffer->CommandBuffer, Source->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, Staging->Buffer->Buffer, 1, &ImageCopy);
+        CommandListStats.NumCopies++;
     }
 
     static void ComputeMipLevelInformation(const FRHIImageDesc& Desc, uint32 MipLevel, uint32* WidthOut, uint32* HeightOut, uint32* DepthOut)
@@ -276,14 +313,15 @@ namespace Lumina
         CopyRegion.imageOffset                      = { 0, 0, 0 };
         CopyRegion.imageExtent                      = { MipWidth, MipHeight, MipDepth };
 
-        if (bEnableAutomaticBarriers)
+        if (PendingState.IsInState(EPendingCommandState::AutomaticBarriers))
         {
             SetImageState(Dst, FTextureSubresourceSet(MipLevel, 1, ArraySlice, 1), EResourceStates::CopyDest);
         }
         CommitBarriers();
 
         CurrentCommandBuffer->AddReferencedResource(Dst);
-        
+
+        CommandListStats.NumCopies++;
         vkCmdCopyBufferToImage(
             CurrentCommandBuffer->CommandBuffer,
             UploadBuffer->GetAPIResource<VkBuffer>(),
@@ -291,6 +329,7 @@ namespace Lumina
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             1, &CopyRegion
         );
+
     }
 
     void FVulkanCommandList::ClearImageFloat(FRHIImage* Image, FTextureSubresourceSet Subresource, const FColor& Color)
@@ -301,7 +340,7 @@ namespace Lumina
 
         Subresource = Subresource.Resolve(VulkanImage->GetDescription(), false);
 
-        if (bEnableAutomaticBarriers)
+        if (PendingState.IsInState(EPendingCommandState::AutomaticBarriers))
         {
             RequireTextureState(Image, Subresource, EResourceStates::CopyDest);
         }
@@ -320,7 +359,9 @@ namespace Lumina
         Value.float32[2] = Color.B;
         Value.float32[3] = Color.A;
 
+        CommandListStats.NumClearCommands++;
         vkCmdClearColorImage(CurrentCommandBuffer->CommandBuffer, VulkanImage->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &Value, 1, &SubresourceRange);
+
     }
 
     void FVulkanCommandList::ClearImageUInt(FRHIImage* Image, FTextureSubresourceSet Subresource, uint32 Color)
@@ -331,7 +372,7 @@ namespace Lumina
 
         Subresource = Subresource.Resolve(VulkanImage->GetDescription(), false);
 
-        if (bEnableAutomaticBarriers)
+        if (PendingState.IsInState(EPendingCommandState::AutomaticBarriers))
         {
             RequireTextureState(Image, Subresource, EResourceStates::CopyDest);
         }
@@ -354,6 +395,7 @@ namespace Lumina
         Value.int32[2] = (int32)Color;
         Value.int32[3] = (int32)Color;
 
+        CommandListStats.NumClearCommands++;
         vkCmdClearColorImage(CurrentCommandBuffer->CommandBuffer, VulkanImage->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &Value, 1, &SubresourceRange);
     }
 
@@ -382,7 +424,7 @@ namespace Lumina
             CurrentCommandBuffer->AddReferencedResource(Source);
         }
 
-        if (bEnableAutomaticBarriers)
+        if (PendingState.IsInState(EPendingCommandState::AutomaticBarriers))
         {
             RequireBufferState(Source, EResourceStates::CopySource);
             RequireBufferState(Destination, EResourceStates::CopyDest);
@@ -397,6 +439,7 @@ namespace Lumina
         FVulkanBuffer* VkSource = static_cast<FVulkanBuffer*>(Source);
         FVulkanBuffer* VkDestination = static_cast<FVulkanBuffer*>(Destination);
 
+        CommandListStats.NumCopies++;
         vkCmdCopyBuffer(CurrentCommandBuffer->CommandBuffer, VkSource->GetBuffer(), VkDestination->GetBuffer(), 1, &copyRegion);
     }
 
@@ -415,6 +458,8 @@ namespace Lumina
             LOG_ERROR("Buffer: \"{}\" has size: [{}], but tried to write [{}]", Buffer->GetDescription().DebugName, Buffer->GetSize(), Size);
             return;    
         }
+
+        CommandListStats.NumBufferWrites++;
         
         constexpr size_t vkCmdUpdateBufferLimit = 65536;
         CurrentCommandBuffer->AddReferencedResource(Buffer);
@@ -515,7 +560,7 @@ namespace Lumina
             void* SourceData = const_cast<void*>(Data);
             Memory::Memcpy(HostData, SourceData, Size);
 
-            bHasDynamicBufferWrites = true;
+            PendingState.AddPendingState(EPendingCommandState::DynamicBufferWrites);
         }
         
         
@@ -524,7 +569,7 @@ namespace Lumina
         // is rounded up later.
         if (Size <= vkCmdUpdateBufferLimit && (Offset & 3) == 0)
         {
-            if (bEnableAutomaticBarriers)
+            if (PendingState.IsInState(EPendingCommandState::AutomaticBarriers))
             {
                 SetBufferState(Buffer, EResourceStates::CopyDest);
             }
@@ -562,11 +607,12 @@ namespace Lumina
         FVulkanBuffer* VulkanBuffer = static_cast<FVulkanBuffer*>(Buffer);
         EndRenderPass();
 
-        if (bEnableAutomaticBarriers)
+        if (PendingState.IsInState(EPendingCommandState::AutomaticBarriers))
         {
             RequireBufferState(VulkanBuffer, EResourceStates::CopyDest);
         }
         CommitBarriers();
+
         
         vkCmdFillBuffer(CurrentCommandBuffer->CommandBuffer, VulkanBuffer->Buffer, 0, VulkanBuffer->GetDescription().Size, Value);
         CurrentCommandBuffer->AddReferencedResource(Buffer);
@@ -574,13 +620,12 @@ namespace Lumina
 
     void FVulkanCommandList::UpdateComputeDynamicBuffers()
     {
-        if (bHasDynamicBufferWrites && CurrentComputeState.Pipeline)
+        if (PendingState.IsInState(EPendingCommandState::DynamicBufferWrites) && CurrentComputeState.Pipeline)
         {
             FVulkanComputePipeline* Pipeline = static_cast<FVulkanComputePipeline*>(CurrentComputeState.Pipeline);
             BindBindingSets(VK_PIPELINE_BIND_POINT_COMPUTE, Pipeline->PipelineLayout, CurrentComputeState.Bindings);
 
-            bHasDynamicBufferWrites = false;
-
+            PendingState.ClearPendingState(EPendingCommandState::DynamicBufferWrites);
         }
     }
 
@@ -588,13 +633,13 @@ namespace Lumina
     {
         LUMINA_PROFILE_SCOPE();
         
-        if (bHasDynamicBufferWrites && CurrentGraphicsState.Pipeline)
+        if (PendingState.IsInState(EPendingCommandState::DynamicBufferWrites) && CurrentGraphicsState.Pipeline)
         {
             FVulkanGraphicsPipeline* PSO = static_cast<FVulkanGraphicsPipeline*>(CurrentGraphicsState.Pipeline);
 
             BindBindingSets(VK_PIPELINE_BIND_POINT_GRAPHICS, PSO->PipelineLayout, CurrentGraphicsState.Bindings);
 
-            bHasDynamicBufferWrites = false;
+            PendingState.ClearPendingState(EPendingCommandState::DynamicBufferWrites);
         }
     }
 
@@ -730,12 +775,12 @@ namespace Lumina
 
     void FVulkanCommandList::EnableAutomaticBarriers()
     {
-        bEnableAutomaticBarriers = true;
+        PendingState.AddPendingState(EPendingCommandState::AutomaticBarriers);
     }
 
     void FVulkanCommandList::DisableAutomaticBarriers()
     {
-        bEnableAutomaticBarriers = false;
+        PendingState.ClearPendingState(EPendingCommandState::AutomaticBarriers);
     }
 
     void FVulkanCommandList::CommitBarriers()
@@ -865,8 +910,11 @@ namespace Lumina
 
 
             const FTextureSubresourceSet Subresource = PassAttachment.Subresources.Resolve(VulkanImage->GetDescription(), true);
-            FVulkanImage::ESubresourceViewType ViewType = GetTextureViewType(VulkanImage->GetDescription().Format, VulkanImage->GetDescription().Format);
-            VkImageView View = VulkanImage->GetSubresourceView(Subresource, VulkanImage->GetDescription().Dimension, VulkanImage->GetDescription().Format, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, ViewType).View;
+
+            EImageDimension Dimension = GetDimensionForFramebuffer(VulkanImage->GetDescription().Dimension, Subresource.NumArraySlices > 1);
+            EFormat Format = PassAttachment.Format == EFormat::UNKNOWN ? VulkanImage->GetDescription().Format : PassAttachment.Format;
+            
+            VkImageView View = VulkanImage->GetSubresourceView(Subresource, Dimension, Format, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT).View;
             
             VkRenderingAttachmentInfo Attachment = {};
             Attachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
@@ -892,8 +940,11 @@ namespace Lumina
             CurrentCommandBuffer->AddReferencedResource(VulkanImage);
 
             const FTextureSubresourceSet Subresource = PassInfo.DepthAttachment.Subresources.Resolve(VulkanImage->GetDescription(), true);
-            FVulkanImage::ESubresourceViewType ViewType = GetTextureViewType(VulkanImage->GetDescription().Format, VulkanImage->GetDescription().Format);
-            VkImageView View = VulkanImage->GetSubresourceView(Subresource, VulkanImage->GetDescription().Dimension, VulkanImage->GetDescription().Format, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, ViewType).View;
+
+            EImageDimension Dimension = GetDimensionForFramebuffer(VulkanImage->GetDescription().Dimension, Subresource.NumArraySlices > 1);
+            EFormat Format = PassInfo.DepthAttachment.Format == EFormat::UNKNOWN ? VulkanImage->GetDescription().Format : PassInfo.DepthAttachment.Format;
+            
+            VkImageView View = VulkanImage->GetSubresourceView(Subresource, Dimension, Format, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT).View;
             
             VkRenderingAttachmentInfo Attachment = {};
             Attachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
@@ -941,7 +992,7 @@ namespace Lumina
         
         CurrentCommandBuffer->AddReferencedResource(Image);
 
-        if (bEnableAutomaticBarriers)
+        if (PendingState.IsInState(EPendingCommandState::AutomaticBarriers))
         {
             RequireTextureState(Image, FTextureSubresourceSet(0, 1, 0, 1), EResourceStates::CopyDest);
         }
@@ -993,25 +1044,25 @@ namespace Lumina
                 CurrentBatchStart = (uint32)i;
             }
     
-            // Handle gaps — flush current batch if gap detected
-            if (SetIndex != CurrentBatchStart + CurrentDescriptorBatch.size())
-            {
-                if (!CurrentDescriptorBatch.empty())
-                {
-                    vkCmdBindDescriptorSets(CurrentCommandBuffer->CommandBuffer,
-                        BindPoint,
-                        PipelineLayout,
-                        CurrentBatchStart,
-                        static_cast<uint32>(CurrentDescriptorBatch.size()),
-                        CurrentDescriptorBatch.data(),
-                        static_cast<uint32>(DynamicOffsets.size()),
-                        DynamicOffsets.data());
-    
-                    CurrentDescriptorBatch.clear();
-                    DynamicOffsets.clear();
-                    CurrentBatchStart = (uint32)SetIndex;
-                }
-            }
+            // Handle gaps — flush current batch if gap detected // @TODO UNUSED FOR NOW
+            //if (SetIndex != CurrentBatchStart + CurrentDescriptorBatch.size())
+            //{
+            //    if (!CurrentDescriptorBatch.empty())
+            //    {
+            //        vkCmdBindDescriptorSets(CurrentCommandBuffer->CommandBuffer,
+            //            BindPoint,
+            //            PipelineLayout,
+            //            CurrentBatchStart,
+            //            static_cast<uint32>(CurrentDescriptorBatch.size()),
+            //            CurrentDescriptorBatch.data(),
+            //            static_cast<uint32>(DynamicOffsets.size()),
+            //            DynamicOffsets.data());
+            //
+            //        CurrentDescriptorBatch.clear();
+            //        DynamicOffsets.clear();
+            //        CurrentBatchStart = (uint32)SetIndex;
+            //    }
+            //}
 
             CurrentDescriptorBatch.push_back(VulkanSet->DescriptorSet);
     
@@ -1041,6 +1092,8 @@ namespace Lumina
         if (!CurrentDescriptorBatch.empty())
         {
             TracyVkZone(CurrentCommandBuffer->TracyContext, CurrentCommandBuffer->CommandBuffer, "vkCmdBindDescriptorSets")
+            
+            CommandListStats.NumBindings += CurrentDescriptorBatch.size();
             vkCmdBindDescriptorSets(CurrentCommandBuffer->CommandBuffer,
                 BindPoint,
                 PipelineLayout,
@@ -1055,6 +1108,8 @@ namespace Lumina
     void FVulkanCommandList::SetPushConstants(const void* Data, SIZE_T ByteSize)
     {
         LUMINA_PROFILE_SCOPE();
+        
+        CommandListStats.NumPushConstants++;
         vkCmdPushConstants(CurrentCommandBuffer->CommandBuffer, CurrentPipelineLayout, PushConstantVisibility, 0, (uint32)ByteSize, Data);
     }
 
@@ -1106,20 +1161,19 @@ namespace Lumina
 
         VkCommandBuffer VkCmdBuffer = CurrentCommandBuffer->CommandBuffer;
 
-        if (bEnableAutomaticBarriers)
+        if (PendingState.IsInState(EPendingCommandState::AutomaticBarriers))
         {
             TrackResourcesAndBarriers(State);
         }
         
         bool bHasBarriers = !StateTracker.GetBufferBarriers().empty() || !StateTracker.GetTextureBarriers().empty();
-        bool bPipelineChanged = false;
         
         if (CurrentGraphicsState.Pipeline != State.Pipeline)
         {
+            CommandListStats.NumPipelineSwitches++;
             TracyVkZone(CurrentCommandBuffer->TracyContext, CurrentCommandBuffer->CommandBuffer, "vkCmdBindPipeline")
             vkCmdBindPipeline(VkCmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, State.Pipeline->GetAPIResource<VkPipeline, EAPIResourceType::Pipeline>());
             CurrentCommandBuffer->AddReferencedResource(State.Pipeline);
-            bPipelineChanged = true;
         }
 
         if (CurrentGraphicsState.RenderPass != State.RenderPass || bHasBarriers)
@@ -1137,14 +1191,17 @@ namespace Lumina
         CurrentPipelineLayout = State.Pipeline->GetAPIResource<VkPipelineLayout, EAPIResourceType::PipelineLayout>();
         PushConstantVisibility = ((FVulkanGraphicsPipeline*)State.Pipeline)->PushConstantVisibility;
 
-        BindBindingSets(VK_PIPELINE_BIND_POINT_GRAPHICS, CurrentPipelineLayout, State.Bindings);
+        if ((!VectorsAreEqual(CurrentComputeState.Bindings, State.Bindings)) || PendingState.IsInState(EPendingCommandState::DynamicBufferWrites))
+        {
+            BindBindingSets(VK_PIPELINE_BIND_POINT_GRAPHICS, CurrentPipelineLayout, State.Bindings);
+        }
         
         
         const FViewport& Viewport = State.ViewportState.Viewport;
         const FRect& ScissorRect = State.ViewportState.Scissor;
 
         bool bCurrentViewportValid = (CurrentGraphicsState.ViewportState.Viewport.Height() && CurrentGraphicsState.ViewportState.Viewport.Width());
-        bool bCurrentScissorValid = (CurrentGraphicsState.ViewportState.Scissor.height() && CurrentGraphicsState.ViewportState.Scissor.width());
+        bool bCurrentScissorValid = (CurrentGraphicsState.ViewportState.Scissor.Height() && CurrentGraphicsState.ViewportState.Scissor.Width());
 
         if (!bCurrentViewportValid || CurrentGraphicsState.ViewportState.Viewport != Viewport)
         {
@@ -1166,7 +1223,7 @@ namespace Lumina
             CurrentCommandBuffer->AddReferencedResource(State.IndexBuffer.Buffer);
         }
         
-        if (!State.VertexBuffers.empty() && State.VertexBuffers != CurrentGraphicsState.VertexBuffers)
+        if (!State.VertexBuffers.empty() && (!VectorsAreEqual(State.VertexBuffers, CurrentGraphicsState.VertexBuffers)))
         {
             VkBuffer VertexBuffer[16];
             uint64 VertexBufferOffsets[16];
@@ -1191,7 +1248,7 @@ namespace Lumina
         }
 
         CurrentGraphicsState = State;
-        bHasDynamicBufferWrites = false;
+        PendingState.ClearPendingState(EPendingCommandState::DynamicBufferWrites);
     }
 
     void FVulkanCommandList::Draw(uint32 VertexCount, uint32 InstanceCount, uint32 FirstVertex, uint32 FirstInstance)
@@ -1243,31 +1300,30 @@ namespace Lumina
 
         FVulkanComputePipeline* ComputePipeline = static_cast<FVulkanComputePipeline*>(State.Pipeline);
 
-        if (bEnableAutomaticBarriers)
+        bool bBindingsEqual = VectorsAreEqual(State.Bindings, CurrentComputeState.Bindings);
+        if (PendingState.IsInState(EPendingCommandState::AutomaticBarriers) && (!bBindingsEqual))
         {
-            if (State.Bindings != CurrentComputeState.Bindings)
+            for (SIZE_T i = 0; i < ComputePipeline->GetDesc().BindingLayouts.size(); ++i)
             {
-                for (SIZE_T i = 0; i < ComputePipeline->GetDesc().BindingLayouts.size(); ++i)
+                FVulkanBindingLayout* Layout = static_cast<FVulkanBindingLayout*>(ComputePipeline->GetDesc().BindingLayouts[i].GetReference());
+
+                if ((Layout->Desc.StageFlags.IsFlagCleared(ERHIShaderType::Compute)))
                 {
-                    FVulkanBindingLayout* Layout = static_cast<FVulkanBindingLayout*>(ComputePipeline->GetDesc().BindingLayouts[i].GetReference());
-
-                    if ((Layout->Desc.StageFlags.IsFlagCleared(ERHIShaderType::Compute)))
-                    {
-                        continue;
-                    }
-
-                    SetResourceStatesForBindingSet(State.Bindings[i]);
+                    continue;
                 }
+
+                SetResourceStatesForBindingSet(State.Bindings[i]);
             }
         }
 
         if (CurrentComputeState.Pipeline != ComputePipeline)
         {
+            CommandListStats.NumPipelineSwitches++;
             vkCmdBindPipeline(CurrentCommandBuffer->CommandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, ComputePipeline->Pipeline);
             CurrentCommandBuffer->AddReferencedResource(ComputePipeline);
         }
 
-        if (bHasDynamicBufferWrites || CurrentComputeState.Bindings != State.Bindings)
+        if (PendingState.IsInState(EPendingCommandState::DynamicBufferWrites) || (!bBindingsEqual))
         {
             BindBindingSets(VK_PIPELINE_BIND_POINT_COMPUTE, ComputePipeline->PipelineLayout, State.Bindings);
         }
@@ -1291,13 +1347,15 @@ namespace Lumina
         CurrentGraphicsState = {};
         CurrentComputeState = {};
 
-        bHasDynamicBufferWrites = false;
+        PendingState.ClearPendingState(EPendingCommandState::DynamicBufferWrites);
     }
 
     void FVulkanCommandList::Dispatch(uint32 GroupCountX, uint32 GroupCountY, uint32 GroupCountZ)
     {
         LUMINA_PROFILE_SCOPE();
 
+        CommandListStats.NumDispatchCalls++;
+        
         UpdateComputeDynamicBuffers();
 
         TracyVkZone(CurrentCommandBuffer->TracyContext, CurrentCommandBuffer->CommandBuffer, "vkCmdDispatch")
@@ -1368,15 +1426,15 @@ namespace Lumina
                 subresourceRange.aspectMask     = aspectMask;
                 
                 VkImageMemoryBarrier imgBarrier = {};
-                imgBarrier.sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
-                imgBarrier.srcAccessMask       = before.AccessMask;
-                imgBarrier.dstAccessMask       = after.AccessMask;
-                imgBarrier.oldLayout           = before.ImageLayout;
-                imgBarrier.newLayout           = after.ImageLayout;
-                imgBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-                imgBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-                imgBarrier.image               = texture->GetAPIResource<VkImage, EAPIResourceType::Image>();
-                imgBarrier.subresourceRange    = subresourceRange;
+                imgBarrier.sType                = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+                imgBarrier.srcAccessMask        = before.AccessMask;
+                imgBarrier.dstAccessMask        = after.AccessMask;
+                imgBarrier.oldLayout            = before.ImageLayout;
+                imgBarrier.newLayout            = after.ImageLayout;
+                imgBarrier.srcQueueFamilyIndex  = VK_QUEUE_FAMILY_IGNORED;
+                imgBarrier.dstQueueFamilyIndex  = VK_QUEUE_FAMILY_IGNORED;
+                imgBarrier.image                = texture->GetAPIResource<VkImage, EAPIResourceType::Image>();
+                imgBarrier.subresourceRange     = subresourceRange;
                 
                 batch->ImageBarriers.push_back(imgBarrier);
             }
@@ -1407,15 +1465,15 @@ namespace Lumina
                 
                 FVulkanBuffer* buffer = static_cast<FVulkanBuffer*>(barrier.Buffer);
                 
-                VkBufferMemoryBarrier bufBarrier = {};
-                bufBarrier.sType               = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
-                bufBarrier.srcAccessMask       = before.AccessMask;
-                bufBarrier.dstAccessMask       = after.AccessMask;
-                bufBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-                bufBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-                bufBarrier.buffer              = buffer->Buffer;
-                bufBarrier.offset              = 0;
-                bufBarrier.size                = buffer->GetDescription().Size;
+                VkBufferMemoryBarrier bufBarrier    = {};
+                bufBarrier.sType                    = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER;
+                bufBarrier.srcAccessMask            = before.AccessMask;
+                bufBarrier.dstAccessMask            = after.AccessMask;
+                bufBarrier.srcQueueFamilyIndex      = VK_QUEUE_FAMILY_IGNORED;
+                bufBarrier.dstQueueFamilyIndex      = VK_QUEUE_FAMILY_IGNORED;
+                bufBarrier.buffer                   = buffer->Buffer;
+                bufBarrier.offset                   = 0;
+                bufBarrier.size                     = buffer->GetDescription().Size;
                 
                 batch->BufferBarriers.push_back(bufBarrier);
             }

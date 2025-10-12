@@ -16,7 +16,7 @@ namespace Lumina
     {
     public:
 
-        FViewVolume(float fov = 90.0f, float aspect = 16.0f / 9.0f);
+        FViewVolume(float fov = 90.0f, float aspect = 16.0f / 9.0f, float InNear = 0.01f, float InFar = 1000.0f);
 
         void SetNear(float InNear);
         void SetFar(float InFar);
@@ -25,7 +25,8 @@ namespace Lumina
         void SetPerspective(float InFov, float InAspect);
         void SetAspectRatio(float InAspect);
         void SetFOV(float InFOV);
-    
+        void Rotate(float Angle, glm::vec3 Axis);
+        
         FORCEINLINE const glm::vec3& GetViewPosition() const { return ViewPosition; }
 
         FORCEINLINE const glm::mat4& GetViewMatrix() const { return ViewMatrix; }
@@ -44,8 +45,11 @@ namespace Lumina
         FORCEINLINE float GetAspectRatio() const { return AspectRatio; }
 
         static glm::vec3 UpAxis;
+        static glm::vec3 DownAxis;
         static glm::vec3 RightAxis;
+        static glm::vec3 LeftAxis;
         static glm::vec3 ForwardAxis;
+        static glm::vec3 BackwardAxis;
         
     private:
 

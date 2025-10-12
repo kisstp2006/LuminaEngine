@@ -33,8 +33,7 @@ namespace Lumina
     //   still be handled carefully when packing structs in C++.
     // - Avoid using vec3 in UBOs unless you pad to vec4 alignment manually.
     // ----------------------------------------------------------------------------------
-
-
+    
 
     VkFormat ConvertFormat(EFormat Format);
     
@@ -219,7 +218,7 @@ namespace Lumina
 
         struct Hash
         {
-            std::size_t operator()(FSubresourceViewKey const& s) const noexcept
+            std::size_t operator()(const FSubresourceViewKey& s) const noexcept
             {
                 const auto& [subresources, viewType, dimension, format, usage] = s;
 

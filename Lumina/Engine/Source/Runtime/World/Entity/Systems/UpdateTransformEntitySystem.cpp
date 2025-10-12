@@ -64,7 +64,7 @@ namespace Lumina
                     glm::vec3 UpdatedUp = TransformComponent.WorldTransform.Rotation * FViewVolume::UpAxis;
                     
                     SCameraComponent& Camera = SystemContext.Get<SCameraComponent>(entity);
-                    Camera.SetView(TransformComponent.WorldTransform.Location, TransformComponent.WorldTransform.Location + UpdatedForward, UpdatedUp);
+                    Camera.SetView(TransformComponent.WorldTransform.Location, UpdatedForward, UpdatedUp);
                 }
                 
                 TransformComponent.CachedMatrix = TransformComponent.WorldTransform.GetMatrix();  

@@ -16,7 +16,7 @@ namespace Lumina
 
     enum class ECommandQueue : uint8;
 
-    struct FCommandListInfo
+    struct LUMINA_API FCommandListInfo
     {
 
         // Minimum size of memory chunks created to upload data to the device on DX12.
@@ -54,13 +54,22 @@ namespace Lumina
         
     };
 
-    struct FCommandListStatTracker
+    struct LUMINA_API FCommandListStatTracker
     {
         uint32 NumDrawCalls = 0;
+        uint32 NumDispatchCalls = 0;
+        uint32 NumBlitCommands = 0;
+        uint32 NumClearCommands = 0;
+        uint32 NumBufferWrites = 0;
+        uint32 NumCopies = 0;
         uint32 NumBarriers = 0;
+        uint32 NumPipelineSwitches = 0;
+        uint32 NumRenderPasses = 0;
+        uint32 NumBindings = 0;
+        uint32 NumPushConstants = 0;
     };
     
-    class ICommandList : public IRHIResource
+    class LUMINA_API ICommandList : public IRHIResource
     {
     public:
 

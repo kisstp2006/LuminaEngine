@@ -45,7 +45,7 @@ namespace Lumina
 
     struct FTextureState
     {
-        TFixedVector<EResourceStates, 1> SubresourceStates;
+        TFixedVector<EResourceStates, 4> SubresourceStates;
         EResourceStates State = EResourceStates::Unknown;
         bool bEnableUavBarriers = true;
         bool bFirstUavBarrierPlaced = false;

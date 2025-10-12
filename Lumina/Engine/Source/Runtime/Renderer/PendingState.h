@@ -8,8 +8,12 @@ namespace Lumina
 
     enum class EPendingCommandState : uint8
     {
-        Idle = 0,
-        Recording = 1,
+        Idle,
+        Recording,
+        RenderPass,
+        DynamicBufferWrites,
+        AutomaticBarriers,
+        HasBarriers,
     };
     
     ENUM_CLASS_FLAGS(EPendingCommandState);
@@ -23,8 +27,10 @@ namespace Lumina
         FORCEINLINE void Reset() { PendingCommandState.ClearAllFlags(); }
         
 
-        FORCEINLINE bool IsRecording() const { return PendingCommandState.IsFlagSet(EPendingCommandState::Recording); }
-        FORCEINLINE bool IsIdle() const { return PendingCommandState.IsFlagSet(EPendingCommandState::Idle); }
+        FORCEINLINE NODISCARD bool IsInState(EPendingCommandState State) const { return PendingCommandState.IsFlagSet(State); }
+        FORCEINLINE NODISCARD bool HasBarriers(EPendingCommandState State) const { return PendingCommandState.IsFlagSet(EPendingCommandState::HasBarriers); }
+        FORCEINLINE NODISCARD bool IsRecording() const { return PendingCommandState.IsFlagSet(EPendingCommandState::Recording); }
+        FORCEINLINE NODISCARD bool IsIdle() const { return PendingCommandState.IsFlagSet(EPendingCommandState::Idle); }
         
     protected:
 

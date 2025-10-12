@@ -41,15 +41,7 @@ namespace Lumina
 
         friend class FQueue;
         
-        FVulkanCommandList(FVulkanRenderContext* InContext, const FCommandListInfo& InInfo)
-            : UploadManager(MakeUniquePtr<FUploadManager>(InContext, InInfo.UploadChunkSize, 0, false))
-            , ScratchManager(MakeUniquePtr<FUploadManager>(InContext, InInfo.ScratchChunkSize, InInfo.ScratchMaxMemory, true))
-            , RenderContext(InContext)
-            , Info(InInfo)
-            , PushConstantVisibility(0)
-            , CurrentPipelineLayout(nullptr)
-        {
-        }
+        FVulkanCommandList(FVulkanRenderContext* InContext, const FCommandListInfo& InInfo);
 
         void Open() override;
         void Close() override;
@@ -128,18 +120,20 @@ namespace Lumina
 
         FPendingCommandState& GetPendingCommandState() override { return PendingState; }
         
-        const FCommandListStatTracker& GetCommandListStats() const override { return CommandListStats; }
+        const FCommandListStatTracker& GetCommandListStats() const override { return CommandListStatLastFrame; }
                 
 
     private:
 
+        FVulkanRenderContext*                                   RenderContext = nullptr;
         FCommandListStatTracker                                 CommandListStats;
+        FCommandListStatTracker                                 CommandListStatLastFrame;
         TRefCountPtr<FTrackedCommandBuffer>                     CurrentCommandBuffer;
-        FMutex                                                  DynamicBufferWriteMutex;
         
         TUniquePtr<FUploadManager>                              UploadManager;
         TUniquePtr<FUploadManager>                              ScratchManager;
 
+        FMutex                                                  DynamicBufferWriteMutex;
         TFixedHashMap<FRHIBufferRef, FDynamicBufferWrite, 2>    DynamicBufferWrites;
 
         FGraphicsState                                          CurrentGraphicsState;
@@ -147,13 +141,9 @@ namespace Lumina
                                                                 
         FCommandListResourceStateTracker                        StateTracker;
         FPendingCommandState                                    PendingState;
-        FVulkanRenderContext*                                   RenderContext = nullptr;
         FCommandListInfo                                        Info;
         VkShaderStageFlags                                      PushConstantVisibility;
         VkPipelineLayout                                        CurrentPipelineLayout;
-                                                                
-        bool                                                    bHasDynamicBufferWrites = false;
-        bool                                                    bEnableAutomaticBarriers = true;        
     };
     
 }

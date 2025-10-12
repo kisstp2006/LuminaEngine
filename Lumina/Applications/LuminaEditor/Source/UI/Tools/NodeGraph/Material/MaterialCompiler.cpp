@@ -15,7 +15,11 @@ namespace Lumina
         FString FragmentPath = Paths::GetEngineResourceDirectory() + "/MaterialShader/GeometryPass.frag";
 
         FString LoadedString;
-        FileHelper::LoadFileIntoString(LoadedString, FragmentPath);
+        if (!FileHelper::LoadFileIntoString(LoadedString, FragmentPath))
+        {
+            LOG_ERROR("Failed to find GeometryPass.frag!");
+            return FString();
+        }
 
         const char* Token = "$MATERIAL_INPUTS";
         size_t Pos = LoadedString.find(Token);

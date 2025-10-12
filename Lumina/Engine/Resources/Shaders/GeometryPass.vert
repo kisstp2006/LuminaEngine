@@ -1,4 +1,5 @@
 #version 460 core
+
 #extension GL_ARB_shader_draw_parameters : enable
 
 #pragma shader_stage(vertex)
@@ -71,5 +72,4 @@ void main()
     outFragColor    = inColor;
     outEntityID     = GetEntityID(gl_InstanceIndex);
     gl_Position     = Projection * ViewPos;
-    //gl_Position.y   = -gl_Position.y;     
 }

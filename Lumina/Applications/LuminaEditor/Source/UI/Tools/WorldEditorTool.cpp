@@ -27,6 +27,7 @@ namespace Lumina
     
     FWorldEditorTool::FWorldEditorTool(IEditorToolContext* Context, CWorld* InWorld)
         : FEditorTool(Context, InWorld->GetName().ToString(), InWorld)
+        , SelectedSystem(nullptr)
         , SelectedEntity()
         , CopiedEntity()
         , OutlinerContext()
@@ -323,12 +324,60 @@ namespace Lumina
             ImGui::TextUnformatted("Draw Calls");
             ImGui::TableNextColumn();
             ImGui::Text("%u", CommandList->GetCommandListStats().NumDrawCalls);
+
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn();
+            ImGui::TextUnformatted("Dispatch Calls");
+            ImGui::TableNextColumn();
+            ImGui::Text("%u", CommandList->GetCommandListStats().NumDispatchCalls);
+
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn();
+            ImGui::TextUnformatted("Buffer Writes");
+            ImGui::TableNextColumn();
+            ImGui::Text("%u", CommandList->GetCommandListStats().NumBufferWrites);
+
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn();
+            ImGui::TextUnformatted("Copy Calls");
+            ImGui::TableNextColumn();
+            ImGui::Text("%u", CommandList->GetCommandListStats().NumCopies);
+            
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn();
+            ImGui::TextUnformatted("Blit Calls");
+            ImGui::TableNextColumn();
+            ImGui::Text("%u", CommandList->GetCommandListStats().NumBlitCommands);
+
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn();
+            ImGui::TextUnformatted("Clear Calls");
+            ImGui::TableNextColumn();
+            ImGui::Text("%u", CommandList->GetCommandListStats().NumClearCommands);
+
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn();
+            ImGui::TextUnformatted("Num Bindings");
+            ImGui::TableNextColumn();
+            ImGui::Text("%u", CommandList->GetCommandListStats().NumBindings);
+
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn();
+            ImGui::TextUnformatted("Num Push Constants");
+            ImGui::TableNextColumn();
+            ImGui::Text("%u", CommandList->GetCommandListStats().NumPushConstants);
             
             ImGui::TableNextRow();
             ImGui::TableNextColumn();
             ImGui::TextUnformatted("Pipeline Barriers");
             ImGui::TableNextColumn();
             ImGui::Text("%u", CommandList->GetCommandListStats().NumBarriers);
+
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn();
+            ImGui::TextUnformatted("Pipeline Switches");
+            ImGui::TableNextColumn();
+            ImGui::Text("%u", CommandList->GetCommandListStats().NumPipelineSwitches);
             
             
             ImGui::EndTable();
