@@ -155,3 +155,10 @@ You may use, modify, and distribute the code freely — just keep the license an
 - [GitHub Repository](https://github.com/mrdrelliot/lumina)
 - [Discord Community](https://discord.gg/xQSB7CRzQE)
 
+## Other Open Source Engines
+Here's a list of some other open source projects that have inspired Lumina
+
+- [Spartan Engine](https://github.com/PanosK92/SpartanEngine)
+- [Kohi Game Engine](https://kohiengine.com/)
+- [ezEngine](https://ezengine.net/)
+
