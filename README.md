@@ -33,6 +33,9 @@ Up to date blog: https://www.dr-elliot.com
 - 🖥️ **ImGui-based editor** with real-time scene editing
 - 🎮 **ECS-Based workflow**.
 - 🎮 **Vulkan renderer**
+
+- Deferred Rendering with Clustered Lighting.
+- Fast rendering with automatic barrier placement and resource tracking
 ---
 
 ## 📸 Screenshots
@@ -62,8 +65,9 @@ Up to date blog: https://www.dr-elliot.com
 5. Run `Scripts/Win-GenProjects.py`.
 6. Open the generated `.sln` in Visual Studio.
 7. Build & Run the **Reflector** in `Release` mode.
-8. Set **Editor** as startup project. Select Debug or Release mode.
-9. Build & run.
+8. Re-Run `Scripts/Win-GenProjects.py`.
+9. Set **Editor** as startup project. Select Debug or Release mode.
+10. Build & run.
 
 ---
 
@@ -150,4 +154,11 @@ You may use, modify, and distribute the code freely — just keep the license an
 
 - [GitHub Repository](https://github.com/mrdrelliot/lumina)
 - [Discord Community](https://discord.gg/xQSB7CRzQE)
+
+## Other Open Source Engines
+Here's a list of some other open source projects that have inspired Lumina
+
+- [Spartan Engine](https://github.com/PanosK92/SpartanEngine)
+- [Kohi Game Engine](https://kohiengine.com/)
+- [ezEngine](https://ezengine.net/)
 
