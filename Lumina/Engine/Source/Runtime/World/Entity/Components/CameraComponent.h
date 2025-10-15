@@ -23,7 +23,7 @@ namespace Lumina
         
         void SetFOV(float NewFOV)
         {
-            ViewVolume.SetPerspective(NewFOV, ViewVolume.GetAspectRatio());
+            ViewVolume.SetFOV(NewFOV);
         }
         
         void SetAspectRatio(float NewAspect)

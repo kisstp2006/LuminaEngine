@@ -13,15 +13,6 @@ layout(set = 0, binding = 0) readonly uniform SceneGlobals
     float NearPlane;
     float FarPlane;
 
-
-    mat4    LightViewProj[4];
-    vec4    CascadeSplits;
-
-    vec3    SunDirection;
-    bool    bHasSun;
-
-    vec4    AmbientLight;
-
     FSSAOSettings SSAOSettings;
 
 } SceneUBO;
@@ -40,7 +31,17 @@ layout(set = 0, binding = 2) readonly buffer InstanceMappingData
 layout(set = 0, binding = 3) readonly buffer FLightData
 {
     uint    NumLights;
-    FLight  Lights[];
+    uint    Padding[3];
+
+    vec3    SunDirection;
+    bool    bHasSun;
+
+    mat4    CascadeViewProjections[4];
+    vec4    CascadeSplits;
+
+    vec4    AmbientLight;
+
+    FLight  Lights[MAX_LIGHTS];
 } LightData;
 
 
@@ -54,17 +55,17 @@ uint DrawIDToInstanceID(uint ID)
 
 vec3 GetSunDirection()
 {
-    return SceneUBO.SunDirection.xyz;
+    return LightData.SunDirection.xyz;
 }
 
 vec3 GetAmbientLightColor()
 {
-    return SceneUBO.AmbientLight.xyz;
+    return LightData.AmbientLight.xyz;
 }
 
 float GetAmbientLightIntensity()
 {
-    return SceneUBO.AmbientLight.w;
+    return LightData.AmbientLight.w;
 }
 
 float GetTime()

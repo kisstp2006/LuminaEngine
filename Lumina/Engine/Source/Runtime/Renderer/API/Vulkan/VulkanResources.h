@@ -44,7 +44,7 @@ namespace Lumina
         FRHIBufferRef Buffer;
         uint64 Version = 0;
         uint64 BufferSize = 0;
-        std::atomic_uint64_t WritePointer{0};
+        uint64 WritePointer;
         void* MappedMemory = nullptr;
 
         static constexpr uint64 GSizeAlignment = 4096; // GPU page size
@@ -69,7 +69,7 @@ namespace Lumina
         uint64 AllocatedMemory = 0;
         bool bIsScratchBuffer = false;
 
-        TFixedList<TSharedPtr<FBufferChunk>, 8>    ChunkPool;
+        TFixedList<TSharedPtr<FBufferChunk>, 4>    ChunkPool;
         TSharedPtr<FBufferChunk>                   CurrentChunk = nullptr;
     };
     

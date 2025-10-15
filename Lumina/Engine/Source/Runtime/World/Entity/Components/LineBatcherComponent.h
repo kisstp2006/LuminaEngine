@@ -167,7 +167,9 @@ namespace Lumina
             }
         }
 
-        LUMINA_API void DrawFrustum(const glm::mat4& Matrix, const glm::vec4& Color, float Thickness = 1.0f, float Duration = 1.0f)
+        
+
+        LUMINA_API void DrawFrustum(const glm::mat4& Matrix, float zNear, float zFar, const glm::vec4& Color, float Thickness = 1.0f, float Duration = 1.0f)
         {
             auto UnprojectCorner = [&](float x, float y, float z) -> glm::vec3
             {
@@ -178,19 +180,16 @@ namespace Lumina
 
             // Compute near/far corners in NDC space
             glm::vec3 corners[8];
-            
-            float nearZ = 0.01f;
-            float farZ  = 1.0f;
 
-            corners[0] = UnprojectCorner(-1, -1, nearZ); // NearBL
-            corners[1] = UnprojectCorner( 1, -1, nearZ); // NearBR
-            corners[2] = UnprojectCorner( 1,  1, nearZ); // NearTR
-            corners[3] = UnprojectCorner(-1,  1, nearZ); // NearTL
+            corners[0] = UnprojectCorner(-1, -1, zNear); // NearBL
+            corners[1] = UnprojectCorner( 1, -1, zNear); // NearBR
+            corners[2] = UnprojectCorner( 1,  1, zNear); // NearTR
+            corners[3] = UnprojectCorner(-1,  1, zNear); // NearTL
 
-            corners[4] = UnprojectCorner(-1, -1, farZ);  // FarBL
-            corners[5] = UnprojectCorner( 1, -1, farZ);  // FarBR
-            corners[6] = UnprojectCorner( 1,  1, farZ);  // FarTR
-            corners[7] = UnprojectCorner(-1,  1, farZ);  // FarTL
+            corners[4] = UnprojectCorner(-1, -1, zFar);  // FarBL
+            corners[5] = UnprojectCorner( 1, -1, zFar);  // FarBR
+            corners[6] = UnprojectCorner( 1,  1, zFar);  // FarTR
+            corners[7] = UnprojectCorner(-1,  1, zFar);  // FarTL
             
 
             // Draw near plane box
@@ -247,6 +246,11 @@ namespace Lumina
             DrawLine(Corner2, Corner3, Color, Thickness, Duration);
             DrawLine(Corner3, Corner4, Color, Thickness, Duration);
             DrawLine(Corner4, Corner1, Color, Thickness, Duration);
+        }
+
+        LUMINA_API void DrawViewVolume(const FViewVolume& ViewVolume, const glm::vec4& Color, float Thickness, float Duration)
+        {
+            DrawFrustum(ViewVolume.GetViewProjectionMatrix(), ViewVolume.GetNear(), ViewVolume.GetFar(), Color, Thickness, Duration);
         }
 
         LUMINA_API void Flush()

@@ -61,16 +61,13 @@ namespace Lumina
         
         THashMap<uint64, PoolConfig> BufferPools;
         THashMap<uint64, PoolConfig> ImagePools;
-        THashMap<VkBuffer, VmaAllocationInfo> BufferCache;
-        THashMap<VkImage, VmaAllocationInfo> ImageCache;
-        THashMap<VkBuffer, VmaAllocation> AllocatedBuffers;
-        THashMap<VkImage, VmaAllocation> AllocatedImages;
+        THashMap<VkBuffer, TPair<VmaAllocation, VmaAllocationInfo>> AllocatedBuffers;
+        THashMap<VkImage, TPair<VmaAllocation, VmaAllocationInfo>> AllocatedImages;
         
         FMutex ImageAllocationMutex;
         FMutex BufferAllocationMutex;
         VmaAllocator Allocator = nullptr;
         FVulkanRenderContext* RenderContext = nullptr;
-
     };
     
     class FVulkanDevice

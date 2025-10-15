@@ -11,11 +11,21 @@ layout(set = 0, binding = 0) restrict buffer BufferSSBO
     FCluster Clusters[];
 } Clusters;
 
-layout(set = 0, binding = 1) restrict buffer LightDataSSBO
+layout(set = 0, binding = 1) readonly buffer FLightData
 {
-    uint   NumLights;
-    FLight Lights[];
-} Lights;
+    uint    NumLights;
+    uint    Padding[3];
+
+    vec3    SunDirection;
+    bool    bHasSun;
+
+    mat4    CascadeViewProjections[4];
+    vec4    CascadeSplits;
+
+    vec4    AmbientLight;
+
+    FLight  Lights[MAX_LIGHTS];
+} LightData;
 
 layout(push_constant) uniform PushConstants
 {
@@ -34,8 +44,8 @@ bool SphereAABBIntersection(vec3 Center, float Radius, vec3 AABBMin, vec3 AABBMa
 
 bool TestSphereAABB(uint i, FCluster Cluster)
 {
-    vec3 Center = vec4(PC.ViewMatrix * vec4(Lights.Lights[i].Position, 1.0)).xyz;
-    float Radius = Lights.Lights[i].Radius;
+    vec3 Center = vec4(PC.ViewMatrix * vec4(LightData.Lights[i].Position, 1.0)).xyz;
+    float Radius = LightData.Lights[i].Radius;
     
     vec3 AABBMin = Cluster.MinPoint.xyz;
     vec3 AABBMax = Cluster.MaxPoint.xyz;
@@ -45,14 +55,14 @@ bool TestSphereAABB(uint i, FCluster Cluster)
 
 void main()
 {
-    uint LightCount = Lights.NumLights;
+    uint LightCount = LightData.NumLights;
     uint Index = gl_WorkGroupID.x * LOCAL_SIZE + gl_LocalInvocationID.x;
 
     Clusters.Clusters[Index].Count = 0;
 
     for(uint i = 0; i < LightCount; ++i)
     {
-        if(Lights.Lights[i].Type == LIGHT_TYPE_DIRECTIONAL)
+        if(HasFlag(LightData.Lights[i].Flags, LIGHT_FLAG_TYPE_DIRECTIONAL))
         {
             continue;
         }

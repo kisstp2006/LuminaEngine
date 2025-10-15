@@ -18,6 +18,10 @@ const float INV_PI = 0.31830988618;
 #define COL_A_SHIFT 24
 #define COL_A_MASK 0xFF000000
 
+#define MAX_LIGHTS 3456
+#define MAX_SHADOWS 100
+#define NUM_CASCADES 4
+
 
 struct FDrawIndexedIndirectArguments 
 {
@@ -40,9 +44,14 @@ struct FCameraView
 //////////////////////////////////////////////////////////
 
 const int SSAO_KERNEL_SIZE        = 32;
-const uint LIGHT_TYPE_DIRECTIONAL = 0;
-const uint LIGHT_TYPE_POINT       = 1;
-const uint LIGHT_TYPE_SPOT        = 2;
+
+//////////////////////////////////////////////////////////
+
+
+const uint LIGHT_FLAG_TYPE_DIRECTIONAL = 1 << 0;
+const uint LIGHT_FLAG_TYPE_POINT       = 1 << 1;
+const uint LIGHT_FLAG_TYPE_SPOT        = 1 << 2;
+const uint LIGHT_FLAG_CASTSHADOW       = 1 << 3;
 
 
 //////////////////////////////////////////////////////////
@@ -63,6 +72,12 @@ struct FInstanceData
     uvec4   PackedID;
 };
 
+struct FLightShadow
+{
+    vec4 AtlasRegion;
+    uint ShadowMapIndex;
+};
+
 struct FLight
 {
     vec3 Position;
@@ -71,9 +86,13 @@ struct FLight
     vec3 Direction;
     float Radius;
     
+    mat4 ViewProjection;
+    
     vec2 Angles;
-    uint Type;
+    uint Flags;
     float Falloff;
+
+    FLightShadow Shadow;
 };
 
 struct FCluster
@@ -163,10 +182,9 @@ vec3 ReconstructViewPosition(vec2 uv, float depth, mat4 invProjection)
     return viewSpace.xyz / viewSpace.w;
 }
 
-float LinearizeDepth(float depth, float near, float far)
+float LinearizeDepth(float depth, float near, float far) 
 {
-    float z = depth * 2.0 - 1.0; // Convert to NDC
-    return (2.0 * near * far) / (far + near - z * (far - near));
+    return (near * far) / (far - depth * (far - near)) / far;
 }
 
 float LinearizeDepthReverseZ(float depth, float near, float far)

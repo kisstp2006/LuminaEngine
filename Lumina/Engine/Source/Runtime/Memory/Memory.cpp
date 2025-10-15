@@ -36,7 +36,7 @@ namespace Lumina
     {
         LUMINA_PROFILE_SCOPE();
 
-        // Since our tasks are not bound to a specific thread and we may alloc on one and free on another. This prevents us from calling thread finalize when we shutdown a thread
+        // Since our tasks are not bound to a specific thread and we may alloc on one and free on another. This prevents us from calling thread finalize when we shut down a thread
         // as we can not guarantee that we have freed everything that may have been allocated from this thread.
         // This is not a problem since on application shutdown, we call rpmalloc_finalize, which will release the thread heaps
         rpmalloc_thread_initialize();

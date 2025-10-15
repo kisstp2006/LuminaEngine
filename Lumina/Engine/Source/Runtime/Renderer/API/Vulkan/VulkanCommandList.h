@@ -49,6 +49,7 @@ namespace Lumina
 
         void CopyImage(FRHIImage* Src, const FTextureSlice& SrcSlice, FRHIImage* Dst, const FTextureSlice& DstSlice) override;
         void CopyImage(FRHIImage* Src, const FTextureSlice& SrcSlice, FRHIStagingImage* Dst, const FTextureSlice& DstSlice) override;
+        void CopyImage(FRHIStagingImage* Src, const FTextureSlice& SrcSlice, FRHIImage* Dst, const FTextureSlice& DstSlice) override;
         void WriteImage(FRHIImage* Dst, uint32 ArraySlice, uint32 MipLevel, const void* Data, SIZE_T RowPitch, SIZE_T DepthPitch) override;
         void ClearImageFloat(FRHIImage* Image, FTextureSubresourceSet Subresource, const FColor& Color) override;
         void ClearImageUInt(FRHIImage* Image, FTextureSubresourceSet Subresource, uint32 Color) override;
@@ -57,11 +58,13 @@ namespace Lumina
         void FillBuffer(FRHIBuffer* Buffer, uint32 Value) override;
         void CopyBuffer(FRHIBuffer* Source, uint64 SrcOffset, FRHIBuffer* Destination, uint64 DstOffset, uint64 CopySize) override;
 
-        void UpdateComputeDynamicBuffers();
-        void UpdateGraphicsDynamicBuffers();
+        void WriteDynamicBuffer(FRHIBuffer* Buffer, const void* Data, SIZE_T Size);
         void FlushDynamicBufferWrites();
         void SubmitDynamicBuffers(uint64 RecordingID, uint64 SubmittedID);
 
+        void UpdateComputeDynamicBuffers();
+        void UpdateGraphicsDynamicBuffers();
+        
         void SetPermanentImageState(FRHIImage* Image,EResourceStates StateBits) override;
         void SetPermanentBufferState(FRHIBuffer* Buffer, EResourceStates StateBits) override;
 

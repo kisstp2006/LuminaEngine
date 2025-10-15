@@ -9,6 +9,7 @@
 #include "Renderer/RHIFwd.h"
 
 #define MAX_LIGHTS 3456
+#define MAX_SHADOWS 100
 #define SSAO_KERNEL_SIZE 32
 #define LIGHT_INDEX_MASK 0x1FFFu
 #define LIGHTS_PER_UINT 2
@@ -20,6 +21,10 @@
 #define COL_B_SHIFT 16
 #define COL_A_SHIFT 24
 #define COL_A_MASK 0xFF000000
+
+#define VERIFY_SSBO_ALIGNMENT(Type) \
+static_assert(sizeof(Type) % 16 == 0, #Type " must be 16-byte aligned");
+
 
 namespace Lumina
 {
@@ -54,30 +59,48 @@ namespace Lumina
     
     struct FCameraData
     {
-        glm::vec4 Location =    {};
-        glm::mat4 View =        {};
-        glm::mat4 InverseView = {};
-        glm::mat4 Projection =  {};
+        glm::vec4 Location          = {};
+        glm::mat4 View              = {};
+        glm::mat4 InverseView       = {};
+        glm::mat4 Projection        = {};
         glm::mat4 InverseProjection = {};
     };
-    
-    constexpr uint32 LIGHT_TYPE_DIRECTIONAL = 0;
-    constexpr uint32 LIGHT_TYPE_POINT       = 1;
-    constexpr uint32 LIGHT_TYPE_SPOT        = 2;
 
+    constexpr uint32 LIGHT_TYPE_MASK      = 0x0000FFFF; // lower 16 bits
+    constexpr uint32 LIGHT_SHADOW_MASK    = 0xFFFF0000; // upper 16 bits
+    constexpr int    LIGHT_SHADOW_SHIFT   = 16;
+    
+    constexpr uint32 LIGHT_TYPE_DIRECTIONAL = 1 << 0;
+    constexpr uint32 LIGHT_TYPE_POINT       = 1 << 1;
+    constexpr uint32 LIGHT_TYPE_SPOT        = 1 << 2;
+
+
+    struct alignas(16) FLightShadow
+    {
+        glm::vec4   AtlasRegion;
+        uint32      ShadowMapIndex;
+    };
+    
     struct alignas(16) FLight
     {
-        glm::vec3   Position;
-        uint32      Color;
+        glm::vec3       Position;
+        uint32          Color;
         
-        glm::vec3   Direction;
-        float       Radius;
+        glm::vec3       Direction;
+        float           Radius;
+
+        glm::mat4       ViewProjection;
         
-        glm::vec2   Angles;
-        uint32      Type;
-        float       Falloff;
+        glm::vec2       Angles;
+        uint32          Flags;
+        float           Falloff;
+
+        FLightShadow    Shadow;
     };
 
+    VERIFY_SSBO_ALIGNMENT(FLight)
+    
+    
     struct FSkyLight
     {
         glm::vec4 Color;
@@ -85,11 +108,27 @@ namespace Lumina
     
     struct FSceneLightData
     {
-        uint32 NumLights = 0;
-        uint32 Padding[3] = {};
-        FLight Lights[MAX_LIGHTS];
+        uint32          NumLights = 0;
+        uint32          Padding0[3] = {};
+
+        glm::vec3       SunDirection;
+        bool            bHasSun;
+
+        glm::mat4       CascadeViewProjections[4];
+        glm::vec4       CascadeSplits;
+
+        glm::vec4       AmbientLight;
+        
+        FLight          Lights[MAX_LIGHTS];
     };
 
+    struct FShadowMappingPC
+    {
+        glm::mat4 LightMatrix;
+        glm::vec3 LightPos;
+        float LightRadius;
+    };
+    
     struct FShadowCascade
     {
         FRHIImageRef    ShadowMapImage;
@@ -141,15 +180,16 @@ namespace Lumina
         glm::uvec4  PackedID; // Contains entity ID, and draw ID.
     };
     
-    static_assert(sizeof(FInstanceData) % 16 == 0, "FInstanceData must be 16-byte aligned");
+    VERIFY_SSBO_ALIGNMENT(FInstanceData)
 
+    
     struct FCullData
     {
         FFrustum    Frustum;
         glm::vec4   View;
     };
     
-    static_assert(sizeof(FCullData) % 16 == 0, "FCullData must be 16-byte aligned");
+    VERIFY_SSBO_ALIGNMENT(FCullData)
     
 
     struct FSceneGlobalData
@@ -162,16 +202,6 @@ namespace Lumina
         float           DeltaTime;
         float           NearPlane;
         float           FarPlane;
-
-        glm::mat4       LightViewProj[4];
-        glm::vec4       CascadeSplits;
-
-        glm::vec3       SunDirection;
-        bool            bHasSun;
-        
-        
-        glm::vec3       AmbientLight;
-        uint32          _pad1;
         
         FSSAOSettings   SSAOSettings;
     };

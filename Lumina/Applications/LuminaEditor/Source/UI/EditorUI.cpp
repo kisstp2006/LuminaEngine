@@ -32,6 +32,7 @@
 #include "Core/Reflection/PropertyCustomization/PropertyCustomization.h"
 #include "Platform/Process/PlatformProcess.h"
 #include "Properties/Customizations/CoreTypeCustomization.h"
+#include "Renderer/RenderDocImpl.h"
 #include "Renderer/RenderManager.h"
 #include "Renderer/RHIGlobals.h"
 #include "Tools/GamePreviewTool.h"
@@ -1083,8 +1084,15 @@ namespace Lumina
                 FString LuminaDirEnv = std::getenv("LUMINA_DIR");
                 FString FullPath = LuminaDirEnv + "/External/Tracy/tracy-profiler.exe";
                 FString FullCommand = "start " + FullPath;
-                system(FullCommand.c_str());
+                std::system(FullCommand.c_str());
             }
+
+            
+            if (ImGui::MenuItem("Render Doc", nullptr))
+            {
+                FRenderDoc::Get().TriggerCapture();
+            }
+            
             ImGui::EndMenu();
         }
         

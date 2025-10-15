@@ -35,6 +35,7 @@ namespace Lumina
             Desc.AddressU = AddressU;
             Desc.AddressV = AddressV;
             Desc.AddressW = AddressW;
+            Desc.BorderColor = FColor::White;
 
             return GRenderContext->CreateSampler(Desc);
         }

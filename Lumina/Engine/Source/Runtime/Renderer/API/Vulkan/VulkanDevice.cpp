@@ -118,15 +118,15 @@ namespace Lumina
         }
     #endif
         
-        AllocatedBuffers[*vkBuffer] = Allocation;
-        
-        BufferCache[*vkBuffer] = AllocationInfo;
+        AllocatedBuffers[*vkBuffer] = eastl::make_pair(Allocation, AllocationInfo);
         
         return Allocation;
     }
     
     VmaAllocation FVulkanMemoryAllocator::AllocateImage(VkImageCreateInfo* CreateInfo, VmaAllocationCreateFlags Flags, VkImage* vkImage, const char* AllocationName)
     {
+        constexpr uint64 DEDICATED_MEMORY_THRESHOLD = 2048 * 2048;
+
         LUMINA_PROFILE_SCOPE();
         FScopeLock Lock(ImageAllocationMutex);
     
@@ -142,7 +142,7 @@ namespace Lumina
         
         VkDeviceSize ImageSize = CreateInfo->extent.width * CreateInfo->extent.height * CreateInfo->extent.depth * CreateInfo->arrayLayers;
         
-        if (ImageSize > 4096 * 4096 || CreateInfo->usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
+        if (ImageSize > DEDICATED_MEMORY_THRESHOLD || CreateInfo->usage & VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT || CreateInfo->usage & VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT)
         {
             Info.flags |= VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT;
             Info.priority = 0.75f;
@@ -161,8 +161,7 @@ namespace Lumina
         }
     #endif
         
-        AllocatedImages[*vkImage] = Allocation;
-        ImageCache[*vkImage] = AllocationInfo;
+        AllocatedImages[*vkImage] = eastl::make_pair(Allocation, AllocationInfo);
         
         return Allocation;
     }
@@ -170,13 +169,13 @@ namespace Lumina
     VmaAllocation FVulkanMemoryAllocator::GetAllocation(VkBuffer Buffer)
     {
         auto it = AllocatedBuffers.find(Buffer);
-        return (it != AllocatedBuffers.end()) ? it->second : VK_NULL_HANDLE;
+        return (it != AllocatedBuffers.end()) ? it->second.first : VK_NULL_HANDLE;
     }
     
     VmaAllocation FVulkanMemoryAllocator::GetAllocation(VkImage Image)
     {
         auto it = AllocatedImages.find(Image);
-        return (it != AllocatedImages.end()) ? it->second : VK_NULL_HANDLE;
+        return (it != AllocatedImages.end()) ? it->second.first : VK_NULL_HANDLE;
     }
     
     void FVulkanMemoryAllocator::DestroyBuffer(VkBuffer Buffer)
@@ -193,9 +192,8 @@ namespace Lumina
             return;
         }
         
-        vmaDestroyBuffer(Allocator, Buffer, it->second);
+        vmaDestroyBuffer(Allocator, Buffer, it->second.first);
         AllocatedBuffers.erase(it);
-        BufferCache.erase(Buffer);
     }
     
     void FVulkanMemoryAllocator::DestroyImage(VkImage Image)
@@ -212,9 +210,8 @@ namespace Lumina
             return;
         }
         
-        vmaDestroyImage(Allocator, Image, it->second);
+        vmaDestroyImage(Allocator, Image, it->second.first);
         AllocatedImages.erase(it);
-        ImageCache.erase(Image);
     }
     
     void* FVulkanMemoryAllocator::GetMappedMemory(FVulkanBuffer* Buffer)
@@ -227,7 +224,7 @@ namespace Lumina
             Queue->WaitCommandList(Buffer->LastUseCommandListID, UINT64_MAX);
         }
 
-        return BufferCache[Buffer->GetBuffer()].pMappedData;
+        return AllocatedBuffers[Buffer->GetBuffer()].second.pMappedData;
     }
     
     void FVulkanMemoryAllocator::ClearAllAllocations()
@@ -238,21 +235,19 @@ namespace Lumina
         {
             if (kvp.first != VK_NULL_HANDLE)
             {
-                vmaDestroyBuffer(Allocator, kvp.first, kvp.second);
+                vmaDestroyBuffer(Allocator, kvp.first, kvp.second.first);
             }
         }
         AllocatedBuffers.clear();
-        BufferCache.clear();
     
         for (auto& kvp : AllocatedImages)
         {
             if (kvp.first != VK_NULL_HANDLE)
             {
-                vmaDestroyImage(Allocator, kvp.first, kvp.second);
+                vmaDestroyImage(Allocator, kvp.first, kvp.second.first);
             }
         }
         AllocatedImages.clear();
-        ImageCache.clear();
         
         for (auto& pool : BufferPools)
         {

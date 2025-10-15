@@ -1,5 +1,3 @@
-
-
 #include "VulkanRenderContext.h"
 #include <random>
 #include <vulkan/vulkan.hpp>
@@ -14,6 +12,7 @@
 #include "Core/Windows/Window.h"
 #include "Paths/Paths.h"
 #include "Platform/Filesystem/FileHelper.h"
+#include "Platform/Process/PlatformProcess.h"
 #include "Renderer/CommandList.h"
 #include "Renderer/RHIStaticStates.h"
 #include "Renderer/ShaderCompiler.h"
@@ -518,7 +517,7 @@ namespace Lumina
         vkDestroyInstance(VulkanInstance, VK_ALLOC_CALLBACK);
         VulkanInstance = VK_NULL_HANDLE;
     }
-
+    
     void FVulkanRenderContext::SetVSyncEnabled(bool bEnable)
     {
         Swapchain->SetPresentMode(bEnable ? VK_PRESENT_MODE_FIFO_KHR : VK_PRESENT_MODE_IMMEDIATE_KHR);
@@ -608,6 +607,7 @@ namespace Lumina
         DeviceFeatures.sampleRateShading        = VK_TRUE;
         DeviceFeatures.fillModeNonSolid         = VK_TRUE;
         DeviceFeatures.wideLines                = VK_TRUE; // @TODO Don't keep this.
+        DeviceFeatures.imageCubeArray           = VK_TRUE;
 
         VkPhysicalDeviceVulkan11Features Features11 = {};
         Features11.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
@@ -1082,7 +1082,6 @@ namespace Lumina
     
     void FVulkanRenderContext::CompileEngineShaders()
     {
-
         //@TODO - Obviously we don't want to recompile every shader everytime the engine loads, this is starting to become annoying
         // but for now until we have some data cache setup, we'll just leave it for now.
         

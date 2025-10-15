@@ -67,8 +67,9 @@ namespace Lumina
         void DepthPrePass(FRenderGraph& RenderGraph, const FViewVolume& View);
         void ClusterBuildPass(FRenderGraph& RenderGraph, const FViewVolume& View);
         void LightCullPass(FRenderGraph& RenderGraph, const FViewVolume& View);
-        void PointLightShadowPass(FRenderGraph& RenderGraph);
-        void CascadedShadowMapPass(FRenderGraph& RenderGraph);
+        void PointShadowPass(FRenderGraph& RenderGraph);
+        void SpotShadowPass(FRenderGraph& RenderGraph);
+        void DirectionalShowPass(FRenderGraph& RenderGraph);
         void GBufferPass(FRenderGraph& RenderGraph, const FViewVolume& View);
         void SSAOPass(FRenderGraph& RenderGraph);
         void EnvironmentPass(FRenderGraph& RenderGraph);
@@ -96,7 +97,6 @@ namespace Lumina
 
         TRenderVector<FSimpleElementVertex>         SimpleVertices;
         FRHIBindingLayoutRef                        SimplePassLayout;
-        
         
 
         FRHITypedVertexBuffer<FSimpleElementVertex> SimpleVertexBuffer;

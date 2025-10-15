@@ -157,6 +157,8 @@ namespace Lumina
         }
         
         PendingTasks.fetch_add(NumShaders, std::memory_order_relaxed);
+
+        LOG_INFO("Starting Shader Task Swarm - Num: {}", NumShaders);
         
         // Capture copies for thread safety
         TVector<FString> Paths(ShaderPaths.begin(), ShaderPaths.end());
@@ -263,7 +265,7 @@ namespace Lumina
 
     void FSpirVShaderCompiler::Shutdown()
     {
-        
+        Flush();
     }
 
     bool FSpirVShaderCompiler::CompilerShaderRaw(FString ShaderString, const FShaderCompileOptions& CompileOptions, CompletedFunc OnCompleted)

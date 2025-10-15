@@ -100,7 +100,7 @@ namespace Lumina
         
         bool Initialize() override;
         void Deinitialize() override;
-
+        
         void SetVSyncEnabled(bool bEnable) override;
         bool IsVSyncEnabled() const override;
 
@@ -109,14 +109,15 @@ namespace Lumina
         bool FrameStart(const FUpdateContext& UpdateContext, uint8 InCurrentFrameIndex) override;
         bool FrameEnd(const FUpdateContext& UpdateContext) override;
 
+        void CreateDevice(vkb::Instance Instance);
+
+
         NODISCARD FQueue* GetQueue(ECommandQueue Type) const { return Queues[(uint32)Type]; }
 
         NODISCARD FRHICommandListRef CreateCommandList(const FCommandListInfo& Info) override;
         uint64 ExecuteCommandLists(ICommandList* const* CommandLists, uint32 NumCommandLists, ECommandQueue QueueType) override;
         NODISCARD FRHICommandListRef GetCommandList(ECommandQueue Queue) override;
         
-        void CreateDevice(vkb::Instance Instance);
-
         NODISCARD VkInstance GetVulkanInstance() const { return VulkanInstance; }
         NODISCARD FVulkanDevice* GetDevice() const { return VulkanDevice; }
         NODISCARD FVulkanSwapchain* GetSwapchain() const { return Swapchain; }

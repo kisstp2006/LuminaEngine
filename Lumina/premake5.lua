@@ -19,6 +19,7 @@ project "Lumina"
     postbuildcommands
     {
         '{COPYFILE} "%{LuminaEngineDirectory}/External/PhysX/physx/bin/win.x86_64.vc143.mt/checked/*.dll" "%{cfg.targetdir}"',
+        '{COPYFILE} "%{LuminaEngineDirectory}/External/RenderDoc/renderdoc.dll" "%{cfg.targetdir}"',
     }
     
     files
@@ -29,6 +30,8 @@ project "Lumina"
         "%{LuminaEngineDirectory}/Intermediates/Reflection/Lumina/**.h",
         "%{LuminaEngineDirectory}/Intermediates/Reflection/Lumina/**.cpp",
         
+        
+        "Engine/ThirdParty/RenderDoc/renderdoc_app.h",
         "Engine/ThirdParty/stb_image/**.h",
         "Engine/ThirdParty/glm/glm/**.hpp",
         "Engine/ThirdParty/glm/glm/**.inl",

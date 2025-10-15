@@ -433,17 +433,18 @@ namespace Lumina
     {
         LUM_ASSERT(Buffer)
         LUM_ASSERT(Size)
-        
+        LUMINA_PROFILE_SCOPE();
+
         TSharedPtr<FBufferChunk> ChunkToRetire = nullptr;
 
         if (CurrentChunk)
         {
-            uint64 alignedOffset = Align(CurrentChunk->WritePointer.load(std::memory_order::acquire), Alignment);
+            uint64 alignedOffset = Align(CurrentChunk->WritePointer, Alignment);
             uint64 endOfDataInChunk = alignedOffset + Size;
 
             if (endOfDataInChunk <= CurrentChunk->BufferSize)
             {
-                CurrentChunk->WritePointer.store(endOfDataInChunk, std::memory_order_release);
+                CurrentChunk->WritePointer = endOfDataInChunk;
 
                 *Buffer = CurrentChunk->Buffer.GetReference();
                 *Offset = alignedOffset;
@@ -466,7 +467,7 @@ namespace Lumina
 
         for (auto it = ChunkPool.begin(); it != ChunkPool.end(); ++it)
         {
-            const TSharedPtr<FBufferChunk>& Chunk = *it;
+            TSharedPtr<FBufferChunk> Chunk = *it;
 
             if (VersionGetSubmitted(Chunk->Version) && VersionGetInstance(Chunk->Version) <= completedInstance)
             {
@@ -499,16 +500,17 @@ namespace Lumina
         }
 
         CurrentChunk->Version = CurrentVersion;
-        CurrentChunk->WritePointer.store(Size, std::memory_order_release);
+        CurrentChunk->WritePointer = Size;
 
-        *Buffer = CurrentChunk->Buffer.GetReference();
+        *Buffer = CurrentChunk->Buffer;
         *Offset = 0;
         if (CpuVA)
         {
             *CpuVA = CurrentChunk->MappedMemory;
         }
 
-        return *Buffer != nullptr;
+        bool bValidBuffer = *Buffer != nullptr;
+        return bValidBuffer;
     }
 
     void FUploadManager::SubmitChunks(uint64 CurrentVersion, uint64 submittedVersion)

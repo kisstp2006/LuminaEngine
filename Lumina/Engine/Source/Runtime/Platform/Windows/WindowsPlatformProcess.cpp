@@ -119,20 +119,22 @@ namespace Lumina::Platform
         return Buffer;
     }
 
+    FVoidFuncPtr LumGetProcAddress(void* Handle, const char* Procedure)
+    {
+        return reinterpret_cast<FVoidFuncPtr>(GetProcAddress((HMODULE)Handle, (LPCSTR)Procedure));
+    }
+
     void* LoadLibraryWithSearchPaths(const FString& Filename, const TVector<FString>& SearchPaths)
     {
-        if (Paths::Exists(Filename))
+        FWString Wide = StringUtils::ToWideString(Filename);
+        if (void* Handle = GetModuleHandleW(Wide.c_str()))
         {
-            FWString Wide = StringUtils::ToWideString(Filename);
-            if (void* Handle = GetModuleHandleW(Wide.c_str()))
-            {
-                return Handle;
-            }
+            return Handle;
+        }
 
-            if (void* Handle = LoadLibraryW(Wide.c_str()))
-            {
-                return Handle;
-            }
+        if (void* Handle = LoadLibraryW(Wide.c_str()))
+        {
+            return Handle;
         }
 
         for (const FString& Path : SearchPaths)

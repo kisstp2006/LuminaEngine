@@ -38,8 +38,8 @@ namespace Lumina
         
         const FRHIImageDesc& DescRef;
         EResourceStates PermanentState = EResourceStates::Unknown;
-        bool stateInitialized = false;
-        bool isSamplerFeedback = false;
+        uint32 bStateInitialized:1 = false;
+        uint32 bIsSamplerFeedback:1 = false;
 
     };
 
@@ -47,17 +47,17 @@ namespace Lumina
     {
         TFixedVector<EResourceStates, 4> SubresourceStates;
         EResourceStates State = EResourceStates::Unknown;
-        bool bEnableUavBarriers = true;
-        bool bFirstUavBarrierPlaced = false;
-        bool bPermanentTransition = false;
+        uint32 bEnableUavBarriers:1 = true;
+        uint32 bFirstUavBarrierPlaced:1 = false;
+        uint32 bPermanentTransition:1 = false;
     };
 
     struct FBufferState
     {
         EResourceStates state = EResourceStates::Unknown;
-        bool enableUavBarriers = true;
-        bool firstUavBarrierPlaced = false;
-        bool permanentTransition = false;
+        uint32 bEnableUavBarriers:1 = true;
+        uint32 bFirstUavBarrierPlaced:1 = false;
+        uint32 bPermanentTransition:1 = false;
     };
 
     struct FTextureBarrier

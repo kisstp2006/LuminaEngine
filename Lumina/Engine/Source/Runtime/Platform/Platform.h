@@ -77,3 +77,17 @@
 #define WIDETEXT(str) WIDETEXT_PASTE(str)
 
 #endif
+
+//------------------------------------------------------------------------------
+// Calling Conventions & Function Pointer Aliases
+//------------------------------------------------------------------------------
+
+#if defined(_MSC_VER)
+    #define LUMINA_STDCALL __stdcall
+#else
+    #define LUMINA_STDCALL __attribute__((stdcall))
+#endif
+
+// Generic void function pointer type
+using FVoidFuncPtr = void (LUMINA_STDCALL *)();
+using FVoidFuncPtrCDecl = void (*)(); // For cdecl-style (normal) functions

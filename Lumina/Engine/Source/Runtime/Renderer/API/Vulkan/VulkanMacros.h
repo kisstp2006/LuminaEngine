@@ -47,6 +47,7 @@ namespace Lumina::Vulkan
 #define VK_NO_FLAGS 0
 
 // Macro to check Vulkan function results and log errors if necessary
+
 #ifdef LE_DEBUG
 #define VK_CHECK(x)                                                                 \
 do {                                                                                \

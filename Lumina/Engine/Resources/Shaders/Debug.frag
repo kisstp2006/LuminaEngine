@@ -89,9 +89,6 @@ void main()
     if (Debug.DebugFlags == DEBUG_CASCADE1)
     {
         float depth = texture(uShadowCascade, vec3(inUV, 0)).r;
-        float LinearDepth = LinearizeDepth(depth, GetFarPlane(), GetNearPlane());
-        float VisualizedDepth = LinearDepth / GetFarPlane();
-
         OutFragColor = vec4(vec3(depth), 1.0);
         return;
     }

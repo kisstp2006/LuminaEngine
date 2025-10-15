@@ -190,52 +190,98 @@ namespace Lumina
     void FVulkanCommandList::CopyImage(FRHIImage* Src, const FTextureSlice& SrcSlice, FRHIStagingImage* Dst, const FTextureSlice& DstSlice)
     {
         FVulkanImage* Source = static_cast<FVulkanImage*>(Src);
-        FVulkanStagingImage* Staging = static_cast<FVulkanStagingImage*>(Dst);
+        FVulkanStagingImage* Destination = static_cast<FVulkanStagingImage*>(Dst);
 
 
         FTextureSlice ResolvedDstSlice = DstSlice.Resolve(Source->GetDescription());
-        FTextureSlice ResolvedSrcSlice = SrcSlice.Resolve(Staging->GetDesc());
+        FTextureSlice ResolvedSrcSlice = SrcSlice.Resolve(Destination->GetDesc());
+
+        auto DstRegion = Destination->GetSliceRegion(ResolvedDstSlice.MipLevel, ResolvedDstSlice.ArraySlice, ResolvedDstSlice.Z);
+        LUM_ASSERT((DstRegion.Offset & 0x3) == 0) // per vulkan spec
 
         
-        auto DstRegion = Staging->GetSliceRegion(ResolvedDstSlice.MipLevel, ResolvedDstSlice.ArraySlice, ResolvedDstSlice.Z);
-        if ((DstRegion.Offset & 0x3) != 0)
-        {
-            LOG_ERROR("Destination region offset must be & 0x3");
-            return;
-        }
+        FTextureSubresourceSet SrcSubresource = FTextureSubresourceSet(ResolvedSrcSlice.MipLevel, 1, ResolvedSrcSlice.ArraySlice, 1);
 
-        FTextureSubresourceSet srcSubresource = FTextureSubresourceSet(ResolvedSrcSlice.MipLevel, 1, ResolvedSrcSlice.ArraySlice, 1);
+        VkBufferImageCopy ImageCopy     = {};
+        ImageCopy.bufferOffset          = DstRegion.Offset;
+        ImageCopy.bufferRowLength       = ResolvedDstSlice.X;
+        ImageCopy.bufferImageHeight     = ResolvedDstSlice.Y;
 
-        VkBufferImageCopy ImageCopy = {};
-        ImageCopy.bufferOffset = DstRegion.Offset;
-        ImageCopy.bufferRowLength = ResolvedDstSlice.X;
-        ImageCopy.bufferImageHeight = ResolvedDstSlice.Y;
+        ImageCopy.imageSubresource.aspectMask       = GuessImageAspectFlags(ConvertFormat(Source->GetDescription().Format));
+        ImageCopy.imageSubresource.mipLevel         = ResolvedSrcSlice.MipLevel;
+        ImageCopy.imageSubresource.baseArrayLayer   = ResolvedSrcSlice.ArraySlice;
+        ImageCopy.imageSubresource.layerCount       = 1;
 
-        ImageCopy.imageSubresource.aspectMask = GuessImageAspectFlags(ConvertFormat(Source->GetDescription().Format));
-        ImageCopy.imageSubresource.mipLevel = ResolvedSrcSlice.MipLevel;
-        ImageCopy.imageSubresource.baseArrayLayer = ResolvedSrcSlice.ArraySlice;
-        ImageCopy.imageSubresource.layerCount = 1;
-
-        ImageCopy.imageOffset.x = 0;//ResolvedSrcSlice.X;
-        ImageCopy.imageOffset.y = 0;//ResolvedSrcSlice.Y;
-        ImageCopy.imageOffset.z = 0;//ResolvedSrcSlice.Z;
+        // @TODO 0 for now, will need to comeback and revisit to add offset ability.
+        ImageCopy.imageOffset.x = 0; //(int32)ResolvedSrcSlice.X;
+        ImageCopy.imageOffset.y = 0; //(int32)ResolvedSrcSlice.Y;
+        ImageCopy.imageOffset.z = 0; //(int32)ResolvedSrcSlice.Z;
 
         ImageCopy.imageExtent.width  = ResolvedSrcSlice.X;
         ImageCopy.imageExtent.height = ResolvedSrcSlice.Y;
-        ImageCopy.imageExtent.depth  = 1;
+        ImageCopy.imageExtent.depth  = ResolvedSrcSlice.Z;
         
         if (PendingState.IsInState(EPendingCommandState::AutomaticBarriers))
         {
-            RequireBufferState(Staging->Buffer, EResourceStates::CopyDest);
-            RequireTextureState(Source, srcSubresource, EResourceStates::CopySource);
+            RequireBufferState(Destination->Buffer, EResourceStates::CopyDest);
+            RequireTextureState(Source, SrcSubresource, EResourceStates::CopySource);
         }
         CommitBarriers();
         
         CurrentCommandBuffer->AddReferencedResource(Source);
-        CurrentCommandBuffer->AddReferencedResource(Staging);
-        CurrentCommandBuffer->AddStagingResource(Staging->Buffer);
+        CurrentCommandBuffer->AddReferencedResource(Destination);
+        CurrentCommandBuffer->AddStagingResource(Destination->Buffer);
 
-        vkCmdCopyImageToBuffer(CurrentCommandBuffer->CommandBuffer, Source->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, Staging->Buffer->Buffer, 1, &ImageCopy);
+        vkCmdCopyImageToBuffer(CurrentCommandBuffer->CommandBuffer, Source->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, Destination->Buffer->Buffer, 1, &ImageCopy);
+        CommandListStats.NumCopies++;
+    }
+
+    void FVulkanCommandList::CopyImage(FRHIStagingImage* Src, const FTextureSlice& SrcSlice, FRHIImage* Dst, const FTextureSlice& DstSlice)
+    {
+        FVulkanStagingImage* Source = static_cast<FVulkanStagingImage*>(Src);
+        FVulkanImage* Destination = static_cast<FVulkanImage*>(Dst);
+
+        FTextureSlice ResolvedDstSlice = DstSlice.Resolve(Destination->GetDescription());
+        FTextureSlice ResolvedSrcSlice = SrcSlice.Resolve(Source->GetDesc());
+
+        auto SrcRegion = Source->GetSliceRegion(ResolvedSrcSlice.MipLevel, ResolvedSrcSlice.ArraySlice, ResolvedSrcSlice.Z);
+
+        LUM_ASSERT((SrcRegion.Offset & 0x3) == 0) // per vulkan spec
+        
+        FTextureSubresourceSet DstSubresource = FTextureSubresourceSet(ResolvedDstSlice.MipLevel, 1, ResolvedDstSlice.ArraySlice, 1);
+
+
+        VkBufferImageCopy ImageCopy     = {};
+        ImageCopy.bufferOffset          = SrcRegion.Offset;
+        ImageCopy.bufferRowLength       = ResolvedSrcSlice.X;
+        ImageCopy.bufferImageHeight     = ResolvedSrcSlice.Y;
+
+        ImageCopy.imageSubresource.aspectMask       = GuessImageAspectFlags(ConvertFormat(Destination->GetDescription().Format));
+        ImageCopy.imageSubresource.mipLevel         = ResolvedDstSlice.MipLevel;
+        ImageCopy.imageSubresource.baseArrayLayer   = ResolvedDstSlice.ArraySlice;
+        ImageCopy.imageSubresource.layerCount       = 1;
+
+        // @TODO 0 for now, will need to comeback and revisit to add offset ability.
+        ImageCopy.imageOffset.x = 0;//(int32)ResolvedDstSlice.X;
+        ImageCopy.imageOffset.y = 0;//(int32)ResolvedDstSlice.Y;
+        ImageCopy.imageOffset.z = 0;//(int32)ResolvedDstSlice.Z;
+
+        ImageCopy.imageExtent.width  = ResolvedDstSlice.X;
+        ImageCopy.imageExtent.height = ResolvedDstSlice.Y;
+        ImageCopy.imageExtent.depth  = ResolvedDstSlice.Z;
+        
+        if (PendingState.IsInState(EPendingCommandState::AutomaticBarriers))
+        {
+            RequireBufferState(Source->Buffer, EResourceStates::CopyDest);
+            RequireTextureState(Destination, DstSubresource, EResourceStates::CopySource);
+        }
+        CommitBarriers();
+        
+        CurrentCommandBuffer->AddReferencedResource(Source);
+        CurrentCommandBuffer->AddReferencedResource(Destination);
+        CurrentCommandBuffer->AddStagingResource(Source->Buffer);
+
+        vkCmdCopyBufferToImage(CurrentCommandBuffer->CommandBuffer, Source->Buffer->Buffer, Destination->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &ImageCopy);
         CommandListStats.NumCopies++;
     }
 
@@ -403,6 +449,8 @@ namespace Lumina
     {
         LUMINA_PROFILE_SCOPE();
         
+        Assert(Source)
+        Assert(Destination)
         Assert(DstOffset + CopySize <= Destination->GetDescription().Size)
         Assert(SrcOffset + CopySize <= Source->GetDescription().Size)
 
@@ -443,6 +491,105 @@ namespace Lumina
         vkCmdCopyBuffer(CurrentCommandBuffer->CommandBuffer, VkSource->GetBuffer(), VkDestination->GetBuffer(), 1, &copyRegion);
     }
 
+    void FVulkanCommandList::WriteDynamicBuffer(FRHIBuffer* Buffer, const void* Data, SIZE_T Size)
+    {
+        LUMINA_PROFILE_SCOPE();
+
+        FVulkanBuffer* VulkanBuffer = static_cast<FVulkanBuffer*>(Buffer);
+
+        auto GetQueueFinishID = [this] (ECommandQueue Queue)-> uint64
+        {
+            return RenderContext->GetQueue(Queue)->LastFinishedID;
+        };
+
+        FDynamicBufferWrite& Write = DynamicBufferWrites[Buffer];
+
+        if (!Write.bInitialized)
+        {
+            Write.MinVersion = Buffer->GetDescription().MaxVersions;
+            Write.MaxVersion = -1;
+            Write.bInitialized = true;
+        }
+
+        TArray<uint64, uint32(ECommandQueue::Num)> QueueCompletionValues =
+        {
+            GetQueueFinishID(ECommandQueue::Graphics),
+            GetQueueFinishID(ECommandQueue::Compute),
+            GetQueueFinishID(ECommandQueue::Transfer),
+        };
+        
+        uint32 SearchStart = VulkanBuffer->VersionSearchStart;
+        uint32 MaxVersions = Buffer->GetDescription().MaxVersions;
+        uint32 Version = 0;
+        
+        uint64 OriginalVersionInfo = 0;
+
+        while (true)
+        {
+            bool bFound = false;
+            
+            for (SIZE_T i = 0; i < MaxVersions; ++i)
+            {
+            
+                Version = i + SearchStart;
+                Version = (Version >= MaxVersions) ? (Version - MaxVersions) : Version;
+
+                OriginalVersionInfo = VulkanBuffer->VersionTracking[Version];
+                
+                if (OriginalVersionInfo == 0)
+                {
+                    bFound = true;
+                    break;
+                }
+
+                bool bSubmitted = (OriginalVersionInfo & GVersionSubmittedFlag) != 0;
+                uint32 QueueIndex = uint32(OriginalVersionInfo >> GVersionQueueShift) & GVersionQueueMask;
+                uint64 ID = OriginalVersionInfo & GVersionIDMask;
+
+                if (bSubmitted)
+                {
+                    if (QueueIndex >= uint32(ECommandQueue::Num))
+                    {
+                        bFound = true;
+                        break;
+                    }
+
+                    if (ID <= QueueCompletionValues[QueueIndex])
+                    {
+                        bFound = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!bFound)
+            {
+                LOG_ERROR("Dynamic Buffer [] has MaxVersions: {} - Which is insufficient", Buffer->GetDescription().MaxVersions);
+                return;
+            }
+
+            uint64 NewVersionInfo = (uint64(Info.CommandQueue) << GVersionQueueShift) | (CurrentCommandBuffer->RecordingID);
+
+            if (VulkanBuffer->VersionTracking[Version].compare_exchange_strong(OriginalVersionInfo, NewVersionInfo))
+            {
+                break;
+            }
+        }
+
+        VulkanBuffer->VersionSearchStart = (Version + 1 < MaxVersions) ? (Version + 1) : 0;
+
+        Write.LatestVersion = Version;
+        Write.MinVersion = Math::Min<int32>(Version, Write.MinVersion);
+        Write.MaxVersion = Math::Max<int32>(Version, Write.MaxVersion);
+
+        void* HostData = (uint8*)VulkanBuffer->GetMappedMemory() + Version * VulkanBuffer->GetDescription().Size;
+        
+        void* SourceData = const_cast<void*>(Data);
+        Memory::Memcpy(HostData, SourceData, Size);
+
+        PendingState.AddPendingState(EPendingCommandState::DynamicBufferWrites);
+    }
+
     void FVulkanCommandList::WriteBuffer(FRHIBuffer* Buffer, const void* Data, SIZE_T Offset, SIZE_T Size)
     {
         LUMINA_PROFILE_SCOPE();
@@ -463,104 +610,12 @@ namespace Lumina
         
         constexpr size_t vkCmdUpdateBufferLimit = 65536;
         CurrentCommandBuffer->AddReferencedResource(Buffer);
-        FVulkanBuffer* VulkanBuffer = static_cast<FVulkanBuffer*>(Buffer);
         
         if (Buffer->GetDescription().Usage.IsFlagSet(BUF_Dynamic))
         {
-            FScopeLock Lock(DynamicBufferWriteMutex);
-
-            Assert(Offset == 0)
-            auto GetQueueFinishID = [this] (ECommandQueue Queue)-> uint64
-            {
-                return RenderContext->GetQueue(Queue)->LastFinishedID;
-            };
-
-            FDynamicBufferWrite& Write = DynamicBufferWrites[Buffer];
-
-            if (!Write.bInitialized)
-            {
-                Write.MinVersion = Buffer->GetDescription().MaxVersions;
-                Write.MaxVersion = -1;
-                Write.bInitialized = true;
-            }
-
-            TArray<uint64, uint32(ECommandQueue::Num)> QueueCompletionValues =
-            {
-                GetQueueFinishID(ECommandQueue::Graphics),
-                GetQueueFinishID(ECommandQueue::Compute),
-                GetQueueFinishID(ECommandQueue::Transfer),
-            };
+            WriteDynamicBuffer(Buffer, Data, Size);
             
-            uint32 SearchStart = VulkanBuffer->VersionSearchStart;
-            uint32 MaxVersions = Buffer->GetDescription().MaxVersions;
-            uint32 Version = 0;
-            
-            uint64 OriginalVersionInfo = 0;
-
-            while (true)
-            {
-                bool bFound = false;
-                
-                for (SIZE_T i = 0; i < MaxVersions; ++i)
-                {
-                
-                    Version = i + SearchStart;
-                    Version = (Version >= MaxVersions) ? (Version - MaxVersions) : Version;
-
-                    OriginalVersionInfo = VulkanBuffer->VersionTracking[Version];
-                    
-                    if (OriginalVersionInfo == 0)
-                    {
-                        bFound = true;
-                        break;
-                    }
-
-                    bool bSubmitted = (OriginalVersionInfo & GVersionSubmittedFlag) != 0;
-                    uint32 QueueIndex = uint32(OriginalVersionInfo >> GVersionQueueShift) & GVersionQueueMask;
-                    uint64 ID = OriginalVersionInfo & GVersionIDMask;
-
-                    if (bSubmitted)
-                    {
-                        if (QueueIndex >= uint32(ECommandQueue::Num))
-                        {
-                            bFound = true;
-                            break;
-                        }
-
-                        if (ID <= QueueCompletionValues[QueueIndex])
-                        {
-                            bFound = true;
-                            break;
-                        }
-                    }
-                }
-
-                if (!bFound)
-                {
-                    LOG_ERROR("Dynamic Buffer [] has MaxVersions: {} - Which is insufficient", Buffer->GetDescription().MaxVersions);
-                    return;
-                }
-
-                uint64 NewVersionInfo = (uint64(Info.CommandQueue) << GVersionQueueShift) | (CurrentCommandBuffer->RecordingID);
-
-                if (VulkanBuffer->VersionTracking[Version].compare_exchange_weak(OriginalVersionInfo, NewVersionInfo))
-                {
-                    break;
-                }
-            }
-
-            VulkanBuffer->VersionSearchStart = (Version + 1 < MaxVersions) ? (Version + 1) : 0;
-
-            Write.LatestVersion = Version;
-            Write.MinVersion = Math::Min<int32>(Version, Write.MinVersion);
-            Write.MaxVersion = Math::Max<int32>(Version, Write.MaxVersion);
-
-            void* HostData = (uint8*)VulkanBuffer->GetMappedMemory() + Version * VulkanBuffer->GetDescription().Size;
-            
-            void* SourceData = const_cast<void*>(Data);
-            Memory::Memcpy(HostData, SourceData, Size);
-
-            PendingState.AddPendingState(EPendingCommandState::DynamicBufferWrites);
+            return;
         }
         
         
@@ -590,10 +645,16 @@ namespace Lumina
                 FRHIBuffer* UploadBuffer;
                 uint64 UploadOffset;
                 void* UploadCPU;
-                UploadManager->SuballocateBuffer(Size, &UploadBuffer, &UploadOffset, &UploadCPU, MakeVersion(CurrentCommandBuffer->RecordingID, Info.CommandQueue, false));
+                if (UploadManager->SuballocateBuffer(Size, &UploadBuffer, &UploadOffset, &UploadCPU, MakeVersion(CurrentCommandBuffer->RecordingID, Info.CommandQueue, false)))
+                {
 
-                Memory::Memcpy(UploadCPU, Data, Size);
-                CopyBuffer(UploadBuffer, UploadOffset, Buffer, Offset, Size);
+                    Memory::Memcpy(UploadCPU, Data, Size);
+                    CopyBuffer(UploadBuffer, UploadOffset, Buffer, Offset, Size);
+                }
+                else
+                {
+                    LOG_ERROR("Failed to suballocate buffer");
+                }
             }
             else
             {
@@ -1191,7 +1252,7 @@ namespace Lumina
         CurrentPipelineLayout = State.Pipeline->GetAPIResource<VkPipelineLayout, EAPIResourceType::PipelineLayout>();
         PushConstantVisibility = ((FVulkanGraphicsPipeline*)State.Pipeline)->PushConstantVisibility;
 
-        if ((!VectorsAreEqual(CurrentComputeState.Bindings, State.Bindings)) || PendingState.IsInState(EPendingCommandState::DynamicBufferWrites))
+        if ((!VectorsAreEqual(CurrentGraphicsState.Bindings, State.Bindings)) || PendingState.IsInState(EPendingCommandState::DynamicBufferWrites))
         {
             BindBindingSets(VK_PIPELINE_BIND_POINT_GRAPHICS, CurrentPipelineLayout, State.Bindings);
         }

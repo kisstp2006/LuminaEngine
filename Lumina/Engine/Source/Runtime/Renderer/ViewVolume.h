@@ -11,6 +11,10 @@ PRAGMA_ENABLE_ALL_WARNINGS
 
 namespace Lumina
 {
+    /**
+     * Fully encompasses a view for a camera. 
+     */
+    
     LUM_STRUCT()
     class LUMINA_API FViewVolume
     {
@@ -18,22 +22,22 @@ namespace Lumina
 
         FViewVolume(float fov = 90.0f, float aspect = 16.0f / 9.0f, float InNear = 0.01f, float InFar = 1000.0f);
 
-        void SetNear(float InNear);
-        void SetFar(float InFar);
-        void SetViewPosition(const glm::vec3& Position);
-        void SetView(const glm::vec3& Position, const glm::vec3& ViewDirection, const glm::vec3& UpDirection);
-        void SetPerspective(float InFov, float InAspect);
-        void SetAspectRatio(float InAspect);
-        void SetFOV(float InFOV);
-        void Rotate(float Angle, glm::vec3 Axis);
+        FViewVolume& SetNear(float InNear);
+        FViewVolume& SetFar(float InFar);
+        FViewVolume& SetViewPosition(const glm::vec3& Position);
+        FViewVolume& SetView(const glm::vec3& Position, const glm::vec3& ViewDirection, const glm::vec3& UpDirection);
+        FViewVolume& SetPerspective(float InFov, float InAspect);
+        FViewVolume& SetAspectRatio(float InAspect);
+        FViewVolume& SetFOV(float InFOV);
+        FViewVolume& Rotate(float Angle, glm::vec3 Axis);
         
         FORCEINLINE const glm::vec3& GetViewPosition() const { return ViewPosition; }
 
         FORCEINLINE const glm::mat4& GetViewMatrix() const { return ViewMatrix; }
-        FORCEINLINE const glm::mat4& GetInverseViewMatrix() const { return InverseViewMatrix; }
+        FORCEINLINE const glm::mat4& GetInverseViewMatrix() const { return glm::inverse(ViewMatrix); }
         FORCEINLINE const glm::mat4& GetViewProjectionMatrix() const { return ViewProjectionMatrix; }
         FORCEINLINE const glm::mat4& GetProjectionMatrix() const { return ProjectionMatrix; }
-        FORCEINLINE const glm::mat4& GetInverseProjectionMatrix() const { return InverseProjectionMatrix; }
+        FORCEINLINE const glm::mat4& GetInverseProjectionMatrix() const { return glm::inverse(ProjectionMatrix); }
         FORCEINLINE const glm::vec3& GetForwardVector() const { return ForwardVector; }
         FORCEINLINE const glm::vec3& GetRightVector() const { return RightVector; }
         glm::mat4 ToReverseDepthViewProjectionMatrix() const;
@@ -61,9 +65,7 @@ namespace Lumina
         glm::vec3           RightVector;
 
         glm::mat4           ProjectionMatrix;
-        glm::mat4           InverseProjectionMatrix;
         glm::mat4           ViewMatrix;
-        glm::mat4           InverseViewMatrix;
         glm::mat4           ViewProjectionMatrix;
 
         float               Near;

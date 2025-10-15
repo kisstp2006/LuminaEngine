@@ -56,8 +56,8 @@ namespace Lumina
     {
         FBufferState* tracking = GetBufferStateTracking(Buffer, true);
 
-        tracking->enableUavBarriers = bEnableBarriers;
-        tracking->firstUavBarrierPlaced = false;
+        tracking->bEnableUavBarriers = bEnableBarriers;
+        tracking->bFirstUavBarrierPlaced = false;
     }
 
     void FCommandListResourceStateTracker::BeginTrackingTextureState(FTextureStateExtension* texture, FTextureSubresourceSet subresources, EResourceStates stateBits)
@@ -132,9 +132,7 @@ namespace Lumina
         FTextureState* tracking = GetTextureStateTracking(texture, false);
         if (!tracking)
         {
-            return texture->DescRef.bKeepInitialState ? 
-                (texture->stateInitialized ? texture->DescRef.InitialState : EResourceStates::Common) :
-                EResourceStates::Unknown;
+            return texture->DescRef.bKeepInitialState ? (texture->bStateInitialized ? texture->DescRef.InitialState : EResourceStates::Common) : EResourceStates::Unknown;
         }
 
         // whole resource
@@ -289,7 +287,7 @@ namespace Lumina
         }
 
         bool transitionNecessary = tracking->state != state;
-        bool uavNecessary = ((state & EResourceStates::UnorderedAccess) != EResourceStates::Unknown) && (tracking->enableUavBarriers || !tracking->firstUavBarrierPlaced);
+        bool UAVNecessary = ((state & EResourceStates::UnorderedAccess) != EResourceStates::Unknown) && (tracking->bEnableUavBarriers || !tracking->bFirstUavBarrierPlaced);
 
         if (transitionNecessary)
         {
@@ -307,7 +305,7 @@ namespace Lumina
             }
         }
 
-        if (transitionNecessary || uavNecessary)
+        if (transitionNecessary || UAVNecessary)
         {
             BufferBarriers.emplace_back(FBufferBarrier
             {
@@ -317,9 +315,9 @@ namespace Lumina
             });
         }
 
-        if (uavNecessary && !transitionNecessary)
+        if (UAVNecessary && !transitionNecessary)
         {
-            tracking->firstUavBarrierPlaced = true;
+            tracking->bFirstUavBarrierPlaced = true;
         }
     
         tracking->state = state;
@@ -331,7 +329,7 @@ namespace Lumina
         
         for (auto& [buffer, tracking] : BufferStates)
         {
-            if (buffer->DescRef.bKeepInitialState && !buffer->PermanentState && !buffer->DescRef.Usage.IsFlagSet(EBufferUsageFlags::Dynamic) &&!tracking->permanentTransition)
+            if (buffer->DescRef.bKeepInitialState && !buffer->PermanentState && !buffer->DescRef.Usage.IsFlagSet(EBufferUsageFlags::Dynamic) &&!tracking->bPermanentTransition)
             {
                 RequireBufferState(buffer, buffer->DescRef.InitialState);
             }
@@ -389,9 +387,9 @@ namespace Lumina
 
         for (auto& [texture, State] : TextureStates)
         {
-            if (texture->DescRef.bKeepInitialState && !texture->stateInitialized)
+            if (texture->DescRef.bKeepInitialState && !texture->bStateInitialized)
             {
-                texture->stateInitialized = true;
+                texture->bStateInitialized = true;
             }
         }
 
@@ -419,7 +417,7 @@ namespace Lumina
         
         if (Texture->DescRef.bKeepInitialState)
         {
-            TrackingRef->State = Texture->stateInitialized ? Texture->DescRef.InitialState : EResourceStates::Common;
+            TrackingRef->State = Texture->bStateInitialized ? Texture->DescRef.InitialState : EResourceStates::Common;
         }
 
         return TrackingRef;
