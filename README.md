@@ -42,10 +42,12 @@ Up to date blog: https://www.dr-elliot.com
 
 <img width="1912" height="552" alt="image" src="https://github.com/user-attachments/assets/8c81055c-f46a-447d-a79c-31b51fded805" />
 <img width="2229" height="1222" alt="image" src="https://github.com/user-attachments/assets/a6b973ba-851e-4732-b30b-eb0bf14b08e1" />
-<img width="2225" height="1222" alt="image" src="https://github.com/user-attachments/assets/944c2569-a969-42b9-b0e6-88050fb5037c" />
-<img width="2222" height="1222" alt="image" src="https://github.com/user-attachments/assets/b8717096-e8e9-437b-af18-01502ed821b9" />
-<img width="2228" height="1227" alt="image" src="https://github.com/user-attachments/assets/6b1dc6a7-ffb3-416b-93ad-d130695e810e" />
-<img width="2323" height="961" alt="image" src="https://github.com/user-attachments/assets/9974246c-4bc0-4975-b489-5846f1551c74" />
+<img width="2229" height="1222" alt="image" src="https://github.com/user-attachments/assets/944c2569-a969-42b9-b0e6-88050fb5037c" />
+<img width="2229" height="1222" alt="image" src="https://github.com/user-attachments/assets/b8717096-e8e9-437b-af18-01502ed821b9" />
+<img width="2229" height="1227" alt="image" src="https://github.com/user-attachments/assets/6b1dc6a7-ffb3-416b-93ad-d130695e810e" />
+<img width="2229" height="1227" alt="image" src="https://github.com/user-attachments/assets/9974246c-4bc0-4975-b489-5846f1551c74" />
+<img width="2229" height="1227" alt="image" src="https://github.com/user-attachments/assets/a5659962-8c9b-4bf7-9730-6ebc079b42fd" />
+
 
 
 
