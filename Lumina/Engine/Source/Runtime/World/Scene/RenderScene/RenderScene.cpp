@@ -64,8 +64,6 @@
             
             LOG_TRACE("Initializing Renderer Scene");
             
-            InitBuffers();
-            CreateImages();
             InitResources();
         }
 
@@ -377,6 +375,7 @@
                     CMaterialInterface* Mat = Batch.Material;
 
                     FGraphicsPipelineDesc Desc; Desc
+                        .SetDebugName("GBuffer Pass")
                         .SetRenderState(RenderState)
                         .SetInputLayout(VertexLayoutInput)
                         .AddBindingLayout(BindingLayout)
@@ -442,6 +441,7 @@
                     RenderState.SetBlendState(BlendState);
                 
                     FGraphicsPipelineDesc Desc;
+                    Desc.SetDebugName("SSAO Pass");
                     Desc.SetRenderState(RenderState);
                     Desc.AddBindingLayout(BindingLayout);
                     Desc.AddBindingLayout(SSAOPassLayout);
@@ -499,6 +499,7 @@
                     RenderState.SetBlendState(BlendState);
                 
                     FGraphicsPipelineDesc Desc;
+                    Desc.SetDebugName("SSAO Blur Pass");
                     Desc.SetRenderState(RenderState);
                     Desc.AddBindingLayout(BindingLayout);
                     Desc.AddBindingLayout(SSAOBlurPassLayout);
@@ -574,6 +575,7 @@
                     RenderState.SetBlendState(BlendState);
             
                     FGraphicsPipelineDesc Desc;
+                    Desc.SetDebugName("Environment Pass");
                     Desc.SetRenderState(RenderState);
                     Desc.AddBindingLayout(BindingLayout);
                     Desc.SetVertexShader(VertexShader);
@@ -642,6 +644,7 @@
                 RenderState.SetBlendState(BlendState);
                 
                 FGraphicsPipelineDesc Desc;
+                Desc.SetDebugName("Lighting Pass");
                 Desc.SetRenderState(RenderState);
                 Desc.AddBindingLayout(BindingLayout);
                 Desc.AddBindingLayout(LightingPassLayout);
@@ -711,6 +714,7 @@
                 RenderState.SetBlendState(BlendState);
                 
                 FGraphicsPipelineDesc Desc;
+                Desc.SetDebugName("Batched Line Draw");
                 Desc.SetPrimType(EPrimitiveType::LineList);
                 Desc.SetInputLayout(SimpleVertexLayoutInput);
                 Desc.SetRenderState(RenderState);
@@ -774,6 +778,7 @@
                 RenderState.SetBlendState(BlendState);
                 
                 FGraphicsPipelineDesc Desc;
+                Desc.SetDebugName("Debug Draw Pass");
                 Desc.SetRenderState(RenderState);
                 Desc.AddBindingLayout(BindingLayout);
                 Desc.AddBindingLayout(DebugPassLayout);
@@ -921,6 +926,7 @@
                         .SetRasterState(FRasterState().SetSlopeScaleDepthBias(1.75f).SetDepthBias(100).SetCullFront());
                 
                 FGraphicsPipelineDesc Desc; Desc
+                    .SetDebugName("Point Light Shadow Pass")
                     .SetRenderState(RenderState)
                     .SetInputLayout(VertexLayoutInput)
                     .AddBindingLayout(BindingLayout)
@@ -1034,6 +1040,7 @@
 
                 
                 FGraphicsPipelineDesc Desc; Desc
+                    .SetDebugName("Spot Shadow Pass")
                     .SetRenderState(RenderState)
                     .SetInputLayout(VertexLayoutInput)
                     .AddBindingLayout(BindingLayout)
@@ -1113,6 +1120,7 @@
                         .SetRasterState(FRasterState().SetSlopeScaleDepthBias(1.75f).SetDepthBias(100).SetCullFront());
                             
                 FGraphicsPipelineDesc Desc; Desc
+                    .SetDebugName("Cascaded Shadow Maps")
                     .SetRenderState(RenderState)
                     .SetInputLayout(VertexLayoutInput)
                     .AddBindingLayout(BindingLayout)
@@ -1548,6 +1556,9 @@
         
         void FRenderScene::InitResources()
         {
+            InitBuffers();
+            CreateImages();
+
             {
                 FVertexAttributeDesc VertexDesc[4];
                 // Pos

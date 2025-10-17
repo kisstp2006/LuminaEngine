@@ -23,6 +23,22 @@ namespace Lumina
         ImGuiTableFlags TableFlags = ImGuiTableFlags_Resizable | ImGuiTableFlags_NoPadOuterX | ImGuiTableFlags_ScrollY;
         TableFlags |= ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersOuterH | ImGuiTableFlags_NoBordersInBody | ImGuiTableFlags_BordersV;
 
+        auto ShouldDrawItem = [&](const auto& Item) -> bool
+        {
+            return !Context.FilterFunc || Context.FilterFunc(Item);
+        };
+
+        TVector<FTreeListViewItem*> FilteredItems;
+        FilteredItems.reserve(ListItems.size());
+
+        for (FTreeListViewItem* Item : ListItems)
+        {
+            if (ShouldDrawItem(Item))
+            {
+                FilteredItems.push_back(Item);
+            }
+        }
+
         
         ImGui::PushID(this);
         ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(2, 2));
@@ -31,16 +47,21 @@ namespace Lumina
             ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthStretch);
 
             ImGuiListClipper Clipper;
-            Clipper.Begin((int)ListItems.size());
+            Clipper.Begin((int)FilteredItems.size());
 
             while (Clipper.Step())
             {
                 for (int i = Clipper.DisplayStart; i < Clipper.DisplayEnd; ++i)
                 {
+                    if (!ShouldDrawItem(FilteredItems[i]))
+                    {
+                        continue;
+                    }
+                    
                     ImGui::TableNextRow();
                     ImGui::TableSetColumnIndex(0);
-
-                    DrawListItem(ListItems[i], Context);
+                    
+                    DrawListItem(FilteredItems[i], Context);
                 }
             }
 

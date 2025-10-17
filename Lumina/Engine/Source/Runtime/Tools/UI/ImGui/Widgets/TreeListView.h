@@ -78,6 +78,8 @@ namespace Lumina
 
     struct LUMINA_API FTreeListViewContext
     {
+        TFunction<bool(const FTreeListViewItem*)>                   FilterFunc;
+        
         /** Callback to draw any context menus this item may want */
         TFunction<void(const TVector<FTreeListViewItem*>&)>         DrawItemContextMenuFunction;
 

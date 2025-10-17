@@ -115,6 +115,11 @@ namespace Lumina
         {
             HandleEntityEditorDragDrop(Item);  
         };
+
+        OutlinerContext.FilterFunc = [this](const FTreeListViewItem* Item) -> bool
+        {
+            return EntityFilterState.FilterName.PassFilter(Item->GetName().c_str());
+        };
         
         //------------------------------------------------------------------------------------------------------
 
@@ -151,7 +156,7 @@ namespace Lumina
         FString FullPath = Paths::ResolveVirtualPath(World->GetPathName());
         Paths::AddPackageExtension(FullPath);
 
-        if (CPackage::SavePackage(World->GetPackage(), World, FullPath.c_str()))
+        if (CPackage::SavePackage(World->GetPackage(), FullPath.c_str()))
         {
             GetEngineSystem<FAssetRegistry>().AssetSaved(World);
             ImGuiX::Notifications::NotifySuccess("Successfully saved package: \"%s\"", World->GetPathName().c_str());
@@ -707,6 +712,143 @@ namespace Lumina
         SystemsListView.MarkTreeDirty();
     }
 
+    void FWorldEditorTool::DrawCreateEntityMenu()
+    {
+        ImGui::SetNextWindowSize(ImVec2(400.0f, 500.0f), ImGuiCond_Always);
+    
+        if (ImGui::BeginPopup("CreateEntityMenu", ImGuiWindowFlags_NoMove))
+        {
+            // Header
+            ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]); // Use larger/bold font if available
+            ImGui::TextColored(ImVec4(0.8f, 0.9f, 1.0f, 1.0f), LE_ICON_PLUS " Create New Entity");
+            ImGui::PopFont();
+            
+            ImGui::Spacing();
+            ImGui::Separator();
+            ImGui::Spacing();
+            
+            // Search bar
+            ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+            ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.15f, 0.15f, 0.18f, 1.0f));
+            ImGui::SetNextItemWidth(-1);
+            
+            AddEntityComponentFilter.Draw(LE_ICON_FOLDER_SEARCH " Search templates...");
+            
+            ImGui::PopStyleColor();
+            ImGui::PopStyleVar();
+            
+            ImGui::Spacing();
+            
+            // Component template list
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4.0f, 4.0f));
+            ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4.0f, 4.0f));
+            
+            if (ImGui::BeginChild("TemplateList", ImVec2(0, -35.0f), true))
+            {
+                for(auto &&[_, MetaType]: entt::resolve())
+                {
+                    using namespace entt::literals;
+                    
+                    auto Any = MetaType.invoke("staticstruct"_hs, {});
+                    if (void** Type = Any.try_cast<void*>())
+                    {
+                        CStruct* Struct = *(CStruct**)Type;
+                        if (Struct == STransformComponent::StaticStruct() || Struct == SNameComponent::StaticStruct())
+                        {
+                            continue;
+                        }
+
+                        
+                        ImGui::PushID(Struct);
+                    
+                        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.18f, 0.18f, 0.21f, 1.0f));
+                        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.25f, 0.35f, 0.45f, 1.0f));
+                        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.2f, 0.3f, 0.4f, 1.0f));
+                        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
+                        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(12.0f, 10.0f));
+                    
+                        const float ButtonWidth = ImGui::GetContentRegionAvail().x;
+                    
+                        if (ImGui::Button(Struct->GetName().c_str(), ImVec2(ButtonWidth, 0.0f)))
+                        {
+                            CreateEntityWithComponent(Struct);
+                            ImGui::CloseCurrentPopup();
+                        }
+                    
+                        ImGui::PopStyleVar(2);
+                        ImGui::PopStyleColor(3);
+                        
+                        ImGui::PopID();
+                    
+                        ImGui::Spacing();
+                    }
+                }
+            }
+            ImGui::EndChild();
+            
+            ImGui::PopStyleVar(2);
+            
+            ImGui::Separator();
+            
+            ImGui::BeginGroup();
+            {
+                if (ImGui::Button("Cancel", ImVec2(80.0f, 0.0f)))
+                {
+                    ImGui::CloseCurrentPopup();
+                    AddEntityComponentFilter.Clear();
+                }
+                
+                ImGui::SameLine();
+                
+                // Quick empty entity button
+                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.25f, 0.25f, 0.28f, 1.0f));
+                if (ImGui::Button(LE_ICON_CUBE " Empty Entity", ImVec2(-1, 0.0f)))
+                {
+                    CreateEntity();
+                    ImGui::CloseCurrentPopup();
+                    AddEntityComponentFilter.Clear();
+                }
+                ImGui::PopStyleColor();
+                
+                if (ImGui::IsItemHovered())
+                {
+                    ImGui::SetTooltip("Create entity without any components");
+                }
+            }
+            ImGui::EndGroup();
+            
+            ImGui::EndPopup();
+        }
+    }
+
+    void FWorldEditorTool::DrawFilterOptions()
+    {
+        ImGui::Text(LE_ICON_CUBE " Filter by Component");
+        ImGui::Separator();
+
+        for(auto &&[_, MetaType]: entt::resolve())
+        {
+            using namespace entt::literals;
+            auto Any = MetaType.invoke("staticstruct"_hs, {});
+            if (void** Type = Any.try_cast<void*>())
+            {
+                CStruct* Struct = *(CStruct**)Type;
+                const char* ComponentName = Struct->GetName().c_str();
+
+                static bool bTest = false;
+                ImGui::Checkbox(ComponentName, &bTest);
+                
+            }
+        }
+        
+        ImGui::Separator();
+    
+        if (ImGui::Button("Clear All", ImVec2(-1, 0)))
+        {
+            //EntityFilterState.ClearFilters();
+        }
+    }
+
     void FWorldEditorTool::SetSelectedEntity(const Entity& NewEntity)
     {
         if (NewEntity == SelectedEntity)
@@ -791,22 +933,219 @@ namespace Lumina
 
     void FWorldEditorTool::DrawOutliner(const FUpdateContext& UpdateContext, bool bFocused)
     {
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.15f, 0.35f, 0.15f, 1.0f));
-        if (ImGui::Button("Add", ImVec2(ImGui::GetContentRegionAvail().x, 0.0f)))
+        const ImGuiStyle& Style = ImGui::GetStyle();
+        const float AvailWidth = ImGui::GetContentRegionAvail().x;
+        
         {
-            CreateEntity();
+            const int EntityCount = World->GetEntityRegistry().view<entt::entity>().size();
+            ImGui::BeginGroup();
+            {
+                ImGui::AlignTextToFramePadding();
+
+                ImGui::BeginHorizontal("##EntityCount");
+                {
+                    ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), LE_ICON_CUBE " Entities");
+                
+                    // Count badge - use same vertical padding as the text line
+                    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.2f, 0.25f, 1.0f));
+                    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.25f, 0.25f, 0.3f, 1.0f));
+                    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.2f, 0.2f, 0.25f, 1.0f));
+                    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(8.0f, Style.FramePadding.y));
+                    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 3.0f);
+            
+                    char CountBuf[32];
+                    snprintf(CountBuf, sizeof(CountBuf), "%d", EntityCount);
+                    ImGui::Button(CountBuf);
+                }
+                ImGui::EndHorizontal();
+                
+                ImGui::PopStyleVar(2);
+                ImGui::PopStyleColor(3);
+            }
+            ImGui::EndGroup();
+            
+            ImGui::SameLine(AvailWidth - 80.0f);
+            
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.5f, 0.25f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.25f, 0.6f, 0.3f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.15f, 0.45f, 0.2f, 1.0f));
+            ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+            
+            if (ImGui::Button(LE_ICON_PLUS " Add", ImVec2(80.0f, 0.0f)))
+            {
+                ImGui::OpenPopup("CreateEntityMenu");
+            }
+            
+            ImGui::PopStyleVar();
+            ImGui::PopStyleColor(3);
+            
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::SetTooltip("Add something new to the world.");
+            }
+
+            DrawCreateEntityMenu();
+
         }
-        ImGui::PopStyleColor();
-
-        ImGui::SeparatorText("Entities");
-        ImGui::Text("Num: %i", World->GetEntityRegistry().view<entt::entity>().size());
-
-        OutlinerListView.Draw(OutlinerContext);
+        
+        ImGui::Spacing();
+        
+        // ===== Search & Filter Section =====
+        {
+            const float FilterButtonWidth = 30.0f;
+            const float SearchWidth = AvailWidth - FilterButtonWidth - Style.ItemSpacing.x;
+            
+            // Search bar with icon
+            ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+            ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.15f, 0.15f, 0.18f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.18f, 0.18f, 0.22f, 1.0f));
+            
+            ImGui::SetNextItemWidth(SearchWidth);
+            EntityFilterState.FilterName.Draw("##Search");
+            
+            ImGui::PopStyleColor(2);
+            ImGui::PopStyleVar();
+            
+            if (EntityFilterState.FilterName.InputBuf[0] == '\0')
+            {
+                ImDrawList* DrawList = ImGui::GetWindowDrawList();
+                ImVec2 TextPos = ImGui::GetItemRectMin();
+                TextPos.x += Style.FramePadding.x + 2.0f;
+                TextPos.y += Style.FramePadding.y;
+                DrawList->AddText(TextPos, IM_COL32(100, 100, 110, 255), LE_ICON_FILE_SEARCH " Search entities...");
+            }
+            
+            ImGui::SameLine();
+            
+            const bool bFilterActive = EntityFilterState.FilterName.IsActive();
+            ImGui::PushStyleColor(ImGuiCol_Button, 
+                bFilterActive ? ImVec4(0.4f, 0.45f, 0.65f, 1.0f) : ImVec4(0.2f, 0.2f, 0.22f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered,
+                bFilterActive ? ImVec4(0.5f, 0.55f, 0.75f, 1.0f) : ImVec4(0.25f, 0.25f, 0.27f, 1.0f));
+            ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+            
+            if (ImGui::Button(LE_ICON_FILTER_SETTINGS "##ComponentFilter", ImVec2(FilterButtonWidth, 0.0f)))
+            {
+                ImGui::OpenPopup("FilterPopup");
+            }
+            
+            ImGui::PopStyleVar();
+            ImGui::PopStyleColor(2);
+            
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::SetTooltip(bFilterActive ? "Filters active - Click to configure" : "Configure filters");
+            }
+            
+            if (ImGui::BeginPopup("FilterPopup"))
+            {
+                ImGui::SeparatorText("Component Filters");
+                DrawFilterOptions();
+                ImGui::EndPopup();
+            }
+        }
+        
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        {
+            ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.08f, 0.08f, 0.1f, 1.0f));
+            ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 4.0f);
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4.0f, 4.0f));
+            
+            if (ImGui::BeginChild("EntityList", ImVec2(0, 0), true, ImGuiWindowFlags_NoScrollbar))
+            {
+                OutlinerListView.Draw(OutlinerContext);
+            }
+            ImGui::EndChild();
+            
+            ImGui::PopStyleVar(2);
+            ImGui::PopStyleColor();
+        }
+        
     }
 
     void FWorldEditorTool::DrawSystems(const FUpdateContext& UpdateContext, bool bFocused)
     {
-        SystemsListView.Draw(SystemsContext);
+        const ImGuiStyle& Style = ImGui::GetStyle();
+        const float AvailWidth = ImGui::GetContentRegionAvail().x;
+        
+        {
+            uint32 SystemCount = 0;
+            for (uint8 i = 0; i < (uint8)EUpdateStage::Max; ++i)
+            {
+                SystemCount += World->GetSystemsForUpdateStage((EUpdateStage)i).size();
+            }
+            
+            ImGui::BeginGroup();
+            {
+                ImGui::AlignTextToFramePadding();
+
+                ImGui::BeginHorizontal("##SystemCount");
+                {
+                    ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), LE_ICON_CUBE " Systems");
+                
+                    // Count badge - use same vertical padding as the text line
+                    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.2f, 0.25f, 1.0f));
+                    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.25f, 0.25f, 0.3f, 1.0f));
+                    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.2f, 0.2f, 0.25f, 1.0f));
+                    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(8.0f, Style.FramePadding.y));
+                    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 3.0f);
+            
+                    char CountBuf[32];
+                    snprintf(CountBuf, sizeof(CountBuf), "%u", SystemCount);
+                    ImGui::Button(CountBuf);
+                }
+                ImGui::EndHorizontal();
+                
+                ImGui::PopStyleVar(2);
+                ImGui::PopStyleColor(3);
+            }
+            ImGui::EndGroup();
+            
+            ImGui::SameLine(AvailWidth - 80.0f);
+            
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.5f, 0.25f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.25f, 0.6f, 0.3f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.15f, 0.45f, 0.2f, 1.0f));
+            ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+            
+            if (ImGui::Button(LE_ICON_PLUS " Add", ImVec2(80.0f, 0.0f)))
+            {
+                //ImGui::OpenPopup("CreateEntityMenu");
+            }
+            
+            ImGui::PopStyleVar();
+            ImGui::PopStyleColor(3);
+            
+            if (ImGui::IsItemHovered())
+            {
+                ImGui::SetTooltip("Add something new to the world.");
+            }
+
+            //DrawCreateEntityMenu();
+        }
+
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+        
+        {
+            ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.08f, 0.08f, 0.1f, 1.0f));
+            ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 4.0f);
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4.0f, 4.0f));
+            
+            if (ImGui::BeginChild("SystemList", ImVec2(0, 0), true, ImGuiWindowFlags_NoScrollbar))
+            {
+                SystemsListView.Draw(SystemsContext);
+            }
+            ImGui::EndChild();
+            
+            ImGui::PopStyleVar(2);
+            ImGui::PopStyleColor();
+        }
+        
     }
 
     void FWorldEditorTool::DrawObjectEditor(const FUpdateContext& UpdateContext, bool bFocused)
@@ -979,9 +1318,38 @@ namespace Lumina
         }
     }
 
+    void FWorldEditorTool::CreateEntityWithComponent(const CStruct* Component)
+    {
+        Entity CreatedEntity;
+        for(auto &&[_, MetaType]: entt::resolve())
+        {
+            using namespace entt::literals;
+            auto Any = MetaType.invoke("staticstruct"_hs, {});
+            if (void** Type = Any.try_cast<void*>())
+            {
+                CStruct* Struct = *(CStruct**)Type;
+                if (Struct == Component)
+                {
+                    CreatedEntity = World->ConstructEntity("Entity");
+                    CreatedEntity.GetComponent<SNameComponent>().Name = Struct->GetName().ToString() + "_" + eastl::to_string((uint32)CreatedEntity.GetHandle());
+                    
+                    void* RegistryPtr = &World->GetEntityRegistry(); // EnTT will try to make a copy if not passed by *.
+                    (void)MetaType.invoke("addcomponent"_hs, {}, CreatedEntity.GetHandle(), RegistryPtr);
+                }
+            }
+        }
+
+        if (CreatedEntity.IsValid())
+        {
+            SetSelectedEntity(CreatedEntity);   
+            OutlinerListView.MarkTreeDirty();
+        }
+    }
+
     void FWorldEditorTool::CreateEntity()
     {
-        World->ConstructEntity("Entity");
+        Entity NewEntity = World->ConstructEntity("Entity");
+        SetSelectedEntity(NewEntity);   
         OutlinerListView.MarkTreeDirty();
     }
 

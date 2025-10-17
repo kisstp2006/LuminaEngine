@@ -143,6 +143,12 @@ namespace Lumina::Hash
         return XXHash::GetHash64(Data.data(), Data.size());
     }
 
+    template<ContiguousContainer T>
+    FORCEINLINE uint64 GetHash64(const T& Array)
+    {
+        return XXHash::GetHash64(Array.data(), Array.size() * sizeof(typename T::value_type));
+    }
+
     template <typename T>
     requires requires { eastl::hash<T>(); }
     SIZE_T GetHash(const T& value)

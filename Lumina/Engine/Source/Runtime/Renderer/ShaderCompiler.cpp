@@ -143,7 +143,7 @@ namespace Lumina
         TVector<FShaderCompileOptions> Options = { CompileOptions };
         TVector<CompletedFunc> Callbacks = { Memory::Move(OnCompleted) };
 
-        return CompileShaderPaths(TSpan<FString>(ShaderPaths), TSpan<FShaderCompileOptions>(Options), OnCompleted);
+        return CompileShaderPaths(TSpan(ShaderPaths), TSpan(Options), OnCompleted);
     }
 
     bool FSpirVShaderCompiler::CompileShaderPaths(TSpan<FString> ShaderPaths, TSpan<FShaderCompileOptions> CompileOptions, CompletedFunc OnCompleted)
@@ -235,9 +235,10 @@ namespace Lumina
 
                 
                 FShaderHeader Shader;
-                Shader.Binaries = Memory::Move(Binaries);
                 Shader.DebugName = Filename;
-                
+                Shader.Hash = Hash::GetHash64(Binaries);
+                Shader.Binaries = Memory::Move(Binaries);
+
                 ReflectSpirv(Shader.Binaries, Shader.Reflection, Options[i].bGenerateReflectionData);
 
                 auto CompileEnd = std::chrono::high_resolution_clock::now();
@@ -329,8 +330,9 @@ namespace Lumina
             
             FShaderHeader Shader;
             Shader.DebugName = "RawShader";
+            Shader.Hash = Hash::GetHash64(Binaries);
             Shader.Binaries = Memory::Move(Binaries);
-            
+
             ReflectSpirv(Shader.Binaries, Shader.Reflection, true);
 
             PendingTasks.fetch_sub(1, std::memory_order_acq_rel);

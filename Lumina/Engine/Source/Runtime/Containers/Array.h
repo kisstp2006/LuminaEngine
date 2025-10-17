@@ -46,6 +46,7 @@ PRAGMA_ENABLE_ALL_WARNINGS
 
 namespace Lumina
 {
+
     //-------------------------------------------------------------------------
     // Commonly used containers aliases
     //-------------------------------------------------------------------------
@@ -150,6 +151,15 @@ namespace Lumina
     //-------------------------------------------------------------------------
     // Simple utility functions to improve syntactic usage of container types
     //-------------------------------------------------------------------------
+
+
+    template<typename T>
+    concept ContiguousContainer = requires(const T & t)
+    {
+        { t.data() } -> std::convertible_to<const void*>;
+        { t.size() } -> std::convertible_to<size_t>;
+    };
+
 
     // Find an element in a vector
     template<typename T>

@@ -34,10 +34,10 @@ namespace Lumina
         FORCEINLINE const glm::vec3& GetViewPosition() const { return ViewPosition; }
 
         FORCEINLINE const glm::mat4& GetViewMatrix() const { return ViewMatrix; }
-        FORCEINLINE const glm::mat4& GetInverseViewMatrix() const { return glm::inverse(ViewMatrix); }
+        FORCEINLINE glm::mat4 GetInverseViewMatrix() const { return glm::inverse(ViewMatrix); }
         FORCEINLINE const glm::mat4& GetViewProjectionMatrix() const { return ViewProjectionMatrix; }
         FORCEINLINE const glm::mat4& GetProjectionMatrix() const { return ProjectionMatrix; }
-        FORCEINLINE const glm::mat4& GetInverseProjectionMatrix() const { return glm::inverse(ProjectionMatrix); }
+        FORCEINLINE glm::mat4 GetInverseProjectionMatrix() const { return glm::inverse(ProjectionMatrix); }
         FORCEINLINE const glm::vec3& GetForwardVector() const { return ForwardVector; }
         FORCEINLINE const glm::vec3& GetRightVector() const { return RightVector; }
         glm::mat4 ToReverseDepthViewProjectionMatrix() const;

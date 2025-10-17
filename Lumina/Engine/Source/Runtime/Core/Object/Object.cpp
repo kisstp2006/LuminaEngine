@@ -1,9 +1,8 @@
-﻿#include "Class.h"
-#include "Object.h"
+﻿#include "Object.h"
+#include "Class.h"
 
 #include "ObjectRedirector.h"
 #include "Core/Reflection/Type/LuminaTypes.h"
-#include "Core/Reflection/Type/Properties/ArrayProperty.h"
 #include "Package/Package.h"
 
 /** Low level CObject registration. */
@@ -47,26 +46,7 @@ namespace Lumina
 
     void CObject::Serialize(IStructuredArchive::FSlot Slot)
     {
-        CClass* Class = GetClass();
-        FName Name = GetName();
-
-        Slot.Serialize(Name);
         
-        FProperty* Current = Class->LinkedProperty;
-        while (Current != nullptr)
-        {
-            Slot.GetStructuredArchive()->EnterField(Current->Name);
-
-            // Gets the address of the actual property.
-            void* ValuePtr = Current->GetValuePtr<void>(this);
-            Current->SerializeItem(Slot, ValuePtr, nullptr);
-            
-            Slot.GetStructuredArchive()->LeaveField();
-
-            Current = (FProperty*)Current->Next;
-        }
-
-        Serialize(*Slot.GetStructuredArchive()->GetInnerAr());
     }
 
     void CObject::PostInitProperties()

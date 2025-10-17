@@ -539,8 +539,8 @@ namespace Lumina
                         }
                     }
 
-                    CPackage::SavePackage(OldPackage, nullptr, OldPath);
-                    CPackage::SavePackage(NewPackage, nullptr, NewPath);
+                    CPackage::SavePackage(OldPackage, OldPath);
+                    CPackage::SavePackage(NewPackage, NewPath);
                 }
             }
             else
@@ -583,53 +583,6 @@ namespace Lumina
         }
 
         ImGui::SetNextWindowSizeConstraints(ImVec2(200.0f, 100.0f), ImVec2(0.0f, 0.0f));
-
-        auto MakeUniquePath = [this](FString& InPath)
-        {
-            using namespace std::filesystem;
-
-            FString BaseName = InPath;
-            FString Extension;
-
-            size_t DotIndex = InPath.find_last_of('.');
-            if (DotIndex != FString::npos && is_regular_file(InPath.c_str()))
-            {
-                Extension = InPath.substr(DotIndex);
-                BaseName = InPath.substr(0, DotIndex);
-            }
-
-            int SuffixNumber = 1;
-            size_t NameLen = BaseName.length();
-
-            size_t NumberStart = NameLen;
-            while (NumberStart > 0 && isdigit(BaseName[NumberStart - 1]))
-            {
-                --NumberStart;
-            }
-
-            if (NumberStart < NameLen)
-            {
-                FString SuffixPart = BaseName.substr(NumberStart);
-                char* EndPtr = nullptr;
-                long ParsedNumber = std::strtol(SuffixPart.c_str(), &EndPtr, 10);
-
-                if (EndPtr != SuffixPart.c_str() && *EndPtr == '\0')
-                {
-                    SuffixNumber = static_cast<int>(ParsedNumber) + 1;
-                    BaseName = BaseName.substr(0, NumberStart);
-                }
-            }
-
-            FString CandidatePath = BaseName + eastl::to_string(SuffixNumber) + Extension;
-
-            while (exists(CandidatePath.c_str()))
-            {
-                ++SuffixNumber;
-                CandidatePath = BaseName + eastl::to_string(SuffixNumber) + Extension;
-            }
-
-            InPath = CandidatePath;
-        };
         
         if (ImGui::BeginPopup("ContentContextMenu"))
         {
@@ -638,9 +591,8 @@ namespace Lumina
                 FString MenuItemName = FString(FolderIcon) + " " + "New Folder";
                 if (ImGui::MenuItem(MenuItemName.c_str()))
                 {
-                    std::filesystem::path NewPath = FString(SelectedPath + "/NewFolder").c_str();
-                    FString PathString = NewPath.generic_string().c_str();
-                    MakeUniquePath(PathString);
+                    FString PathString = FString(SelectedPath + "/NewFolder");
+                    PathString = Paths::MakeUniquePath(PathString);
                     std::filesystem::create_directory(PathString.c_str());
                     RefreshContentBrowser();
                 }
@@ -684,7 +636,7 @@ namespace Lumina
                         CFactory* Factory = Definition->GetFactory();
                         FString PathString = Paths::Combine(SelectedPath.c_str(), Factory->GetDefaultAssetCreationName(PathString).c_str());
                         Paths::AddPackageExtension(PathString);
-                        MakeUniquePath(PathString);
+                        PathString = CPackage::MakeUniquePackagePath(PathString);
                         PathString = Paths::RemoveExtension(PathString);
 
                         if (Factory->HasCreationDialogue())
@@ -753,7 +705,7 @@ namespace Lumina
                     FString PathString = Paths::Combine(SelectedPath.c_str(), NoExtFileName.c_str());
                 
                     Paths::AddPackageExtension(PathString);
-                    MakeUniquePath(PathString);
+                    PathString = CPackage::MakeUniquePackagePath(PathString);
                     PathString = Paths::RemoveExtension(PathString);
 
                     if (Factory->HasImportDialogue())

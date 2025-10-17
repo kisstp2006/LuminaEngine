@@ -421,6 +421,7 @@ namespace Lumina
         
         Entity LineBatcherEntity = ConstructEntity("LineBatcher", FTransform());
         LineBatcherEntity.Emplace<SHiddenComponent>();
+        LineBatcherEntity.Emplace<SEditorComponent>();
         LineBatcherComponent = &LineBatcherEntity.Emplace<FLineBatcherComponent>();
         
         return *LineBatcherComponent;

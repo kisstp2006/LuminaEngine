@@ -3,6 +3,7 @@
 #include "Lumina.h"
 #include "Core/Object/Class.h"
 #include "Core/Object/Object.h"
+#include "Core/Serialization/Package/PackageSaver.h"
 #include "Memory/SmartPtr.h"
 
 namespace Lumina
@@ -181,6 +182,7 @@ namespace Lumina
             return Ar;
         }
     };
+    
 
     struct FPackageHeader
     {
@@ -224,6 +226,9 @@ namespace Lumina
         }
     };
 
+    static_assert(std::is_standard_layout_v<FPackageHeader>, "FPackageHeader must only contain trivial data members");
+    static_assert(std::is_trivially_copyable_v<FPackageHeader>, "FPackageHeader must only contain trivial data members");
+    
     /**
      * Stores either a negative number to represent an import index,
      * or a positive number to represent an export index.
@@ -341,13 +346,13 @@ namespace Lumina
         /**
          * Saves one specific object to disk.
          * @param Package Package to save.
-         * @param Asset Object to save into package.
          * @param FileName Full filename.
          *
          * @return true if package saved successfully.
          */
-        LUMINA_API static bool SavePackage(CPackage* Package, CObject* Asset, const FName& FileName);
+        LUMINA_API static bool SavePackage(CPackage* Package, const FName& FileName);
 
+        void CreateLoader(const TVector<uint8>& FileBinary);
         
         LUMINA_API FPackageLoader* GetLoader() const;
 
@@ -355,6 +360,9 @@ namespace Lumina
 
         LUMINA_API void CreateExports();
         LUMINA_API void CreateImports();
+
+        void WriteImports(FPackageSaver& Saver, TSpan<CObject*> Imports);
+        void WriteExports(FPackageSaver& Saver, TSpan<CObject*> Exports);
         
         
         /**
@@ -380,8 +388,10 @@ namespace Lumina
         /** Returns the thumbnail data for this package */
         LUMINA_API TSharedPtr<FPackageThumbnail> GetPackageThumbnail() const { return PackageThumbnail; }
 
-        LUMINA_API FString GetPackageFilename() const;
-        LUMINA_API FString GetFullPackageFilePath() const;
+        LUMINA_API NODISCARD FString GetPackageFilename() const;
+        LUMINA_API NODISCARD FString GetFullPackageFilePath() const;
+
+        LUMINA_API NODISCARD static FString MakeUniquePackagePath(FStringView TestName);
 
         
         LUMINA_API void MarkDirty() { bDirty = true; }
@@ -392,7 +402,7 @@ namespace Lumina
 
         uint32                           bDirty:1=0;
         
-        TSharedPtr<FArchive>             Loader;
+        TUniquePtr<FArchive>             Loader;
         TVector<FObjectImport>           ImportTable;
         TVector<FObjectExport>           ExportTable;
         

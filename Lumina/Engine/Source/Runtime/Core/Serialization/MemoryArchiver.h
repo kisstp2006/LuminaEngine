@@ -72,6 +72,7 @@ namespace Lumina
                 else
                 {
                     SetHasError(true);
+                    LOG_ERROR("Archiver does not have enough size! Requested: {} - Total: {}", Offset + Length, TotalSize());
                 }
             } 
         }
@@ -84,14 +85,15 @@ namespace Lumina
     };
 
     /**
-     * Similar to FMemoryReader but controls the data.
+     * Similar to FMemoryReader but owns the data.
      */
-    class FBufferReader : public FMemoryArchiver
+    class FBufferReader : public FArchive
     {
     public:
         FBufferReader(void* InData, int64 InSize, bool bFreeAfterClose)
-            : Data(static_cast<uint8*>(InData))
-            , Size(InSize)
+            : ReaderData(InData)
+            , ReaderPos(0)
+            , ReaderSize(InSize)
             , bFreeOnClose(bFreeAfterClose)
         {
             this->SetFlag(EArchiverFlags::Reading);
@@ -99,54 +101,47 @@ namespace Lumina
 
         ~FBufferReader() override
         {
-            if (bFreeOnClose && Data)
+            if (bFreeOnClose && ReaderData)
             {
-                Memory::Free(Data);
-                Data = nullptr;
+                Memory::Free(ReaderData);
+                ReaderData = nullptr;
             }
         }
 
-        int64 TotalSize() override
+        int64 Tell() final
         {
-            return std::min(Size, LimitSize);
+            return ReaderPos;
+        }
+        
+        int64 TotalSize() final
+        {
+            return ReaderSize;
         }
 
-        void SetLimitSize(int64 NewLimitSize)
+        void Seek(int64 InPos) final
         {
-            LimitSize = NewLimitSize;
+            Assert(InPos >= 0)
+            Assert(InPos <= ReaderSize)
+            ReaderPos = InPos;
         }
 
-        void Serialize(void* V, int64 Length) override
+        void Serialize(void* Data, int64 Length) override
         {
-            if ((Length > 0) && !HasError())
-            {
-                if (Offset + Length <= TotalSize())
-                {
-                    memcpy(V, &Data[Offset], Length);
-                    Offset += Length;
-                }
-                else
-                {
-                    SetHasError(true);
-                    LOG_ERROR("FBufferReader: Tried to read past end of buffer.");
-                }
-            }
-            else if (Length <= 0)
-            {
-                SetHasError(true);
-                LOG_ERROR("FBufferReader: Invalid length requested for serialize: {}", Length);
-            }
+            Assert(ReaderPos >= 0)
+            Assert(ReaderPos + Length <= ReaderSize)
+            Memory::Memcpy(Data, (uint8*)ReaderData + ReaderPos, Length);
+            ReaderPos += Length;
         }
 
     private:
         
-        uint8* Data = nullptr;
-        int64 Size = 0;
-        int64 LimitSize = INT64_MAX;
-        bool bFreeOnClose = false;
+        void*   ReaderData;
+        int64   ReaderPos;
+        int64   ReaderSize;
+        bool    bFreeOnClose = false;
     };
-    
 
+        
     class FMemoryWriter : public FMemoryArchiver
     {
     public:
@@ -161,24 +156,11 @@ namespace Lumina
         
         virtual void Serialize(void* Data, int64 Num) override
         {
-            if (!Data || Num <= 0)
-            {
-                LOG_ERROR("Invalid data pointer or size passed to Serialize.");
-                SetHasError(true);
-                return;
-            }
-
             const int64 NumBytesToAdd = Offset + Num - Bytes.size();
             if (NumBytesToAdd > 0)
             {
                 const int64 NewArrayCount = Bytes.size() + NumBytesToAdd;
-                if (NewArrayCount > std::numeric_limits<int32>::max())
-                {
-                    LOG_ERROR("Cannot serialize, would overflow buffer limit!");
-                    SetHasError(true);
-                    return;
-                }
-
+                
                 Bytes.resize(NewArrayCount, 0);
             }
 
@@ -186,13 +168,10 @@ namespace Lumina
 
             if (Num > 0)
             {
-                memcpy(&Bytes[Offset], Data, Num);
+                Memory::Memcpy(&Bytes[Offset], Data, Num);
                 Offset += Num;
             }
         }
-
-
-
     private:
         
         TVector<uint8>&	Bytes;

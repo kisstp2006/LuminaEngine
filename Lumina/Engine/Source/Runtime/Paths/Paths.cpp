@@ -202,6 +202,57 @@ namespace Lumina::Paths
         return RelativePath.string().c_str();
     }
 
+    FString MakeUniquePath(FStringView OriginPath)
+    {
+        FString Path = FString(OriginPath);
+
+        // Normalize path separators to '/'
+        eastl::replace(Path.begin(), Path.end(), '\\', '/');
+
+        // Split path into directory, base name, and extension
+        const size_t LastSlash = Path.find_last_of('/');
+        const size_t Dot = Path.find_last_of('.');
+
+        FString Directory;
+        FString BaseName;
+        FString Extension;
+
+        if (LastSlash != FString::npos)
+        {
+            Directory = Path.substr(0, LastSlash + 1);
+        }
+
+        if (Dot != FString::npos && Dot > LastSlash)
+        {
+            BaseName = Path.substr(LastSlash + 1, Dot - LastSlash - 1);
+            Extension = Path.substr(Dot); // includes '.'
+        }
+        else
+        {
+            BaseName = Path.substr(LastSlash + 1);
+        }
+
+        // If the path doesn't exist, return it as-is
+        if (!Exists(Path))
+        {
+            return Path;
+        }
+
+        // Incrementally append suffixes until we find a free name
+        for (uint32 i = 1; i < 10000; ++i)
+        {
+            FString Candidate = Directory + BaseName + "_" + eastl::to_string(i) + Extension;
+            if (!Exists(Candidate))
+            {
+                return Candidate;
+            }
+        }
+
+        // Give up, too many conflicts
+        LOG_WARN("MakeUniquePath: Failed to find unique path for '{}'", Path);
+        return Path;
+    }
+
     void ReplaceFilename(FString& Path, const FString& NewFilename)
     {
         // Find the last occurrence of a path separator

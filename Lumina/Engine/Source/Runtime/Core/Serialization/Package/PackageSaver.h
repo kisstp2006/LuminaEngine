@@ -74,7 +74,6 @@ namespace Lumina
 
         CPackage*                   Package;
         THashMap<CObject*, uint32>  ObjectToIndexMap;
-        uint32                      CurrentExportIndex = 0;
         uint32                      CurrentImportIndex = 0;
     };
 }

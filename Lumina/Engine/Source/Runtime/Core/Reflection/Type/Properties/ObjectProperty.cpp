@@ -16,7 +16,6 @@ namespace Lumina
 
     void FObjectProperty::SerializeItem(IStructuredArchive::FSlot Slot, void* Value, void const* Defaults)
     {
-        
+        LUMINA_NO_ENTRY()
     }
-    
 }

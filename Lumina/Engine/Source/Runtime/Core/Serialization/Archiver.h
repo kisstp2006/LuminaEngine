@@ -150,7 +150,7 @@ namespace Lumina
 
         virtual FArchive& operator<<(float& Value)
         {
-            static_assert(sizeof(float) == sizeof(uint32_t), "Unexpected float size");
+            static_assert(sizeof(float) == sizeof(uint32), "Unexpected float size");
             uint32 Temp;
             std::memcpy(&Temp, &Value, sizeof(Temp));
             ByteOrderSerialize(Temp);

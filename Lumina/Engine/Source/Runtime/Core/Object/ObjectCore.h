@@ -128,7 +128,8 @@ namespace Lumina
 
     ENUM_CLASS_FLAGS(EPropertyTypeFlags);
     
-    inline constexpr const char* PropertyTypeFlagNames[] = {
+    inline constexpr const char* PropertyTypeFlagNames[] =
+    {
         "None",
         "Int8",
         "Int16",
@@ -159,7 +160,9 @@ namespace Lumina
     {
         size_t index = static_cast<size_t>(Flag);
         if (index >= std::size(PropertyTypeFlagNames))
+        {
             return "Invalid";
+        }
         return PropertyTypeFlagNames[index];
     }
     

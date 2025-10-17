@@ -25,8 +25,9 @@ namespace Lumina
     
     struct FShaderHeader
     {
-        FString DebugName;
-        TVector<uint32> Binaries;
-        FShaderReflection Reflection;
+        FString             DebugName;
+        TVector<uint32>     Binaries;
+        uint64              Hash;
+        FShaderReflection   Reflection;
     };
 }

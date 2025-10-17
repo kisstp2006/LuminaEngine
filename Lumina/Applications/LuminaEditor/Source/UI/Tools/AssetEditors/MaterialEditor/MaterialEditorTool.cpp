@@ -40,13 +40,12 @@ namespace Lumina
 
         MeshEntity = World->ConstructEntity("MeshEntity");
         
-        MeshEntity.Emplace<SStaticMeshComponent>().StaticMesh = Cast<CStaticMesh>(InAsset);
         MeshEntity.GetComponent<STransformComponent>().SetLocation(glm::vec3(0.0f, 0.0f,  0.0f));
         
-        MeshEntity.GetComponent<SStaticMeshComponent>().StaticMesh = CThumbnailManager::Get().SphereMesh;
-        MeshEntity.GetComponent<SStaticMeshComponent>().MaterialOverrides.resize(CThumbnailManager::Get().SphereMesh->Materials.size());
-        MeshEntity.GetComponent<SStaticMeshComponent>().MaterialOverrides[0] = Cast<CMaterialInterface>(InAsset);
-        
+        SStaticMeshComponent& StaticMeshComponent = MeshEntity.Emplace<SStaticMeshComponent>();
+        StaticMeshComponent.StaticMesh = CThumbnailManager::Get().SphereMesh;
+        StaticMeshComponent.MaterialOverrides.resize(CThumbnailManager::Get().SphereMesh->Materials.size());
+        StaticMeshComponent.MaterialOverrides[0] = CastAsserted<CMaterialInterface>(InAsset);
     }
 
 
@@ -247,19 +246,14 @@ namespace Lumina
             bGLSLPreviewDirty = true;
             
             IShaderCompiler* ShaderCompiler = GRenderContext->GetShaderCompiler();
-            FShaderHeader CompiledHeader;
-            ShaderCompiler->CompilerShaderRaw(Tree, {}, [this, &CompiledHeader](const FShaderHeader& Header) mutable 
+            ShaderCompiler->CompilerShaderRaw(Tree, {}, [this](const FShaderHeader& Header) mutable 
             {
                 CMaterial* Material = Cast<CMaterial>(Asset.Get());
-                CompiledHeader = Header;
 
                 FRHIPixelShaderRef PixelShader = GRenderContext->CreatePixelShader(Header);
                 FRHIVertexShaderRef VertexShader = GRenderContext->GetShaderLibrary()->GetShader("GeometryPass.vert").As<FRHIVertexShader>();
                 
                 {
-                    FString Key = eastl::to_string(Hash::GetHash64(Header.Binaries.data(), Header.Binaries.size()));
-                    Key += Material->GetQualifiedName().ToString();
-                    PixelShader->SetKey(Key);
                     Material->PixelShaderBinaries.assign(Header.Binaries.begin(), Header.Binaries.end());
                     Material->PixelShader = PixelShader;
                 }
@@ -271,7 +265,8 @@ namespace Lumina
                 
                 GRenderContext->OnShaderCompiled(PixelShader);
             });
-            
+
+            // Wait for shader to compile.
             ShaderCompiler->Flush();
             
             CMaterial* Material = Cast<CMaterial>(Asset.Get());

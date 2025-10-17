@@ -976,6 +976,7 @@ namespace Lumina
 
     IVulkanShader::IVulkanShader(FVulkanDevice* InDevice, const FShaderHeader& Shader, ERHIResourceType Type)
         : IDeviceChild(InDevice)
+        , ShaderHashKey(Shader.Hash)
         , ShaderHeader(Shader)
     {
         Assert(!Shader.Binaries.empty())

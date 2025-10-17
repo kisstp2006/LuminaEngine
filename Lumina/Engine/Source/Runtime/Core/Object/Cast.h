@@ -29,4 +29,19 @@ namespace Lumina
 
         return nullptr;
     }
+
+    template<typename To, typename From>
+    requires eastl::is_base_of_v<From, To> && (sizeof(From) > 0 && sizeof(To) > 0)
+    TCopyQualifiersFromTo_T<From, To>* CastAsserted(From* Src)
+    {
+        if (Src)
+        {
+            if (((const CObject*)Src)->IsA<To>())
+            {
+                return (To*)Src;
+            }
+        }
+        
+        LUM_ASSERT(0)
+    }
 }

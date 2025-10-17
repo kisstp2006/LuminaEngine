@@ -37,6 +37,7 @@ namespace Lumina
         void Serialize(FArchive& Ar) override;
         bool IsAsset() const override { return true; }
         void PostLoad() override;
+        void OnDestroy() override;
         
         bool SetScalarValue(const FName& Name, const float Value) override;
         bool SetVectorValue(const FName& Name, const glm::vec4& Value) override;

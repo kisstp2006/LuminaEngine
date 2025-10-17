@@ -6,4 +6,8 @@ namespace Lumina
     {
         Struct->SerializeTaggedProperties(Ar, Value);
     }
+
+    void FStructProperty::SerializeItem(IStructuredArchive::FSlot Slot, void* Value, void const* Defaults)
+    {
+    }
 }

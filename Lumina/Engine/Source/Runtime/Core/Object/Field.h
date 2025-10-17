@@ -31,7 +31,7 @@ namespace Lumina
         virtual ~FField() = default;
 
         // Mirrored in CStruct.
-        LUMINA_API virtual void AddProperty(FProperty* Property) { LUMINA_NO_ENTRY(); }
+        LUMINA_API virtual void AddProperty(FProperty* Property) { LUMINA_NO_ENTRY() }
 
         const FName& GetPropertyName() const { return Name; }
         const FString& GetPropertyDisplayName() const { return DisplayName; }

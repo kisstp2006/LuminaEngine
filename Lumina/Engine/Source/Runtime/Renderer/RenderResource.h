@@ -916,8 +916,8 @@ namespace Lumina
 	{
 	public:
 
-		FName GetKey() const { return Key; }
-		void SetKey(const FName& InKey) { Key = InKey; }
+		/** Return a hash of the shader's data. */
+		virtual uint64 GetHashCode() const = 0;
 		
 		/** Get the shader's native representation of it's bytecode */
 		virtual void GetByteCode(void** ByteCode, uint64* Size) = 0;
@@ -925,8 +925,6 @@ namespace Lumina
 		virtual const FShaderHeader& GetShaderHeader() const = 0;
 		
 	private:
-		
-		FName Key;
 	};
 
 	class LUMINA_API FRHIVertexShader : public FRHIShader
@@ -959,20 +957,20 @@ namespace Lumina
 
 		RENDER_RESOURCE(RRT_ShaderLibrary)
 
-		void AddShader(FRHIShader* Shader);
+		void AddShader(FName Key, FRHIShader* Shader);
 		void RemoveShader(FName Key);
 
-		static FRHIVertexShaderRef GetVertexShader(const FName& Key);
-		static FRHIPixelShaderRef GetPixelShader(const FName& Key);
-		static FRHIComputeShaderRef GetComputeShader(const FName& Key);
+		static FRHIVertexShaderRef GetVertexShader(FName Key);
+		static FRHIPixelShaderRef GetPixelShader(FName Key);
+		static FRHIComputeShaderRef GetComputeShader(FName Key);
 
 		template<typename T>
-		TRefCountPtr<T> GetShader(const FName& Key)
+		TRefCountPtr<T> GetShader(FName Key)
 		{
 			return GetShader(Key).As<T>();
 		}
 
-		FRHIShaderRef GetShader(const FName& Key);
+		FRHIShaderRef GetShader(FName Key);
 
 	private:
 
@@ -1749,6 +1747,7 @@ namespace Lumina
         FVariableRateShadingState				ShadingRateState;
         TFixedVector<FRHIBindingLayoutRef, 1>	BindingLayouts;
         
+		FGraphicsPipelineDesc& SetDebugName(FString InDebugName) { DebugName = Memory::Move(DebugName); return *this; }
         FGraphicsPipelineDesc& SetPrimType(EPrimitiveType value) { PrimType = value; return *this; }
         FGraphicsPipelineDesc& SetPatchControlPoints(uint32 value) { PatchControlPoints = value; return *this; }
         FGraphicsPipelineDesc& SetInputLayout(IRHIInputLayout* value) { InputLayout = value; return *this; }
@@ -2060,8 +2059,11 @@ namespace eastl
 		size_t operator()(const FGraphicsPipelineDesc& Desc) const
 		{
 			size_t hash = 0;
-			Hash::HashCombine(hash, Desc.VS ? Desc.VS->GetKey().GetID() : 0);
-			Hash::HashCombine(hash, Desc.PS ? Desc.PS->GetKey().GetID() : 0);
+			Hash::HashCombine(hash, Desc.RenderState);
+			Hash::HashCombine(hash, (uint32)Desc.PrimType);
+			Hash::HashCombine(hash, Desc.ShadingRateState);
+			Hash::HashCombine(hash, Desc.VS ? Desc.VS->GetHashCode() : 0);
+			Hash::HashCombine(hash, Desc.PS ? Desc.PS->GetHashCode() : 0);
 			Hash::HashCombine(hash, Desc.RenderState);
 			return hash;
 		}
@@ -2073,7 +2075,7 @@ namespace eastl
 		size_t operator()(const FComputePipelineDesc& Desc) const
 		{
 			size_t hash = 0;
-			Hash::HashCombine(hash, Desc.CS->GetKey());
+			Hash::HashCombine(hash, Desc.CS->GetHashCode());
 			return hash;
 		}
 	};

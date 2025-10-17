@@ -118,15 +118,19 @@ namespace Lumina
         }
         
         Package = NewObject<CPackage>(nullptr, VirtualPath.c_str());
+        Package->CreateLoader(FileBinary);
         
-        void* HeapData = Memory::Malloc(FileBinary.size());
-        Memory::Memcpy(HeapData, FileBinary.data(), FileBinary.size());
-        
-        Package->Loader = MakeSharedPtr<FPackageLoader>(HeapData, FileBinary.size(), Package);
         FPackageLoader& Reader = *(FPackageLoader*)Package->Loader.get();
         
         FPackageHeader PackageHeader;
         Reader << PackageHeader;
+
+        if (PackageHeader.Tag != PACKAGE_FILE_TAG)
+        {
+            LOG_ERROR("Failed to load package, invalid data was given");
+            Package->Loader.reset();
+            return nullptr;
+        }
 
         Reader.Seek((int64)PackageHeader.ImportTableOffset);
         Reader << Package->ImportTable;
@@ -143,12 +147,9 @@ namespace Lumina
         {
             FObjectExport& Export = Package->ExportTable[i];
             
-            FString ObjectName = GetObjectNameFromQualifiedName(Export.ObjectName.ToString());
-            ObjectName = RemoveNumberSuffixFromObject(ObjectName);
-            
             CClass* ObjectClass = FindObject<CClass>(nullptr, Export.ClassName);
             
-            CObject* Object = NewObject(ObjectClass, Package, FName(ObjectName));
+            CObject* Object = NewObject(ObjectClass, Package, Export.ObjectName);
             Object->SetFlag(OF_NeedsLoad);
 
             if (Object->IsAsset())
@@ -166,107 +167,90 @@ namespace Lumina
         return Package;
     }
 
-    bool CPackage::SavePackage(CPackage* Package, CObject* Asset, const FName& FileName)
+    bool CPackage::SavePackage(CPackage* Package, const FName& FileName)
     {
         LUMINA_PROFILE_SCOPE();
 
-        if (Package == nullptr)
+        if (!Package)
         {
             return false;
         }
 
-        FString PathString = FileName.ToString();
-        if (!Paths::HasExtension(PathString, "lasset"))
+        FString Path = FileName.ToString();
+        if (!Paths::HasExtension(Path, "lasset"))
         {
-            Paths::AddPackageExtension(PathString);
+            Paths::AddPackageExtension(Path);
         }
-        
+
         Package->ExportTable.clear();
         Package->ImportTable.clear();
-        
+
         TVector<uint8> FileBinary;
         FPackageSaver Writer(FileBinary, Package);
-        FPackageHeader PackageHeader;
-        PackageHeader.Tag = PACKAGE_FILE_TAG;
-        PackageHeader.Version = 1;
 
-        // Skip the header until we've built the tables.
+        FPackageHeader Header;
+        Header.Tag = PACKAGE_FILE_TAG;
+        Header.Version = 1;
+
+        // Reserve header space, we'll come back to fill it
         Writer.Seek(sizeof(FPackageHeader));
-        
-        // Build the save context (imports/exports)
-        FSaveContext SaveContext(Package);
-        Package->BuildSaveContext(SaveContext);
 
-        for (CObject* Import : SaveContext.Imports)
-        {
-            Package->ImportTable.emplace_back(Import);
-        }
-        
-        PackageHeader.ImportTableOffset = Writer.Tell();
-        Writer << Package->ImportTable;
-        
-        for (CObject* Export : SaveContext.Exports)
-        {
-            Export->LoaderIndex = FObjectPackageIndex::FromExport((int64)Package->ExportTable.size()).GetRaw();
-            Package->ExportTable.emplace_back(Export);
-        }
-        
-        PackageHeader.ObjectDataOffset = Writer.Tell();
+        // Build import/export context
+        FSaveContext Context(Package);
+        Package->BuildSaveContext(Context);
 
-        for (size_t i = 0; i < Package->ExportTable.size(); ++i)
-        {
-            FObjectExport& Export = Package->ExportTable[i];
-            if (Export.Object == nullptr)
-            {
-                continue;
-            }
+        // Imports
+        Header.ImportTableOffset = Writer.Tell();
+        Package->WriteImports(Writer, Context.Imports);
+        Header.ImportCount = static_cast<uint32>(Package->ImportTable.size());
 
-            Export.Offset = Writer.Tell();
-            
-            Export.Object->Serialize(Writer);
-            
-            Export.Size = Writer.Tell() - Export.Offset;
-            
-        }
-        
-        PackageHeader.ExportTableOffset = Writer.Tell();
+        // Exports
+        Header.ObjectDataOffset = Writer.Tell();
+        Package->WriteExports(Writer, Context.Exports);
+        Header.ExportTableOffset = Writer.Tell();
         Writer << Package->ExportTable;
-        
-        PackageHeader.ImportCount = (uint32)Package->ImportTable.size();
-        PackageHeader.ExportCount = (uint32)Package->ExportTable.size();
+        Header.ExportCount = static_cast<uint32>(Package->ExportTable.size());
 
-        PackageHeader.ThumbnailDataOffset = Writer.Tell();
+        // Thumbnail
+        Header.ThumbnailDataOffset = Writer.Tell();
         if (Package->PackageThumbnail)
         {
             Package->PackageThumbnail->Serialize(Writer);
         }
-        
-        // Write the header.
+
+        // Finalize header
         Writer.Seek(0);
-        Writer << PackageHeader;
+        Writer << Header;
 
-        // If the loader was not yet created, create it now.
-        if (Package->Loader == nullptr)
+        // Create loader and save
+        Package->CreateLoader(FileBinary);
+
+        if (!FileHelper::DoesDirectoryExist(Path))
         {
-            void* HeapData = Memory::Malloc(FileBinary.size());
-            Memory::Memcpy(HeapData, FileBinary.data(), FileBinary.size());
-            Package->Loader = MakeSharedPtr<FPackageLoader>(HeapData, FileBinary.size(), Package);
+            FileHelper::CreateNewFile(Path, true);
         }
 
-        if (!FileHelper::DoesDirectoryExist(PathString))
-        {
-            FileHelper::CreateNewFile(PathString, true);
-        }
-        
-        if (!FileHelper::SaveArrayToFile(FileBinary, PathString))
+        if (!FileHelper::SaveArrayToFile(FileBinary, Path))
         {
             return false;
         }
 
         Package->ClearDirty();
-        
-        LOG_INFO("Saved Package: \"{}\" - ( [{}] Exports | [{}] Imports | [{}] Bytes)", Package->GetName(), Package->ExportTable.size(), Package->ImportTable.size(), Package->Loader->TotalSize());
+
+        LOG_INFO("Saved Package: \"{}\" - ( [{}] Exports | [{}] Imports | [{}] Bytes )",
+                 Package->GetName(),
+                 Package->ExportTable.size(),
+                 Package->ImportTable.size(),
+                 Package->Loader->TotalSize());
+
         return true;
+    }
+
+    void CPackage::CreateLoader(const TVector<uint8>& FileBinary)
+    {
+        void* HeapData = Memory::Malloc(FileBinary.size());
+        Memory::Memcpy(HeapData, FileBinary.data(), FileBinary.size());
+        Loader = MakeUniquePtr<FPackageLoader>(HeapData, FileBinary.size(), this);
     }
 
     FPackageLoader* CPackage::GetLoader() const
@@ -300,6 +284,38 @@ namespace Lumina
     void CPackage::CreateImports()
     {
         
+    }
+
+    void CPackage::WriteImports(FPackageSaver& Saver, TSpan<CObject*> Imports)
+    {
+        for (CObject* Import : Imports)
+        {
+            ImportTable.emplace_back(Import);
+        }
+
+        Saver << ImportTable;
+    }
+
+    void CPackage::WriteExports(FPackageSaver& Saver, TSpan<CObject*> Exports)
+    {
+        for (CObject* ExportObj : Exports)
+        {
+            FObjectExport ExportEntry;
+            ExportEntry.ClassName   = ExportObj->GetClass()->GetQualifiedName();
+            ExportEntry.ObjectName  = ExportObj->GetName(); 
+            ExportEntry.Object      = ExportObj;
+            ExportEntry.Offset      = Saver.Tell();
+
+            if (ExportObj)
+            {
+                ExportObj->Serialize(Saver);
+                ExportEntry.Size = Saver.Tell() - ExportEntry.Offset;
+            }
+
+            ExportObj->LoaderIndex = FObjectPackageIndex::FromExport(static_cast<int64>(ExportTable.size())).GetRaw();
+
+            ExportTable.emplace_back(ExportEntry);
+        }
     }
 
     void CPackage::LoadObject(CObject* Object)
@@ -348,12 +364,9 @@ namespace Lumina
         
         // Seek to the data offset
         Loader->Seek(DataPos);
-
         
         Object->PreLoad();
-
         
-        // Deserialize object
         Object->Serialize(*Loader);
 
         const int64 EndOffset = Loader->Tell();
@@ -439,5 +452,11 @@ namespace Lumina
         Paths::AddPackageExtension(Path);
 
         return Path;
+    }
+
+    FString CPackage::MakeUniquePackagePath(FStringView TestName)
+    {
+        FString UniquePath = Paths::MakeUniquePath(TestName);
+        return MakeUniqueObjectName(CPackage::StaticClass(), nullptr, Paths::ConvertToVirtualPath(UniquePath)).ToString();
     }
 }

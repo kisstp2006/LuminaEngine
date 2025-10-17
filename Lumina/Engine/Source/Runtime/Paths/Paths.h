@@ -60,6 +60,11 @@ namespace Lumina::Paths
     LUMINA_API FString MakeRelativeTo(const FString& Path, const FString& BasePath);
 
     /**
+     * Makes a unique path.
+     */
+    LUMINA_API FString MakeUniquePath(FStringView OriginPath);
+    
+    /**
      * Replaces the filename portion of a given path.
      * @param Path The full path whose filename will be replaced.
      * @param NewFilename The new filename to insert.

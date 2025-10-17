@@ -316,10 +316,15 @@ namespace Lumina
         {
             return Other->ShaderHeader.Binaries == ShaderHeader.Binaries;
         }
+
+        NODISCARD uint64 GetShaderHashKeyImpl() const noexcept
+        {
+            return ShaderHashKey;
+        }
     
     protected:
         
-        
+        uint64 ShaderHashKey;
         FShaderHeader ShaderHeader;
         VkShaderModule  ShaderModule = VK_NULL_HANDLE;
     };
@@ -343,6 +348,11 @@ namespace Lumina
         void GetByteCode(void** ByteCode, uint64* Size) override
         {
             GetByteCodeImpl(ByteCode, Size);
+        }
+
+        uint64 GetHashCode() const override
+        {
+            return GetShaderHashKeyImpl();
         }
 
         const FShaderHeader& GetShaderHeader() const override
@@ -371,6 +381,11 @@ namespace Lumina
             GetByteCodeImpl(ByteCode, Size);
         }
 
+        uint64 GetHashCode() const override
+        {
+            return GetShaderHashKeyImpl();
+        }
+
         const FShaderHeader& GetShaderHeader() const override
         {
             return ShaderHeader;
@@ -394,6 +409,11 @@ namespace Lumina
         void GetByteCode(void** ByteCode, uint64* Size) override
         {
             GetByteCodeImpl(ByteCode, Size);
+        }
+
+        uint64 GetHashCode() const override
+        {
+            return GetShaderHashKeyImpl();
         }
 
         const FShaderHeader& GetShaderHeader() const override

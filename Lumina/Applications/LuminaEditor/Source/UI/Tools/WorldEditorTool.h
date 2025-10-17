@@ -86,6 +86,12 @@ namespace Lumina
             FName Name;
             TObjectHandle<CEntitySystem> System;
         };
+
+        struct FEntityListFilterState
+        {
+            ImGuiTextFilter FilterName;
+            TVector<FName> ComponentFilters;
+        };
         
     public:
         
@@ -118,6 +124,8 @@ namespace Lumina
         
     protected:
 
+        void DrawCreateEntityMenu();
+        void DrawFilterOptions();
         void SetSelectedEntity(const Entity& NewEntity);
         void RebuildSceneOutliner(FTreeListView* View);
         void HandleEntityEditorDragDrop(FTreeListViewItem* DropItem);
@@ -130,6 +138,8 @@ namespace Lumina
         void DrawPropertyEditor(const FUpdateContext& UpdateContext, bool bFocused);
 
         void RebuildPropertyTables();
+
+        void CreateEntityWithComponent(const CStruct* Component);
         void CreateEntity();
 
         void CopyEntity(Entity& To, const Entity& From);
@@ -138,6 +148,8 @@ namespace Lumina
 
     private:
 
+        ImGuiTextFilter                         AddEntityComponentFilter;
+        FEntityListFilterState                  EntityFilterState;
         FOnGamePreview                          OnGamePreviewStartRequested;
         FOnGamePreview                          OnGamePreviewStopRequested;
         

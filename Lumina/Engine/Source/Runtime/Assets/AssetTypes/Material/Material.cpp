@@ -26,19 +26,23 @@ namespace Lumina
     {
         FRHICommandListRef CommandList = GRenderContext->GetCommandList(ECommandQueue::Graphics);
         FShaderHeader Header;
-        Header.DebugName = "Test";
         
         if (!VertexShaderBinaries.empty() && !PixelShaderBinaries.empty())
         {
+
+            Header.DebugName = GetQualifiedName().ToString() + "_VertexShader";
+            Header.Hash = Hash::GetHash64(VertexShaderBinaries.data(), VertexShaderBinaries.size() * sizeof(uint32));
             Header.Binaries = VertexShaderBinaries;
             VertexShader = GRenderContext->CreateVertexShader(Header);
-
+            
+            Header.DebugName = GetQualifiedName().ToString() + "_PixelShader";
+            Header.Hash = Hash::GetHash64(PixelShaderBinaries.data(), PixelShaderBinaries.size() * sizeof(uint32));
             Header.Binaries = PixelShaderBinaries;
             PixelShader = GRenderContext->CreatePixelShader(Header);
 
             FRHIBufferDesc BufferDesc;
-            BufferDesc.Size = sizeof(FMaterialUniforms);
             BufferDesc.DebugName = GetName().ToString() + "Material Uniforms";
+            BufferDesc.Size = sizeof(FMaterialUniforms);
             BufferDesc.InitialState = EResourceStates::ConstantBuffer;
             BufferDesc.bKeepInitialState = true;
             BufferDesc.Usage.SetFlag(BUF_UniformBuffer);
@@ -65,7 +69,11 @@ namespace Lumina
 
             SetReadyForRender(true);
         }
+    }
 
+    void CMaterial::OnDestroy()
+    {
+        CMaterialInterface::OnDestroy();
     }
 
     bool CMaterial::SetScalarValue(const FName& Name, const float Value)

@@ -1112,35 +1112,33 @@ namespace Lumina
             case ERHIShaderType::Vertex:
                 {
                     FRHIVertexShaderRef Shader = CreateVertexShader(Header);
-                    Shader->SetKey(Header.DebugName);
-                    ShaderLibrary->AddShader(Shader);
-                    PipelineCache.PostShaderRecompiled(Shader.As<FVulkanVertexShader>());
+                    ShaderLibrary->AddShader(Header.DebugName, Shader);
+                    PipelineCache.PostShaderRecompiled(Shader);
                 }
                 break;
             case ERHIShaderType::Fragment:
                 {
                     FRHIPixelShaderRef Shader = CreatePixelShader(Header);
-                    Shader->SetKey(Header.DebugName);
-                    ShaderLibrary->AddShader(Shader);
-                    PipelineCache.PostShaderRecompiled(Shader.As<FVulkanPixelShader>());
+                    ShaderLibrary->AddShader(Header.DebugName, Shader);
+                    PipelineCache.PostShaderRecompiled(Shader);
                 }
                 break;
             case ERHIShaderType::Compute:
                 {
                     FRHIComputeShaderRef Shader = CreateComputeShader(Header);
-                    Shader->SetKey(Header.DebugName);
-                    ShaderLibrary->AddShader(Shader);
-                    PipelineCache.PostShaderRecompiled(Shader.As<FVulkanComputeShader>());
+                    ShaderLibrary->AddShader(Header.DebugName, Shader);
+                    PipelineCache.PostShaderRecompiled(Shader);
                 }
                 break;
             }
+            
         });
         
     }
 
     void FVulkanRenderContext::OnShaderCompiled(FRHIShader* Shader)
     {
-        PipelineCache.PostShaderRecompiled((IVulkanShader*)Shader);
+        PipelineCache.PostShaderRecompiled(Shader);
     }
     
     FRHIInputLayoutRef FVulkanRenderContext::CreateInputLayout(const FVertexAttributeDesc* AttributeDesc, uint32 Count)

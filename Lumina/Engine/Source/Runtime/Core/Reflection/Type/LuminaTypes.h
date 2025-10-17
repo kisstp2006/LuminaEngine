@@ -32,7 +32,8 @@ namespace Lumina
             Name = Params->Name;
             Owner = InOwner;
             TypeFlags = Params->TypeFlags;
-            
+
+            TypeName = PropertyTypeToString(TypeFlags);
             Init();
         }
         
@@ -57,7 +58,7 @@ namespace Lumina
             return ValuePtr;
         }
 
-        /** Gets the casted internal value type by an offset, UB if type is not correct */
+        /** Gets the cast internal value type by an offset, UB if type is not correct */
         template<typename ValueType>
         requires !eastl::is_pointer_v<ValueType>
         ValueType* GetValuePtr(void* ContainerPtr, int32 ArrayIndex = 0) const
@@ -65,7 +66,7 @@ namespace Lumina
             return (ValueType*)GetValuePtrInternal(ContainerPtr, ArrayIndex);
         }
 
-        /** Gets the casted internal value type by an offset, UB if type is not correct */
+        /** Gets the cast internal value type by an offset, UB if type is not correct */
         template<typename ValueType>
         requires !eastl::is_pointer_v<ValueType>
         const ValueType* GetValuePtr(const void* ContainerPtr, int32 ArrayIndex = 0) const
@@ -104,6 +105,7 @@ namespace Lumina
         virtual void SerializeItem(IStructuredArchive::FSlot Slot, void* Value, void const* Defaults = nullptr) { }
         
         FString GetTypeAsString() const;
+        FName GetTypeAsFName() const;
 
         FName GetMetadata(const FName& Key) { return Metadata.GetMetadata(Key); }
         bool HasMetadata(const FName& Key) { return Metadata.HasMetadata(Key); }
@@ -140,10 +142,12 @@ namespace Lumina
         
     public:
         
-        SIZE_T ElementSize;
+        SIZE_T              ElementSize;
+
+        FName               TypeName;
 
         /** Linked list of properties from most-derived to base */
-        FProperty* PropertyLinkNext;
+        FProperty*          PropertyLinkNext;
 
         /** Specifies the type of property this is */
         EPropertyTypeFlags  TypeFlags;
@@ -151,7 +155,7 @@ namespace Lumina
         EPropertyFlags      Flags;
 
         #ifdef WITH_DEVELOPMENT_TOOLS
-        FPropertyMetadata Metadata;
+        FPropertyMetadata   Metadata;
         #endif
         
     };
@@ -285,7 +289,6 @@ namespace Lumina
         
         virtual void SerializeItem(IStructuredArchive::FSlot Slot, void* Value, void const* Defaults = nullptr) override
         {
-            Slot.Serialize(*TTypeInfo::GetPropertyValuePtr(Value));
         }
         
     };

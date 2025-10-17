@@ -19,11 +19,10 @@
 
 namespace Lumina
 {
-    FMutex ObjectNameMutex;
-    FMutex ObjectCreationMutex;
+    static FMutex ObjectNameMutex;
     
     /** Allocates a section of memory for the new object, does not place anything into the memory */
-    CObjectBase* AllocateCObjectMemory(const CClass* InClass, EObjectFlags InFlags)
+    static CObjectBase* AllocateCObjectMemory(const CClass* InClass, EObjectFlags InFlags)
     {
         // Force 16-byte minimal alignment for cache friendliness.
         uint32 Alignment = Math::Max<uint32>(16, InClass->GetAlignment());
@@ -34,12 +33,13 @@ namespace Lumina
     FName MakeUniqueObjectName(CClass* Class, CPackage* Package, const FName& InBaseName)
     {
         LUMINA_PROFILE_SCOPE();
-
+        Assert(Class)
+        
         FScopeLock Lock(ObjectNameMutex);
         
         FName BaseName = (InBaseName == NAME_None) ? Class->GetName() : InBaseName;
 
-        FName FullName;
+        FName FullName = BaseName;
         if (Package)
         {
             TInlineString<256> Path;
@@ -63,9 +63,8 @@ namespace Lumina
         do
         {
             int32_t Index = ++Class->ClassUnique;
-            FString String = BaseName.ToString() + "_" + eastl::to_string(Index);
-            TestName = FName(String);
-            FoundObj = FindObjectFast(Class, Package, FullName);
+            TestName = BaseName.ToString() + "_" + eastl::to_string(Index);
+            FoundObj = FindObjectFast(Class, Package, TestName);
         }
         while (FoundObj != nullptr);
 
@@ -125,7 +124,7 @@ namespace Lumina
             // Extract package path (everything before the delimiter)
             FString PackagePath = NameAsString.substr(0, Position);
         
-            // Extract object name (everything after the delimiter)  
+            // Extract object name (everything after the delimiter)
             FString ObjectNameStr = NameAsString.substr(Position + 1);
 
             CPackage* FoundPackage = (CPackage*)FindObjectFast(CPackage::StaticClass(), nullptr, PackagePath, true);
@@ -306,8 +305,8 @@ namespace Lumina
 
     void GetObjectsWithPackage(CPackage* Package, TVector<CObject*>& OutObjects)
     {
-        Assert(Package != nullptr);
-
+        Assert(Package != nullptr)
+        
         for (TObjectIterator<CObject> It; It; ++It)
         {
             CObjectBase* Object = *It;
