@@ -47,6 +47,7 @@ Up to date blog: https://www.dr-elliot.com
 <img width="2229" height="1227" alt="image" src="https://github.com/user-attachments/assets/6b1dc6a7-ffb3-416b-93ad-d130695e810e" />
 <img width="2229" height="1227" alt="image" src="https://github.com/user-attachments/assets/9974246c-4bc0-4975-b489-5846f1551c74" />
 <img width="2229" height="1227" alt="image" src="https://github.com/user-attachments/assets/a5659962-8c9b-4bf7-9730-6ebc079b42fd" />
+<img width="2229" height="1227" alt="image" src="https://github.com/user-attachments/assets/9ccd1e52-bb64-44c8-bd8c-66c1f1545253" />
 
 
 
