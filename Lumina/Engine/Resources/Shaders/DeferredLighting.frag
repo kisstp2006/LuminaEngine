@@ -438,16 +438,23 @@ void main()
         uint LightIndex = Clusters.Clusters[TileIndex].LightIndices[i];
         FLight Light = GetLightAt(LightIndex);
         
-        vec3 L = Position - Light.Position;
-        vec3 DirectionToLight = normalize(L);
-        float DistanceToLight = length(L);
-        float AttenuationFactor = 1.0 / (DistanceToLight * DistanceToLight);
-        float BiasScale = mix(0.1, 1.0, AttenuationFactor);
-        float CurrentDepth = DistanceToLight / Light.Radius;
+        if(Light.Shadow.ShadowMapIndex != INDEX_NONE)
+        {
+            vec3 L = Position - Light.Position;
+            vec3 DirectionToLight = normalize(L);
+            float DistanceToLight = length(L);
+            float AttenuationFactor = 1.0 / (DistanceToLight * DistanceToLight);
+            float BiasScale = mix(0.1, 1.0, AttenuationFactor);
+            float CurrentDepth = DistanceToLight / Light.Radius;
 
-        float Bias = ComputeShadowBias(Light, N, DirectionToLight, 0) * BiasScale;
-        Shadow = ComputeShadow(Light, Position, Bias);
-        
+            float Bias = ComputeShadowBias(Light, N, DirectionToLight, 0) * BiasScale;
+            Shadow = ComputeShadow(Light, Position, Bias);
+
+        }
+        else
+        {
+            Shadow = 1.0;
+        }
         
         vec3 LContribution = EvaluateLightContribution(Light, Position, N, V, Albedo, Roughness, Metallic, F0);
         LContribution *= Shadow;

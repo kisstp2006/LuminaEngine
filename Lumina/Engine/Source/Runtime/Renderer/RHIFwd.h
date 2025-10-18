@@ -5,6 +5,11 @@
 
 namespace Lumina
 {
+    class FRHIGeometryShader;
+}
+
+namespace Lumina
+{
     class FRHIStagingImage;
 }
 
@@ -41,6 +46,7 @@ namespace Lumina
     using FRHIVertexShaderRef       = TRefCountPtr<FRHIVertexShader>;
     using FRHIPixelShaderRef        = TRefCountPtr<FRHIPixelShader>;
     using FRHIComputeShaderRef      = TRefCountPtr<FRHIComputeShader>;
+    using FRHIGeometryShaderRef     = TRefCountPtr<FRHIGeometryShader>;
     using FRHICommandListRef        = TRefCountPtr<ICommandList>;
     using FRHIViewportRef           = TRefCountPtr<FRHIViewport>;
     using FRHIGraphicsPipelineRef   = TRefCountPtr<FRHIGraphicsPipeline>;

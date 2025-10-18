@@ -114,6 +114,8 @@ namespace Lumina
                 #endif
                 
                 WorldManager->UpdateWorlds(UpdateContext);
+                
+                OnUpdateStage(UpdateContext);
             }
 
             // Pre Physics
@@ -128,6 +130,8 @@ namespace Lumina
                 #endif
                 
                 WorldManager->UpdateWorlds(UpdateContext);
+
+                OnUpdateStage(UpdateContext);
             }
 
             // During Physics
@@ -142,6 +146,8 @@ namespace Lumina
                 #endif
                 
                 WorldManager->UpdateWorlds(UpdateContext);
+
+                OnUpdateStage(UpdateContext);
             }
 
             // Post Physics
@@ -156,6 +162,8 @@ namespace Lumina
                 #endif
 
                 WorldManager->UpdateWorlds(UpdateContext);
+
+                OnUpdateStage(UpdateContext);
             }
 
             // Paused
@@ -169,6 +177,8 @@ namespace Lumina
                 #endif
 
                 WorldManager->UpdateWorlds(UpdateContext);
+
+                OnUpdateStage(UpdateContext);
             }
 
             // Frame End
@@ -189,7 +199,9 @@ namespace Lumina
                 #endif
                 
                 RenderManager->FrameEnd(UpdateContext);
-                
+
+                OnUpdateStage(UpdateContext);
+
             }
         }
 

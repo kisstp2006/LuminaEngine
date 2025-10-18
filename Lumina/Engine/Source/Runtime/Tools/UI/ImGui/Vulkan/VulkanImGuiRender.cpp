@@ -144,8 +144,6 @@ namespace Lumina
         InitInfo.ImageCount = 3;
         InitInfo.UseDynamicRendering = true;
         InitInfo.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
-
-		CommandList = VulkanRenderContext->GetCommandList(ECommandQueue::Graphics);
 		
         Assert(ImGui_ImplVulkan_Init(&InitInfo))
     }
@@ -195,12 +193,24 @@ namespace Lumina
 			FRenderPassDesc RenderPass; RenderPass
 			.AddColorAttachment(Attachment)
 			.SetRenderArea(GEngine->GetEngineViewport()->GetRenderTarget()->GetExtent());
+			FRHICommandListRef CommandList = VulkanRenderContext->GetImmediateCommandList();
+
+			CommandList->Open();
+
+			for (FRHIImage* Image : ReferencedImages)
+			{
+				CommandList->SetImageState(Image, AllSubresources, EResourceStates::ShaderResource);
+			}
+			CommandList->CommitBarriers();
 			
 			CommandList->BeginRenderPass(RenderPass);
-			
 			ImGui_ImplVulkan_RenderDrawData(DrawData, CommandList->GetAPIResource<VkCommandBuffer>());
 
 			CommandList->EndRenderPass();
+
+			CommandList->Close();
+
+			GRenderContext->ExecuteCommandList(CommandList);
 		}
     }
 
@@ -574,7 +584,7 @@ namespace Lumina
     	{
     		return 0;
     	}
-		CommandList->SetImageState(Image, AllSubresources, EResourceStates::ShaderResource);
+		
     	
 		ReferencedImages.push_back(Image);
 	    VkImage VulkanImage = Image->GetAPIResource<VkImage>();

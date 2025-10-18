@@ -38,91 +38,94 @@ namespace Lumina
     void FMaterialInstanceEditorTool::OnInitialize()
     {
         CreateToolWindow(MaterialEditorName, [this](const FUpdateContext& Cxt, bool bFocused)
-        {
-            PropertyTable.DrawTree();
-        
-            ICommandList* CommandList = GRenderContext->GetCommandList(ECommandQueue::Graphics);
-        
-            CMaterialInstance* Instance = Cast<CMaterialInstance>(Asset.Get());
-            if (!Instance || !Instance->Material.IsValid())
-                return;
-        
-            ImGui::PushStyleColor(ImGuiCol_Header, 0);
-            ImGui::PushStyleColor(ImGuiCol_HeaderActive, 0);
-            ImGui::PushStyleColor(ImGuiCol_HeaderHovered, 0);
-            if (ImGui::CollapsingHeader("Material Parameters"))
             {
-                constexpr ImGuiTableFlags Flags = 
-                    ImGuiTableFlags_BordersOuter | 
-                    ImGuiTableFlags_BordersInnerH | 
-                    ImGuiTableFlags_NoBordersInBodyUntilResize | 
-                    ImGuiTableFlags_SizingFixedFit;
-        
-                ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(4, 8));
-                if (ImGui::BeginTable("MaterialParamsTable", 2, Flags))
+                PropertyTable.DrawTree();
+
+                ICommandList* CommandList = GRenderContext->GetImmediateCommandList();
+                CommandList->Open();
+
+                CMaterialInstance* Instance = Cast<CMaterialInstance>(Asset.Get());
+                if (!Instance || !Instance->Material.IsValid())
+                    return;
+
+                ImGui::PushStyleColor(ImGuiCol_Header, 0);
+                ImGui::PushStyleColor(ImGuiCol_HeaderActive, 0);
+                ImGui::PushStyleColor(ImGuiCol_HeaderHovered, 0);
+                if (ImGui::CollapsingHeader("Material Parameters"))
                 {
-                    ImGui::TableSetupColumn("##Header", ImGuiTableColumnFlags_WidthFixed, 175);
-                    ImGui::TableSetupColumn("##Editor", ImGuiTableColumnFlags_WidthStretch);
-        
-                    
-                    for (FMaterialParameter& Param : Instance->Parameters)
+                    constexpr ImGuiTableFlags Flags =
+                        ImGuiTableFlags_BordersOuter |
+                        ImGuiTableFlags_BordersInnerH |
+                        ImGuiTableFlags_NoBordersInBodyUntilResize |
+                        ImGuiTableFlags_SizingFixedFit;
+
+                    ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(4, 8));
+                    if (ImGui::BeginTable("MaterialParamsTable", 2, Flags))
                     {
-                        ImGui::PushID(&Param);
-                        ImGui::TableNextRow();
-                        
-                        ImGui::TableNextColumn();
-                        
-                        ImGui::TextUnformatted(Param.ParameterName.c_str());
-        
-                        ImGui::TableNextColumn();
-                        
-                        ImGui::AlignTextToFramePadding();
-                        
-                        switch (Param.Type)
+                        ImGui::TableSetupColumn("##Header", ImGuiTableColumnFlags_WidthFixed, 175);
+                        ImGui::TableSetupColumn("##Editor", ImGuiTableColumnFlags_WidthStretch);
+
+
+                        for (FMaterialParameter& Param : Instance->Parameters)
                         {
+                            ImGui::PushID(&Param);
+                            ImGui::TableNextRow();
+
+                            ImGui::TableNextColumn();
+
+                            ImGui::TextUnformatted(Param.ParameterName.c_str());
+
+                            ImGui::TableNextColumn();
+
+                            ImGui::AlignTextToFramePadding();
+
+                            switch (Param.Type)
+                            {
                             case EMaterialParameterType::Scalar:
+                            {
+                                int VecIndex = Param.Index / 4;
+                                int ComponentIndex = Param.Index % 4;
+                                float* ValuePtr = &Instance->MaterialUniforms.Scalars[VecIndex][ComponentIndex];
+
+                                ImGui::PushID(&Param);
+                                if (ImGui::DragFloat("##Scalar", ValuePtr, 0.1f))
                                 {
-                                    int VecIndex = Param.Index / 4;
-                                    int ComponentIndex = Param.Index % 4;
-                                    float* ValuePtr = &Instance->MaterialUniforms.Scalars[VecIndex][ComponentIndex];
-        
-                                    ImGui::PushID(&Param);
-                                    if (ImGui::DragFloat("##Scalar", ValuePtr, 0.1f))
-                                    {
-                                        CommandList->WriteBuffer(Instance->UniformBuffer, &Instance->MaterialUniforms, 0, sizeof(FMaterialUniforms));
-                                    }
-                                    ImGui::PopID();
-                                    break;
+                                    CommandList->WriteBuffer(Instance->UniformBuffer, &Instance->MaterialUniforms, 0, sizeof(FMaterialUniforms));
                                 }
-        
-                                case EMaterialParameterType::Vector:
+                                ImGui::PopID();
+                                break;
+                            }
+
+                            case EMaterialParameterType::Vector:
+                            {
+                                glm::vec4& Vec = Instance->MaterialUniforms.Vectors[Param.Index];
+                                ImGui::PushID(&Param);
+                                if (ImGui::ColorEdit4("##Vector", glm::value_ptr(Vec), ImGuiColorEditFlags_Float))
                                 {
-                                    glm::vec4& Vec = Instance->MaterialUniforms.Vectors[Param.Index];
-                                    ImGui::PushID(&Param);
-                                    if (ImGui::ColorEdit4("##Vector", glm::value_ptr(Vec), ImGuiColorEditFlags_Float))
-                                    {
-                                        CommandList->WriteBuffer(Instance->UniformBuffer, &Instance->MaterialUniforms, 0, sizeof(FMaterialUniforms));
-                                    }
-                                    ImGui::PopID();
-                                    break;
+                                    CommandList->WriteBuffer(Instance->UniformBuffer, &Instance->MaterialUniforms, 0, sizeof(FMaterialUniforms));
                                 }
-        
-                                case EMaterialParameterType::Texture:
-                            ImGui::TextUnformatted("Texture editing not implemented");
-                            break;
+                                ImGui::PopID();
+                                break;
+                            }
+
+                            case EMaterialParameterType::Texture:
+                                ImGui::TextUnformatted("Texture editing not implemented");
+                                break;
+                            }
+
+                            ImGui::PopID();
                         }
-        
-                        ImGui::PopID();
+
+
+                        ImGui::EndTable();
                     }
-        
-                    
-                    ImGui::EndTable();
+                    ImGui::PopStyleVar();
                 }
-                ImGui::PopStyleVar();
-            }
-            
-            ImGui::PopStyleColor(3);
-        
+
+                ImGui::PopStyleColor(3);
+
+                CommandList->Close();
+                GRenderContext->ExecuteCommandList(CommandList);
         });
     }
 

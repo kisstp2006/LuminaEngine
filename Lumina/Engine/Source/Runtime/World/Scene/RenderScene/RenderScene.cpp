@@ -91,13 +91,6 @@
             // Wait for shader tasks.
             if(GRenderContext->GetShaderCompiler()->HasPendingRequests())
             {
-                /** Mostly for UI rendering */  
-                RenderGraph.AddPass<RG_Raster>(FRGEvent("Finalize Image State"), nullptr, [&](ICommandList& CmdList)
-                {
-                    CmdList.SetImageState(GetVisualizationImage(), AllSubresources, EResourceStates::ShaderResource);
-                    CmdList.CommitBarriers();
-                });
-                
                 return;
             }
 
@@ -117,13 +110,7 @@
             DeferredLightingPass(RenderGraph);
             BatchedLineDraw(RenderGraph);
             DebugDrawPass(RenderGraph);
-            
-            /** Mostly for UI rendering */  
-            RenderGraph.AddPass<RG_Raster>(FRGEvent("Finalize Image State"), nullptr, [&](ICommandList& CmdList)
-            {
-                CmdList.SetImageState(GetVisualizationImage(), AllSubresources, EResourceStates::ShaderResource);
-                CmdList.CommitBarriers();
-            });
+
         }
 
         FRHIImageRef FRenderScene::GetVisualizationImage() const
@@ -201,7 +188,10 @@
 
         void FRenderScene::CullPass(FRenderGraph& RenderGraph, const FViewVolume& View)
         {
-            RenderGraph.AddPass<RG_Raster>(FRGEvent("Cull Pass"), nullptr, [&] (ICommandList& CmdList)
+            FRGPassDescriptor* Descriptor = RenderGraph.AllocDescriptor();
+            Descriptor->AddBinding(FrustumCullSet);
+            
+            RenderGraph.AddPass<RG_Raster>(FRGEvent("Cull Pass"), Descriptor, [&] (ICommandList& CmdList)
             {
                 LUMINA_PROFILE_SECTION_COLORED("Cull Pass", tracy::Color::Pink2);
 
@@ -224,8 +214,8 @@
                 CmdList.SetComputeState(State);
 
                 FCullData CullData;
-                CullData.Frustum = SceneViewport->GetViewVolume().GetFrustum();
-                CullData.View = glm::vec4(SceneViewport->GetViewVolume().GetViewPosition(), (uint32)InstanceData.size());
+                CullData.Frustum = View.GetFrustum();
+                CullData.View = glm::vec4(View.GetViewPosition(), (uint32)InstanceData.size());
                 
                 CmdList.SetPushConstants(&CullData, sizeof(FCullData));
 
@@ -239,7 +229,10 @@
 
         void FRenderScene::DepthPrePass(FRenderGraph& RenderGraph, const FViewVolume& View)
         {
-            RenderGraph.AddPass<RG_Raster>(FRGEvent("Pre-Depth Pass"), nullptr, [&] (ICommandList& CmdList)
+            FRGPassDescriptor* Descriptor = RenderGraph.AllocDescriptor();
+            Descriptor->AddBinding(BindingSet);
+            
+            RenderGraph.AddPass<RG_Raster>(FRGEvent("Pre-Depth Pass"), Descriptor, [&] (ICommandList& CmdList)
             {
                 LUMINA_PROFILE_SECTION_COLORED("Pre-Depth Pass", tracy::Color::Orange);
 
@@ -296,7 +289,18 @@
 
         void FRenderScene::GBufferPass(FRenderGraph& RenderGraph, const FViewVolume& View)
         {
-            RenderGraph.AddPass<RG_Raster>(FRGEvent("GBuffer Pass"), nullptr, [&](ICommandList& CmdList)
+            FRGPassDescriptor* Descriptor = RenderGraph.AllocDescriptor();
+            Descriptor->AddBinding(BindingSet);
+            Descriptor->AddRawWrite(GBuffer.Position);
+            Descriptor->AddRawWrite(GBuffer.Position);
+            Descriptor->AddRawWrite(GBuffer.Normals);
+            Descriptor->AddRawWrite(GBuffer.Material);
+            Descriptor->AddRawWrite(GBuffer.AlbedoSpec);
+            Descriptor->AddRawWrite(PickerImage);
+            Descriptor->AddRawRead(DepthAttachment);
+            Descriptor->AddRawRead(IndirectDrawBuffer);
+            
+            RenderGraph.AddPass<RG_Raster>(FRGEvent("GBuffer Pass"), Descriptor, [&](ICommandList& CmdList)
             {
                 LUMINA_PROFILE_SECTION_COLORED("GBuffer Pass", tracy::Color::Red);
                 
@@ -322,9 +326,7 @@
                 
                 FRenderPassDesc::FAttachment Depth; Depth
                     .SetImage(DepthAttachment)
-                    .SetLoadOp(ERenderLoadOp::Load)
-                    .SetStoreOp(ERenderStoreOp::Store);
-
+                    .SetLoadOp(ERenderLoadOp::Load);
                 
                 FRenderPassDesc RenderPass; RenderPass
                     .AddColorAttachment(Position)
@@ -405,124 +407,140 @@
         {
             if (RenderSettings.bSSAO)
             {
-                RenderGraph.AddPass<RG_Raster>(FRGEvent("SSAO Pass"), nullptr, [&] (ICommandList& CmdList)
                 {
-                    LUMINA_PROFILE_SECTION_COLORED("SSAO Pass", tracy::Color::Pink);
-
-                    FRHIVertexShaderRef VertexShader = FShaderLibrary::GetVertexShader("FullscreenQuad.vert");
-                    FRHIPixelShaderRef PixelShader = FShaderLibrary::GetPixelShader("SSAO.frag");
-                    if (!VertexShader || !PixelShader)
-                    {
-                        return;
-                    }
-
-                    FRenderPassDesc::FAttachment SSAOAttachment; SSAOAttachment
-                        .SetImage(SSAOImage);
-
-                    FRenderPassDesc RenderPass; RenderPass
-                        .AddColorAttachment(SSAOAttachment)
-                        .SetRenderArea(GetRenderTarget()->GetExtent());
-
-                    FRasterState RasterState;
-                    RasterState.SetCullNone();
-        
-                    FBlendState BlendState;
-                    FBlendState::RenderTarget RenderTarget;
-                    RenderTarget.SetFormat(EFormat::R8_UNORM);
-                    BlendState.SetRenderTarget(0, RenderTarget);
-        
-                    FDepthStencilState DepthState;
-                    DepthState.DisableDepthTest();
-                    DepthState.DisableDepthWrite();
-                
-                    FRenderState RenderState;
-                    RenderState.SetRasterState(RasterState);
-                    RenderState.SetDepthStencilState(DepthState);
-                    RenderState.SetBlendState(BlendState);
-                
-                    FGraphicsPipelineDesc Desc;
-                    Desc.SetDebugName("SSAO Pass");
-                    Desc.SetRenderState(RenderState);
-                    Desc.AddBindingLayout(BindingLayout);
-                    Desc.AddBindingLayout(SSAOPassLayout);
-                    Desc.SetVertexShader(VertexShader);
-                    Desc.SetPixelShader(PixelShader);
-        
-                    FRHIGraphicsPipelineRef Pipeline = GRenderContext->CreateGraphicsPipeline(Desc);
-
-                    FGraphicsState GraphicsState;
-                    GraphicsState.SetPipeline(Pipeline);
-                    GraphicsState.AddBindingSet(BindingSet);
-                    GraphicsState.AddBindingSet(SSAOPassSet);
-                    GraphicsState.SetRenderPass(RenderPass);
-                    GraphicsState.SetViewport(MakeViewportStateFromImage(GetRenderTarget()));
-
-                    CmdList.SetGraphicsState(GraphicsState);
+                    FRGPassDescriptor* Descriptor = RenderGraph.AllocDescriptor();
+                    Descriptor->AddBinding(BindingSet);
+                    Descriptor->AddBinding(SSAOPassSet);
+                    Descriptor->AddRawWrite(SSAOImage);
                     
-                    CmdList.Draw(3, 1, 0, 0); 
-                });
+                    RenderGraph.AddPass<RG_Raster>(FRGEvent("SSAO Pass"), Descriptor, [&] (ICommandList& CmdList)
+                    {
+                        LUMINA_PROFILE_SECTION_COLORED("SSAO Pass", tracy::Color::Pink);
 
+                        FRHIVertexShaderRef VertexShader = FShaderLibrary::GetVertexShader("FullscreenQuad.vert");
+                        FRHIPixelShaderRef PixelShader = FShaderLibrary::GetPixelShader("SSAO.frag");
+                        if (!VertexShader || !PixelShader)
+                        {
+                            return;
+                        }
 
-                RenderGraph.AddPass<RG_Raster>(FRGEvent("SSAO Blur Pass"), nullptr, [&](ICommandList& CmdList)
+                        FRenderPassDesc::FAttachment SSAOAttachment; SSAOAttachment
+                            .SetImage(SSAOImage);
+
+                        FRenderPassDesc RenderPass; RenderPass
+                            .AddColorAttachment(SSAOAttachment)
+                            .SetRenderArea(SSAOImage->GetExtent());
+
+                        FRasterState RasterState;
+                        RasterState.SetCullNone();
+        
+                        FBlendState BlendState;
+                        FBlendState::RenderTarget RenderTarget;
+                        RenderTarget.SetFormat(EFormat::R8_UNORM);
+                        BlendState.SetRenderTarget(0, RenderTarget);
+        
+                        FDepthStencilState DepthState;
+                        DepthState.DisableDepthTest();
+                        DepthState.DisableDepthWrite();
+                
+                        FRenderState RenderState;
+                        RenderState.SetRasterState(RasterState);
+                        RenderState.SetDepthStencilState(DepthState);
+                        RenderState.SetBlendState(BlendState);
+                
+                        FGraphicsPipelineDesc Desc;
+                        Desc.SetDebugName("SSAO Pass");
+                        Desc.SetRenderState(RenderState);
+                        Desc.AddBindingLayout(BindingLayout);
+                        Desc.AddBindingLayout(SSAOPassLayout);
+                        Desc.SetVertexShader(VertexShader);
+                        Desc.SetPixelShader(PixelShader);
+        
+                        FRHIGraphicsPipelineRef Pipeline = GRenderContext->CreateGraphicsPipeline(Desc);
+
+                        FGraphicsState GraphicsState;
+                        GraphicsState.SetPipeline(Pipeline);
+                        GraphicsState.AddBindingSet(BindingSet);
+                        GraphicsState.AddBindingSet(SSAOPassSet);
+                        GraphicsState.SetRenderPass(RenderPass);
+                        GraphicsState.SetViewport(MakeViewportStateFromImage(SSAOImage));
+
+                        CmdList.SetGraphicsState(GraphicsState);
+                    
+                        CmdList.Draw(3, 1, 0, 0); 
+                    });
+                }
+
                 {
-                    LUMINA_PROFILE_SECTION_COLORED("SSAO Blur Pass", tracy::Color::Yellow);
+                    FRGPassDescriptor* Descriptor = RenderGraph.AllocDescriptor();
+                    Descriptor->AddBinding(BindingSet);
+                    Descriptor->AddBinding(SSAOBlurPassSet);
+                    Descriptor->AddRawWrite(SSAOBlur);
 
-                    FRHIVertexShaderRef VertexShader = FShaderLibrary::GetVertexShader("FullscreenQuad.vert");
-                    FRHIPixelShaderRef PixelShader = FShaderLibrary::GetPixelShader("SSAOBlur.frag");
-                    if (!VertexShader || !PixelShader)
+                    RenderGraph.AddPass<RG_Raster>(FRGEvent("SSAO Blur Pass"), Descriptor, [&](ICommandList& CmdList)
                     {
-                        return;
-                    }
+                        LUMINA_PROFILE_SECTION_COLORED("SSAO Blur Pass", tracy::Color::Yellow);
 
-                    FRenderPassDesc::FAttachment SSAOAttachment; SSAOAttachment
-                        .SetImage(SSAOBlur);
+                        FRHIVertexShaderRef VertexShader = FShaderLibrary::GetVertexShader("FullscreenQuad.vert");
+                        FRHIPixelShaderRef PixelShader = FShaderLibrary::GetPixelShader("SSAOBlur.frag");
+                        if (!VertexShader || !PixelShader)
+                        {
+                            return;
+                        }
 
-                    FRenderPassDesc RenderPass; RenderPass
-                        .AddColorAttachment(SSAOAttachment)
-                        .SetRenderArea(GetRenderTarget()->GetExtent());
+                        FRenderPassDesc::FAttachment SSAOAttachment; SSAOAttachment
+                            .SetImage(SSAOBlur);
 
-                    FRasterState RasterState;
-                    RasterState.SetCullNone();
+                        FRenderPassDesc RenderPass; RenderPass
+                            .AddColorAttachment(SSAOAttachment)
+                            .SetRenderArea(GetRenderTarget()->GetExtent());
+
+                        FRasterState RasterState;
+                        RasterState.SetCullNone();
         
-                    FBlendState BlendState;
-                    FBlendState::RenderTarget RenderTarget;
-                    RenderTarget.SetFormat(EFormat::R8_UNORM);
-                    BlendState.SetRenderTarget(0, RenderTarget);
+                        FBlendState BlendState;
+                        FBlendState::RenderTarget RenderTarget;
+                        RenderTarget.SetFormat(EFormat::R8_UNORM);
+                        BlendState.SetRenderTarget(0, RenderTarget);
         
-                    FDepthStencilState DepthState;
-                    DepthState.DisableDepthTest();
-                    DepthState.DisableDepthWrite();
+                        FDepthStencilState DepthState;
+                        DepthState.DisableDepthTest();
+                        DepthState.DisableDepthWrite();
                 
-                    FRenderState RenderState;
-                    RenderState.SetRasterState(RasterState);
-                    RenderState.SetDepthStencilState(DepthState);
-                    RenderState.SetBlendState(BlendState);
+                        FRenderState RenderState;
+                        RenderState.SetRasterState(RasterState);
+                        RenderState.SetDepthStencilState(DepthState);
+                        RenderState.SetBlendState(BlendState);
                 
-                    FGraphicsPipelineDesc Desc;
-                    Desc.SetDebugName("SSAO Blur Pass");
-                    Desc.SetRenderState(RenderState);
-                    Desc.AddBindingLayout(BindingLayout);
-                    Desc.AddBindingLayout(SSAOBlurPassLayout);
-                    Desc.SetVertexShader(VertexShader);
-                    Desc.SetPixelShader(PixelShader);
+                        FGraphicsPipelineDesc Desc;
+                        Desc.SetDebugName("SSAO Blur Pass");
+                        Desc.SetRenderState(RenderState);
+                        Desc.AddBindingLayout(BindingLayout);
+                        Desc.AddBindingLayout(SSAOBlurPassLayout);
+                        Desc.SetVertexShader(VertexShader);
+                        Desc.SetPixelShader(PixelShader);
         
-                    FRHIGraphicsPipelineRef Pipeline = GRenderContext->CreateGraphicsPipeline(Desc);
+                        FRHIGraphicsPipelineRef Pipeline = GRenderContext->CreateGraphicsPipeline(Desc);
 
-                    FGraphicsState GraphicsState;
-                    GraphicsState.SetPipeline(Pipeline);
-                    GraphicsState.AddBindingSet(BindingSet);
-                    GraphicsState.AddBindingSet(SSAOBlurPassSet);
-                    GraphicsState.SetRenderPass(RenderPass);
-                    GraphicsState.SetViewport(MakeViewportStateFromImage(GetRenderTarget()));
+                        FGraphicsState GraphicsState;
+                        GraphicsState.SetPipeline(Pipeline);
+                        GraphicsState.AddBindingSet(BindingSet);
+                        GraphicsState.AddBindingSet(SSAOBlurPassSet);
+                        GraphicsState.SetRenderPass(RenderPass);
+                        GraphicsState.SetViewport(MakeViewportStateFromImage(GetRenderTarget()));
 
-                    CmdList.SetGraphicsState(GraphicsState);
+                        CmdList.SetGraphicsState(GraphicsState);
                     
-                    CmdList.Draw(3, 1, 0, 0); 
-                });
+                        CmdList.Draw(3, 1, 0, 0); 
+                    });
+                }
             }
             else
             {
-                RenderGraph.AddPass<RG_Raster>(FRGEvent("SSAO Clear Pass"), nullptr, [&](ICommandList& CmdList)
+                FRGPassDescriptor* Descriptor = RenderGraph.AllocDescriptor();
+                Descriptor->AddRawWrite(SSAOBlur);
+                
+                RenderGraph.AddPass<RG_Raster>(FRGEvent("SSAO Clear Pass"), Descriptor, [&](ICommandList& CmdList)
                 {
                     CmdList.ClearImageUInt(SSAOBlur, AllSubresources, 0.0f);
                 });
@@ -533,7 +551,12 @@
         {
             if (RenderSettings.bHasEnvironment)
             {
-                RenderGraph.AddPass<RG_Raster>(FRGEvent("Environment Pass"), nullptr, [&](ICommandList& CmdList)
+                FRGPassDescriptor* Descriptor = RenderGraph.AllocDescriptor();
+                Descriptor->AddBinding(BindingSet);
+                Descriptor->AddRawWrite(GetRenderTarget());
+                Descriptor->AddRawRead(DepthAttachment);
+
+                RenderGraph.AddPass<RG_Raster>(FRGEvent("Environment Pass"), Descriptor, [&](ICommandList& CmdList)
                 {
                     LUMINA_PROFILE_SECTION_COLORED("Environment Pass", tracy::Color::Green3);
             
@@ -598,9 +621,15 @@
 
         void FRenderScene::DeferredLightingPass(FRenderGraph& RenderGraph)
         {
-            RenderGraph.AddPass<RG_Raster>(FRGEvent("Lighting Pass"), nullptr, [&](ICommandList& CmdList)
+            FRGPassDescriptor* Descriptor = RenderGraph.AllocDescriptor();
+            Descriptor->AddBinding(BindingSet);
+            Descriptor->AddBinding(LightingPassSet);
+            Descriptor->AddRawWrite(GetRenderTarget());
+            Descriptor->AddRawRead(DepthAttachment);
+            
+            RenderGraph.AddPass<RG_Raster>(FRGEvent("Deferred Lighting Pass"), Descriptor, [&](ICommandList& CmdList)
             {
-                LUMINA_PROFILE_SECTION_COLORED("Lighting Pass", tracy::Color::Red2);
+                LUMINA_PROFILE_SECTION_COLORED("Deferred Lighting Pass", tracy::Color::Red2);
                 
                 FRHIVertexShaderRef VertexShader = FShaderLibrary::GetVertexShader("FullscreenQuad.vert");
                 FRHIPixelShaderRef PixelShader = FShaderLibrary::GetPixelShader("DeferredLighting.frag");
@@ -615,8 +644,7 @@
 
                 FRenderPassDesc::FAttachment Depth; Depth
                     .SetImage(DepthAttachment)
-                    .SetLoadOp(ERenderLoadOp::Load)
-                    .SetStoreOp(ERenderStoreOp::Store);
+                    .SetLoadOp(ERenderLoadOp::Load);
 
                 FRenderPassDesc RenderPass; RenderPass
                     .AddColorAttachment(Attachment)
@@ -668,7 +696,12 @@
 
         void FRenderScene::BatchedLineDraw(FRenderGraph& RenderGraph)
         {
-            RenderGraph.AddPass<RG_Raster>(FRGEvent("Batched Line Pass"), nullptr, [&](ICommandList& CmdList)
+            FRGPassDescriptor* Descriptor = RenderGraph.AllocDescriptor();
+            Descriptor->AddBinding(BindingSet);
+            Descriptor->AddRawWrite(GetRenderTarget());
+            Descriptor->AddRawRead(DepthAttachment);
+            
+            RenderGraph.AddPass<RG_Raster>(FRGEvent("Batched Line Pass"), Descriptor, [&](ICommandList& CmdList)
             {
                 LUMINA_PROFILE_SECTION_COLORED("Batched Line Pass", tracy::Color::Yellow3);
                 
@@ -686,8 +719,7 @@
 
                 FRenderPassDesc::FAttachment Depth; Depth
                     .SetImage(DepthAttachment)
-                    .SetLoadOp(ERenderLoadOp::Load)
-                    .SetStoreOp(ERenderStoreOp::Store);
+                    .SetLoadOp(ERenderLoadOp::Load);
 
                 FRenderPassDesc RenderPass; RenderPass
                     .AddColorAttachment(Attachment)
@@ -741,7 +773,13 @@
 
         void FRenderScene::DebugDrawPass(FRenderGraph& RenderGraph)
         {
-            RenderGraph.AddPass<RG_Raster>(FRGEvent("Debug Draw Pass"), nullptr, [&](ICommandList& CmdList)
+            FRGPassDescriptor* Descriptor = RenderGraph.AllocDescriptor();
+            Descriptor->AddBinding(BindingSet);
+            Descriptor->AddBinding(DebugPassSet);
+            Descriptor->AddRawWrite(DebugVisualizationImage);
+
+            
+            RenderGraph.AddPass<RG_Raster>(FRGEvent("Debug Draw Pass"), Descriptor, [&](ICommandList& CmdList)
             {
                 LUMINA_PROFILE_SECTION_COLORED("Debug Draw Pass", tracy::Color::Red2);
                 
@@ -840,7 +878,10 @@
             InstanceData.clear();
             LightData.NumLights = 0;
 
-            RenderGraph.AddPass<RG_Raster>(FRGEvent("Clear Overdraw"), nullptr, [&](ICommandList& CmdList)
+            FRGPassDescriptor* Descriptor = RenderGraph.AllocDescriptor();
+            Descriptor->AddRawWrite(OverdrawImage);
+            
+            RenderGraph.AddPass<RG_Raster>(FRGEvent("Clear Overdraw"), Descriptor, [&](ICommandList& CmdList)
             {
                CmdList.ClearImageUInt(OverdrawImage, AllSubresources, 0); 
             });
@@ -848,7 +889,10 @@
 
         void FRenderScene::ClusterBuildPass(FRenderGraph& RenderGraph, const FViewVolume& View)
         {
-            RenderGraph.AddPass<RG_Raster>(FRGEvent("Cluster Build Pass"), nullptr, [&] (ICommandList& CmdList)
+            FRGPassDescriptor* Descriptor = RenderGraph.AllocDescriptor();
+            Descriptor->AddBinding(ClusterBuildSet);
+            
+            RenderGraph.AddPass<RG_Raster>(FRGEvent("Cluster Build Pass"), Descriptor, [&] (ICommandList& CmdList)
             {
                 LUMINA_PROFILE_SECTION_COLORED("Cluster Build Pass", tracy::Color::Pink2);
                 
@@ -877,10 +921,14 @@
                 
             });
         }
+        
 
         void FRenderScene::LightCullPass(FRenderGraph& RenderGraph, const FViewVolume& View)
         {
-            RenderGraph.AddPass<RG_Raster>(FRGEvent("Light Cull Pass"), nullptr, [&] (ICommandList& CmdList)
+            FRGPassDescriptor* Descriptor = RenderGraph.AllocDescriptor();
+            Descriptor->AddBinding(LightCullSet);
+            
+            RenderGraph.AddPass<RG_Raster>(FRGEvent("Light Cull Pass"), Descriptor, [&] (ICommandList& CmdList)
             {
                 LUMINA_PROFILE_SECTION_COLORED("Light Cull Pass", tracy::Color::Pink2);
                 
@@ -908,11 +956,17 @@
 
         void FRenderScene::PointShadowPass(FRenderGraph& RenderGraph)
         {
-            RenderGraph.AddPass<RG_Raster>(FRGEvent("Point Light Shadow Pass"), nullptr, [&](ICommandList& CmdList)
+            FRGPassDescriptor* Descriptor = RenderGraph.AllocDescriptor();
+            Descriptor->AddBinding(BindingSet);
+            Descriptor->AddBinding(ShadowPassSet);
+            Descriptor->AddRawWrite(PointLightShadowMap);
+            Descriptor->AddRawRead(IndirectDrawBuffer);
+
+            RenderGraph.AddPass<RG_Raster>(FRGEvent("Point Light Shadow Pass"), Descriptor, [&](ICommandList& CmdList)
             {
                 LUMINA_PROFILE_SECTION_COLORED("Point Light Shadow Pass", tracy::Color::DeepPink2);
 
-                if (LightData.NumLights == 0)
+                if (LightData.NumLights == 0 )
                 {
                     return;
                 }
@@ -940,8 +994,8 @@
                 for (size_t LightNum = 0; LightNum < LightData.NumLights; ++LightNum)
                 {
                     const FLight& Light = LightData.Lights[LightNum];
-
-                    if (Light.Flags != LIGHT_TYPE_POINT)
+                    
+                    if (Light.Flags != LIGHT_TYPE_POINT || Light.Shadow.ShadowMapIndex == INDEX_NONE)
                     {
                         continue;
                     }
@@ -1025,7 +1079,14 @@
 
         void FRenderScene::SpotShadowPass(FRenderGraph& RenderGraph)
         {
-            RenderGraph.AddPass<RG_Raster>(FRGEvent("Spot Shadow Pass"), nullptr, [&](ICommandList& CmdList)
+            FRGPassDescriptor* Descriptor = RenderGraph.AllocDescriptor();
+            Descriptor->AddBinding(BindingSet);
+            Descriptor->AddBinding(ShadowPassSet);
+            Descriptor->AddRawWrite(ShadowAtlas);
+            Descriptor->AddRawRead(IndirectDrawBuffer);
+
+            
+            RenderGraph.AddPass<RG_Raster>(FRGEvent("Spot Shadow Pass"), Descriptor, [&](ICommandList& CmdList)
             {
                 LUMINA_PROFILE_SECTION_COLORED("Spot Shadow Pass", tracy::Color::DeepPink4);
                 
@@ -1050,12 +1111,13 @@
                     
                     
                 FRHIGraphicsPipelineRef Pipeline = GRenderContext->CreateGraphicsPipeline(Desc);
+
                 
                 for (size_t LightNum = 0; LightNum < LightData.NumLights; ++LightNum)
                 {
                     FLight& Light = LightData.Lights[LightNum];
-
-                    if (Light.Flags != LIGHT_TYPE_SPOT)
+                    
+                    if (Light.Flags != LIGHT_TYPE_SPOT || Light.Shadow.ShadowMapIndex == INDEX_NONE)
                     {
                         continue;
                     }
@@ -1068,23 +1130,21 @@
                         .SetDepthAttachment(Depth, FTextureSubresourceSet(0, 1, Light.Shadow.ShadowMapIndex, 1))
                         .SetRenderArea(FIntVector2D(GShadowAtlasResolution, GShadowAtlasResolution));
                     
+                    FGraphicsState GraphicsState; GraphicsState
+                        .SetRenderPass(RenderPass)
+                        .SetViewport(MakeViewportStateFromImage(ShadowAtlas))
+                        .SetPipeline(Pipeline)
+                        .AddBindingSet(BindingSet)
+                        .AddBindingSet(ShadowPassSet)
+                        .SetIndirectParams(IndirectDrawBuffer);                    
                     
                     for (SIZE_T CurrentDraw = 0; CurrentDraw < MeshDrawCommands.size(); ++CurrentDraw)
                     {
                         const FMeshDrawCommand& Batch = MeshDrawCommands[CurrentDraw];
-                    
-                        FGraphicsState GraphicsState; GraphicsState
-                            .SetRenderPass(RenderPass)
-                            .SetViewport(MakeViewportStateFromImage(ShadowAtlas))
-                            .SetPipeline(Pipeline)
-                            .AddBindingSet(BindingSet)
-                            .AddBindingSet(ShadowPassSet)
-                            .SetIndirectParams(IndirectDrawBuffer)
-                            .AddVertexBuffer({Batch.VertexBuffer})
-                            .SetIndexBuffer({Batch.IndexBuffer});
-                        
+
+                        GraphicsState.SetVertexBuffer({Batch.VertexBuffer});
+                        GraphicsState.SetIndexBuffer({Batch.IndexBuffer});
                         CmdList.SetGraphicsState(GraphicsState);
-                    
                         
                         FShadowMappingPC Data
                         {
@@ -1102,7 +1162,12 @@
 
         void FRenderScene::DirectionalShowPass(FRenderGraph& RenderGraph)
         {
-            RenderGraph.AddPass<RG_Raster>(FRGEvent("Cascaded Shadow Map Pass"), nullptr, [&](ICommandList& CmdList)
+            FRGPassDescriptor* Descriptor = RenderGraph.AllocDescriptor();
+            Descriptor->AddBinding(BindingSet);
+            Descriptor->AddBinding(ShadowPassSet);
+            Descriptor->AddRawRead(IndirectDrawBuffer);
+            
+            RenderGraph.AddPass<RG_Raster>(FRGEvent("Cascaded Shadow Map Pass"), Descriptor, [&](ICommandList& CmdList)
             {
                 LUMINA_PROFILE_SECTION_COLORED("Cascaded Shadow Map Pass", tracy::Color::DeepPink2);
 
@@ -1136,7 +1201,7 @@
                     FShadowCascade& Cascade = ShadowCascades[i];
 
                     FRenderPassDesc::FAttachment Depth; Depth
-                        .SetImage(Cascade.ShadowMapImage)
+                        .SetImage(CascadedShadowMap)
                         .SetDepthClearValue(1.0f);
                 
                     FRenderPassDesc RenderPass; RenderPass
@@ -1150,7 +1215,7 @@
 
                         FGraphicsState GraphicsState; GraphicsState
                             .SetRenderPass(RenderPass)
-                            .SetViewport(MakeViewportStateFromImage(Cascade.ShadowMapImage))
+                            .SetViewport(MakeViewportStateFromImage(CascadedShadowMap))
                             .SetPipeline(Pipeline)
                             .AddBindingSet(BindingSet)
                             .AddBindingSet(ShadowPassSet)
@@ -1179,7 +1244,7 @@
         {
             LUMINA_PROFILE_SCOPE();
 
-            ICommandList* CommandList = GRenderContext->GetCommandList(ECommandQueue::Graphics);
+            ICommandList* CommandList = GRenderContext->GetImmediateCommandList();
             {
                 LUMINA_PROFILE_SECTION("Compile Draw Commands");
                 
@@ -1438,8 +1503,7 @@
             //========================================================================================================================
 
             {
-                uint32 CurrentShadowMapIndex = 0;
-                
+                int32 CurrentShadowMapIndex = 0;
                 auto Group = World->GetEntityRegistry().group<SPointLightComponent>(entt::get<STransformComponent>);
                 for (uint64 i = 0; i < Group.size(); ++i)
                 {
@@ -1453,7 +1517,15 @@
                     Light.Color                 = PackColor(PointLightComponent.LightColor, PointLightComponent.Intensity);
                     Light.Radius                = PointLightComponent.Attenuation;
                     Light.Position              = TransformComponent.WorldTransform.Location;
-                    Light.Shadow.ShadowMapIndex = CurrentShadowMapIndex++;
+
+                    if (PointLightComponent.bCastShadows)
+                    {
+                        Light.Shadow.ShadowMapIndex = CurrentShadowMapIndex++;
+                    }
+                    else
+                    {
+                        Light.Shadow.ShadowMapIndex = INDEX_NONE;
+                    }
                     
                     LightData.Lights[LightData.NumLights++] = Memory::Move(Light);
         
@@ -1464,7 +1536,7 @@
             //========================================================================================================================
             
             {
-                uint32 CurrentShadowMapIndex = 0;
+                int32 CurrentShadowMapIndex = 0;
                 auto Group = World->GetEntityRegistry().group<SSpotLightComponent>(entt::get<STransformComponent>);
                 for (uint64 i = 0; i < Group.size(); ++i)
                 {
@@ -1493,7 +1565,15 @@
                     Light.Radius                = SpotLightComponent.Attenuation;
                     Light.Angles                = glm::vec2(InnerCos, OuterCos);
                     Light.ViewProjection        = ViewVolume.ToReverseDepthViewProjectionMatrix();
-                    Light.Shadow.ShadowMapIndex = CurrentShadowMapIndex++;
+
+                    if (SpotLightComponent.bCastShadows)
+                    {
+                        Light.Shadow.ShadowMapIndex = CurrentShadowMapIndex++;
+                    }
+                    else
+                    {
+                        Light.Shadow.ShadowMapIndex = INDEX_NONE;
+                    }
 
                     LightData.Lights[LightData.NumLights++] = Memory::Move(Light);
                     
@@ -1536,7 +1616,7 @@
                 const SIZE_T ActiveLightsSize = LightData.NumLights * sizeof(FLight);
                 const SIZE_T LightUploadSize = LightDataHeaderSize + ActiveLightsSize;
 
-
+                CommandList->Open();
                 CommandList->SetBufferState(SceneDataBuffer, EResourceStates::CopyDest);
                 CommandList->SetBufferState(InstanceDataBuffer, EResourceStates::CopyDest);
                 CommandList->SetBufferState(IndirectDrawBuffer, EResourceStates::CopyDest);
@@ -1551,6 +1631,10 @@
                 CommandList->WriteBuffer(SimpleVertexBuffer, SimpleVertices.data(), 0, SimpleVertexSize);
                 CommandList->WriteBuffer(LightDataBuffer, &LightData, 0, LightUploadSize);
                 CommandList->EnableAutomaticBarriers();
+
+                CommandList->Close();
+
+                GRenderContext->ExecuteCommandList(CommandList);
             }
         }
         
@@ -1633,7 +1717,7 @@
                 SetDesc.AddItem(FBindingSetItem::TextureSRV(2, GBuffer.Material));
                 SetDesc.AddItem(FBindingSetItem::TextureSRV(3, GBuffer.AlbedoSpec));
                 SetDesc.AddItem(FBindingSetItem::TextureSRV(4, SSAOBlur));
-                SetDesc.AddItem(FBindingSetItem::TextureSRV(5, ShadowCascades[0].ShadowMapImage));
+                SetDesc.AddItem(FBindingSetItem::TextureSRV(5, CascadedShadowMap));
                 SetDesc.AddItem(FBindingSetItem::TextureSRV(6, PointLightShadowMap, TStaticRHISampler<true, AM_Border, AM_Border, AM_Border>::GetRHI()));
                 SetDesc.AddItem(FBindingSetItem::TextureSRV(7, ShadowAtlas, TStaticRHISampler<true, AM_Border, AM_Border, AM_Border>::GetRHI()));
                 SetDesc.AddItem(FBindingSetItem::BufferSRV(8, ClusterBuffer));
@@ -1652,7 +1736,7 @@
                 SetDesc.AddItem(FBindingSetItem::TextureSRV(3, GBuffer.Normals));
                 SetDesc.AddItem(FBindingSetItem::TextureSRV(4, GBuffer.AlbedoSpec));
                 SetDesc.AddItem(FBindingSetItem::TextureSRV(5, SSAOBlur));
-                SetDesc.AddItem(FBindingSetItem::TextureSRV(6, ShadowCascades[0].ShadowMapImage));
+                SetDesc.AddItem(FBindingSetItem::TextureSRV(6, CascadedShadowMap));
 
                 SetDesc.AddItem(FBindingSetItem::PushConstants(0, sizeof(uint32)));
 
@@ -1735,8 +1819,10 @@
                 FRHIBufferDesc BufferDesc;
                 BufferDesc.Size = sizeof(FSceneGlobalData);
                 BufferDesc.Stride = sizeof(FSceneGlobalData);
-                BufferDesc.Usage.SetMultipleFlags(BUF_UniformBuffer, BUF_Dynamic);
-                BufferDesc.MaxVersions = 3;
+                BufferDesc.Usage.SetMultipleFlags(BUF_UniformBuffer);
+                BufferDesc.MaxVersions = 16;
+                BufferDesc.bKeepInitialState = true;
+                BufferDesc.InitialState = EResourceStates::ShaderResource;
                 BufferDesc.DebugName = "Scene Global Data";
                 SceneDataBuffer = GRenderContext->CreateBuffer(BufferDesc);
             }
@@ -1993,7 +2079,6 @@
             }
 
             {
-                FRHIImageRef CascadeShadowMap;
                 FRHIImageDesc ImageDesc = {};
                 ImageDesc.Extent = FIntVector2D(4096, 4096);
                 ImageDesc.Format = EFormat::D32;
@@ -2004,14 +2089,7 @@
                 ImageDesc.Flags.SetMultipleFlags(EImageCreateFlags::DepthAttachment, EImageCreateFlags::ShaderResource);
                 ImageDesc.DebugName = "ShadowCascadeMap";
                 
-                CascadeShadowMap = GRenderContext->CreateImage(ImageDesc);
-                
-                for (int i = 0; i < NumCascades; ++i)
-                {
-                    FShadowCascade& Cascade = ShadowCascades[i];
-                    Cascade.ShadowMapImage = CascadeShadowMap;
-                    Cascade.ShadowMapSize = glm::ivec2(4096);
-                }
+                CascadedShadowMap = GRenderContext->CreateImage(ImageDesc);
             }
             
             //==================================================================================================

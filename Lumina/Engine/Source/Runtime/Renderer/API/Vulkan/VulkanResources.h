@@ -392,6 +392,36 @@ namespace Lumina
         }
     };
 
+    class FVulkanGeometryShader : public FRHIGeometryShader, public IVulkanShader
+    {
+    public:
+        RENDER_RESOURCE(RTT_GeometryShader)
+
+        FVulkanGeometryShader(FVulkanDevice* InDevice, const FShaderHeader& Shader)
+            :IVulkanShader(InDevice, Shader, RTT_GeometryShader)
+        {}
+
+        void* GetAPIResourceImpl(EAPIResourceType ResourceType) override
+        {
+            return ShaderModule;
+        }
+        
+        void GetByteCode(void** ByteCode, uint64* Size) override
+        {
+            GetByteCodeImpl(ByteCode, Size);
+        }
+
+        uint64 GetHashCode() const override
+        {
+            return GetShaderHashKeyImpl();
+        }
+
+        const FShaderHeader& GetShaderHeader() const override
+        {
+            return ShaderHeader;
+        }
+    };
+
     class FVulkanComputeShader : public FRHIComputeShader, public IVulkanShader
     {
     public:

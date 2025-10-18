@@ -47,7 +47,8 @@ namespace Lumina
 
         virtual FRHICommandListRef CreateCommandList(const FCommandListInfo& Info) = 0;
         virtual uint64 ExecuteCommandLists(ICommandList* const* CommandLists, uint32 NumCommandLists, ECommandQueue QueueType) = 0;
-        NODISCARD virtual FRHICommandListRef GetCommandList(ECommandQueue Queue) = 0;
+        NODISCARD virtual FRHICommandListRef GetOrCreateCommandList(ECommandQueue Queue) = 0;
+        NODISCARD virtual FRHICommandListRef GetImmediateCommandList() = 0;
 
         //-------------------------------------------------------------------------------------
 
@@ -78,6 +79,7 @@ namespace Lumina
         NODISCARD virtual FRHIVertexShaderRef CreateVertexShader(const FShaderHeader& Shader) = 0;
         NODISCARD virtual FRHIPixelShaderRef CreatePixelShader(const FShaderHeader& Shader) = 0;
         NODISCARD virtual FRHIComputeShaderRef CreateComputeShader(const FShaderHeader& Shader) = 0;
+        NODISCARD virtual FRHIGeometryShaderRef CreateGeometryShader(const FShaderHeader& Shader) = 0;
 
         NODISCARD virtual IShaderCompiler* GetShaderCompiler() const = 0;
         NODISCARD virtual FRHIShaderLibraryRef GetShaderLibrary() const = 0;

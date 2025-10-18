@@ -23,7 +23,6 @@ namespace Lumina
         
         void sink_it_(const spdlog::details::log_msg& msg) override
         {
-            LUMINA_PROFILE_SCOPE();
             FConsoleMessage Message;
 
             std::time_t timestamp = std::chrono::system_clock::to_time_t(msg.time);
@@ -40,7 +39,7 @@ namespace Lumina
 
         void flush_() override
         {
-            LUMINA_PROFILE_SCOPE();
+            
         }
 
         

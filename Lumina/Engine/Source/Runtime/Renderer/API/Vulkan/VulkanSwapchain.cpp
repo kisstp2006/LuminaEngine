@@ -99,7 +99,7 @@ namespace Lumina
         std::vector<VkImage> RawImages = vkbSwapchain->get_images().value();
     	
 
-    	ICommandList* CommandList = Context->GetCommandList(Q_Graphics);
+    	ICommandList* CommandList = Context->GetImmediateCommandList();
     	CommandList->Open();
     	
         for (VkImage RawImage : RawImages)
@@ -119,7 +119,7 @@ namespace Lumina
         }
 
     	CommandList->Close();
-    	Context->ExecuteCommandList(CommandList, Q_Graphics);
+    	Context->ExecuteCommandList(CommandList);
 
     	
     	SIZE_T NumPresentSemaphores = SwapchainImages.size();

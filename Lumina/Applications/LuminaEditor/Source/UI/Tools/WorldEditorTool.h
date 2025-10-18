@@ -132,6 +132,13 @@ namespace Lumina
 
         void DrawOutliner(const FUpdateContext& UpdateContext, bool bFocused);
         void DrawSystems(const FUpdateContext& UpdateContext, bool bFocused);
+        void DrawEntityProperties();
+        void DrawEntityActionButtons();
+        void DrawComponentList();
+        void DrawComponentHeader(TUniquePtr<FPropertyTable>& Table);
+        void RemoveComponent(TUniquePtr<FPropertyTable>& Table);
+        void DrawSystemProperties();
+        void DrawEmptyState();
 
         void DrawObjectEditor(const FUpdateContext& UpdateContext, bool bFocused);
 

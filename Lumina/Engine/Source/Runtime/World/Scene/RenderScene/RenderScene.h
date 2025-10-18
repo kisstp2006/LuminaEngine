@@ -142,6 +142,7 @@ namespace Lumina
         
         FGBuffer                            GBuffer;
 
+        FRHIImageRef                        CascadedShadowMap;
         FRHIImageRef                        PointLightShadowMap;
         FRHIImageRef                        ShadowAtlas;
         FRHIImageRef                        DepthMap;

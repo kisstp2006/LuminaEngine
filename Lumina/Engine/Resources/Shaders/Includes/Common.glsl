@@ -11,6 +11,7 @@ const float INV_PI = 0.31830988618;
 #define LIGHTS_PER_UINT 2
 #define LIGHTS_PER_CLUSTER 100
 
+#define INDEX_NONE -1
 
 #define COL_R_SHIFT 0
 #define COL_G_SHIFT 8
@@ -75,7 +76,7 @@ struct FInstanceData
 struct FLightShadow
 {
     vec4 AtlasRegion;
-    uint ShadowMapIndex;
+    int ShadowMapIndex; // -1 means no shadow.
 };
 
 struct FLight

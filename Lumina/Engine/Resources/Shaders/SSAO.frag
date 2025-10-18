@@ -49,7 +49,7 @@ void main()
         float RangeCheck = smoothstep(0.0f, 1.0f, SceneUBO.SSAOSettings.Radius / abs(FragPos.z - SampleDepth));
         
         // In view-space, greater Z values are closer to the camera.
-        Occlusion += (SampleDepth >= SamplerPos.z - Bias ? 1.0f : 0.0f) * RangeCheck;
+        Occlusion += (SampleDepth >= SamplerPos.z - Bias ? 0.0f : 1.0f) * RangeCheck;
     }
     
     float Power = SceneUBO.SSAOSettings.Power;

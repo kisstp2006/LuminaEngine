@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "RenderGraphContext.h"
 #include "RenderGraphEvent.h"
 #include "RenderGraphResourceRegistry.h"
 #include "RenderGraphResources.h"
@@ -21,7 +22,7 @@ namespace Lumina
 namespace Lumina
 {
     template <typename ExecutorType>
-    concept ExecutorConcept = (sizeof(ExecutorType) <= 1024) && std::invocable<ExecutorType, ICommandList&>;
+    concept ExecutorConcept = (sizeof(ExecutorType) <= 1024) && eastl::is_invocable_v<ExecutorType, ICommandList&>;
     
     class LUMINA_API FRenderGraph
     {
@@ -32,8 +33,7 @@ namespace Lumina
         template <ERGPassFlags PassFlags, ExecutorConcept ExecutorType>
         FRGPassHandle AddPass(FRGEvent&& Event, const FRGPassDescriptor* Parameters, ExecutorType&& Executor);
 
-        template<typename... TArgs>
-        FRGPassDescriptor* AllocParams(TArgs&&... Args);
+        FRGPassDescriptor* AllocDescriptor();
         
         void Execute();
         void Compile();
@@ -63,15 +63,12 @@ namespace Lumina
 
     private:
 
-        FRHICommandListRef              GraphicsCommandList;
-        FRHICommandListRef              ComputeCommandList;
-        FRHICommandListRef              TransferCommandList;
-
         TRGHandleRegistry<FRGBuffer>    BufferRegistry;
         TRGHandleRegistry<FRGImage>     ImageRegistry;
         
         FLinearAllocator                GraphAllocator;
-        TFixedVector<FRGPassHandle, 12> Passes;
+        TVector<FRGPassHandle>          Passes;
+        TVector<FRGPassGroup>           ParallelGroups;
     };
 }
 

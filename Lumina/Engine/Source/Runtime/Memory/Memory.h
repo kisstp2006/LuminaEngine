@@ -8,7 +8,7 @@
 #include "Platform/Platform.h"
 #include "tracy/TracyC.h"
 
-#define LUMINA_RPMALLOC 1
+#define LUMINA_RPMALLOC 0
 
 #define LUMINA_PROFILE_ALLOC(p, size) TracyCAllocS(p, size, 12)
 #define LUMINA_PROFILE_FREE(p) TracyCFreeS(p, 12)

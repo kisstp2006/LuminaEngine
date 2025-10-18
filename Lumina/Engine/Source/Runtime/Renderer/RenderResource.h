@@ -69,6 +69,7 @@ enum ERHIResourceType : uint8
 	RRT_VertexShader,
 	RRT_PixelShader,
 	RRT_ComputeShader,
+	RTT_GeometryShader,
 	RRT_ShaderLibrary,
 	RRT_GraphicsPipeline,
 	RRT_ComputePipeline,
@@ -122,6 +123,7 @@ enum class ERHIShaderType : uint8
 	Vertex =	ERHIResourceType::RRT_VertexShader,
 	Fragment =	ERHIResourceType::RRT_PixelShader,
 	Compute =	ERHIResourceType::RRT_ComputeShader,
+	Geometry =  ERHIResourceType::RTT_GeometryShader,
 };
 
 ENUM_CLASS_FLAGS(ERHIShaderType)
@@ -951,6 +953,14 @@ namespace Lumina
 
 	};
 
+	class LUMINA_API FRHIGeometryShader : public FRHIShader
+	{
+	public:
+
+		RENDER_RESOURCE(RTT_GeometryShader)
+
+	};
+
 	class LUMINA_API FShaderLibrary : public IRHIResource
 	{
 	public:
@@ -963,6 +973,7 @@ namespace Lumina
 		static FRHIVertexShaderRef GetVertexShader(FName Key);
 		static FRHIPixelShaderRef GetPixelShader(FName Key);
 		static FRHIComputeShaderRef GetComputeShader(FName Key);
+		static FRHIGeometryShaderRef GetGeometryShader(FName Key);
 
 		template<typename T>
 		TRefCountPtr<T> GetShader(FName Key)
@@ -1743,20 +1754,22 @@ namespace Lumina
         FRHIInputLayoutRef						InputLayout;
         FRHIVertexShaderRef						VS;
         FRHIPixelShaderRef						PS;
+    	FRHIGeometryShaderRef					GS;
         FRenderState							RenderState;
         FVariableRateShadingState				ShadingRateState;
         TFixedVector<FRHIBindingLayoutRef, 1>	BindingLayouts;
         
-		FGraphicsPipelineDesc& SetDebugName(FString InDebugName) { DebugName = Memory::Move(DebugName); return *this; }
-        FGraphicsPipelineDesc& SetPrimType(EPrimitiveType value) { PrimType = value; return *this; }
-        FGraphicsPipelineDesc& SetPatchControlPoints(uint32 value) { PatchControlPoints = value; return *this; }
-        FGraphicsPipelineDesc& SetInputLayout(IRHIInputLayout* value) { InputLayout = value; return *this; }
-    	FGraphicsPipelineDesc& SetVertexShader(FRHIVertexShader* value) { VS = value; return *this; }
-        FGraphicsPipelineDesc& SetPixelShader(FRHIPixelShader* value) { PS = value; return *this; }
-        FGraphicsPipelineDesc& SetFragmentShader(FRHIPixelShader* value) { PS = value; return *this; }
-        FGraphicsPipelineDesc& SetRenderState(const FRenderState& value) { RenderState = value; return *this; }
-        FGraphicsPipelineDesc& SetVariableRateShadingState(const FVariableRateShadingState& value) { ShadingRateState = value; return *this; }
-        FGraphicsPipelineDesc& AddBindingLayout(FRHIBindingLayout* layout) { BindingLayouts.push_back(layout); return *this; }
+		FORCEINLINE FGraphicsPipelineDesc& SetDebugName(FString InDebugName) { DebugName = Memory::Move(DebugName); return *this; }
+        FORCEINLINE FGraphicsPipelineDesc& SetPrimType(EPrimitiveType value) { PrimType = value; return *this; }
+        FORCEINLINE FGraphicsPipelineDesc& SetPatchControlPoints(uint32 value) { PatchControlPoints = value; return *this; }
+        FORCEINLINE FGraphicsPipelineDesc& SetInputLayout(IRHIInputLayout* value) { InputLayout = value; return *this; }
+    	FORCEINLINE FGraphicsPipelineDesc& SetVertexShader(FRHIVertexShader* value) { VS = value; return *this; }
+        FORCEINLINE FGraphicsPipelineDesc& SetPixelShader(FRHIPixelShader* value) { PS = value; return *this; }
+    	FORCEINLINE FGraphicsPipelineDesc& SetGeometryShader(FRHIGeometryShader* value) { GS = value; return *this; }
+        FORCEINLINE FGraphicsPipelineDesc& SetFragmentShader(FRHIPixelShader* value) { PS = value; return *this; }
+        FORCEINLINE FGraphicsPipelineDesc& SetRenderState(const FRenderState& value) { RenderState = value; return *this; }
+        FORCEINLINE FGraphicsPipelineDesc& SetVariableRateShadingState(const FVariableRateShadingState& value) { ShadingRateState = value; return *this; }
+        FORCEINLINE FGraphicsPipelineDesc& AddBindingLayout(FRHIBindingLayout* layout) { BindingLayouts.push_back(layout); return *this; }
     };
 
 	struct LUMINA_API FGraphicsState
@@ -1771,13 +1784,26 @@ namespace Lumina
 
 		FRHIBuffer* IndirectParams = nullptr;
 
-		FGraphicsState& SetRenderPass(const FRenderPassDesc& value) { RenderPass = value; return *this; }
-		FGraphicsState& SetPipeline(FRHIGraphicsPipeline* value) { Pipeline = value; return *this; }
-		FGraphicsState& SetViewport(const FViewportState& value) { ViewportState = value; return *this; }
-		FGraphicsState& AddBindingSet(FRHIBindingSet* value) { Bindings.push_back(value); return *this; }
-		FGraphicsState& AddVertexBuffer(const FVertexBufferBinding& value) { VertexBuffers.push_back(value); return *this; }
-		FGraphicsState& SetIndexBuffer(const FIndexBufferBinding& value) { IndexBuffer = value; return *this; }
-		FGraphicsState& SetIndirectParams(FRHIBuffer* value) { IndirectParams = value; return *this; }
+		FORCEINLINE FGraphicsState& SetRenderPass(const FRenderPassDesc& value) { RenderPass = value; return *this; }
+		FORCEINLINE FGraphicsState& SetPipeline(FRHIGraphicsPipeline* value) { Pipeline = value; return *this; }
+		FORCEINLINE FGraphicsState& SetViewport(const FViewportState& value) { ViewportState = value; return *this; }
+		FORCEINLINE FGraphicsState& AddBindingSet(FRHIBindingSet* value) { Bindings.push_back(value); return *this; }
+		FORCEINLINE FGraphicsState& AddVertexBuffer(const FVertexBufferBinding& value) { VertexBuffers.push_back(value); return *this; }
+		FORCEINLINE FGraphicsState& SetVertexBuffer(const FVertexBufferBinding& value)
+		{
+			if (VertexBuffers.empty())
+			{
+				VertexBuffers.push_back(value);
+			}
+			else
+			{
+				VertexBuffers[0] = value;
+			}
+
+			return *this;
+		}
+		FORCEINLINE FGraphicsState& SetIndexBuffer(const FIndexBufferBinding& value) { IndexBuffer = value; return *this; }
+		FORCEINLINE FGraphicsState& SetIndirectParams(FRHIBuffer* value) { IndirectParams = value; return *this; }
 	};
 
 	struct LUMINA_API FComputeState
@@ -1787,9 +1813,9 @@ namespace Lumina
 
 		FRHIBuffer* IndirectParams = nullptr;
 
-		FComputeState& SetPipeline(FRHIComputePipeline* value) { Pipeline = value; return *this; }
-		FComputeState& AddBindingSet(FRHIBindingSet* value) { Bindings.push_back(value); return *this; }
-		FComputeState& SetIndirectParams(FRHIBuffer* value) { IndirectParams = value; return *this; }
+		FORCEINLINE FComputeState& SetPipeline(FRHIComputePipeline* value) { Pipeline = value; return *this; }
+		FORCEINLINE FComputeState& AddBindingSet(FRHIBindingSet* value) { Bindings.push_back(value); return *this; }
+		FORCEINLINE FComputeState& SetIndirectParams(FRHIBuffer* value) { IndirectParams = value; return *this; }
         
 	};
 

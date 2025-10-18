@@ -16,6 +16,8 @@ namespace Lumina
     namespace Threading
     {
 
+        using ThreadID = uint64;
+        
         enum class ENamedThreads : uint8
         {
             MainThread,

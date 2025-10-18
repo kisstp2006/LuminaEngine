@@ -78,7 +78,8 @@ namespace Lumina
     struct alignas(16) FLightShadow
     {
         glm::vec4   AtlasRegion;
-        uint32      ShadowMapIndex;
+        
+        int32       ShadowMapIndex;
     };
     
     struct alignas(16) FLight
@@ -131,7 +132,6 @@ namespace Lumina
     
     struct FShadowCascade
     {
-        FRHIImageRef    ShadowMapImage;
         FLight          DirectionalLight;
         glm::mat4       LightViewProjection;
         float           SplitDepth;

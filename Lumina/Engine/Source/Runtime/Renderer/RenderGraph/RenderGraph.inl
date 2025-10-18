@@ -20,10 +20,4 @@ namespace Lumina
         
         return Pass;
     }
-
-    template<typename... TArgs>
-    FRGPassDescriptor* FRenderGraph::AllocParams(TArgs&&... Args)
-    {
-        return GraphAllocator.TAlloc<FRGPassDescriptor>(std::forward<TArgs>(Args)...);
-    }
 }

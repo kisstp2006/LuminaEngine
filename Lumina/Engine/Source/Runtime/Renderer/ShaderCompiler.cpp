@@ -69,6 +69,9 @@ namespace Lumina
         case SPV_REFLECT_SHADER_STAGE_COMPUTE_BIT:
             Reflection.ShaderType = ERHIShaderType::Compute;
             break;
+        case SPV_REFLECT_SHADER_STAGE_GEOMETRY_BIT:
+            Reflection.ShaderType = ERHIShaderType::Geometry;
+            break;
         }
 
         if (!bReflectFull)

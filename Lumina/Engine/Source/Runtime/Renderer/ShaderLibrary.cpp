@@ -32,6 +32,11 @@ namespace Lumina
         return GRenderContext->GetShaderLibrary()->GetShader<FRHIComputeShader>(Key);
     }
 
+    FRHIGeometryShaderRef FShaderLibrary::GetGeometryShader(FName Key)
+    {
+        return GRenderContext->GetShaderLibrary()->GetShader<FRHIGeometryShader>(Key);
+    }
+
     FRHIShaderRef FShaderLibrary::GetShader(FName Key)
     {
         return Shaders.at(Key);

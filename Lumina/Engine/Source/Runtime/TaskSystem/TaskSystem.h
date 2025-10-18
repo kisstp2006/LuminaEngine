@@ -181,12 +181,14 @@ namespace Lumina
         LUMINA_API FLambdaTask* AsyncTask(uint32 Num, TaskSetFunction&& Function, ETaskPriority Priority = ETaskPriority::Medium);
 
         template<typename TFunc>
+        requires (eastl::is_invocable_v<TFunc, uint32>)
         inline void ParallelFor(uint32 Num, TFunc&& Func, ETaskPriority Priority = ETaskPriority::Medium)
         {
             GTaskSystem->ParallelFor(Num, std::forward<TFunc>(Func), Priority);
         }
 
         template<typename TBegin, typename TEnd, typename TFunc>
+        requires (!eastl::is_integral_v<eastl::decay_t<TBegin>>)
         void ParallelFor(TBegin&& Begin, TEnd&& End, TFunc&& Func, ETaskPriority Priority = ETaskPriority::Medium)
         {
             GTaskSystem->ParallelFor(std::forward<TBegin>(Begin), std::forward<TEnd>(End), std::forward<TFunc>(Func), Priority);

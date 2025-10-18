@@ -25,7 +25,7 @@ namespace Lumina
         float Falloff = 0.8f;
         
         LUM_PROPERTY(Editable, Category = "Shadows")
-        bool bCastShadows = true;
+        bool bCastShadows = false;
     };
 
     LUM_STRUCT()
@@ -53,7 +53,7 @@ namespace Lumina
         float Falloff = 0.8f;
 
         LUM_PROPERTY(Editable, Category = "Shadows")
-        bool bCastShadows = true;
+        bool bCastShadows = false;
 
         LUM_PROPERTY(Editable, Category = "Shadows")
         float ShadowBias = 0.005f;
@@ -88,6 +88,6 @@ namespace Lumina
         float Intensity = 10.0f;
 
         LUM_PROPERTY(Editable)
-        bool bCastShadows;
+        bool bCastShadows = true;
     };
 }

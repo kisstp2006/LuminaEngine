@@ -9,9 +9,8 @@ class FSandboxEngine : public Lumina::FEngine
 {
 public:
 
-	void CreateDevelopmentTools() override { }
-
-        
+	Lumina::IDevelopmentToolUI* CreateDevelopmentTools() override;
+	void OnUpdateStage(const Lumina::FUpdateContext& Context) override;
 private:
 	
 };
@@ -23,8 +22,7 @@ public:
 
 	FSandbox() :FApplication("Sandbox") {}
 
-	void EngineLoopCallback(const Lumina::FUpdateContext& UpdateContext);
-	void CreateEngine() override;
+	Lumina::FEngine* CreateEngine() override;
 	bool ApplicationLoop() override;
 	bool Initialize(int argc, char** argv) override;
 	void Shutdown() override;

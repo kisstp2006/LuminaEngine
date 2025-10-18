@@ -13,6 +13,19 @@ namespace Lumina
 {
 
     using FRGPassHandle = FRenderGraphPass*;
+
+    struct FRGPassResourceAccess
+    {
+        IRHIResource* Resource;
+        bool bWrite;
+        FRGPassHandle Pass;
+    };
+    
+    /** A group of passes which can execute concurrently */
+    struct FRGPassGroup
+    {
+        TVector<FRGPassHandle> Passes;
+    };
     
     enum class LUMINA_API ERGPassFlags : uint16
     {

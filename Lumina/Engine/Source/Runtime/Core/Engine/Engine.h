@@ -43,7 +43,8 @@ namespace Lumina
 
         LUMINA_API virtual bool Init(FApplication* App);
         LUMINA_API virtual bool Shutdown();
-        LUMINA_API virtual bool Update();
+        LUMINA_API bool Update();
+        LUMINA_API virtual void OnUpdateStage(const FUpdateContext& Context) { }; 
 
         LUMINA_API const FRHIViewportRef& GetEngineViewport() const { return EngineViewport; }
         

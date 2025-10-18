@@ -46,6 +46,7 @@ namespace Lumina
         None,
         PushDescriptors,
         ConservativeRasterization,
+        ViewportIndexLayer,
     };
 
     VkImageAspectFlags GuessImageAspectFlags(VkFormat Format);
@@ -91,6 +92,49 @@ namespace Lumina
         TFixedVector<TRefCountPtr<FTrackedCommandBuffer>, 4> CommandBuffersInFlight;
         TFixedVector<TRefCountPtr<FTrackedCommandBuffer>, 4> CommandBufferPool;
     };
+
+    class FCommandListManager
+    {
+    private:
+
+        THashMap<Threading::ThreadID, FRHICommandListRef> CommandLists;
+        FMutex Mutex;
+
+    public:
+        FRHICommandListRef GetOrCreateCommandList(const FCommandListInfo& CommandListInfo = FCommandListInfo::Graphics());
+
+        void CloseAll()
+        {
+            FScopeLock Lock(Mutex);
+            for (auto& [ID, CmdList] : CommandLists)
+            {
+                CmdList->Close();
+            }
+        }
+
+        TVector<ICommandList*> GetAllCommandLists()
+        {
+            TVector<ICommandList*> Result;
+            FScopeLock Lock(Mutex);
+            Result.reserve(CommandLists.size());
+            for (auto& [ID, CmdList] : CommandLists)
+            {
+                Result.push_back(CmdList);
+            }
+            return Result;
+        }
+
+        void Cleanup()
+        {
+            FScopeLock Lock(Mutex);
+            CommandLists.clear();
+        }
+
+        ~FCommandListManager()
+        {
+            Cleanup();
+        }
+    };
     
     class FVulkanRenderContext : public IRenderContext
     {
@@ -116,7 +160,8 @@ namespace Lumina
 
         NODISCARD FRHICommandListRef CreateCommandList(const FCommandListInfo& Info) override;
         uint64 ExecuteCommandLists(ICommandList* const* CommandLists, uint32 NumCommandLists, ECommandQueue QueueType) override;
-        NODISCARD FRHICommandListRef GetCommandList(ECommandQueue Queue) override;
+        NODISCARD FRHICommandListRef GetOrCreateCommandList(ECommandQueue Queue) override;
+        NODISCARD FRHICommandListRef GetImmediateCommandList() override;
         
         NODISCARD VkInstance GetVulkanInstance() const { return VulkanInstance; }
         NODISCARD FVulkanDevice* GetDevice() const { return VulkanDevice; }
@@ -156,6 +201,7 @@ namespace Lumina
         NODISCARD FRHIVertexShaderRef CreateVertexShader(const FShaderHeader& Shader) override;
         NODISCARD FRHIPixelShaderRef CreatePixelShader(const FShaderHeader& Shader) override;
         NODISCARD FRHIComputeShaderRef CreateComputeShader(const FShaderHeader& Shader) override;
+        NODISCARD FRHIGeometryShaderRef CreateGeometryShader(const FShaderHeader& Shader) override;
 
         NODISCARD IShaderCompiler* GetShaderCompiler() const override;
         NODISCARD FRHIShaderLibraryRef GetShaderLibrary() const override;
@@ -188,27 +234,25 @@ namespace Lumina
     
     private:
 
-        TBitFlags<EVulkanExtensions>                    EnabledExtensions;
+        TBitFlags<EVulkanExtensions>                        EnabledExtensions;
         
-        THashMap<uint64, FRHIInputLayoutRef>            InputLayoutMap;
-        THashMap<uint64, FRHISamplerRef>                SamplerMap;
+        THashMap<uint64, FRHIInputLayoutRef>                InputLayoutMap;
+        THashMap<uint64, FRHISamplerRef>                    SamplerMap;
         
-        FVulkanDescriptorCache                          DescriptorCache;
-        FVulkanPipelineCache                            PipelineCache;
-        uint8                                           CurrentFrameIndex;
-        TArray<FQueue*, (uint32)ECommandQueue::Num>     Queues;
+        FVulkanDescriptorCache                              DescriptorCache;
+        FVulkanPipelineCache                                PipelineCache;
+        uint8                                               CurrentFrameIndex;
+        TArray<FQueue*, (uint32)ECommandQueue::Num>         Queues;
         
-        FRHICommandListRef                              GraphicsCommandList;
-        FRHICommandListRef                              ComputeCommandList;
-        FRHICommandListRef                              TransferCommandList;
+        FRHICommandListRef                                  ImmediateCommandList;
 
-        VkInstance                                      VulkanInstance;
+        VkInstance                                          VulkanInstance;
         
-        FVulkanSwapchain*                               Swapchain = nullptr;
-        FVulkanDevice*                                  VulkanDevice = nullptr;
-        FVulkanRenderContextFunctions                   DebugUtils;
+        FVulkanSwapchain*                                   Swapchain = nullptr;
+        FVulkanDevice*                                      VulkanDevice = nullptr;
+        FVulkanRenderContextFunctions                       DebugUtils;
 
-        FSpirVShaderCompiler*                           ShaderCompiler;
-        FRHIShaderLibraryRef                            ShaderLibrary;
+        FSpirVShaderCompiler*                               ShaderCompiler;
+        FRHIShaderLibraryRef                                ShaderLibrary;
     };
 }

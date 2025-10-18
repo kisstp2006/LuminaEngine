@@ -201,6 +201,8 @@ namespace Lumina
         TRefCountPtr<FTrackedCommandBuffer> Buf;
         if (CommandBufferPool.empty())
         {
+            LUMINA_PROFILE_SECTION_COLORED("vkCreateCommandPool", tracy::Color::DarkRed);
+            
             VkCommandPoolCreateFlags Flags = 0;
             Flags |= VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
         
@@ -456,9 +458,9 @@ namespace Lumina
         DebugUtils.vkCmdDebugMarkerBeginEXT     = (PFN_vkCmdDebugMarkerBeginEXT)vkGetDeviceProcAddr(GetDevice()->GetDevice(), "vkCmdDebugMarkerBeginEXT");
         DebugUtils.vkCmdDebugMarkerEndEXT       = (PFN_vkCmdDebugMarkerEndEXT)vkGetDeviceProcAddr(GetDevice()->GetDevice(), "vkCmdDebugMarkerEndEXT");
 
-        GraphicsCommandList     = CreateCommandList(FCommandListInfo());
-        ComputeCommandList      = CreateCommandList(FCommandListInfo::Compute());
-        TransferCommandList     = CreateCommandList(FCommandListInfo::Transfer());
+
+        ImmediateCommandList = CreateCommandList(FCommandListInfo::Graphics());
+
 
         Swapchain = Memory::New<FVulkanSwapchain>();
         Swapchain->CreateSwapchain(VulkanInstance, this, Windowing::GetPrimaryWindowHandle(), Windowing::GetPrimaryWindowHandle()->GetExtent());
@@ -482,9 +484,7 @@ namespace Lumina
 
         WaitIdle();
         
-        GraphicsCommandList.SafeRelease();
-        ComputeCommandList.SafeRelease();
-        TransferCommandList.SafeRelease();
+        ImmediateCommandList.SafeRelease();
         
         ShaderLibrary.SafeRelease();
         PipelineCache.ReleasePipelines();
@@ -541,8 +541,6 @@ namespace Lumina
 
         bool bSuccess = Swapchain->AcquireNextImage();
         
-        GraphicsCommandList->Open();
-        
         return bSuccess;
     }
 
@@ -550,11 +548,11 @@ namespace Lumina
     {
         LUMINA_PROFILE_SCOPE();
 
-        GraphicsCommandList->CopyImage(GEngine->GetEngineViewport()->GetRenderTarget(), FTextureSlice(), Swapchain->GetCurrentImage(), FTextureSlice());
-        
-        GraphicsCommandList->Close();
+        ImmediateCommandList->Open();
+        ImmediateCommandList->CopyImage(GEngine->GetEngineViewport()->GetRenderTarget(), FTextureSlice(), Swapchain->GetCurrentImage(), FTextureSlice());
+        ImmediateCommandList->Close();
 
-        ExecuteCommandList(GraphicsCommandList);
+        ExecuteCommandList(ImmediateCommandList);
         
         bool bSuccess = Swapchain->Present();
         
@@ -587,16 +585,14 @@ namespace Lumina
         return SubmissionID;
     }
 
-    FRHICommandListRef FVulkanRenderContext::GetCommandList(ECommandQueue Queue)
+    NODISCARD FRHICommandListRef FVulkanRenderContext::GetOrCreateCommandList(ECommandQueue Queue)
     {
-        switch (Queue)
-        {
-            case ECommandQueue::Graphics:   return GraphicsCommandList;
-            case ECommandQueue::Compute:    return ComputeCommandList;
-            case ECommandQueue::Transfer:   return TransferCommandList;
-        }
-
-        LUMINA_NO_ENTRY()
+        return nullptr;
+    }
+    
+    FRHICommandListRef FVulkanRenderContext::GetImmediateCommandList()
+    {
+        return ImmediateCommandList;
     }
 
     void FVulkanRenderContext::CreateDevice(vkb::Instance Instance)
@@ -649,7 +645,11 @@ namespace Lumina
         {
             EnabledExtensions.SetFlag(EVulkanExtensions::ConservativeRasterization);
         }
-        
+
+        if (physicalDevice.enable_extension_if_present(VK_EXT_SHADER_VIEWPORT_INDEX_LAYER_EXTENSION_NAME))
+        {
+            EnabledExtensions.SetFlag(EVulkanExtensions::ViewportIndexLayer);
+        }
 
         vkb::DeviceBuilder deviceBuilder(physicalDevice);
         vkb::Device vkbDevice = deviceBuilder.build().value();
@@ -788,6 +788,11 @@ namespace Lumina
     FRHIComputeShaderRef FVulkanRenderContext::CreateComputeShader(const FShaderHeader& Shader)
     {
         return MakeRefCount<FVulkanComputeShader>(VulkanDevice, Shader);
+    }
+
+    FRHIGeometryShaderRef FVulkanRenderContext::CreateGeometryShader(const FShaderHeader& Shader)
+    {
+        return MakeRefCount<FVulkanGeometryShader>(VulkanDevice, Shader);
     }
 
     IShaderCompiler* FVulkanRenderContext::GetShaderCompiler() const
@@ -1086,14 +1091,18 @@ namespace Lumina
         // but for now until we have some data cache setup, we'll just leave it for now.
         
         TVector<FString> Shaders;
-        for (auto& Dir : std::filesystem::directory_iterator(FString(Paths::GetEngineResourceDirectory() + "/Shaders").c_str()))
+
+        const FString ShaderDir(Paths::GetEngineResourceDirectory() + "/Shaders");
+        const THashSet<FName> ValidExts = { ".frag", ".vert", ".comp", ".geo", };
+
+        for (const auto& entry : std::filesystem::directory_iterator(ShaderDir.c_str()))
         {
-            if (!Dir.is_directory())
+            if (!entry.is_directory())
             {
-                if (Dir.path().extension() == ".frag" || Dir.path().extension() == ".vert" || Dir.path().extension() == ".comp")
+                FName ext = entry.path().extension().string().c_str();
+                if (ValidExts.count(ext))
                 {
-                    FString StringPath = Dir.path().string().c_str();
-                    Shaders.push_back(Memory::Move(StringPath));
+                    Shaders.push_back(FString(entry.path().string().c_str()));
                 }
             }
         }
@@ -1126,6 +1135,13 @@ namespace Lumina
             case ERHIShaderType::Compute:
                 {
                     FRHIComputeShaderRef Shader = CreateComputeShader(Header);
+                    ShaderLibrary->AddShader(Header.DebugName, Shader);
+                    PipelineCache.PostShaderRecompiled(Shader);
+                }
+                break;
+            case ERHIShaderType::Geometry:
+                {
+                    FRHIGeometryShaderRef Shader = CreateGeometryShader(Header);
                     ShaderLibrary->AddShader(Header.DebugName, Shader);
                     PipelineCache.PostShaderRecompiled(Shader);
                 }
@@ -1179,5 +1195,24 @@ namespace Lumina
     FVulkanRenderContextFunctions& FVulkanRenderContext::GetDebugUtils()
     {
         return DebugUtils;
+    }
+
+
+    FRHICommandListRef FCommandListManager::GetOrCreateCommandList(const FCommandListInfo& CommandListInfo)
+    {
+        Threading::ThreadID ThreadID = Threading::GetThreadID();
+
+        FScopeLock Lock(Mutex);
+
+        auto It = CommandLists.find(ThreadID);
+        if (It != CommandLists.end())
+        {
+            return It->second;
+        }
+
+        FRHICommandListRef NewCmdList = GRenderContext->CreateCommandList(CommandListInfo);
+        NewCmdList->Open();
+        CommandLists.emplace(ThreadID, NewCmdList);
+        return NewCmdList;
     }
 }

@@ -29,7 +29,7 @@ namespace Lumina
         uint64                      RecordingID = 0;
 
         TracyVkCtx                  TracyContext = nullptr;
-
+        
         
         /** Keep alive any resources that this current command buffer uses */
         TFixedVector<TRefCountPtr<IRHIResource>, 20>    ReferencedResources;

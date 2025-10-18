@@ -24,7 +24,9 @@ namespace Lumina
 
     void CMaterial::PostLoad()
     {
-        FRHICommandListRef CommandList = GRenderContext->GetCommandList(ECommandQueue::Graphics);
+        FRHICommandListRef CommandList = GRenderContext->GetImmediateCommandList();
+        CommandList->Open();
+        
         FShaderHeader Header;
         
         if (!VertexShaderBinaries.empty() && !PixelShaderBinaries.empty())
@@ -69,6 +71,9 @@ namespace Lumina
 
             SetReadyForRender(true);
         }
+
+        CommandList->Close();
+        GRenderContext->ExecuteCommandList(CommandList);
     }
 
     void CMaterial::OnDestroy()

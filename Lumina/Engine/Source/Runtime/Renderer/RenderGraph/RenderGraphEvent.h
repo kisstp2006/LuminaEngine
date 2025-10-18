@@ -24,7 +24,7 @@ namespace Lumina
 
         const char* Get() const
         {
-            return FormattedName.empty() ? StaticName : FormattedName.c_str();
+            return StaticName;
         }
 
         bool IsValid() const

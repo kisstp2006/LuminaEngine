@@ -134,8 +134,15 @@ namespace Lumina
                 SetDesc.AddItem(FBindingSetItem::TextureSRV((uint32)i, Image));
             }
 
-            GRenderContext->GetCommandList(ECommandQueue::Graphics)->WriteBuffer(UniformBuffer, &MaterialUniforms, 0, sizeof(FMaterialUniforms));
+            ICommandList* CommandList = GRenderContext->GetImmediateCommandList();
+            CommandList->Open();
+            
+            CommandList->WriteBuffer(UniformBuffer, &MaterialUniforms, 0, sizeof(FMaterialUniforms));
 
+            CommandList->Close();
+            
+            GRenderContext->ExecuteCommandList(CommandList);
+            
             BindingSet = GRenderContext->CreateBindingSet(SetDesc, Material->BindingLayout);
 
         }
