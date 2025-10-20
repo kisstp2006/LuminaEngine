@@ -43,6 +43,9 @@ namespace Lumina
         virtual bool FrameEnd(const FUpdateContext& UpdateContext) = 0;
         
 
+        NODISCARD virtual uint64 GetAllocatedMemory() const = 0;
+        NODISCARD virtual uint64 GetAvailableMemory() const = 0;
+        
         //-------------------------------------------------------------------------------------
 
         virtual FRHICommandListRef CreateCommandList(const FCommandListInfo& Info) = 0;

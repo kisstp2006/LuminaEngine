@@ -149,11 +149,13 @@ namespace Lumina
         bool IsVSyncEnabled() const override;
 
         void WaitIdle() override;
+        void CreateDevice(vkb::Instance Instance);
         
         bool FrameStart(const FUpdateContext& UpdateContext, uint8 InCurrentFrameIndex) override;
         bool FrameEnd(const FUpdateContext& UpdateContext) override;
 
-        void CreateDevice(vkb::Instance Instance);
+        uint64 GetAllocatedMemory() const override;
+        uint64 GetAvailableMemory() const override;
 
 
         NODISCARD FQueue* GetQueue(ECommandQueue Type) const { return Queues[(uint32)Type]; }

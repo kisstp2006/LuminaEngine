@@ -559,6 +559,16 @@ namespace Lumina
         return bSuccess;
     }
 
+    uint64 FVulkanRenderContext::GetAllocatedMemory() const
+    {
+        return 0;
+    }
+
+    uint64 FVulkanRenderContext::GetAvailableMemory() const
+    {
+        return 0;
+    }
+
     FRHICommandListRef FVulkanRenderContext::CreateCommandList(const FCommandListInfo& Info)
     {
         if (Queues[uint32(Info.CommandQueue)] == nullptr)
