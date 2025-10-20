@@ -105,6 +105,7 @@ namespace Lumina
 
     void FApplication::PreInitStartup()
     {
+        Paths::InitializePaths();
         Paths::Mount("engine://", Paths::GetEngineContentDirectory());
     }
 

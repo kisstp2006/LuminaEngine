@@ -28,8 +28,8 @@ namespace Lumina
     private:
         
         TFixedVector<FRHIBindingSet*, 2> Bindings;
-        TFixedVector<const IRHIResource*, 2> RawWrites;
-        TFixedVector<const IRHIResource*, 2> RawReads;
+        TFixedVector<const IRHIResource*, 4> RawWrites;
+        TFixedVector<const IRHIResource*, 4> RawReads;
 
     };
 }

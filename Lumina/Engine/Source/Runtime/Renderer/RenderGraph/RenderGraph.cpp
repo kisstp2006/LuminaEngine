@@ -19,6 +19,7 @@ namespace Lumina
         : GraphAllocator(InitialLinearAllocatorSize)
     {
         Passes.reserve(12);
+        HighestGroupCount = 0;
     }
 
     FRGPassDescriptor* FRenderGraph::AllocDescriptor()
@@ -34,29 +35,29 @@ namespace Lumina
         AllocateTransientResources();
 
 #if 1
-        THashMap<Threading::ThreadID, FRHICommandListRef> UsedCommandLists;
-        TVector<ICommandList*> Whatever;
         
-        FMutex Garbage;
-        for (const FRGPassGroup& Group : ParallelGroups)
+        TVector<TVector<ICommandList*>> CommandListGroups(ParallelGroups.size());
+        
+        Task::ParallelFor(ParallelGroups.size(), [&](uint32 Index)
         {
+            TVector<ICommandList*>& GroupCommandLists = CommandListGroups[Index];
+            GroupCommandLists.resize(ParallelGroups[Index].Passes.size());
+            
+            for (int i = 0; i < ParallelGroups[Index].Passes.size(); ++i)
+            {
+                FRHICommandListRef CommandList = GRenderContext->CreateCommandList(FCommandListInfo::Graphics());
+                CommandList->Open();
+                GroupCommandLists[i] = CommandList;
+            }
+        });
+
+        for (int i = 0; i < ParallelGroups.size(); ++i)
+        {
+            const FRGPassGroup& Group = ParallelGroups[i];
+            
             if (Group.Passes.size() == 1)
             {
-                FRHICommandListRef CommandList;
-
-                if (UsedCommandLists.find(Threading::GetThreadID()) != UsedCommandLists.end())
-                {
-                    CommandList = UsedCommandLists[Threading::GetThreadID()];
-                }
-                else
-                {
-                    CommandList = GRenderContext->CreateCommandList(FCommandListInfo::Graphics());
-                    CommandList->Open();
-
-                    UsedCommandLists.emplace(Threading::GetThreadID(), CommandList);
-                    Whatever.push_back(CommandList);
-                }
-
+                ICommandList* CommandList = CommandListGroups[i][0];
                 FRGPassHandle Pass = Group.Passes[0];
                 Pass->Execute(*CommandList);
             }
@@ -64,53 +65,61 @@ namespace Lumina
             {
                 Task::ParallelFor(Group.Passes.size(), [&](uint32 Index)
                 {
-                    FRHICommandListRef CommandList;
-
-                    {
-                        FScopeLock Lock(Garbage);
-
-                        if (UsedCommandLists.find(Threading::GetThreadID()) != UsedCommandLists.end())
-                        {
-                            CommandList = UsedCommandLists[Threading::GetThreadID()];
-                        }
-                        else
-                        {
-                            CommandList = GRenderContext->CreateCommandList(FCommandListInfo::Graphics());
-                            CommandList->Open();
-
-                            UsedCommandLists.emplace(Threading::GetThreadID(), CommandList);
-                            Whatever.push_back(CommandList);
-                        }
-                    }
+                    ICommandList* CommandList = CommandListGroups[i][Index];
                     FRGPassHandle Pass = Group.Passes[Index];
                     Pass->Execute(*CommandList);
+                    
                 }, ETaskPriority::High);
-            }
+            }            
         }
 
-        for (auto& [ID, CommandList] : UsedCommandLists)
+        Task::ParallelFor(ParallelGroups.size(), [&](uint32 Index)
         {
-            CommandList->Close();
+            TVector<ICommandList*>& GroupCommandLists = CommandListGroups[Index];
+            for (ICommandList* GroupCommandList : GroupCommandLists)
+            {
+                GroupCommandList->Close();
+            }
+            for (int i = 0; i < ParallelGroups[Index].Passes.size(); ++i)
+            {
+                FRHICommandListRef CommandList = GRenderContext->CreateCommandList(FCommandListInfo::Graphics());
+            }
+        }, ETaskPriority::High);
+
+        TVector<ICommandList*> FlatCommandLists;
+        FlatCommandLists.reserve(CommandListGroups.size() * 2);
+        
+        for (auto& GroupCommandList : CommandListGroups)
+        {
+            for (ICommandList* CommandList : GroupCommandList)
+            {
+                FlatCommandLists.push_back(CommandList);
+            }
         }
         
-        GRenderContext->ExecuteCommandLists(Whatever.data(), Whatever.size(), ECommandQueue::Graphics);
+        GRenderContext->ExecuteCommandLists(FlatCommandLists.data(), (uint32)FlatCommandLists.size(), ECommandQueue::Graphics);
+
+        
 #else
 
         FRHICommandListRef CommandList = GRenderContext->CreateCommandList(FCommandListInfo::Graphics());
         CommandList->Open();
+        
         for (const FRGPassGroup& Group : ParallelGroups)
         {
+            
             for (FRGPassHandle Pass : Group.Passes)
             {
                 Pass->Execute(*CommandList);
             }
+
         }
+        
         CommandList->Close();
 
         GRenderContext->ExecuteCommandList(CommandList);
-        
+
 #endif
-        
     }
 
     void FRenderGraph::Compile()
@@ -119,6 +128,7 @@ namespace Lumina
         
         FRGPassAnalyzer Analyzer;
         ParallelGroups = Analyzer.AnalyzeParallelPasses(Passes);
+        HighestGroupCount = Analyzer.HighestParallelGroupCount;
     }
 
     void FRenderGraph::AllocateTransientResources()

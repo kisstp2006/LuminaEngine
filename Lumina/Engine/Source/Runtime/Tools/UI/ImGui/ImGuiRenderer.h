@@ -7,6 +7,7 @@
 
 namespace Lumina
 {
+    class FRenderGraph;
     class FRenderManager;
 }
 
@@ -22,10 +23,10 @@ namespace Lumina
         virtual void Deinitialize();
         
         void StartFrame(const FUpdateContext& UpdateContext);
-        void EndFrame(const FUpdateContext& UpdateContext);
+        void EndFrame(const FUpdateContext& UpdateContext, FRenderGraph& RenderGraph);
         
         virtual void OnStartFrame(const FUpdateContext& UpdateContext) = 0;
-        virtual void OnEndFrame(const FUpdateContext& UpdateContext) = 0;
+        virtual void OnEndFrame(const FUpdateContext& UpdateContext, FRenderGraph& RenderGraph) = 0;
 
         virtual ImTextureID GetOrCreateImTexture(FRHIImageRef Image) = 0;
         virtual void DestroyImTexture(ImTextureRef Image) = 0;

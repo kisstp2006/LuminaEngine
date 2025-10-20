@@ -27,7 +27,7 @@ namespace Lumina
         void Deinitialize() override;
 
         void UpdateWorlds(const FUpdateContext& UpdateContext);
-        void RenderWorlds(const FUpdateContext& UpdateContext);
+        void RenderWorlds(FRenderGraph& RenderGraph);
 
         void RemoveWorld(CWorld* World);
         void AddWorld(CWorld* World);

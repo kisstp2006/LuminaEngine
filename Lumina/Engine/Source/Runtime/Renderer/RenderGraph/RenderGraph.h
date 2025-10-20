@@ -66,9 +66,11 @@ namespace Lumina
         TRGHandleRegistry<FRGBuffer>    BufferRegistry;
         TRGHandleRegistry<FRGImage>     ImageRegistry;
         
-        FLinearAllocator                GraphAllocator;
+        FBlockLinearAllocator           GraphAllocator;
         TVector<FRGPassHandle>          Passes;
         TVector<FRGPassGroup>           ParallelGroups;
+
+        uint32                          HighestGroupCount;
     };
 }
 

@@ -2,22 +2,35 @@
 #include <cstdlib>
 
 #include "Core/Assertions/Assert.h"
+#include "Core/Threading/Thread.h"
 
 namespace Lumina::Paths
 {
-
     static THashMap<FName, FString> VirtualPathMap;
     static THashMap<FName, FString> CachedDirectories;
 
     namespace
     {
-        const char* EngineResourceDirectoryName = "EngineResourceDirectory";
-        const char* EngineContentDirectoryName = "EngineContentDirectory";
-        const char* EngineShadersDirectoryName = "EngineShadersDirectory";
-        const char* EngineDirectoryName = "EngineDirectory";
+        const char* EngineResourceDirectoryName     = "EngineResourceDirectory";
+        const char* EngineContentDirectoryName      = "EngineContentDirectory";
+        const char* EngineShadersDirectoryName      = "EngineShadersDirectory";
+        const char* EngineDirectoryName             = "EngineDirectory";
 
     }
-    
+
+    void InitializePaths()
+    {
+        const char* LuminaDir = std::getenv("LUMINA_DIR");
+            
+        CachedDirectories[EngineDirectoryName] = FString(LuminaDir) + "/Lumina/Engine";
+        
+        CachedDirectories[EngineResourceDirectoryName] = FString(LuminaDir) + "/Lumina/Engine/Resources";
+
+        CachedDirectories[EngineContentDirectoryName] = FString(GetEngineResourceDirectory() + "/Content");
+
+        CachedDirectories[EngineShadersDirectoryName] = FString(GetEngineResourceDirectory() + "/Shaders");
+    }
+
     void Mount(const FName& VirtualPrefix, const FString& PhysicalPath)
     {
         Assert(VirtualPathMap.find(VirtualPrefix) == VirtualPathMap.end())
@@ -42,13 +55,6 @@ namespace Lumina::Paths
 
     FString GetEngineDirectory()
     {
-        if (CachedDirectories.find(EngineDirectoryName) == CachedDirectories.end())
-        {
-            const char* LuminaDir = std::getenv("LUMINA_DIR");
-            
-            CachedDirectories[EngineDirectoryName] = FString(LuminaDir) + "/Lumina/Engine";
-        }
-
         return CachedDirectories[EngineDirectoryName];
     }
 
@@ -271,32 +277,16 @@ namespace Lumina::Paths
 
     const FString& GetEngineResourceDirectory()
     {
-        if (CachedDirectories.find(EngineResourceDirectoryName) == CachedDirectories.end())
-        {
-            const char* LuminaDir = std::getenv("LUMINA_DIR");
-            return CachedDirectories[EngineResourceDirectoryName] = FString(LuminaDir) + "/Lumina/Engine/Resources";
-        }
-
         return CachedDirectories[EngineResourceDirectoryName];
     }
 
     const FString& GetEngineContentDirectory()
     {
-        if (CachedDirectories.find(EngineContentDirectoryName) == CachedDirectories.end())
-        {
-            return CachedDirectories[EngineContentDirectoryName] = FString(GetEngineResourceDirectory() + "/Content");
-        }
-
         return CachedDirectories[EngineContentDirectoryName];
     }
 
     const FString& GetEngineShadersDirectory()
     {
-        if (CachedDirectories.find(EngineShadersDirectoryName) == CachedDirectories.end())
-        {
-            return CachedDirectories[EngineShadersDirectoryName] = FString(GetEngineResourceDirectory() + "/Shaders");
-        }
-
         return CachedDirectories[EngineShadersDirectoryName];
     }
 

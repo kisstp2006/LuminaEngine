@@ -184,6 +184,8 @@ namespace Lumina
             // Frame End
             //-------------------------------------------------------------------
             {
+                FRenderGraph RenderGraph;
+
                 LUMINA_PROFILE_SECTION_COLORED("Frame-End", tracy::Color::Coral);
                 UpdateContext.UpdateStage = EUpdateStage::FrameEnd;
 
@@ -192,13 +194,13 @@ namespace Lumina
                 #endif
 
                 WorldManager->UpdateWorlds(UpdateContext);
-                WorldManager->RenderWorlds(UpdateContext);
+                WorldManager->RenderWorlds(RenderGraph);
                 
                 #if WITH_DEVELOPMENT_TOOLS
                 DeveloperToolUI->EndFrame(UpdateContext);
                 #endif
                 
-                RenderManager->FrameEnd(UpdateContext);
+                RenderManager->FrameEnd(UpdateContext, RenderGraph);
 
                 OnUpdateStage(UpdateContext);
 

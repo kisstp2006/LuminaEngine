@@ -59,7 +59,7 @@ namespace Lumina
 
         
         /** Compiles all renderers from the world into draw commands for dispatch */
-        void CompileDrawCommands();
+        void CompileDrawCommands(FRenderGraph& RenderGraph);
 
         //~ Begin Render Passes
         void ResetPass(FRenderGraph& RenderGraph);
@@ -147,7 +147,6 @@ namespace Lumina
         FRHIImageRef                        ShadowAtlas;
         FRHIImageRef                        DepthMap;
         FRHIImageRef                        DepthAttachment;
-        FRHIImageRef                        CubeMap;
         FRHIImageRef                        NoiseImage;
         FRHIImageRef                        SSAOImage;
         FRHIImageRef                        SSAOBlur;

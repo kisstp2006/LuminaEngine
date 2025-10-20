@@ -45,11 +45,9 @@ namespace Lumina
         }
     }
 
-    void FWorldManager::RenderWorlds(const FUpdateContext& UpdateContext)
+    void FWorldManager::RenderWorlds(FRenderGraph& RenderGraph)
     {
         LUMINA_PROFILE_SCOPE();
-
-        FRenderGraph RenderGraph;
         
         for (FManagedWorld& World : Worlds)
         {
@@ -60,9 +58,6 @@ namespace Lumina
             
             World.World->Render(RenderGraph);
         }
-        
-        RenderGraph.Execute();
-
     }
 
     void FWorldManager::RemoveWorld(CWorld* World)

@@ -7,6 +7,7 @@
 
 #include "RHIGlobals.h"
 #include "Core/Profiler/Profile.h"
+#include "RenderGraph/RenderGraph.h"
 #include "Tools/UI/UITextureCache.h"
 #include "Tools/UI/ImGui/ImGuiRenderer.h"
 
@@ -53,14 +54,16 @@ namespace Lumina
         #endif
     }
 
-    void FRenderManager::FrameEnd(const FUpdateContext& UpdateContext)
+    void FRenderManager::FrameEnd(const FUpdateContext& UpdateContext, FRenderGraph& RenderGraph)
     {
         LUMINA_PROFILE_SCOPE();
         
         #if WITH_DEVELOPMENT_TOOLS
-        ImGuiRenderer->EndFrame(UpdateContext);
+        ImGuiRenderer->EndFrame(UpdateContext, RenderGraph);
         TextureCache->EndFrame();
         #endif
+
+        RenderGraph.Execute();
         
         GRenderContext->FrameEnd(UpdateContext);
 

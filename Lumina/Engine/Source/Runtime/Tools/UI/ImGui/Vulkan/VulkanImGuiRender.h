@@ -16,7 +16,7 @@ namespace Lumina
         void Deinitialize() override;
         
         void OnStartFrame(const FUpdateContext& UpdateContext) override;
-        void OnEndFrame(const FUpdateContext& UpdateContext) override;
+        void OnEndFrame(const FUpdateContext& UpdateContext, FRenderGraph& RenderGraph) override;
 
         void DrawRenderDebugInformationWindow(bool* bOpen, const FUpdateContext& Context) override;
 

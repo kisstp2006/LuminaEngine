@@ -8,6 +8,7 @@
 
 namespace Lumina::Paths
 {
+    void InitializePaths();
 
     /** Mounts a virtual file system to a specified path */
     LUMINA_API void Mount(const FName& VirtualPrefix, const FString& PhysicalPath);

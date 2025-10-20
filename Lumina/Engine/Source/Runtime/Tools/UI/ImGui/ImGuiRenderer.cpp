@@ -6,6 +6,7 @@
 #include "Core/Engine/Engine.h"
 #include "imgui/misc/freetype/imgui_freetype.h"
 #include "Renderer/RHIIncl.h"
+#include "Renderer/RenderGraph/RenderGraph.h"
 #include "TaskSystem/TaskSystem.h"
 #include "Tools/UI/Fonts/FontData_Lexend.h"
 #include "Tools/UI/Fonts/FontData_MaterialDesign.h"
@@ -199,7 +200,7 @@ namespace Lumina
     	OnStartFrame(UpdateContext);
     }
 
-    void IImGuiRenderer::EndFrame(const FUpdateContext& UpdateContext)
+    void IImGuiRenderer::EndFrame(const FUpdateContext& UpdateContext, FRenderGraph& RenderGraph)
     {
         LUMINA_PROFILE_SCOPE();
 		
@@ -217,6 +218,6 @@ namespace Lumina
     		ImGui::RenderPlatformWindowsDefault();
     	}
     	
-    	OnEndFrame(UpdateContext);
+    	OnEndFrame(UpdateContext, RenderGraph);
     }
 }

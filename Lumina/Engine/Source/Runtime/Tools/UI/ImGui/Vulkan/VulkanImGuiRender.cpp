@@ -12,6 +12,8 @@
 #include "Renderer/API/Vulkan/VulkanMacros.h"
 #include "Renderer/API/Vulkan/VulkanRenderContext.h"
 #include "Renderer/API/Vulkan/VulkanSwapchain.h"
+#include "Renderer/RenderGraph/RenderGraph.h"
+#include "Renderer/RenderGraph/RenderGraphDescriptor.h"
 
 namespace Lumina
 {
@@ -179,39 +181,45 @@ namespace Lumina
     	ImGuizmo::BeginFrame();
     }
 	
-    void FVulkanImGuiRender::OnEndFrame(const FUpdateContext& UpdateContext)
+    void FVulkanImGuiRender::OnEndFrame(const FUpdateContext& UpdateContext, FRenderGraph& RenderGraph)
     {
     	LUMINA_PROFILE_SCOPE();
-    	
-		if(ImDrawData* DrawData = ImGui::GetDrawData())
+
+		FRGPassDescriptor* Descriptor = RenderGraph.AllocDescriptor();
+		Descriptor->AddRawWrite(GEngine->GetEngineViewport()->GetRenderTarget());
+		for (FRHIImage* Image : ReferencedImages)
 		{
-			FRenderPassDesc::FAttachment Attachment; Attachment
-				.SetImage(GEngine->GetEngineViewport()->GetRenderTarget())
-				.SetLoadOp(ERenderLoadOp::Load);
-				
-			
-			FRenderPassDesc RenderPass; RenderPass
-			.AddColorAttachment(Attachment)
-			.SetRenderArea(GEngine->GetEngineViewport()->GetRenderTarget()->GetExtent());
-			FRHICommandListRef CommandList = VulkanRenderContext->GetImmediateCommandList();
-
-			CommandList->Open();
-
-			for (FRHIImage* Image : ReferencedImages)
-			{
-				CommandList->SetImageState(Image, AllSubresources, EResourceStates::ShaderResource);
-			}
-			CommandList->CommitBarriers();
-			
-			CommandList->BeginRenderPass(RenderPass);
-			ImGui_ImplVulkan_RenderDrawData(DrawData, CommandList->GetAPIResource<VkCommandBuffer>());
-
-			CommandList->EndRenderPass();
-
-			CommandList->Close();
-
-			GRenderContext->ExecuteCommandList(CommandList);
+			Descriptor->AddRawRead(Image);
 		}
+		
+		RenderGraph.AddPass<RG_Raster>(FRGEvent("ImGui Render"), Descriptor, [&] (ICommandList& CmdList)
+		{
+			LUMINA_PROFILE_SECTION_COLORED("ImGui Render", tracy::Color::Aquamarine3);
+			if (ImDrawData* DrawData = ImGui::GetDrawData())
+			{
+				FRenderPassDesc::FAttachment Attachment; Attachment
+					.SetImage(GEngine->GetEngineViewport()->GetRenderTarget())
+					.SetLoadOp(ERenderLoadOp::Load);
+			
+		
+				FRenderPassDesc RenderPass; RenderPass
+				.AddColorAttachment(Attachment)
+				.SetRenderArea(GEngine->GetEngineViewport()->GetRenderTarget()->GetExtent());
+			
+				for (FRHIImage* Image : ReferencedImages)
+				{
+					CmdList.SetImageState(Image, AllSubresources, EResourceStates::ShaderResource);
+				}
+			
+				CmdList.CommitBarriers();
+		
+				CmdList.BeginRenderPass(RenderPass);
+				{
+					ImGui_ImplVulkan_RenderDrawData(DrawData, CmdList.GetAPIResource<VkCommandBuffer>());
+				}
+				CmdList.EndRenderPass();
+			}
+		});
     }
 
 	void FVulkanImGuiRender::DrawRenderDebugInformationWindow(bool* bOpen, const FUpdateContext& Context)

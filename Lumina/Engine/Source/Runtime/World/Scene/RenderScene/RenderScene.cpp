@@ -50,8 +50,8 @@
         constexpr unsigned int NumClusters = ClusterGridSizeX * ClusterGridSizeY * ClusterGridSizeZ;
 
         constexpr int GShadowMapResolution      = 4096;
-        constexpr int GShadowAtlasResolution    = 1024;
-        constexpr int GShadowCubemapResolution  = 1024;
+        constexpr int GShadowAtlasResolution    = 512;
+        constexpr int GShadowCubemapResolution  = 512;
         constexpr int GMaxPointLightShadows     = 16;
 
         FRenderScene::FRenderScene(CWorld* InWorld)
@@ -96,7 +96,7 @@
 
 
             ResetPass(RenderGraph);
-            CompileDrawCommands();
+            CompileDrawCommands(RenderGraph);
             CullPass(RenderGraph, SceneViewport->GetViewVolume());
             DepthPrePass(RenderGraph, SceneViewport->GetViewVolume());
             ClusterBuildPass(RenderGraph, SceneViewport->GetViewVolume());
@@ -231,6 +231,7 @@
         {
             FRGPassDescriptor* Descriptor = RenderGraph.AllocDescriptor();
             Descriptor->AddBinding(BindingSet);
+            Descriptor->AddRawWrite(DepthAttachment);
             
             RenderGraph.AddPass<RG_Raster>(FRGEvent("Pre-Depth Pass"), Descriptor, [&] (ICommandList& CmdList)
             {
@@ -291,7 +292,6 @@
         {
             FRGPassDescriptor* Descriptor = RenderGraph.AllocDescriptor();
             Descriptor->AddBinding(BindingSet);
-            Descriptor->AddRawWrite(GBuffer.Position);
             Descriptor->AddRawWrite(GBuffer.Position);
             Descriptor->AddRawWrite(GBuffer.Normals);
             Descriptor->AddRawWrite(GBuffer.Material);
@@ -572,8 +572,7 @@
 
                     FRenderPassDesc::FAttachment Depth; Depth
                         .SetImage(DepthAttachment)
-                        .SetLoadOp(ERenderLoadOp::Load)
-                        .SetStoreOp(ERenderStoreOp::Store);
+                        .SetLoadOp(ERenderLoadOp::Load);
 
                     FRenderPassDesc RenderPass; RenderPass
                         .AddColorAttachment(Attachment)
@@ -1240,11 +1239,10 @@
             });
         }
 
-        void FRenderScene::CompileDrawCommands()
+        void FRenderScene::CompileDrawCommands(FRenderGraph& RenderGraph)
         {
             LUMINA_PROFILE_SCOPE();
 
-            ICommandList* CommandList = GRenderContext->GetImmediateCommandList();
             {
                 LUMINA_PROFILE_SECTION("Compile Draw Commands");
                 
@@ -1606,35 +1604,40 @@
             }
 
             {
-                LUMINA_PROFILE_SECTION("Write Buffers");
+                FRGPassDescriptor* Descriptor = RenderGraph.AllocDescriptor();
+                Descriptor->AddRawWrite(SceneDataBuffer);
+                Descriptor->AddRawWrite(InstanceDataBuffer);
+                Descriptor->AddRawWrite(IndirectDrawBuffer);
+                Descriptor->AddRawWrite(SimpleVertexBuffer);
+                Descriptor->AddRawWrite(LightDataBuffer);
+                
+                RenderGraph.AddPass<RG_Raster>(FRGEvent("Write Scene Buffers"), Descriptor, [&](ICommandList& CmdList)
+                {
+                    LUMINA_PROFILE_SECTION_COLORED("Write Scene Buffers", tracy::Color::OrangeRed3);
 
-                const SIZE_T SimpleVertexSize = SimpleVertices.size() * sizeof(FSimpleElementVertex);
-                const SIZE_T InstanceDataSize = InstanceData.size() * sizeof(FInstanceData);
-                const SIZE_T IndirectArgsSize = IndirectDrawArguments.size() * sizeof(FDrawIndexedIndirectArguments);
+                    const SIZE_T SimpleVertexSize = SimpleVertices.size() * sizeof(FSimpleElementVertex);
+                    const SIZE_T InstanceDataSize = InstanceData.size() * sizeof(FInstanceData);
+                    const SIZE_T IndirectArgsSize = IndirectDrawArguments.size() * sizeof(FDrawIndexedIndirectArguments);
 
-                const SIZE_T LightDataHeaderSize = offsetof(FSceneLightData, Lights);
-                const SIZE_T ActiveLightsSize = LightData.NumLights * sizeof(FLight);
-                const SIZE_T LightUploadSize = LightDataHeaderSize + ActiveLightsSize;
-
-                CommandList->Open();
-                CommandList->SetBufferState(SceneDataBuffer, EResourceStates::CopyDest);
-                CommandList->SetBufferState(InstanceDataBuffer, EResourceStates::CopyDest);
-                CommandList->SetBufferState(IndirectDrawBuffer, EResourceStates::CopyDest);
-                CommandList->SetBufferState(SimpleVertexBuffer, EResourceStates::CopyDest);
-                CommandList->SetBufferState(LightDataBuffer, EResourceStates::CopyDest);
-                CommandList->CommitBarriers();
-
-                CommandList->DisableAutomaticBarriers();
-                CommandList->WriteBuffer(SceneDataBuffer, &SceneGlobalData, 0, sizeof(FSceneGlobalData));
-                CommandList->WriteBuffer(InstanceDataBuffer, InstanceData.data(), 0, InstanceDataSize);
-                CommandList->WriteBuffer(IndirectDrawBuffer, IndirectDrawArguments.data(), 0, IndirectArgsSize);
-                CommandList->WriteBuffer(SimpleVertexBuffer, SimpleVertices.data(), 0, SimpleVertexSize);
-                CommandList->WriteBuffer(LightDataBuffer, &LightData, 0, LightUploadSize);
-                CommandList->EnableAutomaticBarriers();
-
-                CommandList->Close();
-
-                GRenderContext->ExecuteCommandList(CommandList);
+                    constexpr SIZE_T LightDataHeaderSize = offsetof(FSceneLightData, Lights);
+                    const SIZE_T ActiveLightsSize = LightData.NumLights * sizeof(FLight);
+                    const SIZE_T LightUploadSize = LightDataHeaderSize + ActiveLightsSize;
+                    
+                    CmdList.SetBufferState(SceneDataBuffer, EResourceStates::CopyDest);
+                    CmdList.SetBufferState(InstanceDataBuffer, EResourceStates::CopyDest);
+                    CmdList.SetBufferState(IndirectDrawBuffer, EResourceStates::CopyDest);
+                    CmdList.SetBufferState(SimpleVertexBuffer, EResourceStates::CopyDest);
+                    CmdList.SetBufferState(LightDataBuffer, EResourceStates::CopyDest);
+                    CmdList.CommitBarriers();
+                    
+                    CmdList.DisableAutomaticBarriers();
+                    CmdList.WriteBuffer(SceneDataBuffer, &SceneGlobalData, 0, sizeof(FSceneGlobalData));
+                    CmdList.WriteBuffer(InstanceDataBuffer, InstanceData.data(), 0, InstanceDataSize);
+                    CmdList.WriteBuffer(IndirectDrawBuffer, IndirectDrawArguments.data(), 0, IndirectArgsSize);
+                    CmdList.WriteBuffer(SimpleVertexBuffer, SimpleVertices.data(), 0, SimpleVertexSize);
+                    CmdList.WriteBuffer(LightDataBuffer, &LightData, 0, LightUploadSize);
+                    CmdList.EnableAutomaticBarriers();
+                });
             }
         }
         
@@ -1820,7 +1823,6 @@
                 BufferDesc.Size = sizeof(FSceneGlobalData);
                 BufferDesc.Stride = sizeof(FSceneGlobalData);
                 BufferDesc.Usage.SetMultipleFlags(BUF_UniformBuffer);
-                BufferDesc.MaxVersions = 16;
                 BufferDesc.bKeepInitialState = true;
                 BufferDesc.InitialState = EResourceStates::ShaderResource;
                 BufferDesc.DebugName = "Scene Global Data";
@@ -2093,52 +2095,7 @@
             }
             
             //==================================================================================================
-
-            {
-                FRHIImageDesc ImageDesc;
-                ImageDesc.Extent = {2048, 2048};
-                ImageDesc.Flags.SetFlag(EImageCreateFlags::CubeCompatible);
-                ImageDesc.Flags.SetFlag(EImageCreateFlags::ShaderResource);
-                ImageDesc.Format = EFormat::RGBA8_UNORM;
-                ImageDesc.Dimension = EImageDimension::Texture2D;
-                ImageDesc.ArraySize = 6;
-                ImageDesc.DebugName = "Skybox CubeMap";
-
-                CubeMap = GRenderContext->CreateImage(ImageDesc);
-
-                static const char* CubeFaceFiles[6] = {
-                    "right.jpg", "left.jpg", "top.jpg", "bottom.jpg", "front.jpg", "back.jpg"
-                };
-
-                FRHICommandListRef CommandList = GRenderContext->CreateCommandList(FCommandListInfo::Transfer());
-                CommandList->Open();
-
-                CommandList->BeginTrackingImageState(CubeMap, AllSubresources, EResourceStates::Common);
             
-                for (int i = 0; i < 6; ++i)
-                {
-                    FString ResourceDirectory = Paths::GetEngineResourceDirectory();
-                    ResourceDirectory += FString("/Textures/CubeMaps/Mountains/") + CubeFaceFiles[i];
-                
-                    TVector<uint8> Pixels;
-                    FIntVector2D ImageExtent = Import::Textures::ImportTexture(Pixels, ResourceDirectory, false);
-                
-                    const uint32 width = ImageExtent.X;
-                    const uint32 height = ImageExtent.Y;
-                    const SIZE_T rowPitch = width * 4;  // 4 bytes per pixel (RGBA8)
-                    const SIZE_T depthPitch = rowPitch * height;
-                
-                    CommandList->WriteImage(CubeMap, i, 0, Pixels.data(), rowPitch, depthPitch);
-                }
-
-                CommandList->SetPermanentImageState(CubeMap, EResourceStates::ShaderResource);
-                CommandList->CommitBarriers();
-            
-                CommandList->Close();
-                GRenderContext->ExecuteCommandList(CommandList, ECommandQueue::Transfer);
-            }
-
-            //==================================================================================================
 
             {
                 FRHIImageDesc ImageDesc;

@@ -168,8 +168,8 @@ namespace Lumina
         Desc.Format = EFormat::BGRA8_UNORM;
         Desc.Flags.SetMultipleFlags(EImageCreateFlags::RenderTarget, EImageCreateFlags::ShaderResource);
         Desc.Extent = InSize;
-        Desc.InitialState = EResourceStates::RenderTarget;
-        Desc.bKeepInitialState = true;
+        //Desc.InitialState = EResourceStates::RenderTarget;
+        //Desc.bKeepInitialState = true;
         Desc.DebugName = "Viewport Render Target";
 
         RenderTarget = RenderContext->CreateImage(Desc);

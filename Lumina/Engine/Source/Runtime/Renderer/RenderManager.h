@@ -5,6 +5,11 @@
 
 namespace Lumina
 {
+    class FRenderGraph;
+}
+
+namespace Lumina
+{
     class FUITextureCache;
 }
 
@@ -24,7 +29,7 @@ namespace Lumina
         void Deinitialize() override;
 
         void FrameStart(const FUpdateContext& UpdateContext);
-        void FrameEnd(const FUpdateContext& UpdateContext);
+        void FrameEnd(const FUpdateContext& UpdateContext, FRenderGraph& RenderGraph);
 
 
         #if WITH_DEVELOPMENT_TOOLS

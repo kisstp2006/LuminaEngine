@@ -7,6 +7,8 @@ namespace Lumina
 {
     TVector<FRGPassGroup> FRGPassAnalyzer::AnalyzeParallelPasses(const TVector<FRGPassHandle>& Passes)
     {
+        LUMINA_PROFILE_SCOPE();
+
         TVector<FPassResourceAccess> PassAccess(Passes.size());
 
         Task::ParallelFor(Passes.size(), [&](uint32 Index)
@@ -23,10 +25,12 @@ namespace Lumina
 
     TVector<FRGPassGroup> FRGPassAnalyzer::GroupPasses(const TVector<FRGPassHandle>& Passes, const TVector<TVector<int>>& Dependencies)
     {
+        LUMINA_PROFILE_SCOPE();
+
         const int NumPasses = (int)Passes.size();
 
-        TVector<int> PassLayers(NumPasses, -1);
-        TVector<bool> Processed(NumPasses, false);
+        TVector PassLayers(NumPasses, -1);
+        TVector Processed(NumPasses, false);
 
         for (int i = 0; i < NumPasses; ++i)
         {
@@ -55,6 +59,7 @@ namespace Lumina
         for (int i = 0; i < NumPasses; ++i)
         {
             ParallelGroups[PassLayers[i]].Passes.push_back(Passes[i]);
+            HighestParallelGroupCount = std::max<uint32>(HighestParallelGroupCount, ParallelGroups[PassLayers[i]].Passes.size());
         }
 
         return ParallelGroups;
@@ -126,23 +131,25 @@ namespace Lumina
 
     TVector<TVector<int>> FRGPassAnalyzer::BuildDependencyGraph(const TVector<FPassResourceAccess>& PassAccess)
     {
+        LUMINA_PROFILE_SCOPE();
+
         const int NumPasses = (int)PassAccess.size();
         TVector<TVector<int>> Dependencies(NumPasses);
 
-        for (int i = 0; i < NumPasses; ++i)
+        Task::ParallelFor(NumPasses, [&](uint32 Index)
         {
-            const FPassResourceAccess& CurrentPass = PassAccess[i];
+            const FPassResourceAccess& CurrentPass = PassAccess[Index];
 
-            for (int j = 0; j < i; ++j)
+            for (int j = 0; j < Index; ++j)
             {
                 const FPassResourceAccess& PreviousPass = PassAccess[j];
 
                 if (HasDependency(PreviousPass, CurrentPass))
                 {
-                    Dependencies[i].push_back(j);
+                    Dependencies[Index].push_back(j);
                 }
             }
-        }
+        });
 
         return Dependencies;
     }
