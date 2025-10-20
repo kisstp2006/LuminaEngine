@@ -1,6 +1,4 @@
 ﻿#include "RenderGraph.h"
-
-#include "RenderGraphContext.h"
 #include "RenderGraphDescriptor.h"
 #include "RenderGraphPass.h"
 #include "RenderGraphPassAnalyzer.h"
@@ -13,10 +11,8 @@
 
 namespace Lumina
 {
-    constexpr size_t InitialLinearAllocatorSize = 1024 * 10;
-    
     FRenderGraph::FRenderGraph()
-        : GraphAllocator(InitialLinearAllocatorSize)
+        : GraphAllocator(1024)
     {
         Passes.reserve(12);
         HighestGroupCount = 0;
@@ -79,10 +75,6 @@ namespace Lumina
             for (ICommandList* GroupCommandList : GroupCommandLists)
             {
                 GroupCommandList->Close();
-            }
-            for (int i = 0; i < ParallelGroups[Index].Passes.size(); ++i)
-            {
-                FRHICommandListRef CommandList = GRenderContext->CreateCommandList(FCommandListInfo::Graphics());
             }
         }, ETaskPriority::High);
 

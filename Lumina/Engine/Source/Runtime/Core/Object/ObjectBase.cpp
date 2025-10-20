@@ -267,7 +267,10 @@ namespace Lumina
                 TFunction<int32(const CClass*)> GetClassDepth;
                 GetClassDepth = [&](const CClass* Cls) -> int32
                 {
-                    if (!Cls) return 0;
+                    if (!Cls)
+                    {
+                        return 0;
+                    }
 
                     int32& Memo = DepthMemo[Cls];
                     if (Memo != 0)

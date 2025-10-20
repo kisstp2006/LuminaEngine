@@ -24,7 +24,7 @@ namespace Lumina
 
         void ObWaitForTaskCompleteStart(uint32_t threadNum)
         {
-            LUMINA_PROFILE_SCOPE();
+            
         }
 
         void* CustomAllocFunc(size_t alignment, size_t size, void* userData_, const char* file_, int line_)
@@ -55,6 +55,13 @@ namespace Lumina
     void FTaskSystem::Shutdown()
     {
         GTaskSystem->Scheduler.WaitforAllAndShutdown();
+
+        //while (!GTaskSystem->LambdaTaskPool.empty())
+        //{
+        //    FLambdaTask* Task = GTaskSystem->LambdaTaskPool.front();
+        //    GTaskSystem->LambdaTaskPool.pop();
+        //    Memory::Delete(Task);
+        //}
         
         Memory::Delete(GTaskSystem);
         

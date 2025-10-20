@@ -262,10 +262,7 @@ namespace Lumina
     uint64 FQueue::Submit(ICommandList* const* CommandLists, uint32 NumCommandLists)
     {
         LUMINA_PROFILE_SCOPE();
-
-        std::scoped_lock Lock(SubmitMutex);
-        LockMark(GetMutex);
-
+        
         TFixedVector<VkCommandBuffer, 4> CommandBuffers(NumCommandLists);
         TFixedVector<VkPipelineStageFlags, 4> StageFlags(WaitSemaphores.size());
 
@@ -319,6 +316,9 @@ namespace Lumina
         SubmitInfo.pSignalSemaphores = SignalSemaphores.data();
         SubmitInfo.signalSemaphoreCount = (uint32)SignalSemaphores.size();
 
+        std::scoped_lock Lock(SubmitMutex);
+        LockMark(GetMutex);
+        
         VK_CHECK(vkQueueSubmit(Queue, 1, &SubmitInfo, nullptr));
 
         WaitSemaphores.clear();
