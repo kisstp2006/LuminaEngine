@@ -48,19 +48,19 @@ def print_section(title):
 
 def print_success(message):
     """Print a success message."""
-    print(f"{Fore.GREEN}✓ {message}{Style.RESET_ALL}")
+    print(f"{Fore.GREEN} {message}{Style.RESET_ALL}")
 
 def print_error(message):
     """Print an error message."""
-    print(f"{Fore.RED}✗ {message}{Style.RESET_ALL}")
+    print(f"{Fore.RED} {message}{Style.RESET_ALL}")
 
 def print_info(message):
     """Print an info message."""
-    print(f"{Fore.CYAN}ℹ {message}{Style.RESET_ALL}")
+    print(f"{Fore.CYAN} {message}{Style.RESET_ALL}")
 
 def print_warning(message):
     """Print a warning message."""
-    print(f"{Fore.YELLOW}⚠ {message}{Style.RESET_ALL}")
+    print(f"{Fore.YELLOW} {message}{Style.RESET_ALL}")
 
 # --- Download with Progress ---
 def download_file(url, dest_path, description):

@@ -28,7 +28,6 @@ def download_from_dropbox(url, dest_filename):
     """
     print(Fore.CYAN + f"[INFO] Downloading from Dropbox: {url}")
 
-    # Ensure direct download
     if "dl=0" in url:
         url = url.replace("dl=0", "dl=1")
     elif "dl=1" not in url:
@@ -108,16 +107,13 @@ def run_generate():
 
 if __name__ == '__main__':
     dropbox_url = "https://www.dropbox.com/scl/fi/suigjbqj75pzcpxcqm6hv/External.7z?rlkey=ebu8kiw4gswtvj5mclg6wa1lu&st=mndgypjl&dl=0"
-    archive_filename = "External.7z"  # Changed from .zip to .7z
-    extract_to = "."  # Current directory
+    archive_filename = "External.7z"
+    extract_to = "."
 
-    # Download the file
     download_from_dropbox(dropbox_url, archive_filename)
 
     time.sleep(1)
     
-    # Extract the 7z archive
     extract_7z(archive_filename, extract_to)
 
-    # Run the generation script
     run_generate()
