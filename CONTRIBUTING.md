@@ -54,7 +54,7 @@ Follow the [Quick Start guide](README.md#-quick-start) in the main README to get
 
 ```bash
 # Fork the repository on GitHub, then:
-git clone https://github.com/YOUR_USERNAME/lumina.git
+git clone https://github.com/MrDrElliot/lumina.git
 cd lumina
 git remote add upstream https://github.com/mrdrelliot/lumina.git
 
