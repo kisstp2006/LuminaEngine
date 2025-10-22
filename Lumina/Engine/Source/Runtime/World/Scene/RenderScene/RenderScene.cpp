@@ -549,7 +549,6 @@
                 FRGPassDescriptor* Descriptor = RenderGraph.AllocDescriptor();
                 Descriptor->AddBinding(BindingSet);
                 Descriptor->AddRawWrite(GetRenderTarget());
-                Descriptor->AddRawRead(DepthAttachment);
 
                 RenderGraph.AddPass<RG_Raster>(FRGEvent("Environment Pass"), Descriptor, [&](ICommandList& CmdList)
                 {
@@ -623,8 +622,12 @@
                 }
 
                 FRenderPassDesc::FAttachment Attachment; Attachment
-                    .SetLoadOp(ERenderLoadOp::Load)
                     .SetImage(GetRenderTarget());
+
+                if (RenderSettings.bHasEnvironment)
+                {
+					Attachment.SetLoadOp(ERenderLoadOp::Load);
+                }
 
 
                 FRenderPassDesc RenderPass; RenderPass
@@ -641,7 +644,6 @@
 
                 FRenderState RenderState;
                 RenderState.SetRasterState(RasterState);
-                //RenderState.SetDepthStencilState(DepthState);
                 RenderState.SetBlendState(BlendState);
                 
                 FGraphicsPipelineDesc Desc;

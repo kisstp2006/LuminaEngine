@@ -15,6 +15,7 @@ namespace Lumina::Threading
         TracyCSetThreadName(Name)
         return Result != 0;
     }
+    
 }
 
 #endif

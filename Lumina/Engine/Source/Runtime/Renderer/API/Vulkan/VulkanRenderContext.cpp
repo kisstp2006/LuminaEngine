@@ -1125,46 +1125,23 @@ namespace Lumina
         
         GetShaderCompiler()->CompileShaderPaths(Shaders, Options, [&] (const FShaderHeader& Header)
         {
-            switch (Header.Reflection.ShaderType)
-            {
-            case ERHIShaderType::None: break;
-            case ERHIShaderType::Vertex:
-                {
-                    FRHIVertexShaderRef Shader = CreateVertexShader(Header);
-                    ShaderLibrary->AddShader(Header.DebugName, Shader);
-                    PipelineCache.PostShaderRecompiled(Shader);
-                }
-                break;
-            case ERHIShaderType::Fragment:
-                {
-                    FRHIPixelShaderRef Shader = CreatePixelShader(Header);
-                    ShaderLibrary->AddShader(Header.DebugName, Shader);
-                    PipelineCache.PostShaderRecompiled(Shader);
-                }
-                break;
-            case ERHIShaderType::Compute:
-                {
-                    FRHIComputeShaderRef Shader = CreateComputeShader(Header);
-                    ShaderLibrary->AddShader(Header.DebugName, Shader);
-                    PipelineCache.PostShaderRecompiled(Shader);
-                }
-                break;
-            case ERHIShaderType::Geometry:
-                {
-                    FRHIGeometryShaderRef Shader = CreateGeometryShader(Header);
-                    ShaderLibrary->AddShader(Header.DebugName, Shader);
-                    PipelineCache.PostShaderRecompiled(Shader);
-                }
-                break;
-            }
-            
+            ShaderLibrary->CreateAndAddShader(Header.DebugName, Header, false);
         });
-        
+
+        OnShaderCompiled(nullptr, false, true);
     }
 
-    void FVulkanRenderContext::OnShaderCompiled(FRHIShader* Shader)
+    void FVulkanRenderContext::OnShaderCompiled(FRHIShader* Shader, bool bAddToLibrary, bool bReloadPipelines)
     {
-        PipelineCache.PostShaderRecompiled(Shader);
+        if (bReloadPipelines)
+        {
+            PipelineCache.PostShaderRecompiled(Shader);
+        }
+        
+        if (bAddToLibrary && Shader != nullptr)
+        {
+            ShaderLibrary->AddShader(Shader->GetShaderHeader().DebugName, Shader);
+        }
     }
     
     FRHIInputLayoutRef FVulkanRenderContext::CreateInputLayout(const FVertexAttributeDesc* AttributeDesc, uint32 Count)

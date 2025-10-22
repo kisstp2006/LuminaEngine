@@ -47,7 +47,7 @@ namespace Lumina
         }
         
         uint32 NumPackages = (uint32)PackagePaths.size();
-        Task::AsyncTask(NumPackages, [this, PackagePaths = std::move(PackagePaths)] (uint32 Start, uint32 End, uint32)
+        Task::AsyncTask(NumPackages, NumPackages / 4, [this, PackagePaths = std::move(PackagePaths)] (uint32 Start, uint32 End, uint32)
         {
             for (uint32 i = Start; i < End; ++i)
             {

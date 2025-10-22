@@ -41,8 +41,11 @@ namespace Lumina
     void FTaskSystem::Initialize()
     {
         GTaskSystem = Memory::New<FTaskSystem>();
+
+        GTaskSystem->NumWorkers                             = Threading::GetNumThreads() - 2;
         
         enki::TaskSchedulerConfig config;
+        config.numTaskThreadsToCreate                       = Threading::GetNumThreads() - 2;
         config.customAllocator.alloc                        = CustomAllocFunc;
         config.customAllocator.free                         = CustomFreeFunc;
         config.profilerCallbacks.threadStart                = OnStartThread;
@@ -68,8 +71,8 @@ namespace Lumina
         GTaskSystem = nullptr;
     }
 
-    FLambdaTask* Task::AsyncTask(uint32 Num, TaskSetFunction&& Function, ETaskPriority Priority)
+    FLambdaTask* Task::AsyncTask(uint32 Num, uint32 MinRange, TaskSetFunction&& Function, ETaskPriority Priority)
     {
-        return GTaskSystem->ScheduleLambda(Num, std::move(Function), Priority);
+        return GTaskSystem->ScheduleLambda(Num, MinRange, std::move(Function), Priority);
     }
 }

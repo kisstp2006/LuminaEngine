@@ -32,7 +32,7 @@ namespace Lumina
         LUMINA_API uint32 GetNumThreads();
 
         LUMINA_API void SetRenderThread(std::thread::id ID);
-
+        
         LUMINA_API void Sleep(uint64 Milliseconds);
         
         LUMINA_API void Initialize(const char* MainThreadName);

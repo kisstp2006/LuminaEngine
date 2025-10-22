@@ -263,7 +263,7 @@ namespace Lumina
                     Material->VertexShader = VertexShader;
                 }
                 
-                GRenderContext->OnShaderCompiled(PixelShader);
+                GRenderContext->OnShaderCompiled(PixelShader, false, true);
             });
 
             // Wait for shader to compile.

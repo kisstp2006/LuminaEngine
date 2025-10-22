@@ -34,7 +34,7 @@ namespace Lumina
         
         TVector<TVector<ICommandList*>> CommandListGroups(ParallelGroups.size());
         
-        Task::ParallelFor(ParallelGroups.size(), [&](uint32 Index)
+        Task::ParallelFor(ParallelGroups.size(), ParallelGroups.size() / 2, [&](uint32 Index)
         {
             TVector<ICommandList*>& GroupCommandLists = CommandListGroups[Index];
             GroupCommandLists.resize(ParallelGroups[Index].Passes.size());
@@ -59,7 +59,7 @@ namespace Lumina
             }
             else
             {
-                Task::ParallelFor(Group.Passes.size(), [&](uint32 Index)
+                Task::ParallelFor(Group.Passes.size(), Group.Passes.size() / 4, [&](uint32 Index)
                 {
                     ICommandList* CommandList = CommandListGroups[i][Index];
                     FRGPassHandle Pass = Group.Passes[Index];
@@ -69,7 +69,7 @@ namespace Lumina
             }            
         }
 
-        Task::ParallelFor(ParallelGroups.size(), [&](uint32 Index)
+        Task::ParallelFor(ParallelGroups.size(), ParallelGroups.size() / 2, [&](uint32 Index)
         {
             TVector<ICommandList*>& GroupCommandLists = CommandListGroups[Index];
             for (ICommandList* GroupCommandList : GroupCommandLists)

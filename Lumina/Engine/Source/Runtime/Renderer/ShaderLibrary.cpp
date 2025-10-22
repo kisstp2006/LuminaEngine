@@ -4,6 +4,39 @@
 
 namespace Lumina
 {
+    void FShaderLibrary::CreateAndAddShader(FName Key, const FShaderHeader& Header, bool bReloadPipelines)
+    {
+        FRHIShaderRef Shader;
+        
+        switch (Header.Reflection.ShaderType)
+        {
+        case ERHIShaderType::None: break;
+        case ERHIShaderType::Vertex:
+            {
+                Shader = GRenderContext->CreateVertexShader(Header);
+            }
+            break;
+        case ERHIShaderType::Fragment:
+            {
+                Shader = GRenderContext->CreatePixelShader(Header);
+            }
+            break;
+        case ERHIShaderType::Compute:
+            {
+                Shader = GRenderContext->CreateComputeShader(Header);
+            }
+            break;
+        case ERHIShaderType::Geometry:
+            {
+                Shader = GRenderContext->CreateGeometryShader(Header);
+            }
+            break;
+        }
+
+        AddShader(Key, Shader);
+        GRenderContext->OnShaderCompiled(Shader, false, bReloadPipelines);
+    }
+
     void FShaderLibrary::AddShader(FName Key, FRHIShader* Shader)
     {
         FScopeLock Lock(Mutex);   
@@ -13,7 +46,6 @@ namespace Lumina
     void FShaderLibrary::RemoveShader(FName Key)
     {
         FScopeLock Lock(Mutex);
-
         Shaders.erase(Key);
     }
 

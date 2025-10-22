@@ -72,7 +72,7 @@ namespace Lumina
 
         if (ImGui::MenuItem(LE_ICON_CONTENT_SAVE"##Save"))
         {
-            Task::AsyncTask(1, [this](uint32 Start, uint32 End, uint32 Thread)
+            Task::AsyncTask(1, 1, [this](uint32 Start, uint32 End, uint32 Thread)
             {
                 OnSave();
             });

@@ -350,7 +350,7 @@ namespace Lumina
 
             NewMesh->MeshResources = eastl::move(MeshResource);
 
-            Task::ParallelFor(ImportedData.Textures, [&](const Import::Mesh::GLTF::FGLTFImage& Texture)
+            Task::ParallelFor(ImportedData.Textures, ImportedData.Textures.size() / 4, [&](const Import::Mesh::GLTF::FGLTFImage& Texture)
             {
                 CTextureFactory* TextureFactory = CTextureFactory::StaticClass()->GetDefaultObject<CTextureFactory>();
 

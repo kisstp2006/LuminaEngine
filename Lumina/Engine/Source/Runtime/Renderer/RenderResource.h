@@ -970,9 +970,11 @@ namespace Lumina
 
 		RENDER_RESOURCE(RRT_ShaderLibrary)
 
+		void CreateAndAddShader(FName Key, const FShaderHeader& Header, bool bReloadPipelines);
 		void AddShader(FName Key, FRHIShader* Shader);
 		void RemoveShader(FName Key);
 
+		
 		static FRHIVertexShaderRef GetVertexShader(FName Key);
 		static FRHIPixelShaderRef GetPixelShader(FName Key);
 		static FRHIComputeShaderRef GetComputeShader(FName Key);

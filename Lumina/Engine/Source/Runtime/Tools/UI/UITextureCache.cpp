@@ -148,7 +148,7 @@ namespace Lumina
         ETextureState Expected = ETextureState::Empty;
         if (Entry->State.compare_exchange_strong(Expected, ETextureState::Loading, std::memory_order_acq_rel))
         {
-            Task::AsyncTask(1, [this, Entry, PathName](uint32, uint32, uint32)
+            Task::AsyncTask(1, 1, [this, Entry, PathName](uint32, uint32, uint32)
             {
                 FScopeLock Lock(Mutex);
 

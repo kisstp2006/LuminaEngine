@@ -128,7 +128,7 @@ namespace Lumina
         FSystemContext SystemContext(this);
         
         auto& SystemVector = SystemUpdateList[(uint32)Stage];
-        Task::ParallelFor((uint32)SystemVector.size(), [this, SystemVector, &SystemContext](uint32 Index)
+        Task::ParallelFor((uint32)SystemVector.size(), SystemVector.size() / 4, [this, SystemVector, &SystemContext](uint32 Index)
         {
 
             CEntitySystem* System = SystemVector[Index];
@@ -146,7 +146,7 @@ namespace Lumina
         FSystemContext SystemContext(this);
         
         auto& SystemVector = SystemUpdateList[(uint32)EUpdateStage::Paused];
-        Task::ParallelFor((uint32)SystemVector.size(), [this, SystemVector, &SystemContext](uint32 Index)
+        Task::ParallelFor((uint32)SystemVector.size(), SystemVector.size() / 4, [this, SystemVector, &SystemContext](uint32 Index)
         {
             CEntitySystem* System = SystemVector[Index];
             System->Update(SystemContext);

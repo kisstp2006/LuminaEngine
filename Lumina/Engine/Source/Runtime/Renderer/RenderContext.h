@@ -106,7 +106,7 @@ namespace Lumina
         
         //-------------------------------------------------------------------------------------
 
-        virtual void OnShaderCompiled(FRHIShader* Shader) = 0;
+        virtual void OnShaderCompiled(FRHIShader* Shader, bool bAddToLibrary, bool bReloadPipelines) = 0;
 
         virtual void SetObjectName(IRHIResource* Resource, const char* Name, EAPIResourceType Type = EAPIResourceType::Default) = 0;
 

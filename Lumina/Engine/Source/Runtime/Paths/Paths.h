@@ -110,7 +110,7 @@ namespace Lumina::Paths
      * @return The combined path as an FString.
      */
     template <typename... Paths>
-    inline FString Combine(Paths&&... InPaths)
+    NODISCARD FString Combine(Paths&&... InPaths)
     {
         std::filesystem::path Path = (std::filesystem::path(std::forward<Paths>(InPaths)) /= ...);
         return Path.string().c_str();
@@ -118,14 +118,14 @@ namespace Lumina::Paths
 
     
     template<ValidStringType StringType>
-    StringType Parent(const StringType& path)
+    NODISCARD StringType Parent(const StringType& path)
     {
         return std::filesystem::path::path(path.c_str()).parent_path().generic_string().c_str();
     }
     
 
     template<ValidStringType StringType>
-    StringType DirName(const StringType& String)
+    NODISCARD StringType DirName(const StringType& String)
     {
         size_t LastSlash = String.find_last_of("/\\");
         if (LastSlash != FString::npos)

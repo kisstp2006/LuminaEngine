@@ -61,8 +61,7 @@ namespace Lumina
         void ReflectSpirv(TSpan<uint32> SpirV, FShaderReflection& Reflection, bool bReflectFull);
 
         bool HasPendingRequests() const override { return PendingTasks.load(std::memory_order_relaxed) != 0; }
-
-        shaderc::Compiler           Compiler;
+        
         FMutex                      RequestMutex;
 
         std::atomic_uint32_t        PendingTasks;

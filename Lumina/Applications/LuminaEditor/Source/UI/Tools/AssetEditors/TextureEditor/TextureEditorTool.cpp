@@ -16,159 +16,157 @@ namespace Lumina
     {
         // === Texture Preview Window ===
         CreateToolWindow(TexturePreviewName, [this](const FUpdateContext& Cxt, bool bFocused)
+        {
+            CTexture* Texture = Cast<CTexture>(Asset.Get());
+            if (!Texture)
             {
-                CTexture* Texture = Cast<CTexture>(Asset.Get());
-                if (!Texture) return;
+                return;
+            }
 
-                FRenderManager* RenderManager = Cxt.GetSubsystem<FRenderManager>();
-                ImTextureID TextureID = RenderManager->GetImGuiRenderer()->GetOrCreateImTexture(Texture->RHIImage);
+            FRenderManager* RenderManager = Cxt.GetSubsystem<FRenderManager>();
+            ImTextureID TextureID = RenderManager->GetImGuiRenderer()->GetOrCreateImTexture(Texture->RHIImage);
 
-                const FRHIImageDesc& ImageDesc = Texture->ImageDescription;
-                ImVec2 WindowSize = ImGui::GetContentRegionAvail();
-                ImVec2 WindowPos = ImGui::GetCursorScreenPos();
+            const FRHIImageDesc& ImageDesc = Texture->ImageDescription;
+            ImVec2 WindowSize = ImGui::GetContentRegionAvail();
+            ImVec2 WindowPos = ImGui::GetCursorScreenPos();
 
-                // === Input Handling ===
-                if (ImGui::IsWindowHovered(ImGuiHoveredFlags_RootAndChildWindows))
+            if (ImGui::IsWindowHovered(ImGuiHoveredFlags_RootAndChildWindows))
+            {
+                float Wheel = ImGui::GetIO().MouseWheel;
+                if (Wheel != 0.0f)
                 {
-                    float Wheel = ImGui::GetIO().MouseWheel;
-                    if (Wheel != 0.0f)
-                    {
-                        float ZoomSpeed = ImGui::GetIO().KeyCtrl ? 0.025f : 0.25f;
-                        ZoomFactor += Wheel * ZoomSpeed;
-                        ZoomFactor = ImClamp(ZoomFactor, 0.1f, 20.0f);
-                    }
-
-                    if (ImGui::IsMouseDragging(ImGuiMouseButton_Right) || ImGui::IsMouseDragging(ImGuiMouseButton_Middle))
-                    {
-                        ImVec2 MouseDelta = ImGui::GetIO().MouseDelta;
-                        PanOffset.x += MouseDelta.x;
-                        PanOffset.y += MouseDelta.y;
-                    }
-
-                    // Reset view on double-click
-                    if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
-                    {
-                        ZoomFactor = 1.0f;
-                        PanOffset = ImVec2(0, 0);
-                    }
+                    float ZoomSpeed = ImGui::GetIO().KeyCtrl ? 0.025f : 0.25f;
+                    ZoomFactor += Wheel * ZoomSpeed;
+                    ZoomFactor = ImClamp(ZoomFactor, 0.1f, 20.0f);
                 }
 
-                // === Checkerboard Background ===
-                ImDrawList* DrawList = ImGui::GetWindowDrawList();
-                const int CheckerSize = 16;
-                const ImU32 CheckerColor1 = IM_COL32(50, 50, 55, 255);
-                const ImU32 CheckerColor2 = IM_COL32(40, 40, 45, 255);
-
-                for (int y = 0; y < (int)WindowSize.y; y += CheckerSize)
+                if (ImGui::IsMouseDragging(ImGuiMouseButton_Right) || ImGui::IsMouseDragging(ImGuiMouseButton_Middle))
                 {
-                    for (int x = 0; x < (int)WindowSize.x; x += CheckerSize)
-                    {
-                        bool isEven = ((x / CheckerSize) + (y / CheckerSize)) % 2 == 0;
-                        ImU32 color = isEven ? CheckerColor1 : CheckerColor2;
-                        DrawList->AddRectFilled(ImVec2(WindowPos.x + x, WindowPos.y + y), ImVec2(WindowPos.x + x + CheckerSize, WindowPos.y + y + CheckerSize), color);
-                    }
+                    ImVec2 MouseDelta = ImGui::GetIO().MouseDelta;
+                    PanOffset.x += MouseDelta.x;
+                    PanOffset.y += MouseDelta.y;
                 }
 
-                // === Texture Rendering ===
-                ImVec2 TextureSize = ImVec2((float)ImageDesc.Extent.X, (float)ImageDesc.Extent.Y);
-                ImVec2 ScaledSize = ImVec2(TextureSize.x * ZoomFactor, TextureSize.y * ZoomFactor);
-                ImVec2 CenterPos = ImVec2(WindowPos.x + (WindowSize.x - ScaledSize.x) * 0.5f + PanOffset.x,WindowPos.y + (WindowSize.y - ScaledSize.y) * 0.5f + PanOffset.y);
+                // Reset view on double-click
+                if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+                {
+                    ZoomFactor = 1.0f;
+                    PanOffset = ImVec2(0, 0);
+                }
+            }
 
-                // Draw border around texture
-                DrawList->AddRect(
-                    ImVec2(CenterPos.x - 1, CenterPos.y - 1),
-                    ImVec2(CenterPos.x + ScaledSize.x + 1, CenterPos.y + ScaledSize.y + 1),
-                    IM_COL32(100, 100, 120, 255),
-                    0.0f,
-                    0,
-                    2.0f
+            ImDrawList* DrawList = ImGui::GetWindowDrawList();
+            const int CheckerSize = 16;
+            const ImU32 CheckerColor1 = IM_COL32(50, 50, 55, 255);
+            const ImU32 CheckerColor2 = IM_COL32(40, 40, 45, 255);
+
+            for (int y = 0; y < (int)WindowSize.y; y += CheckerSize)
+            {
+                for (int x = 0; x < (int)WindowSize.x; x += CheckerSize)
+                {
+                    bool isEven = ((x / CheckerSize) + (y / CheckerSize)) % 2 == 0;
+                    ImU32 color = isEven ? CheckerColor1 : CheckerColor2;
+                    DrawList->AddRectFilled(ImVec2(WindowPos.x + x, WindowPos.y + y), ImVec2(WindowPos.x + x + CheckerSize, WindowPos.y + y + CheckerSize), color);
+                }
+            }
+
+            ImVec2 TextureSize = ImVec2((float)ImageDesc.Extent.X, (float)ImageDesc.Extent.Y);
+            ImVec2 ScaledSize = ImVec2(TextureSize.x * ZoomFactor, TextureSize.y * ZoomFactor);
+            ImVec2 CenterPos = ImVec2(WindowPos.x + (WindowSize.x - ScaledSize.x) * 0.5f + PanOffset.x,WindowPos.y + (WindowSize.y - ScaledSize.y) * 0.5f + PanOffset.y);
+
+            // Draw border around texture
+            DrawList->AddRect(
+                ImVec2(CenterPos.x - 1, CenterPos.y - 1),
+                ImVec2(CenterPos.x + ScaledSize.x + 1, CenterPos.y + ScaledSize.y + 1),
+                IM_COL32(100, 100, 120, 255),
+                0.0f,
+                0,
+                2.0f
+            );
+
+            DrawList->AddImage(
+                TextureID,
+                CenterPos,
+                ImVec2(CenterPos.x + ScaledSize.x, CenterPos.y + ScaledSize.y),
+                ImVec2(0, 0),
+                ImVec2(1, 1),
+                IM_COL32(255, 255, 255, 255)
+            );
+
+            ImVec2 MousePos = ImGui::GetMousePos();
+            bool isOverTexture = MousePos.x >= CenterPos.x && MousePos.x <= CenterPos.x + ScaledSize.x &&
+                MousePos.y >= CenterPos.y && MousePos.y <= CenterPos.y + ScaledSize.y;
+
+            if (ImGui::IsWindowHovered(ImGuiHoveredFlags_RootAndChildWindows) && isOverTexture)
+            {
+                float NormX = (MousePos.x - CenterPos.x) / ScaledSize.x;
+                float NormY = (MousePos.y - CenterPos.y) / ScaledSize.y;
+                int PixelX = (int)(NormX * TextureSize.x);
+                int PixelY = (int)(NormY * TextureSize.y);
+
+                // Draw crosshair
+                const ImU32 CrosshairColor = IM_COL32(255, 255, 255, 180);
+                DrawList->AddLine(ImVec2(CenterPos.x, MousePos.y), ImVec2(CenterPos.x + ScaledSize.x, MousePos.y), CrosshairColor);
+                DrawList->AddLine(ImVec2(MousePos.x, CenterPos.y), ImVec2(MousePos.x, CenterPos.y + ScaledSize.y), CrosshairColor);
+
+                // Pixel info tooltip
+                ImGui::BeginTooltip();
+                ImGui::Text("Pixel: [%d, %d]", PixelX, PixelY);
+                ImGui::Text("UV: [%.3f, %.3f]", NormX, NormY);
+                ImGui::EndTooltip();
+            }
+
+            ImGui::SetCursorScreenPos(ImVec2(WindowPos.x + 10, WindowPos.y + 10));
+            ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32(20, 20, 25, 0));
+            ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 6.0f);
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12, 10));
+
+            if (ImGui::BeginChild("##Toolbar", ImVec2(0, 0), ImGuiChildFlags_AlwaysUseWindowPadding,ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoScrollbar))
+            {
+                // Mip level selector
+                if (ImageDesc.NumMips > 1)
+                {
+                    ImGui::Text("Mip Level:");
+                    ImGui::SameLine();
+                    ImGui::SetNextItemWidth(100);
+                    ImGui::SliderInt("##MipLevel", &CurrentMipLevel, 0, ImageDesc.NumMips - 1);
+                }
+
+            }
+            ImGui::EndChild();
+            ImGui::PopStyleVar(2);
+            ImGui::PopStyleColor();
+
+            ImGui::SetCursorScreenPos(ImVec2(WindowPos.x + 10, WindowPos.y + WindowSize.y - 35));
+            ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32(20, 20, 25, 230));
+            ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 6.0f);
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12, 8));
+
+            if (ImGui::BeginChild("##InfoBar", ImVec2(0, 0), ImGuiChildFlags_AlwaysUseWindowPadding,ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoInputs))
+            {
+                ImGui::Text("%.0f%% | %dx%d | Pan: [%.0f, %.0f]",
+                    ZoomFactor * 100.0f,
+                    (int)TextureSize.x,
+                    (int)TextureSize.y,
+                    PanOffset.x,
+                    PanOffset.y
                 );
-
-                DrawList->AddImage(
-                    TextureID,
-                    CenterPos,
-                    ImVec2(CenterPos.x + ScaledSize.x, CenterPos.y + ScaledSize.y),
-                    ImVec2(0, 0),
-                    ImVec2(1, 1),
-                    IM_COL32(255, 255, 255, 255)
-                );
-
-                // === Pixel Inspector ===
-                ImVec2 MousePos = ImGui::GetMousePos();
-                bool isOverTexture = MousePos.x >= CenterPos.x && MousePos.x <= CenterPos.x + ScaledSize.x &&
-                    MousePos.y >= CenterPos.y && MousePos.y <= CenterPos.y + ScaledSize.y;
-
-                if (ImGui::IsWindowHovered(ImGuiHoveredFlags_RootAndChildWindows) && isOverTexture)
-                {
-                    float NormX = (MousePos.x - CenterPos.x) / ScaledSize.x;
-                    float NormY = (MousePos.y - CenterPos.y) / ScaledSize.y;
-                    int PixelX = (int)(NormX * TextureSize.x);
-                    int PixelY = (int)(NormY * TextureSize.y);
-
-                    // Draw crosshair
-                    const ImU32 CrosshairColor = IM_COL32(255, 255, 255, 180);
-                    DrawList->AddLine(ImVec2(CenterPos.x, MousePos.y), ImVec2(CenterPos.x + ScaledSize.x, MousePos.y), CrosshairColor);
-                    DrawList->AddLine(ImVec2(MousePos.x, CenterPos.y), ImVec2(MousePos.x, CenterPos.y + ScaledSize.y), CrosshairColor);
-
-                    // Pixel info tooltip
-                    ImGui::BeginTooltip();
-                    ImGui::Text("Pixel: [%d, %d]", PixelX, PixelY);
-                    ImGui::Text("UV: [%.3f, %.3f]", NormX, NormY);
-                    ImGui::EndTooltip();
-                }
-
-                // === Toolbar Overlay ===
-                ImGui::SetCursorScreenPos(ImVec2(WindowPos.x + 10, WindowPos.y + 10));
-                ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32(20, 20, 25, 0));
-                ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 6.0f);
-                ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12, 10));
-
-                // KEY FIX: Use ImGuiWindowFlags_NoInputs to make the toolbar non-interactive for mouse events
-                if (ImGui::BeginChild("##Toolbar", ImVec2(0, 0), ImGuiChildFlags_AlwaysUseWindowPadding,ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoScrollbar))
-                {
-                    // Mip level selector
-                    if (ImageDesc.NumMips > 1)
-                    {
-                        ImGui::Text("Mip Level:");
-                        ImGui::SameLine();
-                        ImGui::SetNextItemWidth(100);
-                        ImGui::SliderInt("##MipLevel", &CurrentMipLevel, 0, ImageDesc.NumMips - 1);
-                    }
-
-                }
-                ImGui::EndChild();
-                ImGui::PopStyleVar(2);
-                ImGui::PopStyleColor();
-
-                // === Bottom Info Bar ===
-                ImGui::SetCursorScreenPos(ImVec2(WindowPos.x + 10, WindowPos.y + WindowSize.y - 35));
-                ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32(20, 20, 25, 230));
-                ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 6.0f);
-                ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12, 8));
-
-                if (ImGui::BeginChild("##InfoBar", ImVec2(0, 0), ImGuiChildFlags_AlwaysUseWindowPadding,ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoInputs))
-                {
-                    ImGui::Text("%.0f%% | %dx%d | Pan: [%.0f, %.0f]",
-                        ZoomFactor * 100.0f,
-                        (int)TextureSize.x,
-                        (int)TextureSize.y,
-                        PanOffset.x,
-                        PanOffset.y
-                    );
-                    ImGui::SameLine(0, 20);
-                    ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "RMB/MMB: Pan | Scroll: Zoom | Ctrl+Scroll: Fine Zoom | Double-Click: Reset");
-                }
-                ImGui::EndChild();
-                ImGui::PopStyleVar(2);
-                ImGui::PopStyleColor();
-            });
+                ImGui::SameLine(0, 20);
+                ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "RMB/MMB: Pan | Scroll: Zoom | Ctrl+Scroll: Fine Zoom | Double-Click: Reset");
+            }
+            ImGui::EndChild();
+            ImGui::PopStyleVar(2);
+            ImGui::PopStyleColor();
+        });
     
-        // === Texture Properties Window ===
         CreateToolWindow(TexturePropertiesName, [this](const FUpdateContext& Cxt, bool bFocused)
         {
             CTexture* Texture = Cast<CTexture>(Asset.Get());
-            if (!Texture) return;
-            
+            if (!Texture)
+            {
+                return;
+            }
+
             const FRHIImageDesc& ImageDesc = Texture->ImageDescription;
     
             // === Header Section ===

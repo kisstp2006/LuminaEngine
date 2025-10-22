@@ -1,5 +1,6 @@
 ﻿#include "EditorUI.h"
 
+#include "Core/Application/Application.h"
 #include "imgui.h"
 #include "Assets/AssetRegistry/AssetRegistry.h"
 #include "Core/Object/Class.h"
@@ -37,6 +38,7 @@
 #include "Renderer/RenderDocImpl.h"
 #include "Renderer/RenderManager.h"
 #include "Renderer/RHIGlobals.h"
+#include "Renderer/ShaderCompiler.h"
 #include "Tools/GamePreviewTool.h"
 #include "Tools/AssetEditors/ArchetypeEditor/ArchetypeEditorTool.h"
 #include "Tools/AssetEditors/MaterialEditor/MaterialInstanceEditorTool.h"
@@ -217,62 +219,177 @@ namespace Lumina
 
         if (bShowLuminaInfo)
         {
-            ImGui::SetNextWindowSize(ImVec2(700, 500), ImGuiCond_FirstUseEver);
-            ImGui::Begin("Lumina Engine Info");
-        
-            // Header
-            ImGui::TextColored(ImVec4(0.4f, 0.8f, 1.0f, 1.0f), "Lumina Engine");
-            ImGui::Separator();
-            ImGui::Spacing();
-        
-            // Table for Engine Info
-            if (ImGui::BeginTable("EngineInfoTable", 2, ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_RowBg))
+            ImGui::SetNextWindowSize(ImVec2(800, 600), ImGuiCond_FirstUseEver);
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(20, 20));
+
+            if (ImGui::Begin("About Lumina Engine", &bShowLuminaInfo, ImGuiWindowFlags_NoCollapse))
             {
-                ImGui::TableSetupColumn("Property", ImGuiTableColumnFlags_WidthFixed, 150);
-                ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
-                ImGui::TableHeadersRow();
-        
-                ImGui::TableNextRow();
-                ImGui::TableSetColumnIndex(0);
-                ImGui::Text("Version");
-                ImGui::TableSetColumnIndex(1);
-                ImGui::Text("%s", LUMINA_VERSION);
-        
-                ImGui::TableNextRow();
-                ImGui::TableSetColumnIndex(0);
-                ImGui::Text("RHI");
-                ImGui::TableSetColumnIndex(1);
-                ImGui::Text("Vulkan");
-        
-                ImGui::TableNextRow();
-                ImGui::TableSetColumnIndex(0);
-                ImGui::Text("License");
-                ImGui::TableSetColumnIndex(1);
-                ImGui::Text("MIT License");
-        
-                ImGui::EndTable();
+                // Hero Section
+                ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]);
+                ImGui::TextColored(ImVec4(0.3f, 0.7f, 1.0f, 1.0f), "LUMINA ENGINE");
+                ImGui::PopFont();
+
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.6f, 0.6f, 1.0f));
+                ImGui::Text("A modern, high-performance game engine built with Vulkan.");
+                ImGui::PopStyleColor();
+
+                ImGui::Spacing();
+                ImGui::Separator();
+                ImGui::Spacing();
+                ImGui::Spacing();
+
+                // Engine Information Section
+                ImGui::TextColored(ImVec4(0.9f, 0.9f, 0.9f, 1.0f), "Engine Information");
+                ImGui::Spacing();
+
+                if (ImGui::BeginTable("##EngineInfoTable", 2, ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_PadOuterX))
+                {
+                    ImGui::TableSetupColumn("##Property", ImGuiTableColumnFlags_WidthFixed, 180);
+                    ImGui::TableSetupColumn("##Value", ImGuiTableColumnFlags_WidthStretch);
+
+                    // Version
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.7f, 0.7f, 0.7f, 1.0f));
+                    ImGui::Text("Version");
+                    ImGui::PopStyleColor();
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::TextColored(ImVec4(0.3f, 0.7f, 1.0f, 1.0f), "%s", LUMINA_VERSION);
+
+                    // Rendering API
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.7f, 0.7f, 0.7f, 1.0f));
+                    ImGui::Text("Rendering API");
+                    ImGui::PopStyleColor();
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::Text("Vulkan 1.3");
+
+                    // Build Configuration
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.7f, 0.7f, 0.7f, 1.0f));
+                    ImGui::Text("Build Configuration");
+                    ImGui::PopStyleColor();
+                    ImGui::TableSetColumnIndex(1);
+#ifdef LUMINA_DEBUG
+                    ImGui::TextColored(ImVec4(1.0f, 0.7f, 0.3f, 1.0f), "Debug");
+#elif defined(LUMINA_RELEASE)
+                    ImGui::TextColored(ImVec4(0.3f, 1.0f, 0.5f, 1.0f), "Release");
+#else
+                    ImGui::Text("Development");
+#endif
+
+                    // Platform
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.7f, 0.7f, 0.7f, 1.0f));
+                    ImGui::Text("Platform");
+                    ImGui::PopStyleColor();
+                    ImGui::TableSetColumnIndex(1);
+#ifdef _WIN32
+                    ImGui::Text("Windows x64");
+#elif defined(__linux__)
+                    ImGui::Text("Linux x64");
+#elif defined(__APPLE__)
+                    ImGui::Text("macOS");
+#endif
+
+                    // Compiler
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.7f, 0.7f, 0.7f, 1.0f));
+                    ImGui::Text("Compiler");
+                    ImGui::PopStyleColor();
+                    ImGui::TableSetColumnIndex(1);
+#ifdef _MSC_VER
+                    ImGui::Text("MSVC %d", _MSC_VER);
+#elif defined(__clang__)
+                    ImGui::Text("Clang %d.%d.%d", __clang_major__, __clang_minor__, __clang_patchlevel__);
+#elif defined(__GNUC__)
+                    ImGui::Text("GCC %d.%d.%d", __GNUC__, __GNUC_MINOR__, __GNUC_PATCHLEVEL__);
+#endif
+
+                    ImGui::EndTable();
+                }
+
+                ImGui::Spacing();
+                ImGui::Spacing();
+                ImGui::Separator();
+                ImGui::Spacing();
+                ImGui::Spacing();
+
+                // Core Features Section
+                ImGui::TextColored(ImVec4(0.9f, 0.9f, 0.9f, 1.0f), "Core Features");
+                ImGui::Spacing();
+
+                ImGui::BulletText("Physically Based Rendering (PBR)");
+                ImGui::BulletText("Advanced Material System");
+                ImGui::BulletText("Multi-threaded Asset Pipeline");
+                ImGui::BulletText("Hot-reload Shader Compilation");
+
+                ImGui::Spacing();
+                ImGui::Spacing();
+                ImGui::Separator();
+                ImGui::Spacing();
+                ImGui::Spacing();
+
+                // Contributors Section
+                ImGui::TextColored(ImVec4(0.9f, 0.9f, 0.9f, 1.0f), "Development Team");
+                ImGui::Spacing();
+
+                if (ImGui::BeginTable("##ContributorsTable", 2, ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_PadOuterX))
+                {
+                    ImGui::TableSetupColumn("##Name", ImGuiTableColumnFlags_WidthFixed, 180);
+                    ImGui::TableSetupColumn("##Role", ImGuiTableColumnFlags_WidthStretch);
+
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::TextColored(ImVec4(0.3f, 0.7f, 1.0f, 1.0f), "Dr. Elliot");
+                    ImGui::TableSetColumnIndex(1);
+                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.7f, 0.7f, 0.7f, 1.0f));
+                    ImGui::Text("Lead Developer & Engine Architect");
+                    ImGui::PopStyleColor();
+
+                    ImGui::EndTable();
+                }
+
+                ImGui::Spacing();
+                ImGui::Spacing();
+                ImGui::Separator();
+                ImGui::Spacing();
+
+                // Footer
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
+                ImGui::Text("Licensed under the MIT License");
+                ImGui::Text("Copyright (c) 2025 Lumina Engine Contributors");
+                ImGui::PopStyleColor();
+
+                ImGui::Spacing();
+
+                // Action Buttons
+                ImGui::Separator();
+                ImGui::Spacing();
+
+                float buttonWidth = 150.0f;
+                float availWidth = ImGui::GetContentRegionAvail().x;
+                ImGui::SetCursorPosX((availWidth - buttonWidth * 2 - ImGui::GetStyle().ItemSpacing.x) * 0.5f);
+
+                if (ImGui::Button("Documentation", ImVec2(buttonWidth, 0)))
+                {
+                    Platform::LaunchURL(TEXT("https://github.com/MrDrElliot/LuminaEngine"));
+                }
+
+                ImGui::SameLine();
+
+                if (ImGui::Button("GitHub", ImVec2(buttonWidth, 0)))
+                {
+                    Platform::LaunchURL(TEXT("https://github.com/MrDrElliot/LuminaEngine"));
+                }
             }
-        
-            ImGui::Spacing();
-        
-            // Contributors Table
-            ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "Contributors");
-            if (ImGui::BeginTable("ContributorsTable", 2, ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable))
-            {
-                ImGui::TableSetupColumn("Name");
-                ImGui::TableSetupColumn("Role");
-                ImGui::TableHeadersRow();
-        
-                ImGui::TableNextRow();
-                ImGui::TableSetColumnIndex(0);
-                ImGui::Text("Dr. Elliot");
-                ImGui::TableSetColumnIndex(1);
-                ImGui::Text("Lead Developer");
-        
-                ImGui::EndTable();
-            }
-            
+
             ImGui::End();
+            ImGui::PopStyleVar();
         }
 
         if (bShowDearImGuiDemoWindow)
@@ -1263,20 +1380,19 @@ namespace Lumina
         {
             return;
         }
-
         // Save Section
         if (ImGui::MenuItem(LE_ICON_ZIP_DISK " Save", "Ctrl+S"))
         {
             // Save action
         }
-    
+
         if (ImGui::MenuItem(LE_ICON_ZIP_DISK " Save All", "Ctrl+Shift+S"))
         {
             // Save all action
         }
-    
+
         ImGui::Separator();
-    
+
         // Recent Files
         if (ImGui::BeginMenu(LE_ICON_ROTATE_LEFT " Recent"))
         {
@@ -1285,37 +1401,73 @@ namespace Lumina
             ImGui::MenuItem("Project2.lumina");
             ImGui::MenuItem("Project3.lumina");
             ImGui::PopStyleColor();
-        
+
             ImGui::Separator();
-        
+
             if (ImGui::MenuItem(LE_ICON_TRASH_CAN " Clear Recent"))
             {
                 // Clear recent files
             }
-        
+
             ImGui::EndMenu();
         }
-    
+
         ImGui::Separator();
-    
-        // Developer Tools
+
+        // Shaders Submenu
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.8f, 0.6f, 0.4f, 1.0f));
-        if (ImGui::MenuItem(LE_ICON_HAMMER " Recompile Shaders", "F5"))
+        if (ImGui::BeginMenu(LE_ICON_HAMMER " Shaders"))
         {
-            GRenderContext->CompileEngineShaders();
+            if (ImGui::MenuItem(LE_ICON_HAMMER " Recompile All", "F5"))
+            {
+                GRenderContext->CompileEngineShaders();
+            }
+
+            if (ImGui::MenuItem(LE_ICON_FOLDER " Open Shaders Directory", "F6"))
+            {
+                Platform::LaunchURL(UTF8_TO_WIDE(Paths::GetEngineShadersDirectory()).c_str());
+            }
+
+            ImGui::Separator();
+
+            for (auto& Directory : std::filesystem::recursive_directory_iterator(Paths::GetEngineShadersDirectory().c_str()))
+            {
+                if (Directory.is_regular_file())
+                {
+                    FString FileName = Directory.path().filename().string().c_str();
+                    if (ImGui::BeginMenu(FileName.c_str()))
+                    {
+                        if (ImGui::MenuItem(LE_ICON_HAMMER " Recompile"))
+                        {
+                            GRenderContext->GetShaderCompiler()->CompileShaderPath(Directory.path().string().c_str(), {}, [&](const FShaderHeader& Header)
+                            {
+                                GRenderContext->GetShaderLibrary()->CreateAndAddShader(Header.DebugName, Header, true);
+                            });
+                        }
+
+                        if (ImGui::MenuItem(LE_ICON_FOLDER " Open"))
+                        {
+                            Platform::LaunchURL(Directory.path().c_str());
+                        }
+
+                        ImGui::EndMenu();
+                    }
+                }
+            }
+
+            ImGui::EndMenu();
         }
         ImGui::PopStyleColor();
-    
+
         ImGui::Separator();
-    
-        // Exit
+
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.4f, 0.4f, 1.0f));
         if (ImGui::MenuItem(LE_ICON_DOOR_OPEN " Exit", "Alt+F4"))
         {
-            // Exit application
+			FApplication::RequestExit();
         }
         ImGui::PopStyleColor();
-    
+
         ImGui::EndMenu();
     }
 

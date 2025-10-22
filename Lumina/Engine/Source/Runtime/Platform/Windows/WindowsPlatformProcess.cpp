@@ -98,16 +98,18 @@ namespace Lumina::Platform
             return -1;
         }
 
+        FWString URLString(URL);
+        eastl::replace(URLString.begin(), URLString.end(), '/', '\\');
+        
         STARTUPINFOW si{};
         PROCESS_INFORMATION pi{};
 
         si.cb = sizeof(si);
 
-        std::wstring commandLine = URL;
         if (Params)
         {
-            commandLine += L" ";
-            commandLine += Params;
+            URLString += L" ";
+            URLString += Params;
         }
 
         DWORD creationFlags = 0;
@@ -117,7 +119,7 @@ namespace Lumina::Platform
         }
 
         // CreateProcessW modifies the command line string, so make a writable buffer
-        std::vector<wchar_t> cmdBuffer(commandLine.begin(), commandLine.end());
+        TVector<wchar_t> cmdBuffer(URLString.begin(), URLString.end());
         cmdBuffer.push_back(L'\0');
 
         BOOL result = CreateProcessW(

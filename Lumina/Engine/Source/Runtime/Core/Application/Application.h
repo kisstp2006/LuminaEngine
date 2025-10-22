@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Module/API.h"
 #include "Core/Engine/Engine.h"
 #include "Core/Utils/CommandLineParser.h"
 
@@ -42,6 +43,7 @@ namespace Lumina
 		void WindowResized(const FIntVector2D& Extent);
 		virtual void OnWindowResized(const FIntVector2D& Extent) { }
 
+		static void RequestExit();
 
 	protected:
 
@@ -56,6 +58,9 @@ namespace Lumina
 		bool ShouldExit();
 		
 	protected:
+
+		bool bExitRequested			= false;
+
 
 		FWindow*					Window = nullptr;
 		

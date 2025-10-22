@@ -79,7 +79,7 @@ namespace Lumina
         // Only schedule tasks if there is a significant amount of transform updates required.
         if (Group.size() > 100)
         {
-            Task::ParallelFor((uint32)Group.size(), WorkCallable);
+            Task::ParallelFor((uint32)Group.size(), Group.size() / 8, WorkCallable);
         }
         else
         {

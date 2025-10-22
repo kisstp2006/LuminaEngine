@@ -50,6 +50,8 @@ namespace Lumina
 
     void FSpirVShaderCompiler::ReflectSpirv(TSpan<uint32> SpirV, FShaderReflection& Reflection, bool bReflectFull)
     {
+        LUMINA_PROFILE_SCOPE();
+        
         SpvReflectShaderModule Module;
         SpvReflectResult Result = spvReflectCreateShaderModule(SpirV.size_bytes(), SpirV.data(), &Module);
         if (Result != SPV_REFLECT_RESULT_SUCCESS)
@@ -142,15 +144,16 @@ namespace Lumina
     
     bool FSpirVShaderCompiler::CompileShaderPath(FString ShaderPath, const FShaderCompileOptions& CompileOptions, CompletedFunc OnCompleted)
     {
-        TVector<FString> ShaderPaths = { Memory::Move(ShaderPath) };
-        TVector<FShaderCompileOptions> Options = { CompileOptions };
-        TVector<CompletedFunc> Callbacks = { Memory::Move(OnCompleted) };
+        TVector ShaderPaths = { Memory::Move(ShaderPath) };
+        TVector Options = { CompileOptions };
 
-        return CompileShaderPaths(TSpan(ShaderPaths), TSpan(Options), OnCompleted);
+        return CompileShaderPaths(TSpan(ShaderPaths), TSpan(Options), Memory::Move(OnCompleted));
     }
 
     bool FSpirVShaderCompiler::CompileShaderPaths(TSpan<FString> ShaderPaths, TSpan<FShaderCompileOptions> CompileOptions, CompletedFunc OnCompleted)
     {
+        LUMINA_PROFILE_SCOPE();
+        
         LUM_ASSERT(ShaderPaths.size() == CompileOptions.size())
     
         uint32 NumShaders = (uint32)ShaderPaths.size();
@@ -166,11 +169,12 @@ namespace Lumina
         // Capture copies for thread safety
         TVector<FString> Paths(ShaderPaths.begin(), ShaderPaths.end());
         TVector<FShaderCompileOptions> Options(CompileOptions.begin(), CompileOptions.end());
-    
-        Task::AsyncTask(NumShaders, [this,
+
+        
+        Task::AsyncTask(NumShaders, 4, [this,
             Paths = Memory::Move(Paths),
             Options = Memory::Move(Options),
-            Callback = Memory::Move(OnCompleted)] (uint32 Start, uint32 End, uint32 Thread)
+            Callback = Memory::Move(OnCompleted)] (uint32 Start, uint32 End, uint32 Thread) mutable
         {
             shaderc::CompileOptions CompileOpts;
             CompileOpts.SetIncluder(std::make_unique<FShaderCIncluder>());
@@ -180,6 +184,7 @@ namespace Lumina
     
             for (uint32 i = Start; i < End; ++i)
             {
+                shaderc::Compiler Compiler;
                 auto CompileStart = std::chrono::high_resolution_clock::now();
 
                 const FString& Path = Paths[i];
@@ -192,19 +197,22 @@ namespace Lumina
                 }
     
                 FString RawShaderString;
-                if (!FileHelper::LoadFileIntoString(RawShaderString, Path))
                 {
-                    LOG_ERROR("Failed to load shader: {0}", Path);
-                    PendingTasks.fetch_sub(1, std::memory_order_acq_rel);
-                    continue;
+                    LUMINA_PROFILE_SECTION("Load Shader into String");
+
+                    if (!FileHelper::LoadFileIntoString(RawShaderString, Path))
+                    {
+                        LOG_ERROR("Failed to load shader: {0}", Path);
+                        PendingTasks.fetch_sub(1, std::memory_order_acq_rel);
+                        continue;
+                    }
                 }
-    
-                auto Preprocessed = Compiler.PreprocessGlsl(
-                    RawShaderString.c_str(),
-                    RawShaderString.size(),
-                    shaderc_glsl_infer_from_source,
-                    Path.c_str(),
-                    CompileOpts);
+                
+                shaderc::PreprocessedSourceCompilationResult Preprocessed;
+                {
+                    LUMINA_PROFILE_SECTION("PreprocessGlsl");
+                    Preprocessed = Compiler.PreprocessGlsl(RawShaderString.c_str(), RawShaderString.size(), shaderc_glsl_infer_from_source, Path.c_str(), CompileOpts);
+                }
     
                 if (Preprocessed.GetCompilationStatus() != shaderc_compilation_status_success)
                 {
@@ -214,13 +222,12 @@ namespace Lumina
                 }
     
                 FString PreprocessedShader(Preprocessed.begin(), Preprocessed.end());
-    
-                auto CompileResult = Compiler.CompileGlslToSpv(
-                    PreprocessedShader.c_str(),
-                    PreprocessedShader.size(),
-                    shaderc_glsl_infer_from_source,
-                    Path.c_str(),
-                    CompileOpts);
+
+                shaderc::SpvCompilationResult CompileResult;
+                {
+                    LUMINA_PROFILE_SECTION("CompileGlslToSpv");
+                    CompileResult = Compiler.CompileGlslToSpv(PreprocessedShader.c_str(), PreprocessedShader.size(), shaderc_glsl_infer_from_source, Path.c_str(), CompileOpts);
+                }
     
                 if (CompileResult.GetCompilationStatus() != shaderc_compilation_status_success)
                 {
@@ -276,7 +283,7 @@ namespace Lumina
     {
         PendingTasks.fetch_add(1, std::memory_order_relaxed);
 
-        Task::AsyncTask(1, [this,
+        Task::AsyncTask(1, 1, [this,
             ShaderString = Memory::Move(ShaderString),
             CompileOptions = Memory::Move(CompileOptions),
             Callback = Memory::Move(OnCompleted)]
@@ -284,6 +291,7 @@ namespace Lumina
         {
             LOG_TRACE("Compiling Raw Shader - Thread: {0}", Threading::GetThreadID());
 
+            shaderc::Compiler Compiler;
             shaderc::CompileOptions Options;
             Options.SetIncluder(std::make_unique<FShaderCIncluder>());
             Options.SetOptimizationLevel(shaderc_optimization_level_performance);

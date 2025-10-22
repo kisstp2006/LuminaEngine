@@ -40,11 +40,50 @@ namespace Lumina
         return NewPipeline;
     }
 
-    void FVulkanPipelineCache::PostShaderRecompiled(FRHIShader* Shader)
+    void FVulkanPipelineCache::PostShaderRecompiled(const FRHIShader* Shader)
     {
         FScopeLock Lock(ShaderMutex);
-        GraphicsPipelines.clear();
-        ComputePipelines.clear();
+        if (Shader)
+        {
+            const FString& ShaderName = Shader->GetShaderHeader().DebugName;
+
+            for (auto it = GraphicsPipelines.begin(); it != GraphicsPipelines.end(); )
+            {
+                auto& Desc = it->second->GetDesc();
+
+                bool bMatches =
+                    (Desc.VS && Desc.VS->GetShaderHeader().DebugName == ShaderName) ||
+                    (Desc.PS && Desc.PS->GetShaderHeader().DebugName == ShaderName) ||
+                    (Desc.GS && Desc.GS->GetShaderHeader().DebugName == ShaderName);
+
+                if (bMatches)
+                {
+                    it = GraphicsPipelines.erase(it);
+                }
+                else
+                {
+                    ++it;
+                }
+            }
+
+            for (auto it = ComputePipelines.begin(); it != ComputePipelines.end(); )
+            {
+                auto& Pipeline = it->second;
+                if (Pipeline->GetDesc().CS && Pipeline->GetDesc().CS->GetShaderHeader().DebugName == ShaderName)
+                {
+                    it = ComputePipelines.erase(it);
+                }
+                else
+                {
+                    ++it;
+                }
+            }
+        }
+        else
+        {
+            GraphicsPipelines.clear();
+            ComputePipelines.clear();
+        }
     }
     
     void FVulkanPipelineCache::ReleasePipelines()

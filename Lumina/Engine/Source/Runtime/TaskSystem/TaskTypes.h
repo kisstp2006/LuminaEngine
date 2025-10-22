@@ -38,15 +38,16 @@ namespace Lumina
         void OnDependenciesComplete(enki::TaskScheduler* pTaskScheduler_, uint32_t threadNum_ ) override;
     };
 
-    typedef TFunction<void (uint32 Start, uint32 End, uint32 Thread)> TaskSetFunction;
+    typedef TMoveOnlyFunction<void (uint32 Start, uint32 End, uint32 Thread)> TaskSetFunction;
     class FLambdaTask : public ITaskSet
     {
     public:
 
-        FLambdaTask(ETaskPriority Priority, uint32 SetSize, TaskSetFunction TaskFunctor)
+        FLambdaTask(ETaskPriority Priority, uint32 SetSize, uint32 MinRange, TaskSetFunction TaskFunctor)
         {
             m_Priority = (enki::TaskPriority)Priority;
             m_SetSize = SetSize;
+            m_MinRange = MinRange;
             Function = Memory::Move(TaskFunctor);
             TaskRecycle.SetDependency(TaskRecycle.Dependency, this);
         }
@@ -61,10 +62,11 @@ namespace Lumina
             Function(range_.start, range_.end, threadnum_);
         }
 
-        void Reset(ETaskPriority Priority, uint32 SetSize, TaskSetFunction TaskFunctor)
+        void Reset(ETaskPriority Priority, uint32 SetSize, uint32 MinRange, TaskSetFunction TaskFunctor)
         {
             m_Priority = (enki::TaskPriority)Priority;
             m_SetSize = SetSize;
+            m_MinRange = MinRange;
             Function = Memory::Move(TaskFunctor);
         }
 
