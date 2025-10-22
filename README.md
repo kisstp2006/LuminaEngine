@@ -92,9 +92,9 @@ Lumina is a modern C++ game engine designed for learning and experimentation wit
 ### Prerequisites
 
 - **Windows 10/11** (64-bit)
-- **Visual Studio 2022** (MSVC 17.8+)
+- **Visual Studio** (MSVC 17.8+)
 - **Python 3.8+** (automatically installed if missing)
-- **Vulkan SDK** with VulkanMemoryAllocator ([Download](https://vulkan.lunarg.com/sdk/home))
+- **Vulkan SDK**  ([Download](https://vulkan.lunarg.com/sdk/home))
 
 ### Installation
 
