@@ -16,11 +16,10 @@ layout(location = 3) in vec4 inFragPos;
 layout(location = 4) in vec2 inUV;
 layout(location = 5) flat in uint inEntityID;
 
-layout(location = 0) out vec4 GPosition;
-layout(location = 1) out vec4 GNormal;
-layout(location = 2) out vec4 GMaterial;
-layout(location = 3) out vec4 GAlbedoSpec;
-layout(location = 4) out uint GPicker;
+layout(location = 0) out vec4 GNormal;
+layout(location = 1) out vec4 GMaterial;
+layout(location = 2) out vec4 GAlbedoSpec;
+layout(location = 3) out uint GPicker;
 
 layout(set = 1, binding = 0) uniform FMaterialUniforms
 {
@@ -84,18 +83,16 @@ void main()
     SMaterialInputs Material = GetMaterialInputs();
     
     vec3 EncodedNormal = ViewNormal * 0.5 + 0.5;
-
-    GPosition = inFragPos;
     
     GNormal = vec4(EncodedNormal, 1.0);
 
     GMaterial.r = Material.AmbientOcclusion;
     GMaterial.g = Material.Roughness;
     GMaterial.b = Material.Metallic;
-    GMaterial.a = 1.0;
+    GMaterial.a = Material.Specular;
 
     GAlbedoSpec.rgb = Material.Diffuse.rgb;
-    GAlbedoSpec.a = Material.Specular;
+    GAlbedoSpec.a   = 1.0;
 
     GPicker = inEntityID;
 }

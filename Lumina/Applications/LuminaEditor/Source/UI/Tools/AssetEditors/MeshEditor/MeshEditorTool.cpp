@@ -34,73 +34,157 @@ namespace Lumina
         MeshEntity.GetComponent<STransformComponent>().SetLocation(glm::vec3(0.0f, 0.0f, -2.5f));
     }
 
-    void FMeshEditorTool::OnInitialize()
+void FMeshEditorTool::OnInitialize()
+{
+    CreateToolWindow(MeshPropertiesName, [this](const FUpdateContext& Cxt, bool bFocused)
     {
-        CreateToolWindow(MeshPropertiesName, [this](const FUpdateContext& Cxt, bool bFocused)
+        CStaticMesh* StaticMesh = Cast<CStaticMesh>(Asset.Get());
+        if (!StaticMesh)
         {
-            CStaticMesh* StaticMesh = Cast<CStaticMesh>(Asset.Get());
+            return;
+        }
 
-            const FMeshResource& Resource = StaticMesh->GetMeshResource();
-            TVector<FGeometrySurface> Surfaces = Resource.GeometrySurfaces;
-            
-            if (ImGui::CollapsingHeader("Mesh Resources", ImGuiTreeNodeFlags_DefaultOpen))
+        const FMeshResource& Resource = StaticMesh->GetMeshResource();
+        const FAABB& BoundingBox = StaticMesh->GetAABB();
+        
+        // === Mesh Statistics Overview ===
+        ImGuiX::Font::PushFont(ImGuiX::Font::EFont::Large);
+        ImGui::SeparatorText("Mesh Statistics");
+        ImGuiX::Font::PopFont();
+        
+        ImGui::Spacing();
+        
+        if (ImGui::BeginTable("##MeshStats", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp))
+        {
+            ImGui::TableSetupColumn("Property", ImGuiTableColumnFlags_WidthFixed, 180.0f);
+            ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
+            ImGui::TableHeadersRow();
+
+            auto PropertyRow = [](const char* label, const FString& value, const ImVec4* color = nullptr)
             {
-                ImGui::Indent();
-
-                if (ImGui::BeginTable("MeshResourceTable", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg))
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::TextUnformatted(label);
+                ImGui::TableSetColumnIndex(1);
+                if (color)
                 {
-                    ImGui::TableSetupColumn("Property");
-                    ImGui::TableSetupColumn("Value");
-                    ImGui::TableHeadersRow();
-
-                    auto Row = [](const char* label, const FString& value)
-                    {
-                           ImGui::TableNextRow();
-                           ImGui::TableSetColumnIndex(0);
-                           ImGui::TextUnformatted(label);
-                           ImGui::TableSetColumnIndex(1);
-                           ImGui::TextUnformatted(value.c_str());
-                    };
-
-                    Row("Vertex Buffer Size (KB)", eastl::to_string(Resource.Vertices.size() * sizeof(FVertex) / 1024));
-                    Row("Index Buffer Size (KB)", eastl::to_string(Resource.Indices.size() * sizeof(uint32_t) / 1024));
-                    Row("Bounding Box Min", glm::to_string(StaticMesh->GetAABB().Min).c_str());
-                    Row("Bounding Box Max", glm::to_string(StaticMesh->GetAABB().Max).c_str());
-                    Row("Triangles", eastl::to_string(Resource.Vertices.size() / 3));
-                    Row("Vertices", eastl::to_string(Resource.Vertices.size()));
-                    Row("Indices", eastl::to_string(Resource.Indices.size()));
-                    Row("Shadow Indices", eastl::to_string(Resource.ShadowIndices.size()));
-                    Row("Surfaces", eastl::to_string(Resource.GetNumSurfaces()));
-
-                    ImGui::EndTable();
+                    ImGui::PushStyleColor(ImGuiCol_Text, *color);
                 }
+                ImGui::TextUnformatted(value.c_str());
+                if (color)
+                {
+                    ImGui::PopStyleColor();
+                }
+            };
 
-                ImGui::Unindent();
-            }
-
-            ImGuiX::Font::PushFont(ImGuiX::Font::EFont::Large);
-            ImGui::SeparatorText("Geometry Surfaces");
-            ImGuiX::Font::PopFont();
+            // Geometry counts
+            PropertyRow("Vertices", eastl::to_string(Resource.Vertices.size()));
+            PropertyRow("Triangles", eastl::to_string(Resource.Indices.size() / 3));
+            PropertyRow("Indices", eastl::to_string(Resource.Indices.size()));
+            PropertyRow("Shadow Indices", eastl::to_string(Resource.ShadowIndices.size()));
+            PropertyRow("Surfaces", eastl::to_string(Resource.GetNumSurfaces()));
             
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            ImGui::Dummy(ImVec2(0, 4));
+            
+            // Memory usage
+            const float vertexSizeKB = (Resource.Vertices.size() * sizeof(FVertex)) / 1024.0f;
+            const float indexSizeKB = (Resource.Indices.size() * sizeof(uint32_t)) / 1024.0f;
+            const float totalSizeKB = vertexSizeKB + indexSizeKB;
+            
+            PropertyRow("Vertex Buffer", eastl::to_string(static_cast<int>(vertexSizeKB)) + " KB");
+            PropertyRow("Index Buffer", eastl::to_string(static_cast<int>(indexSizeKB)) + " KB");
+            
+            ImVec4 totalColor = totalSizeKB > 1024 ? ImVec4(1.0f, 0.7f, 0.3f, 1.0f) : ImVec4(0.7f, 1.0f, 0.7f, 1.0f);
+            PropertyRow("Total Memory", eastl::to_string(static_cast<int>(totalSizeKB)) + " KB", &totalColor);
+            
+            ImGui::TableNextRow();
+            ImGui::TableSetColumnIndex(0);
+            ImGui::Dummy(ImVec2(0, 4));
+            
+            // Bounding box
+            PropertyRow("Bounds Min", glm::to_string(BoundingBox.Min).c_str());
+            PropertyRow("Bounds Max", glm::to_string(BoundingBox.Max).c_str());
+            
+            glm::vec3 extents = BoundingBox.Max - BoundingBox.Min;
+            PropertyRow("Bounds Extents", glm::to_string(extents).c_str());
+
+            ImGui::EndTable();
+        }
+
+        ImGui::Spacing();
+        ImGui::Spacing();
+
+        // === Geometry Surfaces ===
+        ImGuiX::Font::PushFont(ImGuiX::Font::EFont::Large);
+        ImGui::SeparatorText("Geometry Surfaces");
+        ImGuiX::Font::PopFont();
+        
+        ImGui::Spacing();
+        
+        if (Resource.GeometrySurfaces.empty())
+        {
+            ImGui::TextDisabled("No surfaces defined");
+        }
+        else
+        {
             for (size_t i = 0; i < Resource.GeometrySurfaces.size(); ++i)
             {
                 const FGeometrySurface& Surface = Resource.GeometrySurfaces[i];
-                ImGui::PushID(i);
-                ImGui::Text("Name: %s", Surface.ID.c_str());
-                ImGui::Text("Material Index: %lld", Surface.MaterialIndex);
-                ImGui::Text("Index Count: %u", Surface.IndexCount);
-                ImGui::Text("Start Index: %llu", Surface.StartIndex);
-
-                ImGui::Separator();
+                ImGui::PushID(static_cast<int>(i));
+                
+                FString headerLabel = "Surface " + eastl::to_string(i) + ": " + Surface.ID;
+                if (ImGui::CollapsingHeader(headerLabel.c_str(), ImGuiTreeNodeFlags_DefaultOpen))
+                {
+                    ImGui::Indent(16.0f);
+                    
+                    if (ImGui::BeginTable("##SurfaceDetails", 2, ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingStretchProp))
+                    {
+                        ImGui::TableSetupColumn("##Label", ImGuiTableColumnFlags_WidthFixed, 120.0f);
+                        ImGui::TableSetupColumn("##Value", ImGuiTableColumnFlags_WidthStretch);
+                        
+                        auto DetailRow = [](const char* label, const FString& value)
+                        {
+                            ImGui::TableNextRow();
+                            ImGui::TableSetColumnIndex(0);
+                            ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "%s", label);
+                            ImGui::TableSetColumnIndex(1);
+                            ImGui::TextUnformatted(value.c_str());
+                        };
+                        
+                        DetailRow("Material Index:", eastl::to_string(Surface.MaterialIndex));
+                        DetailRow("Start Index:", eastl::to_string(Surface.StartIndex));
+                        DetailRow("Index Count:", eastl::to_string(Surface.IndexCount));
+                        DetailRow("Triangle Count:", eastl::to_string(Surface.IndexCount / 3));
+                        
+                        ImGui::EndTable();
+                    }
+                    
+                    ImGui::Unindent(16.0f);
+                }
+                
                 ImGui::PopID();
+                
+                if (i < Resource.GeometrySurfaces.size() - 1)
+                {
+                    ImGui::Spacing();
+                }
             }
+        }
 
-            ImGui::SeparatorText("Asset Details");
+        ImGui::Spacing();
+        ImGui::Spacing();
 
-            PropertyTable.DrawTree();
-            
-        });
-    }
+        // === Asset Properties ===
+        ImGuiX::Font::PushFont(ImGuiX::Font::EFont::Large);
+        ImGui::SeparatorText("Asset Details");
+        ImGuiX::Font::PopFont();
+        
+        ImGui::Spacing();
+        PropertyTable.DrawTree();
+    });
+}
 
     void FMeshEditorTool::OnDeinitialize(const FUpdateContext& UpdateContext)
     {

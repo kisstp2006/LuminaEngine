@@ -11,6 +11,7 @@
 #include "Core/Object/Package/Package.h"
 #include "EASTL/sort.h"
 #include "Paths/Paths.h"
+#include "Platform/Process/PlatformProcess.h"
 #include "Project/Project.h"
 #include "Renderer/RenderManager.h"
 #include "TaskSystem/TaskSystem.h"
@@ -601,13 +602,59 @@ namespace Lumina
             {
                 const char* ImportIcon = LE_ICON_FILE_IMPORT;
                 FString MenuItemName = FString(ImportIcon) + " " + "Import Asset";
-                if (ImGui::MenuItem(MenuItemName.c_str()) &&  !FileBrowser.IsOpened())
+                if (ImGui::MenuItem(MenuItemName.c_str()))
                 {
-                    FileBrowser = ImGui::FileBrowser(ImGuiFileBrowserFlags_CloseOnEsc | ImGuiFileBrowserFlags_MultipleSelection);
-                    FileBrowser.SetTitle("Select a file(s) to import.");
-                    FileBrowser.SetTypeFilters({".png", ".jpg", ".fbx", ".gltf", ".glb"});
+                    FString SelectedFile;
+                    const char* Filter = "Supported Assets (*.png;*.jpg;*.fbx;*.gltf;*.glb)\0*.png;*.jpg;*.fbx;*.gltf;*.glb\0All Files (*.*)\0*.*\0";
+                    if (Platform::OpenFileDialogue(SelectedFile, "Import Asset", Filter))
+                    {
+                        TVector<CAssetDefinition*> Definitions;
+                        CAssetDefinitionRegistry::Get()->GetAssetDefinitions(Definitions);
+                        for (CAssetDefinition* Definition : Definitions)
+                        {
+                            if (!Definition->CanImport())
+                            {
+                                continue;
+                            }
 
-                    FileBrowser.Open();
+                            FString Ext = Paths::GetExtension(SelectedFile);
+                            if (!Definition->IsExtensionSupported(Ext))
+                            {
+                                continue;
+                            }
+                        
+                            CFactory* Factory = Definition->GetFactory();
+                        
+                            FString NoExtFileName = Paths::FileName(SelectedFile, true);
+                            FString PathString = Paths::Combine(SelectedPath.c_str(), NoExtFileName.c_str());
+                        
+                            Paths::AddPackageExtension(PathString);
+                            PathString = CPackage::MakeUniquePackagePath(PathString);
+                            PathString = Paths::RemoveExtension(PathString);
+                        
+                            if (Factory->HasImportDialogue())
+                            {
+                                ToolContext->PushModal("Import", {500, 800}, [this, Factory, SelectedFile, PathString](const FUpdateContext& DrawContext)
+                                {
+                                    bool bShouldClose = CFactory::ShowImportDialogue(Factory, SelectedFile, PathString);
+                                    if (bShouldClose)
+                                    {
+                                        ImGuiX::Notifications::NotifySuccess("Successfully Imported: \"%s\"", PathString.c_str());
+                                    }
+                            
+                                    return bShouldClose;
+                                });
+                            }
+                            else
+                            {
+                                Task::AsyncTask(1, [this, Factory, SelectedFile, PathString] (uint32 Start, uint32 End, uint32 ThreadNum_)
+                                {
+                                    Factory->TryImport(SelectedFile, PathString);
+                                    ImGuiX::Notifications::NotifySuccess("Successfully Imported: \"%s\"", PathString.c_str());
+                                });
+                            }
+                        }
+                    }
                 }
             }
             
@@ -674,64 +721,6 @@ namespace Lumina
             ImGui::EndPopup();
         }
         
-        FileBrowser.Display();
-        if (FileBrowser.HasSelected())
-        {
-            std::vector<std::filesystem::path> Files = FileBrowser.GetMultiSelected();
-            FileBrowser.ClearSelected();
-            FileBrowser.Close();
-
-            for (const auto& FilePath : Files)
-            {
-                TVector<CAssetDefinition*> Definitions;
-                CAssetDefinitionRegistry::Get()->GetAssetDefinitions(Definitions);
-                for (CAssetDefinition* Definition : Definitions)
-                {
-                    if (!Definition->CanImport())
-                    {
-                        continue;
-                    }
-
-                    FString Ext = FilePath.extension().generic_string().c_str();
-                    if (!Definition->IsExtensionSupported(Ext))
-                    {
-                        continue;
-                    }
-                
-                    CFactory* Factory = Definition->GetFactory();
-
-                    FString FStringFileName = FilePath.generic_string().c_str();
-                    FString NoExtFileName = Paths::RemoveExtension(FilePath.filename().generic_string().c_str());
-                    FString PathString = Paths::Combine(SelectedPath.c_str(), NoExtFileName.c_str());
-                
-                    Paths::AddPackageExtension(PathString);
-                    PathString = CPackage::MakeUniquePackagePath(PathString);
-                    PathString = Paths::RemoveExtension(PathString);
-
-                    if (Factory->HasImportDialogue())
-                    {
-                        ToolContext->PushModal("Import", {500, 800}, [this, Factory, FStringFileName, PathString](const FUpdateContext& DrawContext)
-                        {
-                            bool bShouldClose = CFactory::ShowImportDialogue(Factory, FStringFileName, PathString);
-                            if (bShouldClose)
-                            {
-                                ImGuiX::Notifications::NotifySuccess("Successfully Imported: \"%s\"", PathString.c_str());
-                            }
-                    
-                            return bShouldClose;
-                        });
-                    }
-                    else
-                    {
-                        Task::AsyncTask(1, [this, Factory, FStringFileName, PathString] (uint32 Start, uint32 End, uint32 ThreadNum_)
-                        {
-                            Factory->TryImport(FStringFileName, PathString);
-                            ImGuiX::Notifications::NotifySuccess("Successfully Imported: \"%s\"", PathString.c_str());
-                        });
-                    }
-                }
-            }
-        }
 
         ImGui::BeginHorizontal("Breadcrumbs");
 

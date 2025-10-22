@@ -258,8 +258,9 @@ namespace Lumina
                                 IM_COL32(100, 100, 100, 255), 2.0f);
                             
                             ImGui::SetCursorScreenPos(ImVec2(cursorPos.x + 2, cursorPos.y + 2));
+
                             ImGui::Image(FUITextureCache::Get().GetImTexture(ImagePath), imageSize);
-    
+
                             ImGui::TableSetColumnIndex(1);
                             ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.9f, 0.9f, 1.0f));
                             ImGui::TextWrapped("%s", Paths::FileName(ImagePath).c_str());

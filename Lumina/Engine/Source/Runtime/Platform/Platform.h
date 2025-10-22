@@ -45,14 +45,14 @@
 #define NODISCARD [[nodiscard]]
 
 // If we don't have a platform-specific define for the TEXT macro, define it now.
-#ifndef TEXT
-    #if PLATFORM_TCHAR_IS_UTF8CHAR
-        #define TEXT_PASTE(x) UTF8TEXT(x)
-    #else
-        #define TEXT_PASTE(x) WIDETEXT(x)
-    #endif
-    #define TEXT(x) TEXT_PASTE(x)
-#endif
+//#if !defined(TEXT)
+//    #if PLATFORM_TCHAR_IS_UTF8CHAR
+//        #define TEXT_PASTE(x) UTF8TEXT(x)
+//    #else
+//        #define TEXT_PASTE(x) WIDETEXT(x)
+//    #endif
+//    #define TEXT(x) TEXT_PASTE(x)
+//#endif
 
 // Forced inline functions will be inlined in debug, and thus will be stepped over by the debugger.
 #ifndef FORCEINLINE

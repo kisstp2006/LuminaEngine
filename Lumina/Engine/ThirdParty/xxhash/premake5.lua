@@ -1,7 +1,6 @@
 
 project "XXHash"
 	kind "StaticLib"
-    staticruntime "on"
 	language "C++"
 
     targetdir ("%{wks.location}/Binaries/" .. outputdir)
@@ -11,11 +10,6 @@ project "XXHash"
     {
         "LUMINA_ENGINE",
     }
-	
-	buildoptions
-	{
-		"/W2",
-	}
 
 	files
 	{

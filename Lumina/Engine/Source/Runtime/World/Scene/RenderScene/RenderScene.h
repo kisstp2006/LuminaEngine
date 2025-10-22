@@ -80,6 +80,8 @@ namespace Lumina
 
         static FViewportState MakeViewportStateFromImage(const FRHIImage* Image);
 
+        void CheckInstanceBufferResize(uint32 NumInstances);
+        
         void InitResources();
         void InitBuffers();
         void CreateImages();
@@ -104,7 +106,6 @@ namespace Lumina
         FRHIBufferRef                               SceneDataBuffer;
         FRHIBufferRef                               InstanceDataBuffer;
         FRHIBufferRef                               InstanceMappingBuffer;
-        FRHIBufferRef                               InstanceReadbackBuffer;
         FRHIBufferRef                               LightDataBuffer;
         FRHIBufferRef                               IndirectDrawBuffer;
 
@@ -141,10 +142,10 @@ namespace Lumina
         FRHIBindingLayoutRef                LightCullLayout;
         
         FGBuffer                            GBuffer;
+        FShadowAtlas                        ShadowAtlas;
 
         FRHIImageRef                        CascadedShadowMap;
         FRHIImageRef                        PointLightShadowMap;
-        FRHIImageRef                        ShadowAtlas;
         FRHIImageRef                        DepthMap;
         FRHIImageRef                        DepthAttachment;
         FRHIImageRef                        NoiseImage;

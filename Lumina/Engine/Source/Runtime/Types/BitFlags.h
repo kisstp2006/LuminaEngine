@@ -1,9 +1,7 @@
 #pragma once
 
 #include <type_traits>
-#include "Core/Serialization/Archiver.h"
 #include "Core/Assertions/Assert.h"
-#include "Platform/WindowsPlatform.h"
 
 //-------------------------------------------------------------------------
 //  Bit Flags
@@ -14,7 +12,6 @@ namespace Lumina
 {
     class FBitFlags
     {
-
     public:
 
         constexpr static uint8 MaxFlags = 32;
@@ -147,16 +144,7 @@ namespace Lumina
             Flags &= GetFlagMask(flag);
             return *this;
         }
-
-        friend FArchive& operator << (FArchive& Ar, FBitFlags& Data)
-        {
-            Ar << Data.Flags;
-            return Ar;
-        }
-
-
-    protected:
-
+        
         uint32 Flags = 0;
     };
 }

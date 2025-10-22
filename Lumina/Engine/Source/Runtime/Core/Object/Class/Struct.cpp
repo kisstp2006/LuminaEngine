@@ -2,6 +2,7 @@
 #include "Core/Object/Field.h"
 #include "Containers/Function.h"
 #include "Core/Reflection/Type/LuminaTypes.h"
+#include "Core/Reflection/Type/Properties/ArrayProperty.h"
 #include "Core/Reflection/Type/Properties/PropertyTag.h"
 
 IMPLEMENT_INTRINSIC_CLASS(CStruct, CField, LUMINA_API)
@@ -134,6 +135,13 @@ namespace Lumina
                 int64 DataStartPosition = Ar.Tell();
                 
                 void* ValuePtr = Current->GetValuePtr<void>(Data);
+                
+                // TODO, temp garbage.
+                if (dynamic_cast<FArrayProperty*>(Current))
+                {
+                    ValuePtr = Data;
+                }
+                    
                 Current->Serialize(Ar, ValuePtr);
     
                 int64 DataEndPosition = Ar.Tell();
@@ -193,6 +201,13 @@ namespace Lumina
                 {
                     Ar.Seek(Tag.Offset);
                     void* ValuePtr = FoundProperty->GetValuePtr<void>(Data);
+
+                    // TODO, temp garbage.
+                    if (dynamic_cast<FArrayProperty*>(FoundProperty))
+                    {
+                        ValuePtr = Data;
+                    }
+                    
                     FoundProperty->Serialize(Ar, ValuePtr);
                 }
                 else

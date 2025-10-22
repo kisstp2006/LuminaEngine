@@ -3,7 +3,6 @@ VULKAN_SDK = os.getenv("VULKAN_SDK")
 
 project "ImGui"
 	kind "StaticLib"
-    staticruntime "on"
 	language "C++"
 
     targetdir ("%{wks.location}/Binaries/" .. outputdir)
@@ -13,11 +12,6 @@ project "ImGui"
     {
         "LUMINA_ENGINE",
     }
-	
-	buildoptions
-	{
-		"/W2",
-	}
 
 	includedirs
 	{
@@ -31,6 +25,10 @@ project "ImGui"
 	{
 		"imconfig.h",
 		"imgui.h",
+		"implot.h",
+        "implot.cpp",
+        "implot_internal.h",
+        "implot_items.cpp",
 		"imgui.cpp",
 		"imgui_draw.cpp",
 		"imgui_internal.h",

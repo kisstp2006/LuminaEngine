@@ -15,7 +15,7 @@
 
 namespace Lumina
 {
-    static constexpr ImVec2 GButtonSize(30, 0);
+    static constexpr ImVec2 GButtonSize(42, 0);
 
     EPropertyChangeOp FCObjectPropertyCustomization::DrawProperty(TSharedPtr<FPropertyHandle> Property)
     {
@@ -134,12 +134,20 @@ namespace Lumina
 
             ImGui::SameLine();
         
+
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.6f, 0.2f, 0.2f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.7f, 0.25f, 0.25f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.5f, 0.15f, 0.15f, 1.0f));
+
             if (ImGui::Button(LE_ICON_CLOSE_CIRCLE "##Clear", GButtonSize))
             {
                 ObjectHandle = FObjectHandle();
                 bWasChanged = true;
             }
         
+            ImGui::PopStyleColor(3);
+
+
             ImGui::EndDisabled();
             ImGui::EndGroup();
         }

@@ -11,6 +11,7 @@
 #include "EASTL/sort.h"
 #include "Renderer/RHIIncl.h"
 #define GLM_ENABLE_EXPERIMENTAL
+#include "glm/gtc/packing.hpp"
 #include "glm/gtx/quaternion.hpp"
 #include "Paths/Paths.h"
 #include "Renderer/RenderContext.h"
@@ -50,20 +51,21 @@
         constexpr unsigned int NumClusters = ClusterGridSizeX * ClusterGridSizeY * ClusterGridSizeZ;
 
         constexpr int GShadowMapResolution      = 4096;
-        constexpr int GShadowAtlasResolution    = 512;
+        constexpr int GShadowAtlasResolution    = 8192;
         constexpr int GShadowCubemapResolution  = 512;
         constexpr int GMaxPointLightShadows     = 16;
 
         FRenderScene::FRenderScene(CWorld* InWorld)
             : World(InWorld)
             , SceneGlobalData()
+            , ShadowAtlas(FShadowAtlasConfig{8192})
         {
             DebugVisualizationMode = ERenderSceneDebugFlags::None;
-            
+
             SceneViewport = GRenderContext->CreateViewport(Windowing::GetPrimaryWindowHandle()->GetExtent());
-            
+
             LOG_TRACE("Initializing Renderer Scene");
-            
+
             InitResources();
         }
 
@@ -189,6 +191,7 @@
         void FRenderScene::CullPass(FRenderGraph& RenderGraph, const FViewVolume& View)
         {
             FRGPassDescriptor* Descriptor = RenderGraph.AllocDescriptor();
+
             Descriptor->AddBinding(FrustumCullSet);
             
             RenderGraph.AddPass<RG_Raster>(FRGEvent("Cull Pass"), Descriptor, [&] (ICommandList& CmdList)
@@ -292,7 +295,6 @@
         {
             FRGPassDescriptor* Descriptor = RenderGraph.AllocDescriptor();
             Descriptor->AddBinding(BindingSet);
-            Descriptor->AddRawWrite(GBuffer.Position);
             Descriptor->AddRawWrite(GBuffer.Normals);
             Descriptor->AddRawWrite(GBuffer.Material);
             Descriptor->AddRawWrite(GBuffer.AlbedoSpec);
@@ -308,9 +310,6 @@
                 {
                     return;
                 }
-
-                FRenderPassDesc::FAttachment Position; Position
-                    .SetImage(GBuffer.Position);
                 
                 FRenderPassDesc::FAttachment Normals; Normals
                     .SetImage(GBuffer.Normals);
@@ -329,7 +328,6 @@
                     .SetLoadOp(ERenderLoadOp::Load);
                 
                 FRenderPassDesc RenderPass; RenderPass
-                    .AddColorAttachment(Position)
                     .AddColorAttachment(Normals)
                     .AddColorAttachment(Material)
                     .AddColorAttachment(AlbedoSpec)
@@ -339,25 +337,22 @@
                 
 
                 FBlendState BlendState;
-                FBlendState::RenderTarget PositionTarget;
-                PositionTarget.SetFormat(EFormat::RGBA16_FLOAT);
-                BlendState.SetRenderTarget(0, PositionTarget);
                 
                 FBlendState::RenderTarget NormalTarget;
                 NormalTarget.SetFormat(EFormat::RGBA16_FLOAT);
-                BlendState.SetRenderTarget(1, NormalTarget);
+                BlendState.SetRenderTarget(0, NormalTarget);
                 
                 FBlendState::RenderTarget MaterialTarget;
                 MaterialTarget.SetFormat(EFormat::RGBA8_UNORM);
-                BlendState.SetRenderTarget(2, MaterialTarget);
+                BlendState.SetRenderTarget(1, MaterialTarget);
                 
                 FBlendState::RenderTarget AlbedoSpecTarget;
                 AlbedoSpecTarget.SetFormat(EFormat::RGBA8_UNORM);
-                BlendState.SetRenderTarget(3, AlbedoSpecTarget);
+                BlendState.SetRenderTarget(2, AlbedoSpecTarget);
 
                 FBlendState::RenderTarget PickerTarget;
                 PickerTarget.SetFormat(EFormat::R32_UINT);
-                BlendState.SetRenderTarget(4, PickerTarget);
+                BlendState.SetRenderTarget(3, PickerTarget);
                 
                 FRasterState RasterState;
                 RasterState.EnableDepthClip();
@@ -570,13 +565,9 @@
                     FRenderPassDesc::FAttachment Attachment; Attachment
                         .SetImage(GetRenderTarget());
 
-                    FRenderPassDesc::FAttachment Depth; Depth
-                        .SetImage(DepthAttachment)
-                        .SetLoadOp(ERenderLoadOp::Load);
 
                     FRenderPassDesc RenderPass; RenderPass
                         .AddColorAttachment(Attachment)
-                        .SetDepthAttachment(Depth)
                         .SetRenderArea(GetRenderTarget()->GetExtent());
             
                     FRasterState RasterState;
@@ -585,15 +576,10 @@
                     FBlendState BlendState;
                     FBlendState::RenderTarget RenderTarget;
                     BlendState.SetRenderTarget(0, RenderTarget);
-            
-                    FDepthStencilState DepthState;
-                    DepthState.EnableDepthTest();
-                    DepthState.SetDepthFunc(EComparisonFunc::GreaterOrEqual);
-                    DepthState.DisableDepthWrite();
+           
             
                     FRenderState RenderState;
                     RenderState.SetRasterState(RasterState);
-                    RenderState.SetDepthStencilState(DepthState);
                     RenderState.SetBlendState(BlendState);
             
                     FGraphicsPipelineDesc Desc;
@@ -624,7 +610,6 @@
             Descriptor->AddBinding(BindingSet);
             Descriptor->AddBinding(LightingPassSet);
             Descriptor->AddRawWrite(GetRenderTarget());
-            Descriptor->AddRawRead(DepthAttachment);
             
             RenderGraph.AddPass<RG_Raster>(FRGEvent("Deferred Lighting Pass"), Descriptor, [&](ICommandList& CmdList)
             {
@@ -641,13 +626,9 @@
                     .SetLoadOp(ERenderLoadOp::Load)
                     .SetImage(GetRenderTarget());
 
-                FRenderPassDesc::FAttachment Depth; Depth
-                    .SetImage(DepthAttachment)
-                    .SetLoadOp(ERenderLoadOp::Load);
 
                 FRenderPassDesc RenderPass; RenderPass
                     .AddColorAttachment(Attachment)
-                    .SetDepthAttachment(Depth)
                     .SetRenderArea(GetRenderTarget()->GetExtent());
                 
                 FRasterState RasterState;
@@ -657,17 +638,10 @@
                 FBlendState::RenderTarget RenderTarget;
                 BlendState.SetRenderTarget(0, RenderTarget);
         
-                FDepthStencilState DepthState;
-                DepthState.EnableDepthTest();
-                if (!RenderSettings.bHasEnvironment)
-                {
-                    DepthState.SetDepthFunc(EComparisonFunc::LessOrEqual);
-                }
-                DepthState.DisableDepthWrite();
-                
+
                 FRenderState RenderState;
                 RenderState.SetRasterState(RasterState);
-                RenderState.SetDepthStencilState(DepthState);
+                //RenderState.SetDepthStencilState(DepthState);
                 RenderState.SetBlendState(BlendState);
                 
                 FGraphicsPipelineDesc Desc;
@@ -851,6 +825,62 @@
             return ViewportState;
         }
 
+        void FRenderScene::CheckInstanceBufferResize(uint32 NumInstances)
+        {
+            uint32 SizeRequiredBytes = NumInstances * sizeof(FInstanceData);
+            uint32 NumToReallocate = NumInstances * 2;
+            
+            if (InstanceDataBuffer->GetDescription().Size < SizeRequiredBytes)
+            {
+                {
+                    FRHIBufferDesc BufferDesc;
+                    BufferDesc.Size = sizeof(FInstanceData) * NumToReallocate;
+                    BufferDesc.Usage.SetMultipleFlags(BUF_StorageBuffer);
+                    BufferDesc.bKeepInitialState = true;
+                    BufferDesc.InitialState = EResourceStates::ShaderResource;
+                    BufferDesc.DebugName = "Instance Buffer";
+                    InstanceDataBuffer = GRenderContext->CreateBuffer(BufferDesc);
+                }
+
+            
+                {
+                    FRHIBufferDesc BufferDesc;
+                    BufferDesc.Size = sizeof(uint32) * NumToReallocate;
+                    BufferDesc.Usage.SetMultipleFlags(BUF_StorageBuffer);
+                    BufferDesc.bKeepInitialState = true;
+                    BufferDesc.InitialState = EResourceStates::UnorderedAccess;
+                    BufferDesc.DebugName = "Instance Mapping";
+                    InstanceMappingBuffer = GRenderContext->CreateBuffer(BufferDesc);
+                }
+
+
+                {
+                    FBindingSetDesc BindingSetDesc;
+                    BindingSetDesc.AddItem(FBindingSetItem::BufferSRV(0, InstanceDataBuffer));
+                    BindingSetDesc.AddItem(FBindingSetItem::BufferUAV(1, InstanceMappingBuffer));
+                    BindingSetDesc.AddItem(FBindingSetItem::BufferUAV(2, IndirectDrawBuffer));
+                    BindingSetDesc.AddItem(FBindingSetItem::PushConstants(0, sizeof(FCullData)));
+
+                    TBitFlags<ERHIShaderType> Visibility;
+                    Visibility.SetMultipleFlags(ERHIShaderType::Compute);
+                    GRenderContext->CreateBindingSetAndLayout(Visibility, 0, BindingSetDesc, FrustumCullLayout, FrustumCullSet);
+                }
+            
+                {
+
+                    FBindingSetDesc BindingSetDesc;
+                    BindingSetDesc.AddItem(FBindingSetItem::BufferCBV(0, SceneDataBuffer));
+                    BindingSetDesc.AddItem(FBindingSetItem::BufferSRV(1, InstanceDataBuffer));
+                    BindingSetDesc.AddItem(FBindingSetItem::BufferSRV(2, InstanceMappingBuffer));
+                    BindingSetDesc.AddItem(FBindingSetItem::BufferSRV(3, LightDataBuffer));
+
+                    TBitFlags<ERHIShaderType> Visibility;
+                    Visibility.SetMultipleFlags(ERHIShaderType::Vertex, ERHIShaderType::Fragment);
+                    GRenderContext->CreateBindingSetAndLayout(Visibility, 0, BindingSetDesc, BindingLayout, BindingSet);
+                }
+            }
+        }
+
         void FRenderScene::SetViewVolume(const FViewVolume& ViewVolume)
         {
             SceneViewport->SetViewVolume(ViewVolume);
@@ -876,6 +906,7 @@
             IndirectDrawArguments.clear();
             InstanceData.clear();
             LightData.NumLights = 0;
+            ShadowAtlas.FreeTiles();
 
             FRGPassDescriptor* Descriptor = RenderGraph.AllocDescriptor();
             Descriptor->AddRawWrite(OverdrawImage);
@@ -1081,7 +1112,7 @@
             FRGPassDescriptor* Descriptor = RenderGraph.AllocDescriptor();
             Descriptor->AddBinding(BindingSet);
             Descriptor->AddBinding(ShadowPassSet);
-            Descriptor->AddRawWrite(ShadowAtlas);
+            Descriptor->AddRawWrite(ShadowAtlas.GetImage());
             Descriptor->AddRawRead(IndirectDrawBuffer);
 
             
@@ -1120,18 +1151,43 @@
                     {
                         continue;
                     }
+
+                    const FShadowTile& Tile = ShadowAtlas.GetTile(Light.Shadow.ShadowMapIndex);
+                    uint32 TilePixelX = static_cast<uint32>(Tile.UVOffset.x * GShadowAtlasResolution);
+                    uint32 TilePixelY = static_cast<uint32>(Tile.UVOffset.y * GShadowAtlasResolution);
+                    uint32 TileSize = static_cast<uint32>(Tile.UVScale.x * GShadowAtlasResolution);
                     
                     FRenderPassDesc::FAttachment Depth; Depth
-                        .SetImage(ShadowAtlas)
+                        .SetImage(ShadowAtlas.GetImage())
                         .SetDepthClearValue(1.0f);
                     
                     FRenderPassDesc RenderPass; RenderPass
-                        .SetDepthAttachment(Depth, FTextureSubresourceSet(0, 1, Light.Shadow.ShadowMapIndex, 1))
+                        .SetDepthAttachment(Depth)
                         .SetRenderArea(FIntVector2D(GShadowAtlasResolution, GShadowAtlasResolution));
+                    
+                    FViewportState ViewportState;
+                    ViewportState.Viewport = FViewport
+                    (
+                        (float)TilePixelX,
+                        (float)TilePixelX + TileSize,
+                        (float)TilePixelY,
+                        (float)TilePixelY + TileSize,
+                        0.0f,
+                        1.0f 
+                    );
+
+                    // FRect(minX, maxX, minY, maxY)
+                    ViewportState.Scissor = FRect
+                    (
+                        (int)TilePixelX,
+                        (int)TilePixelX + TileSize,
+                        (int)TilePixelY,
+                        (int)TilePixelY + TileSize
+                    );
                     
                     FGraphicsState GraphicsState; GraphicsState
                         .SetRenderPass(RenderPass)
-                        .SetViewport(MakeViewportStateFromImage(ShadowAtlas))
+                        .SetViewport(ViewportState)
                         .SetPipeline(Pipeline)
                         .AddBindingSet(BindingSet)
                         .AddBindingSet(ShadowPassSet)
@@ -1165,6 +1221,7 @@
             Descriptor->AddBinding(BindingSet);
             Descriptor->AddBinding(ShadowPassSet);
             Descriptor->AddRawRead(IndirectDrawBuffer);
+            
             
             RenderGraph.AddPass<RG_Raster>(FRGEvent("Cascaded Shadow Map Pass"), Descriptor, [&](ICommandList& CmdList)
             {
@@ -1277,7 +1334,11 @@
                         glm::vec3 Extents = BoundingBox.Max - Center;
                         float Radius = glm::length(Extents);
                         glm::vec4 SphereBounds = glm::vec4(Center, Radius);
-
+                        glm::vec3 NormalizedCenter = glm::normalize(Center);
+                        uint32 Packed = glm::packF2x11_1x10(NormalizedCenter);
+                        glm::vec3 Unpacked = glm::unpackF2x11_1x10(Packed);
+                        
+                        
                         for (const FGeometrySurface& Surface : Resource.GeometrySurfaces)
                         {
                             CMaterialInterface* Material = MeshComponent.GetMaterialForSlot(Surface.MaterialIndex);
@@ -1515,7 +1576,7 @@
                     Light.Color                 = PackColor(PointLightComponent.LightColor, PointLightComponent.Intensity);
                     Light.Radius                = PointLightComponent.Attenuation;
                     Light.Position              = TransformComponent.WorldTransform.Location;
-
+                    
                     if (PointLightComponent.bCastShadows)
                     {
                         Light.Shadow.ShadowMapIndex = CurrentShadowMapIndex++;
@@ -1566,7 +1627,14 @@
 
                     if (SpotLightComponent.bCastShadows)
                     {
-                        Light.Shadow.ShadowMapIndex = CurrentShadowMapIndex++;
+                        int32 TileIndex = ShadowAtlas.AllocateTile();
+                        if (TileIndex != INDEX_NONE)
+                        {
+                            const FShadowTile& Tile = ShadowAtlas.GetTile(TileIndex);
+                            Light.Shadow.ShadowMapIndex = TileIndex;
+                            Light.Shadow.AtlasUVOffset = Tile.UVOffset;
+                            Light.Shadow.AtlasUVScale = Tile.UVScale;
+                        }
                     }
                     else
                     {
@@ -1615,6 +1683,8 @@
                 {
                     LUMINA_PROFILE_SECTION_COLORED("Write Scene Buffers", tracy::Color::OrangeRed3);
 
+                    CheckInstanceBufferResize(InstanceData.size());
+                    
                     const SIZE_T SimpleVertexSize = SimpleVertices.size() * sizeof(FSimpleElementVertex);
                     const SIZE_T InstanceDataSize = InstanceData.size() * sizeof(FInstanceData);
                     const SIZE_T IndirectArgsSize = IndirectDrawArguments.size() * sizeof(FDrawIndexedIndirectArguments);
@@ -1715,14 +1785,14 @@
 
             {
                 FBindingSetDesc SetDesc;
-                SetDesc.AddItem(FBindingSetItem::TextureSRV(0, GBuffer.Position));
+                SetDesc.AddItem(FBindingSetItem::TextureSRV(0, DepthAttachment));
                 SetDesc.AddItem(FBindingSetItem::TextureSRV(1, GBuffer.Normals));
                 SetDesc.AddItem(FBindingSetItem::TextureSRV(2, GBuffer.Material));
                 SetDesc.AddItem(FBindingSetItem::TextureSRV(3, GBuffer.AlbedoSpec));
                 SetDesc.AddItem(FBindingSetItem::TextureSRV(4, SSAOBlur));
                 SetDesc.AddItem(FBindingSetItem::TextureSRV(5, CascadedShadowMap));
                 SetDesc.AddItem(FBindingSetItem::TextureSRV(6, PointLightShadowMap, TStaticRHISampler<true, AM_Border, AM_Border, AM_Border>::GetRHI()));
-                SetDesc.AddItem(FBindingSetItem::TextureSRV(7, ShadowAtlas, TStaticRHISampler<true, AM_Border, AM_Border, AM_Border>::GetRHI()));
+                SetDesc.AddItem(FBindingSetItem::TextureSRV(7, ShadowAtlas.GetImage(), TStaticRHISampler<true, AM_Border, AM_Border, AM_Border>::GetRHI()));
                 SetDesc.AddItem(FBindingSetItem::BufferSRV(8, ClusterBuffer));
 
                 TBitFlags<ERHIShaderType> Visibility;
@@ -1734,12 +1804,11 @@
             {
                 FBindingSetDesc SetDesc;
                 SetDesc.AddItem(FBindingSetItem::TextureSRV(0, GetRenderTarget()));
-                SetDesc.AddItem(FBindingSetItem::TextureSRV(1, GBuffer.Position));
-                SetDesc.AddItem(FBindingSetItem::TextureSRV(2, DepthAttachment));
-                SetDesc.AddItem(FBindingSetItem::TextureSRV(3, GBuffer.Normals));
-                SetDesc.AddItem(FBindingSetItem::TextureSRV(4, GBuffer.AlbedoSpec));
-                SetDesc.AddItem(FBindingSetItem::TextureSRV(5, SSAOBlur));
-                SetDesc.AddItem(FBindingSetItem::TextureSRV(6, CascadedShadowMap));
+                SetDesc.AddItem(FBindingSetItem::TextureSRV(1, DepthAttachment));
+                SetDesc.AddItem(FBindingSetItem::TextureSRV(2, GBuffer.Normals));
+                SetDesc.AddItem(FBindingSetItem::TextureSRV(3, GBuffer.AlbedoSpec));
+                SetDesc.AddItem(FBindingSetItem::TextureSRV(4, SSAOBlur));
+                SetDesc.AddItem(FBindingSetItem::TextureSRV(5, CascadedShadowMap));
 
                 SetDesc.AddItem(FBindingSetItem::PushConstants(0, sizeof(uint32)));
 
@@ -1790,7 +1859,7 @@
 
             {
                 FBindingSetDesc SetDesc;
-                SetDesc.AddItem(FBindingSetItem::TextureSRV(0, GBuffer.Position));
+                SetDesc.AddItem(FBindingSetItem::TextureSRV(0, DepthAttachment));
                 SetDesc.AddItem(FBindingSetItem::TextureSRV(1, GBuffer.Normals));
                 SetDesc.AddItem(FBindingSetItem::TextureSRV(2, NoiseImage, TStaticRHISampler<true, AM_Repeat, AM_Repeat, AM_Repeat>::GetRHI()));
 
@@ -1831,8 +1900,7 @@
 
             {
                 FRHIBufferDesc BufferDesc;
-                BufferDesc.Size = sizeof(FInstanceData) * 100'000;
-                BufferDesc.Stride = sizeof(FInstanceData);
+                BufferDesc.Size = sizeof(FInstanceData) * 5'000;
                 BufferDesc.Usage.SetMultipleFlags(BUF_StorageBuffer);
                 BufferDesc.bKeepInitialState = true;
                 BufferDesc.InitialState = EResourceStates::ShaderResource;
@@ -1842,19 +1910,12 @@
 
             {
                 FRHIBufferDesc BufferDesc;
-                BufferDesc.Size = sizeof(uint32) * 100'000;
-                BufferDesc.Stride = sizeof(uint32);
+                BufferDesc.Size = sizeof(uint32) * 5'000;
                 BufferDesc.Usage.SetMultipleFlags(BUF_StorageBuffer);
                 BufferDesc.bKeepInitialState = true;
                 BufferDesc.InitialState = EResourceStates::UnorderedAccess;
                 BufferDesc.DebugName = "Instance Mapping";
                 InstanceMappingBuffer = GRenderContext->CreateBuffer(BufferDesc);
-
-                
-                BufferDesc.Usage.SetFlag(EBufferUsageFlags::CPUReadable);
-                BufferDesc.DebugName = "Instance Readback";
-                InstanceReadbackBuffer = GRenderContext->CreateBuffer(BufferDesc);
-
             }
 
             {
@@ -1938,10 +1999,6 @@
                 BufferDesc.bKeepInitialState = true;
                 BufferDesc.DebugName = "Indirect Draw Buffer";
                 IndirectDrawBuffer = GRenderContext->CreateBuffer(BufferDesc);
-
-                BufferDesc.Usage.SetFlag(EBufferUsageFlags::CPUReadable);
-                BufferDesc.DebugName = "Instance Readback";
-                InstanceReadbackBuffer = GRenderContext->CreateBuffer(BufferDesc);
             }
         }
         
@@ -1961,19 +2018,7 @@
             
                 DebugVisualizationImage = GRenderContext->CreateImage(ImageDesc);
             }
-            
-            {
-                FRHIImageDesc ImageDesc;
-                ImageDesc.Extent = Extent;
-                ImageDesc.Flags.SetMultipleFlags(EImageCreateFlags::ColorAttachment, EImageCreateFlags::ShaderResource);
-                ImageDesc.Format = EFormat::RGBA16_FLOAT;
-                ImageDesc.Dimension = EImageDimension::Texture2D;
-                ImageDesc.DebugName = "GBuffer - Position";
-                ImageDesc.bKeepInitialState = true;
-                ImageDesc.InitialState = EResourceStates::ShaderResource;
-            
-                GBuffer.Position = GRenderContext->CreateImage(ImageDesc);
-            }
+           
 
             {
                 FRHIImageDesc ImageDesc = {};
@@ -2081,6 +2126,21 @@
             }
 
             {
+                FRHIImageDesc ImageDesc;
+                ImageDesc.Extent = Extent;
+                ImageDesc.Flags.SetMultipleFlags(EImageCreateFlags::DepthAttachment, EImageCreateFlags::ShaderResource);
+                ImageDesc.Format = EFormat::D32;
+                ImageDesc.InitialState = EResourceStates::DepthWrite;
+                ImageDesc.bKeepInitialState = true;
+                ImageDesc.Dimension = EImageDimension::Texture2D;
+                ImageDesc.DebugName = "Depth Map";
+
+                DepthMap = GRenderContext->CreateImage(ImageDesc);
+            }
+            
+            //==================================================================================================
+            
+            {
                 FRHIImageDesc ImageDesc = {};
                 ImageDesc.Extent = FIntVector2D(4096, 4096);
                 ImageDesc.Format = EFormat::D32;
@@ -2096,43 +2156,13 @@
             
             //==================================================================================================
             
-
-            {
-                FRHIImageDesc ImageDesc;
-                ImageDesc.Extent = Extent;
-                ImageDesc.Flags.SetMultipleFlags(EImageCreateFlags::DepthAttachment, EImageCreateFlags::ShaderResource);
-                ImageDesc.Format = EFormat::D32;
-                ImageDesc.InitialState = EResourceStates::DepthWrite;
-                ImageDesc.bKeepInitialState = true;
-                ImageDesc.Dimension = EImageDimension::Texture2D;
-                ImageDesc.DebugName = "Depth Map";
-
-                DepthMap = GRenderContext->CreateImage(ImageDesc);
-            }
-
-            //==================================================================================================
-            
-            {
-                FRHIImageDesc ImageDesc;
-                ImageDesc.Extent = {GShadowAtlasResolution, GShadowAtlasResolution};
-                ImageDesc.Flags.SetMultipleFlags(EImageCreateFlags::DepthAttachment, EImageCreateFlags::ShaderResource);
-                ImageDesc.Format = EFormat::D32;
-                ImageDesc.bKeepInitialState = true;
-                ImageDesc.InitialState = EResourceStates::ShaderResource;
-                ImageDesc.Dimension = EImageDimension::Texture2DArray;
-                ImageDesc.ArraySize = MAX_SHADOWS;
-                ImageDesc.DebugName = "Shadow Atlas";
-
-                ShadowAtlas = GRenderContext->CreateImage(ImageDesc);
-            }
-
             {
                 FRHIImageDesc ImageDesc;
                 ImageDesc.Extent = {GShadowCubemapResolution, GShadowCubemapResolution};
                 ImageDesc.Flags.SetMultipleFlags(EImageCreateFlags::DepthAttachment, EImageCreateFlags::ShaderResource, EImageCreateFlags::CubeCompatible);
                 ImageDesc.Dimension = EImageDimension::TextureCubeArray;
-                ImageDesc.ArraySize = 6 * MAX_SHADOWS;
-                ImageDesc.Format = EFormat::D32;
+                ImageDesc.ArraySize = 6 * 16;
+                ImageDesc.Format = EFormat::D16;
                 ImageDesc.bKeepInitialState = true;
                 ImageDesc.InitialState = EResourceStates::DepthWrite;
                 ImageDesc.DebugName = "Point Light Shadow Cubemap";

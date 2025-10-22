@@ -1,7 +1,6 @@
 
 project "RPMalloc"
 	kind "StaticLib"
-    staticruntime "on"
 	language "C++"
 
     targetdir ("%{wks.location}/Binaries/" .. outputdir)
@@ -11,11 +10,6 @@ project "RPMalloc"
     {
         "LUMINA_ENGINE",
     }
-	
-	buildoptions
-	{
-		"/W2",
-	}
 
 	files
 	{

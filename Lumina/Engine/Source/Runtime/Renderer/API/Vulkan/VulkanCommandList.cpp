@@ -579,8 +579,8 @@ namespace Lumina
         VulkanBuffer->VersionSearchStart = (Version + 1 < MaxVersions) ? (Version + 1) : 0;
 
         Write.LatestVersion = Version;
-        Write.MinVersion = Math::Min<int32>(Version, Write.MinVersion);
-        Write.MaxVersion = Math::Max<int32>(Version, Write.MaxVersion);
+        Write.MinVersion = Math::Min<int64>(Version, Write.MinVersion);
+        Write.MaxVersion = Math::Max<int64>(Version, Write.MaxVersion);
 
         void* HostData = (uint8*)VulkanBuffer->GetMappedMemory() + Version * VulkanBuffer->GetDescription().Size;
         

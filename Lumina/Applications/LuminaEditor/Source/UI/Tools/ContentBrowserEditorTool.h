@@ -193,7 +193,6 @@ namespace Lumina
         FTileViewContext            ContentBrowserTileViewContext;
 
         FString                     SelectedPath;
-        ImGui::FileBrowser          FileBrowser;
         THashMap<FName, bool>       FilterState;
     };
 }

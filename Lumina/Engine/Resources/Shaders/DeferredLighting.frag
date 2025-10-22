@@ -10,14 +10,14 @@ layout(early_fragment_tests) in;
 layout(location = 0) in vec2 vUV;
 layout(location = 0) out vec4 outColor;
 
-layout(set = 1, binding = 0) uniform sampler2D uPosition;
+layout(set = 1, binding = 0) uniform sampler2D uDepth;
 layout(set = 1, binding = 1) uniform sampler2D uNormal;
 layout(set = 1, binding = 2) uniform sampler2D uMaterial;
 layout(set = 1, binding = 3) uniform sampler2D uAlbedoSpec;
 layout(set = 1, binding = 4) uniform sampler2D uSSAO;
 layout(set = 1, binding = 5) uniform sampler2DArray uShadowCascade;
 layout(set = 1, binding = 6) uniform samplerCubeArray uShadowCubemaps;
-layout(set = 1, binding = 7) uniform sampler2DArray uShadowAtlas;
+layout(set = 1, binding = 7) uniform sampler2D uShadowAtlas;
 
 layout(set = 1, binding = 8) readonly buffer ClusterSSBO
 {
@@ -131,14 +131,13 @@ vec3 EvaluateLightContribution(FLight Light, vec3 Position, vec3 N, vec3 V, vec3
 // ----------------------------------------------------
 float Shadow_Directional(float bias, vec3 worldPos)
 {
-    vec3 PositionVS = texture(uPosition, vUV).rgb;
+    float PositionVS = ReconstructViewPos(vUV, texture(uDepth, vUV).r, GetInverseCameraProjection()).z;
 
     int CascadeIndex = 3;
-    float ViewDepth = PositionVS.z;
 
     for(int i = 0; i < 3; ++i)
     {
-        if(PositionVS.z < LightData.CascadeSplits[i])
+        if(PositionVS < LightData.CascadeSplits[i])
         {
             CascadeIndex = i;
             break;
@@ -286,9 +285,15 @@ float Shadow_Spot(FLight light, vec3 worldPos, float bias)
     float distanceToLight = length(L);
     float currentDepth = distanceToLight / light.Radius;
 
-    // Project to [0,1] UV space
-    vec2 uv = projCoords.xy * 0.5 + 0.5;
-    vec2 texelSize = 1.0 / vec2(textureSize(uShadowAtlas, 0));
+    // Project to [0,1] local tile UV space
+    vec2 localUV = projCoords.xy * 0.5 + 0.5;
+
+    // Transform to atlas UV space
+    vec2 atlasUV = light.Shadow.AtlasUVOffset + (localUV * light.Shadow.AtlasUVScale);
+
+    // Texel size in atlas space (scaled to tile)
+    vec2 atlasTexelSize = 1.0 / vec2(textureSize(uShadowAtlas, 0));
+    vec2 tileTexelSize = atlasTexelSize / light.Shadow.AtlasUVScale;
 
     // Step 1: Blocker search
     float blockerDepthSum = 0.0;
@@ -299,10 +304,13 @@ float Shadow_Spot(FLight light, vec3 worldPos, float bias)
     {
         for (int y = -2; y <= 2; ++y)
         {
-            vec2 offsetUV = uv + vec2(x, y) * texelSize * searchRadius;
-            offsetUV = clamp(offsetUV, vec2(0.0), vec2(1.0));
+            // Apply offset in tile space, then transform to atlas space
+            vec2 offsetLocalUV = localUV + vec2(x, y) * tileTexelSize * searchRadius;
+            offsetLocalUV = clamp(offsetLocalUV, vec2(0.0), vec2(1.0));
 
-            float shadowMapDepth = texture(uShadowAtlas, vec3(offsetUV, light.Shadow.ShadowMapIndex)).r;
+            vec2 offsetAtlasUV = light.Shadow.AtlasUVOffset + (offsetLocalUV * light.Shadow.AtlasUVScale);
+
+            float shadowMapDepth = texture(uShadowAtlas, offsetAtlasUV).r;
             if (shadowMapDepth < currentDepth - bias)
             {
                 blockerDepthSum += shadowMapDepth;
@@ -330,10 +338,13 @@ float Shadow_Spot(FLight light, vec3 worldPos, float bias)
     {
         for (int y = -2; y <= 2; ++y)
         {
-            vec2 offsetUV = uv + vec2(x, y) * texelSize * kernelSize;
-            offsetUV = clamp(offsetUV, vec2(0.0), vec2(1.0));
+            // Apply offset in tile space, then transform to atlas space
+            vec2 offsetLocalUV = localUV + vec2(x, y) * tileTexelSize * kernelSize;
+            offsetLocalUV = clamp(offsetLocalUV, vec2(0.0), vec2(1.0));
 
-            float shadowMapDepth = texture(uShadowAtlas, vec3(offsetUV, light.Shadow.ShadowMapIndex)).r;
+            vec2 offsetAtlasUV = light.Shadow.AtlasUVOffset + (offsetLocalUV * light.Shadow.AtlasUVScale);
+
+            float shadowMapDepth = texture(uShadowAtlas, offsetAtlasUV).r;
             shadow += (currentDepth - bias > shadowMapDepth) ? 0.0 : 1.0;
             sampleCount++;
         }
@@ -385,25 +396,27 @@ void main()
 {
     float zNear = GetNearPlane();
     float zFar = GetFarPlane();
+
+    float Depth = texture(uDepth, vUV).r;
     
     uvec3 GridSize = SceneUBO.GridSize.xyz;
     uvec2 ScreenSize = SceneUBO.ScreenSize.xy;
     
-    
-    vec3 PositionVS = texture(uPosition, vUV).rgb;
+    vec3 PositionVS = ReconstructViewPos(vUV, Depth, GetInverseCameraProjection());
     vec3 Position = (GetInverseCameraView() * vec4(PositionVS, 1.0f)).xyz;
     
-    vec3 Albedo = texture(uAlbedoSpec, vUV).rgb;
-    
-    vec3 Normal = texture(uNormal, vUV).rgb * 2.0 - 1.0;
-    Normal = normalize(mat3(GetInverseCameraView()) * Normal);
-    
-    
-    float AO = texture(uMaterial, vUV).r;
+        
+    float Alpha     = texture(uAlbedoSpec, vUV).a;
+    vec3 Albedo     = texture(uAlbedoSpec, vUV).rgb;
+    vec3 Normal     = texture(uNormal, vUV).rgb * 2.0 - 1.0;
+    float AO        = texture(uMaterial, vUV).r;
     float Roughness = texture(uMaterial, vUV).g;
-    float Metallic = texture(uMaterial, vUV).b;
-    float Specular = texture(uAlbedoSpec, vUV).a;
-    float SSAO = texture(uSSAO, vUV).r;
+    float Metallic  = texture(uMaterial, vUV).b;
+    float Specular  = texture(uMaterial, vUV).a;
+    float SSAO      = texture(uSSAO, vUV).r;
+
+    Normal = normalize(mat3(GetInverseCameraView()) * Normal);
+
 
     vec3 N = Normal;
     vec3 V = normalize(SceneUBO.CameraView.CameraPosition.xyz - Position);
@@ -469,7 +482,12 @@ void main()
 
     Color = pow(Color, vec3(1.0/2.2));
     
-    outColor = vec4(Color, 1.0);
+    if(Alpha == 0.0)
+    {
+        discard;
+    }
+
+    outColor = vec4(Color, Alpha);
     
     return;
 }

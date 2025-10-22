@@ -27,11 +27,18 @@ workspace "Lumina"
 	filter "language:C++ or language:C"
 		architecture "x86_64"
 
-	buildoptions {
-		"/Zm2000"
+	buildoptions 
+    {
+		"/Zm2000",
 	}
 
+	disablewarnings
+    {
+        "4251", -- DLL-interface warning
+        "4275", -- Non-DLL-interface base class
+	}
 
+    warnings "Default"
 
     -- Platform-specific settings
     filter "system:windows"
@@ -67,22 +74,6 @@ workspace "Lumina"
         defines { "LE_RELEASE", "NDEBUG" }
         flags { "LinkTimeOptimization", "NoIncrementalLink" }
         
-        -- MSVC-specific Release optimizations
-        filter { "configurations:Release", "system:windows" }
-            buildoptions { 
-                "/O2",          -- Maximum optimization (speed)
-                "/Oi",          -- Enable intrinsic functions
-                "/Ot",          -- Favor fast code
-                "/GL",          -- Whole program optimization
-                "/Gy",          -- Function-level linking
-                "/fp:fast",     -- Fast floating point (careful with this!)
-                "/arch:AVX2",   -- Use AVX2 instructions
-            }
-            linkoptions { 
-                "/LTCG",        -- Link-time code generation
-                "/OPT:REF",     -- Eliminate unreferenced functions
-                "/OPT:ICF",     -- Identical COMDAT folding
-            }
 
     -- Shipping Configuration (Maximum optimization, no symbols)
     filter "configurations:Shipping"
@@ -93,25 +84,6 @@ workspace "Lumina"
         defines { "LE_SHIP", "NDEBUG" }
         flags { "LinkTimeOptimization", "NoIncrementalLink", "NoRuntimeChecks" }
         
-        -- MSVC-specific Shipping optimizations
-        filter { "configurations:Shipping", "system:windows" }
-            buildoptions { 
-                "/O2",          -- Maximum optimization (speed)
-                "/Oi",          -- Enable intrinsic functions
-                "/Ot",          -- Favor fast code
-                "/Ob3",         -- Aggressive inlining
-                "/GL",          -- Whole program optimization
-                "/Gy",          -- Function-level linking
-                "/Gw",          -- Optimize global data
-                "/fp:fast",     -- Fast floating point
-                "/arch:AVX2",   -- Use AVX2 instructions
-                "/GS-",         -- Disable security checks (use with caution!)
-            }
-            linkoptions { 
-                "/LTCG",        -- Link-time code generation
-                "/OPT:REF",     -- Eliminate unreferenced functions
-                "/OPT:ICF",     -- Identical COMDAT folding
-            }
 
     filter {}
 

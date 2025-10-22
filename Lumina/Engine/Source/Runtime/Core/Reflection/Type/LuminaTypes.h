@@ -45,7 +45,7 @@ namespace Lumina
         LUMINA_API virtual EPropertyTypeFlags GetType() { return TypeFlags; }
 
         template<typename ValueType>
-        ValueType* SetValuePtr(void* ContainerPtr, const ValueType& Value, int32 ArrayIndex = 0) const
+        ValueType* SetValuePtr(void* ContainerPtr, const ValueType& Value, int64 ArrayIndex = 0) const
         {
             if (sizeof(Value) != ElementSize)
             {
@@ -61,7 +61,7 @@ namespace Lumina
         /** Gets the cast internal value type by an offset, UB if type is not correct */
         template<typename ValueType>
         requires !eastl::is_pointer_v<ValueType>
-        ValueType* GetValuePtr(void* ContainerPtr, int32 ArrayIndex = 0) const
+        ValueType* GetValuePtr(void* ContainerPtr, int64 ArrayIndex = 0) const
         {
             return (ValueType*)GetValuePtrInternal(ContainerPtr, ArrayIndex);
         }
@@ -69,13 +69,13 @@ namespace Lumina
         /** Gets the cast internal value type by an offset, UB if type is not correct */
         template<typename ValueType>
         requires !eastl::is_pointer_v<ValueType>
-        const ValueType* GetValuePtr(const void* ContainerPtr, int32 ArrayIndex = 0) const
+        const ValueType* GetValuePtr(const void* ContainerPtr, int64 ArrayIndex = 0) const
         {
             return (ValueType*)GetValuePtrInternal(const_cast<void*>(ContainerPtr), ArrayIndex);
         }
 
         template<typename ValueType>
-        void SetValue(void* InContainer, const ValueType& InValue, uint32 ArrayIndex = 0) const
+        void SetValue(void* InContainer, const ValueType& InValue, int64 ArrayIndex = 0) const
         {
             if (!HasSetter())
             {
@@ -88,7 +88,7 @@ namespace Lumina
         }
 
         template<typename ValueType>
-        void GetValue(void const* InContainer, ValueType* OutValue, uint32 ArrayIndex = 0) const
+        void GetValue(void const* InContainer, ValueType* OutValue, int64 ArrayIndex = 0) const
         {
             if (!HasGetter())
             {
@@ -138,7 +138,7 @@ namespace Lumina
         
     private:
 
-        LUMINA_API void* GetValuePtrInternal(void* ContainerPtr, int32 ArrayIndex) const;
+        LUMINA_API void* GetValuePtrInternal(void* ContainerPtr, int64 ArrayIndex) const;
         
     public:
         

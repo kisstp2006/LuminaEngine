@@ -17,6 +17,9 @@ namespace Lumina
             PassAccess[Index] = AnalyzePassResources(Pass);
         });
 
+        AnalyzeLastResourceUsages(PassAccess);
+
+
 
         TVector<TVector<int>> Dependencies = BuildDependencyGraph(PassAccess);
 
@@ -227,5 +230,25 @@ namespace Lumina
         }
 
         return false;
+    }
+
+    void FRGPassAnalyzer::AnalyzeLastResourceUsages(TSpan<FPassResourceAccess> PassResources)
+    {
+
+        for (const FPassResourceAccess& Access : PassResources)
+        {
+			for (const IRHIResource* ReadResource : Access.Reads)
+            {
+                LastReader[ReadResource] = Access.Pass;
+            }
+
+            for (const IRHIResource* WriteRessource : Access.Writes)
+            {
+                if (FirstWriter.find(WriteRessource) == FirstWriter.end())
+                {
+                    FirstWriter[WriteRessource] = Access.Pass;
+                }
+            }
+        }
     }
 }

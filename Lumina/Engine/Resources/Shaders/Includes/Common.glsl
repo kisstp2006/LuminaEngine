@@ -75,7 +75,8 @@ struct FInstanceData
 
 struct FLightShadow
 {
-    vec4 AtlasRegion;
+    vec2 AtlasUVOffset;
+    vec2 AtlasUVScale;
     int ShadowMapIndex; // -1 means no shadow.
 };
 

@@ -148,7 +148,9 @@ namespace Lumina
         {
             const SIZE_T Count = Num();
             if (Index >= Count)
+            {
                 return;
+            }
 
             uint8* Base = begin();
             uint8* RemovePtr = Base + Index * ElementSize;

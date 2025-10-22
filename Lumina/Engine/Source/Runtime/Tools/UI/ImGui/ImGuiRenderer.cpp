@@ -12,6 +12,7 @@
 #include "Tools/UI/Fonts/FontData_MaterialDesign.h"
 #include "Tools/UI/Fonts/FontDecompressor.h"
 #include "Tools/UI/Notification/ImGuiNotifications.h"
+#include <implot.h>
 
 namespace Lumina
 {
@@ -34,6 +35,7 @@ namespace Lumina
 		ImGui::SetAllocatorFunctions(ImGuiMemAlloc, ImGuiMemFree, nullptr);
 		
         ImGuiContext* Context = ImGui::CreateContext();
+        ImPlot::CreateContext();
     	ImGuizmo::SetImGuiContext(Context);
     	
         ImGuiIO& io = ImGui::GetIO();

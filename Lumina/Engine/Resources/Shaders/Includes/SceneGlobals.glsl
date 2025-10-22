@@ -163,3 +163,19 @@ uint GetNumLights()
 {
     return LightData.NumLights;
 }
+
+vec3 ReconstructWorldPos(vec2 uv, float depth, mat4 invProj, mat4 invView)
+{
+    vec4 clip = vec4(uv * 2.0 - 1.0, depth, 1.0);
+    vec4 view = invProj * clip;
+    view /= view.w;
+    vec4 world = invView * view;
+    return world.xyz;
+}
+
+vec3 ReconstructViewPos(vec2 uv, float depth, mat4 invProj)
+{
+    vec4 clip = vec4(uv * 2.0 - 1.0, depth, 1.0);
+    vec4 view = invProj * clip;
+    return view.xyz / view.w;
+}

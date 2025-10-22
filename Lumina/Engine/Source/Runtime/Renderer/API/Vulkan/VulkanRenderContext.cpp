@@ -192,25 +192,25 @@ namespace Lumina
     TRefCountPtr<FTrackedCommandBuffer> FQueue::GetOrCreateCommandBuffer()
     {
         LUMINA_PROFILE_SCOPE();
-        
+
         std::scoped_lock Lock(GetMutex);
         LockMark(GetMutex);
 
         uint64 RecodingID = ++LastRecordingID;
-        
+
         TRefCountPtr<FTrackedCommandBuffer> Buf;
         if (CommandBufferPool.empty())
         {
             LUMINA_PROFILE_SECTION_COLORED("vkCreateCommandPool", tracy::Color::DarkRed);
-            
+
             VkCommandPoolCreateFlags Flags = 0;
             Flags |= VK_COMMAND_POOL_CREATE_TRANSIENT_BIT | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-        
+
             VkCommandPoolCreateInfo PoolInfo = {};
             PoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
             PoolInfo.queueFamilyIndex = QueueFamilyIndex;
             PoolInfo.flags = Flags;
-        
+
             VK_CHECK(vkCreateCommandPool(Device->GetDevice(), &PoolInfo, VK_ALLOC_CALLBACK, &CommandPool));
 
             VkCommandBufferAllocateInfo BufferInfo = {};

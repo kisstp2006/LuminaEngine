@@ -5,6 +5,8 @@
 #include "EASTL/fixed_hash_map.h"
 #include "EASTL/fixed_list.h"
 #include "EASTL/vector_map.h"
+#include "EASTL/bonus/fixed_ring_buffer.h"
+#include "EASTL/bonus/ring_buffer.h"
 #include "Platform/GenericPlatform.h"
 #include "Platform/Platform.h"
 
@@ -83,7 +85,7 @@ namespace Lumina
     using THashMap = eastl::hash_map<K, V, H, E, TAllocator>;
 
     template <typename Key, typename T, size_t NodeCount, size_t BucketCount = NodeCount + 1, bool bEnableOverflow = true,
-          typename Hash = eastl::hash<Key>, typename Predicate = eastl::equal_to<Key>, bool bCacheHashCode = false, typename OverflowAllocator = EASTLAllocatorType>
+    typename Hash = eastl::hash<Key>, typename Predicate = eastl::equal_to<Key>, bool bCacheHashCode = false, typename OverflowAllocator = EASTLAllocatorType>
     using TFixedHashMap = eastl::fixed_hash_map<Key, T, NodeCount, BucketCount, bEnableOverflow, Hash, Predicate, bCacheHashCode, OverflowAllocator>;
     
     template <typename K, typename V>
@@ -113,6 +115,12 @@ namespace Lumina
     template <typename T, typename C = TVector<T>>
     using TStack = eastl::stack<T, C>;
 
+    template<typename T>
+    using TRingBuffer = eastl::ring_buffer<T>;
+
+    template<typename T, size_t N>
+    using TFixedRingBuffer = eastl::fixed_ring_buffer<T, N>;
+    
 #else
 
     template <size_t N> using TBitSet = std::bitset<N>;

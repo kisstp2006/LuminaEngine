@@ -5,8 +5,10 @@
 #include "Core/Math/Transform.h"
 #include "Platform/GenericPlatform.h"
 #include "Renderer/MeshData.h"
+#include "Renderer/RenderContext.h"
 #include "Renderer/RenderResource.h"
 #include "Renderer/RHIFwd.h"
+#include "Renderer/RHIGlobals.h"
 
 #define MAX_LIGHTS 3456
 #define MAX_SHADOWS 100
@@ -15,6 +17,7 @@
 #define LIGHTS_PER_UINT 2
 #define LIGHTS_PER_CLUSTER 100
 
+#define SCENE_MAX_BOUNDS UINT64_MAX
 
 #define COL_R_SHIFT 0
 #define COL_G_SHIFT 8
@@ -74,13 +77,104 @@ namespace Lumina
     constexpr uint32 LIGHT_TYPE_POINT       = 1 << 1;
     constexpr uint32 LIGHT_TYPE_SPOT        = 1 << 2;
 
-
-    struct alignas(16) FLightShadow
+    struct FShadowAtlasConfig
     {
-        glm::vec4   AtlasRegion;
+        uint32 AtlasResolution = 8192;
+        uint32 TileResolution = 512;
+
+        constexpr uint32 TilesPerRow() const { return AtlasResolution / TileResolution; }
+        constexpr uint32 MaxTiles() const { return TilesPerRow() * TilesPerRow(); }
+    };
+
+    struct FShadowTile
+    {
+        glm::vec2 UVOffset;     // Normalized offset (0-1 range)
+        glm::vec2 UVScale;      // Normalized scale (1.0 / TilesPerRow)
+        bool bInUse = false;
+    };
+    
+    class FShadowAtlas
+    {
+    public:
+        
+        FShadowAtlas(const FShadowAtlasConfig& InConfig)
+            : Config(InConfig)
+        {
+            FRHIImageDesc ImageDesc;
+            ImageDesc.Extent = FIntVector2D(InConfig.AtlasResolution);
+            ImageDesc.Flags.SetMultipleFlags(EImageCreateFlags::DepthAttachment, EImageCreateFlags::ShaderResource);
+            ImageDesc.Format = EFormat::D32;
+            ImageDesc.bKeepInitialState = true;
+            ImageDesc.InitialState = EResourceStates::ShaderResource;
+            ImageDesc.Dimension = EImageDimension::Texture2D;
+            ImageDesc.DebugName = "Shadow Atlas";
+
+            ShadowAtlas = GRenderContext->CreateImage(ImageDesc);
+            
+            Tiles.resize(Config.MaxTiles());
+            float Scale = 1.0f / Config.TilesPerRow();
+        
+            for (uint32 y = 0; y < Config.TilesPerRow(); ++y)
+            {
+                for (uint32 x = 0; x < Config.TilesPerRow(); ++x)
+                {
+                    uint32 Index = y * Config.TilesPerRow() + x;
+                    Tiles[Index].UVOffset = glm::vec2(x * Scale, y * Scale);
+                    Tiles[Index].UVScale = glm::vec2(Scale, Scale);
+                }
+            }
+        }
+    
+        int32 AllocateTile()
+        {
+            for (uint32 i = 0; i < Tiles.size(); ++i)
+            {
+                if (!Tiles[i].bInUse)
+                {
+                    Tiles[i].bInUse = true;
+                    return static_cast<int32>(i);
+                }
+            }
+            return INDEX_NONE; // Atlas full
+        }
+    
+        void FreeTile(int32 TileIndex)
+        {
+            if (TileIndex >= 0 && TileIndex < Tiles.size())
+            {
+                Tiles[TileIndex].bInUse = false;
+            }
+        }
+
+        void FreeTiles()
+        {
+            for (FShadowTile& Tile : Tiles)
+            {
+                Tile.bInUse = false;
+            }
+        }
+        
+        const FShadowTile& GetTile(int32 TileIndex) const { return Tiles[TileIndex]; }
+        FRHIImageRef GetImage() const { return ShadowAtlas; }
+
+    private:
+
+        FRHIImageRef ShadowAtlas;
+        FShadowAtlasConfig Config;
+        TVector<FShadowTile> Tiles;
+    };
+    
+
+    struct FLightShadow
+    {
+        glm::vec2   AtlasUVOffset;
+        glm::vec2   AtlasUVScale;
         
         int32       ShadowMapIndex;
+        uint32      Padding0[3];
     };
+    
+    VERIFY_SSBO_ALIGNMENT(FLightShadow)
     
     struct alignas(16) FLight
     {
@@ -151,33 +245,55 @@ namespace Lumina
 
     struct FGBuffer
     {
-        FRHIImageRef Position;
         FRHIImageRef Normals;
         FRHIImageRef Material;
         FRHIImageRef AlbedoSpec;
     };
 
-    struct alignas(16) FCluster
+    struct FCluster
     {
         glm::vec4 MinPoint;
         glm::vec4 MaxPoint;
-        glm::uint Count;
-        glm::uint LightIndices[LIGHTS_PER_CLUSTER];
+        uint32 Count;
+        uint32 LightIndices[LIGHTS_PER_CLUSTER];
+        uint32 Padding0[3];
     };
-
-    struct alignas(16) FLightClusterPC
+    
+    VERIFY_SSBO_ALIGNMENT(FCluster)
+    
+    struct FLightClusterPC
     {
         glm::mat4 InverseProjection;
         glm::vec2 zNearFar;
         glm::uvec2 ScreenSize;
         glm::uvec4 GridSize;
     };
+
+    struct FInstanceDataGPU
+    {
+        glm::vec3 Translation;
+        uint32 Padding0;
+
+        uint16 Rotation[4];
+        
+        uint32 Padding1;
+
+        uint32 Scale;
+        uint32 Padding2;
+
+        uint32 PackedBounds;
+        uint32 EntityID;
+        uint16 DrawID;
+    };
+
+    VERIFY_SSBO_ALIGNMENT(FInstanceDataGPU)
+
     
-    struct alignas(16) FInstanceData
+    struct FInstanceData
     {
         glm::mat4   Transform;
         glm::vec4   SphereBounds;
-        glm::uvec4  PackedID; // Contains entity ID, and draw ID.
+        glm::uvec4  PackedID;
     };
     
     VERIFY_SSBO_ALIGNMENT(FInstanceData)

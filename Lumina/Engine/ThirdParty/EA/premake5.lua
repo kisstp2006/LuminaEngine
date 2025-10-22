@@ -3,7 +3,6 @@ include(os.getenv("LUMINA_DIR") .. "/Dependencies.lua")
 
 project "EA"
 	kind "StaticLib"
-    staticruntime "on"
 	language "C++"
 
     targetdir ("%{wks.location}/Binaries/" .. outputdir)
@@ -13,11 +12,6 @@ project "EA"
     {
         "LUMINA_ENGINE",
     }
-
-	buildoptions
-	{
-		"/W2",
-	}
 
 	files
 	{

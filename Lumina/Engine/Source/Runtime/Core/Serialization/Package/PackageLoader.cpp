@@ -27,5 +27,6 @@ namespace Lumina
         Value = GObjectArray.ToHandle(Object);
         Package->LoadObject(Object);
         
-        return Ar;    }
+        return Ar;    
+    }
 }

@@ -3,6 +3,7 @@
 #include "Containers/String.h"
 #include "Core/UpdateContext.h"
 #include "Containers/Function.h"
+#include <Memory/SmartPtr.h>
 
 namespace Lumina
 {
@@ -19,16 +20,15 @@ namespace Lumina
 
         ~FEditorModalManager();
 
-        void CreateModalDialogue(const FString& Title, ImVec2 Size, TFunction<bool(const FUpdateContext&)> DrawFunction);
-        void CreateModalDialogue(const FString& Title, ImVec2 Size, FEditorToolModal* Modal);
+        void CreateDialogue(const FString& Title, ImVec2 Size, TMoveOnlyFunction<bool(const FUpdateContext&)> DrawFunction, bool bBlocking = true);
 
-        FORCEINLINE bool HasModal() const { return ActiveModal != nullptr; }
+        FORCEINLINE bool HasModal() const { return ActiveModal.get() != nullptr; }
 
         void DrawDialogue(const FUpdateContext& UpdateContext);
 
     private:
         
-        FEditorToolModal*       ActiveModal = nullptr;
+        TUniquePtr<FEditorToolModal>       ActiveModal;
         
     };
     
@@ -47,13 +47,17 @@ namespace Lumina
         {}
 
         /** Return true to indicate the modal is ready to close */
-        virtual bool DrawModal(const FUpdateContext& UpdateContext) { return DrawFunction(UpdateContext); }
+        bool DrawModal(const FUpdateContext& UpdateContext)
+        {
+            return DrawFunction(UpdateContext);
+        }
         
     protected:
 
-        TFunction<bool(const FUpdateContext&)>  DrawFunction;
-        FString                                 Title;
-        ImVec2                                  Size;
+        TMoveOnlyFunction<bool(const FUpdateContext&)>  DrawFunction;
+        FString                                         Title;
+        ImVec2                                          Size;
+        bool                                            bBlocking;
     
     };
 }

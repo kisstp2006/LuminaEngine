@@ -36,6 +36,7 @@ project "Lumina"
         "Engine/ThirdParty/glm/glm/**.hpp",
         "Engine/ThirdParty/glm/glm/**.inl",
         "Engine/ThirdParty/imgui/imgui_demo.cpp",
+        "Engine/ThirdParty/imgui/implot_demo.cpp",
         "Engine/ThirdParty/meshoptimizer/src/**.cpp",
         "Engine/ThirdParty/meshoptimizer/src/**.h",
         "Engine/ThirdParty/vk-bootstrap/src/**.h",

@@ -11,6 +11,8 @@
 #include <tracy/TracyVulkan.hpp>
 
 #include "VulkanDescriptorCache.h"
+#include <atomic>
+#include <Containers/Array.h>
 
 namespace Lumina
 {
@@ -58,10 +60,12 @@ namespace Lumina
         FQueue(FVulkanRenderContext* InRenderContext, VkQueue InQueue, uint32 InQueueFamilyIndex, ECommandQueue InType);
         ~FQueue() override;
         
+        /** Free threaded */
         TRefCountPtr<FTrackedCommandBuffer> GetOrCreateCommandBuffer();
 
         void RetireCommandBuffers();
         
+        /** Submission must happen from a single thread at a time */
         uint64 Submit(ICommandList* const* CommandLists, uint32 NumCommandLists);
 
         void WaitIdle();
@@ -72,9 +76,9 @@ namespace Lumina
         void AddSignalSemaphore(VkSemaphore Semaphore, uint64 Value);
         void AddWaitSemaphore(VkSemaphore Semaphore, uint64 Value);
 
-        uint64                      LastRecordingID = 0;
-        uint64                      LastSubmittedID = 0;
-        uint64                      LastFinishedID = 0;
+        uint64                              LastRecordingID = 0;
+        uint64                              LastSubmittedID = 0;
+        uint64                              LastFinishedID = 0;
         
         TFixedVector<VkSemaphore, 4>        WaitSemaphores;
         TFixedVector<uint64, 4>             WaitSemaphoreValues;

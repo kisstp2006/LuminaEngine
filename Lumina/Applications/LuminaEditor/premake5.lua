@@ -51,7 +51,7 @@ project "Editor"
 	    reflection_directory();
 		includedependencies();
 	}
-	 
+	
 	filter "system:linux"
 		defines { "LE_PLATFORM_LINUX" }
 		

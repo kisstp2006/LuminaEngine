@@ -35,7 +35,7 @@ enum class EFormatKind : uint8
 	DepthStencil
 };
 
-struct FFormatInfo
+LUMINA_API struct FFormatInfo
 {
 	EFormat Format;
 	const char* Name;
@@ -52,7 +52,7 @@ struct FFormatInfo
 	uint8 bIsSRGB : 1;
 };
 
-const FFormatInfo& GetFormatInfo(EFormat format);
+LUMINA_API const FFormatInfo& GetFormatInfo(EFormat format);
 
 
 /** An enumeration of the different RHI reference types. */
@@ -183,7 +183,7 @@ virtual ERHIResourceType GetResourceType() const override { return ERHIResourceT
 namespace Lumina
 {
 
-	LUMINA_API extern SIZE_T GTotalRenderResourcesAllocated;
+	LUMINA_API extern std::atomic_int64_t GTotalRenderResourcesAllocated;
 	LUMINA_API extern TFixedHashMap<EAPIResourceType, uint64, 64> AllocatedRHIResourcesMap;
 	
 	constexpr uint64 GVersionSubmittedFlag = 0x8000000000000000;
@@ -194,7 +194,10 @@ namespace Lumina
 	constexpr uint64_t MakeVersion(uint64 ID, ECommandQueue Queue, bool Submitted)
 	{
 		uint64 Result = (ID & GVersionIDMask) | (uint64(Queue) << GVersionQueueShift);
-		if (Submitted) Result |= GVersionSubmittedFlag;
+		if (Submitted)
+		{
+			Result |= GVersionSubmittedFlag;
+		}
 		return Result;
 	}
 

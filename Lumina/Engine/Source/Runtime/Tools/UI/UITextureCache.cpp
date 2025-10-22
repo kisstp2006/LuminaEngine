@@ -1,5 +1,4 @@
 ﻿#include "UITextureCache.h"
-
 #include "Core/Engine/Engine.h"
 #include "EASTL/sort.h"
 #include "ImGui/ImGuiRenderer.h"

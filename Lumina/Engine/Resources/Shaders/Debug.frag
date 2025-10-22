@@ -4,14 +4,13 @@
 #include "Includes/SceneGlobals.glsl"
 
 layout(set = 1, binding = 0) uniform sampler2D uRenderTarget;
-layout(set = 1, binding = 1) uniform sampler2D uPosition;
-layout(set = 1, binding = 2) uniform sampler2D uDepth;
-layout(set = 1, binding = 3) uniform sampler2D uNormal;
-layout(set = 1, binding = 4) uniform sampler2D uAlbedo;
-layout(set = 1, binding = 5) uniform sampler2D uSSAO;
-layout(set = 1, binding = 6) uniform sampler2DArray uShadowCascade;
+layout(set = 1, binding = 1) uniform sampler2D uDepth;
+layout(set = 1, binding = 2) uniform sampler2D uNormal;
+layout(set = 1, binding = 3) uniform sampler2D uAlbedo;
+layout(set = 1, binding = 4) uniform sampler2D uSSAO;
+layout(set = 1, binding = 5) uniform sampler2DArray uShadowCascade;
 
-layout(location = 0) in vec2 inUV;
+layout(location = 0) in vec2 vUV;
 layout(location = 0) out vec4 OutFragColor;
 
 #define DEBUG_NONE     0
@@ -36,20 +35,21 @@ void main()
 {
     if (Debug.DebugFlags == DEBUG_NONE)
     {
-        OutFragColor = texture(uRenderTarget, inUV);
+        OutFragColor = texture(uRenderTarget, vUV);
         return;
     }
 
     if (Debug.DebugFlags == DEBUG_POSITION)
     {
-        vec3 pos = texture(uPosition, inUV).xyz;
-        OutFragColor = vec4(pos, 1.0);
+        float Depth = texture(uDepth, vUV).r;
+        vec3 PositionVS = ReconstructViewPos(vUV, Depth, GetInverseCameraProjection());
+        OutFragColor = vec4(PositionVS, 1.0);
         return;
     }
     
     if (Debug.DebugFlags == DEBUG_NORMALS)
     {
-        vec3 Normal = texture(uNormal, inUV).rgb * 2.0 - 1.0;
+        vec3 Normal = texture(uNormal, vUV).rgb * 2.0 - 1.0;
         Normal = normalize(mat3(GetInverseCameraView()) * Normal);
         OutFragColor = vec4(Normal, 1.0);
         return;
@@ -57,27 +57,27 @@ void main()
     
     if (Debug.DebugFlags == DEBUG_ALBEDO)
     {
-        OutFragColor = texture(uAlbedo, inUV);
+        OutFragColor = texture(uAlbedo, vUV);
         return;
     }
     
     if (Debug.DebugFlags == DEBUG_SSAO)
     {
-        float ssao = texture(uSSAO, inUV).r;
+        float ssao = texture(uSSAO, vUV).r;
         OutFragColor = vec4(vec3(ssao), 1.0);
         return;
     }
     
     if (Debug.DebugFlags == DEBUG_MATERIAL)
     {
-        vec3 material = texture(uAlbedo, inUV).rgb;
+        vec3 material = texture(uAlbedo, vUV).rgb;
         OutFragColor = vec4(material, 1.0);
         return;
     }
     
     if (Debug.DebugFlags == DEBUG_DEPTH)
     {
-        float depth = texture(uDepth, inUV).r;
+        float depth = texture(uDepth, vUV).r;
         float LinearDepth = LinearizeDepth(depth, GetFarPlane(), GetNearPlane());
         float VisualizedDepth = LinearDepth / GetFarPlane();
 
@@ -88,28 +88,28 @@ void main()
 
     if (Debug.DebugFlags == DEBUG_CASCADE1)
     {
-        float depth = texture(uShadowCascade, vec3(inUV, 0)).r;
+        float depth = texture(uShadowCascade, vec3(vUV, 0)).r;
         OutFragColor = vec4(vec3(depth), 1.0);
         return;
     }
 
     if (Debug.DebugFlags == DEBUG_CASCADE2)
     {
-        float depth = texture(uShadowCascade, vec3(inUV, 1)).r;
+        float depth = texture(uShadowCascade, vec3(vUV, 1)).r;
         OutFragColor = vec4(vec3(depth), 1.0);
         return;
     }
     
     if (Debug.DebugFlags == DEBUG_CASCADE3)
     {
-        float depth = texture(uShadowCascade, vec3(inUV, 2)).r;
+        float depth = texture(uShadowCascade, vec3(vUV, 2)).r;
         OutFragColor = vec4(vec3(depth), 1.0);
         return;
     }
     
     if (Debug.DebugFlags == DEBUG_CASCADE4)
     {
-        float depth = texture(uShadowCascade, vec3(inUV, 3)).r;
+        float depth = texture(uShadowCascade, vec3(vUV, 3)).r;
         OutFragColor = vec4(vec3(depth), 1.0);
         return;
     }
@@ -119,7 +119,7 @@ void main()
     //if (Debug.DebugFlags == DEBUG_OVERDRAW)
     //{
     //    ivec2 size = imageSize(uOverdrawImage);
-    //    ivec2 pix = ivec2(inUV * vec2(size));
+    //    ivec2 pix = ivec2(vUV * vec2(size));
     //    uint count = imageLoad(uOverdrawImage, pix).r;
     //
     //    uint maxExpected = 8u;

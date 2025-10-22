@@ -13,7 +13,7 @@ namespace Lumina
         
     public:
 
-        bool IsExtensionSupported(const FString& Ext) override { return Ext == ".png" || Ext == ".jpg"; }
+        bool IsExtensionSupported(const FString& Ext) override { return Ext == "png" || Ext == "jpg"; }
         CFactory* GetFactory() const override { return GetMutableDefault<CTextureFactory>(); }
         CClass* GetAssetClass() const override { return CTexture::StaticClass(); }
         bool CanImport() override { return true; }

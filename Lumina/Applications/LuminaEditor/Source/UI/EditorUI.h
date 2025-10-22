@@ -65,17 +65,24 @@ namespace Lumina
         void CreateGameViewportTool(const FUpdateContext& UpdateContext);
         void DestroyGameViewportTool(const FUpdateContext& UpdateContext);
 
-        
+        void DrawMemoryDialog();
         void DrawTitleBarMenu(const FUpdateContext& UpdateContext);
         void DrawTitleBarInfoStats(const FUpdateContext& UpdateContext);
-
+        void DrawFileMenu();
+        void DrawProjectMenu();
+        void DrawToolsMenu();
+        void DrawHelpMenu();
+        void OpenProjectDialog();
+        void NewProjectDialog();
+        void ProjectSettingsDialog();
+        void AssetRegistryDialog();
+        void LaunchTracyProfiler();
         
         void HandleUserInput(const FUpdateContext& UpdateContext);
 
 
     private:
 
-        ImGui::FileBrowser                              FileBrowser;
         ImGuiX::ApplicationTitleBar                     TitleBar;
         ImGuiWindowClass                                EditorWindowClass;
 
@@ -92,11 +99,10 @@ namespace Lumina
         
         FEditorModalManager                             ModalManager;
         bool                                            bShowLuminaInfo = false;
-        bool                                            bDearImGuiDemoWindowOpen = false;
+        bool                                            bShowDearImGuiDemoWindow = false;
+        bool                                            bShowImPlotDemoWindow = false;
         bool                                            bShowObjectDebug = false;
         bool                                            bShowRenderDebug = false;
-        bool                                            bShowMemoryDebug = false;
-        bool                                            bShowAssetRegistry = false;
 
         TQueue<FEditorTool*>                            ToolsPendingAdd;
         TQueue<FEditorTool*>                            ToolsPendingDestroy;

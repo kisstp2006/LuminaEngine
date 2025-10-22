@@ -6,8 +6,8 @@ namespace Lumina
 {
     template <typename T>
     requires (eastl::is_integral_v<T> || eastl::is_pointer_v<T>)
-    constexpr T Align(T Val, uint64 Alignment)
+    constexpr T Align(T Val, T Alignment)
     {
-        return (Val + Alignment - 1) & ~(Alignment - 1);
+        return static_cast<T>((Val + Alignment - 1) & ~(Alignment - 1));
     }
 }

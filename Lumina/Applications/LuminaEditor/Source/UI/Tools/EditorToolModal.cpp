@@ -4,60 +4,65 @@ namespace Lumina
 {
     FEditorModalManager::~FEditorModalManager()
     {
-        if (ActiveModal != nullptr)
-        {
-            Memory::Delete(ActiveModal);
-        }
+
     }
 
-    void FEditorModalManager::CreateModalDialogue(const FString& Title, ImVec2 Size, TFunction<bool(const FUpdateContext&)> DrawFunction)
+    void FEditorModalManager::CreateDialogue(const FString& Title, ImVec2 Size, TMoveOnlyFunction<bool(const FUpdateContext&)> DrawFunction, bool bBlocking)
     {
         if (ActiveModal != nullptr)
         {
             return;
         }
         
-        ActiveModal = Memory::New<FEditorToolModal>(Title, Size);
-        ActiveModal->DrawFunction = DrawFunction;
+        ActiveModal = MakeUniquePtr<FEditorToolModal>(Title, Size);
+        ActiveModal->DrawFunction = Memory::Move(DrawFunction);
+        ActiveModal->bBlocking = bBlocking;;
         
     }
 
-    void FEditorModalManager::CreateModalDialogue(const FString& Title, ImVec2 Size, FEditorToolModal* Modal)
-    {
-        if (ActiveModal != nullptr)
-        {
-            return;
-        }
-        
-        ActiveModal = Modal;
-        
-    }
 
     void FEditorModalManager::DrawDialogue(const FUpdateContext& UpdateContext)
     {
-        if (ActiveModal == nullptr)
+        if (!ActiveModal)
         {
             return;
         }
-        
-        ImGui::OpenPopup(ActiveModal->Title.c_str());
-        
-        ImGuiViewport* viewport = ImGui::GetMainViewport();
-        ImVec2 center = ImVec2(viewport->GetCenter().x, viewport->GetCenter().y);
 
+        // Only open popups for blocking modals
+        if (ActiveModal->bBlocking)
+        {
+            ImGui::OpenPopup(ActiveModal->Title.c_str());
+        }
+
+        ImGuiViewport* viewport = ImGui::GetMainViewport();
+        ImVec2 center = viewport->GetCenter();
         ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
         ImGui::SetNextWindowSize(ActiveModal->Size, ImGuiCond_Appearing);
-        
-        if (ImGui::BeginPopupModal(ActiveModal->Title.c_str(), nullptr, ImGuiWindowFlags_NoResize))
-        {
-            if (ActiveModal->DrawModal(UpdateContext))
-            {
-                ImGui::CloseCurrentPopup();
-                Memory::Delete(ActiveModal);
-                ActiveModal = nullptr;
-            }
 
-            ImGui::EndPopup();
+        if (ActiveModal->bBlocking)
+        {
+            bool bOpen = true;
+            if (ImGui::BeginPopupModal(ActiveModal->Title.c_str(), &bOpen, ImGuiWindowFlags_NoResize))
+            {
+                if (ActiveModal->DrawModal(UpdateContext) || !bOpen)
+                {
+                    ImGui::CloseCurrentPopup();
+                    ActiveModal.reset();
+                }
+                ImGui::EndPopup();
+            }
+        }
+        else
+        {
+            bool bOpen = true;
+            if (ImGui::Begin(ActiveModal->Title.c_str(), &bOpen, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse))
+            {
+                if (ActiveModal->DrawModal(UpdateContext) || !bOpen)
+                {
+                    ActiveModal.reset();
+                }
+                ImGui::End();
+            }
         }
     }
 }

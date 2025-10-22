@@ -1,7 +1,7 @@
 ﻿#pragma once
-#include "VulkanResources.h"
 
-#ifdef LUMINA_RENDERER_VULKAN
+#include "Platform/Platform.h"
+#include "VulkanResources.h"
 #include "Containers/Array.h"
 #include <vulkan/vulkan_core.h>
 #include "Core/Math/Math.h"
@@ -27,14 +27,13 @@ namespace Lumina
         void RecreateSwapchain(const FIntVector2D& Extent);
         void SetPresentMode(VkPresentModeKHR NewMode);
 
-        const VkSurfaceFormatKHR& GetSurfaceFormat() const { return SurfaceFormat; }
-
-        uint32 GetNumFramesInFlight() const { return FramesInFlight.size(); }
-        uint32 GetCurrentImageIndex() const { return CurrentImageIndex; }
-        uint32 GetImageCount() const { return SwapchainImages.size(); }
-        VkPresentModeKHR GetPresentMode() const { return CurrentPresentMode; }
-        VkFormat GetSwapchainFormat() const { return Format; }
-        const FIntVector2D& GetSwapchainExtent() const { return SwapchainExtent; }
+        FORCEINLINE const VkSurfaceFormatKHR& GetSurfaceFormat() const { return SurfaceFormat; }
+        FORCEINLINE uint32 GetNumFramesInFlight() const { return FramesInFlight.size(); }
+        FORCEINLINE uint32 GetCurrentImageIndex() const { return CurrentImageIndex; }
+        FORCEINLINE uint32 GetImageCount() const { return (uint32)SwapchainImages.size(); }
+        FORCEINLINE VkPresentModeKHR GetPresentMode() const { return CurrentPresentMode; }
+        FORCEINLINE VkFormat GetSwapchainFormat() const { return Format; }
+        FORCEINLINE const FIntVector2D& GetSwapchainExtent() const { return SwapchainExtent; }
         
         TRefCountPtr<FVulkanImage> GetCurrentImage() const;
 
@@ -65,5 +64,3 @@ namespace Lumina
     };
     
 }
-
-#endif

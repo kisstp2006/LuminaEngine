@@ -1,16 +1,18 @@
 #pragma once
 
 #include "Containers/Name.h"
-#include "Platform/Platform.h"
 #include "Containers/String.h"
 #include "Core/Object/ObjectHandle.h"
 #include "Core/Templates/CanBulkSerialize.h"
 #include "Core/Templates/IsSigned.h"
 #include "Core/Versioning/CoreVersion.h"
 #include "glm/glm.hpp"
+#include "Platform/Platform.h"
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtc/quaternion.hpp>
+
 #include "Log/Log.h"
+#include "Types/BitFlags.h"
 
 namespace Lumina
 {
@@ -20,28 +22,12 @@ namespace Lumina
 enum class EArchiverFlags : uint8
 {
     None        = 0,
-    Reading     = 1 << 0,
-    Writing     = 1 << 1,
-    Compress    = 1 << 2,
-    Encrypt     = 1 << 3,
-    NoFields    = 1 << 4,
+    Reading     = 1,
+    Writing     = 2,
+    Compress    = 3,
+    Encrypt     = 4,
+    NoFields    = 5,
 };
-
-// Bitwise operators for EArchiverFlags
-inline EArchiverFlags operator|(EArchiverFlags a, EArchiverFlags b)
-{
-    return static_cast<EArchiverFlags>(static_cast<uint8>(a) | static_cast<uint8>(b));
-}
-
-inline EArchiverFlags operator&(EArchiverFlags a, EArchiverFlags b)
-{
-    return static_cast<EArchiverFlags>(static_cast<uint8>(a) & static_cast<uint8>(b));
-}
-
-inline EArchiverFlags operator~(EArchiverFlags flag)
-{
-    return static_cast<EArchiverFlags>(~static_cast<uint8>(flag));
-}
 
 namespace Lumina
 {
@@ -64,9 +50,9 @@ namespace Lumina
         virtual void Serialize(void* V, int64 Length) {}
 
         // Set, remove, and check flags
-        FORCEINLINE void SetFlag(EArchiverFlags flag) { Flags = Flags | flag; }
-        FORCEINLINE void RemoveFlag(EArchiverFlags flag) { Flags = Flags & ~flag; }
-        FORCEINLINE bool HasFlag(EArchiverFlags flag) const { return (Flags & flag) != EArchiverFlags::None; }
+        FORCEINLINE void SetFlag(EArchiverFlags Flag) { Flags.SetFlag(Flag); }
+        FORCEINLINE void RemoveFlag(EArchiverFlags Flag) { Flags.ClearFlag(Flag); }
+        FORCEINLINE bool HasFlag(EArchiverFlags Flag) const { return Flags.IsFlagSet(Flag); }
 
         /** Is this archiver writing to a buffer */
         FORCEINLINE bool IsWriting() const { return HasFlag(EArchiverFlags::Writing); }
@@ -316,7 +302,7 @@ namespace Lumina
 
     private:
 
-        EArchiverFlags Flags;
+        TBitFlags<EArchiverFlags> Flags;
         uint8 bHasError:1;
         SIZE_T ArMaxSerializeSize = INT32_MAX;
 
@@ -437,6 +423,12 @@ namespace Lumina
     inline FArchive& operator<<(FArchive& Ar, glm::quat& q)
     {
         Ar << q.x << q.y << q.z << q.w;
+        return Ar;
+    }
+
+    inline FArchive& operator << (FArchive& Ar, FBitFlags& Data)
+    {
+        Ar << Data.Flags;
         return Ar;
     }
     

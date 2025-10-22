@@ -8,8 +8,8 @@
 class FSandboxEngine : public Lumina::FEngine
 {
 public:
-
-	Lumina::IDevelopmentToolUI* CreateDevelopmentTools() override;
+	
+	IDevelopmentToolUI* CreateDevelopmentTools() override { return nullptr; }
 	void OnUpdateStage(const Lumina::FUpdateContext& Context) override;
 private:
 	

@@ -1,7 +1,6 @@
 
 project "EnTT"
 	kind "Utility"
-    staticruntime "on"
 	language "C++"
 
     targetdir ("%{wks.location}/Binaries/" .. outputdir)

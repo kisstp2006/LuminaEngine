@@ -40,14 +40,30 @@ namespace Lumina
 
         void AllocateTransientResources();
         
-        FRGBuffer* CreateBuffer(const FRHIBufferDesc& Desc);
-        FRGImage* CreateImage(const FRHIImageDesc& Desc);
-        
+        template<typename TResource, typename TDescription>
+        TResource* AllocResource(TDescription&& Desc)
+        {
+            TResource* NewResource = nullptr;
+            if constexpr (std::is_same_v<TResource, FRGBuffer>)
+            {
+                NewResource = CreateBuffer(std::forward<TDescription>(Desc));
+            }
+            else if constexpr (std::is_same_v<TResource, FRGImage>)
+            {
+                NewResource = CreateImage(std::forward<TDescription>(Desc));
+            }
+
+            return NewResource;
+        }
+
     private:
         
         template<typename ExecutorType>
         FRGPassHandle AddPassInternal(FRGEvent&& Event, const FRGPassDescriptor* Parameters, ERGPassFlags Flags, ExecutorType&& Executor);
 
+
+        FRGBuffer* CreateBuffer(const FRHIBufferDesc& Desc);
+        FRGImage* CreateImage(const FRHIImageDesc& Desc);
 
     private:
 

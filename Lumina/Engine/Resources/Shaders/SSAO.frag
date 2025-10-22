@@ -4,7 +4,7 @@
 
 #include "Includes/SceneGlobals.glsl"
 
-layout(set = 1, binding = 0) uniform sampler2D uPositionDepth;
+layout(set = 1, binding = 0) uniform sampler2D uDepth;
 layout(set = 1, binding = 1) uniform sampler2D uNormal;
 layout(set = 1, binding = 2) uniform sampler2D uNoise;
 
@@ -15,11 +15,13 @@ layout(location = 0) out float outFragColor;
 
 void main()
 {
+    float Depth = texture(uDepth, inUV).r;
+
     // FragPos and Normal are in *view-space*.
-    vec3 FragPos = texture(uPositionDepth, inUV).rgb;
+    vec3 FragPos = ReconstructViewPos(inUV, Depth, GetInverseCameraProjection());
     vec3 Normal = normalize(texture(uNormal, inUV).rgb) * 2.0 - 1.0;
     
-    ivec2 TexDim = textureSize(uPositionDepth, 0);
+    ivec2 TexDim = textureSize(uDepth, 0);
     ivec2 NoiseDim = textureSize(uNoise, 0);
     
     const vec2 NoiseUV = vec2(float(TexDim.x) / float(NoiseDim.x), float(TexDim.y) / float(NoiseDim.y)) * inUV;
@@ -44,7 +46,7 @@ void main()
         Offset.xy /= Offset.w; // Perspective divide.
         Offset.xy = Offset.xy * 0.5f + 0.5f; // Transform to range 0.0 - 1.0
 
-        float SampleDepth = texture(uPositionDepth, Offset.xy).z;
+        float SampleDepth = texture(uDepth, Offset.xy).z;
         
         float RangeCheck = smoothstep(0.0f, 1.0f, SceneUBO.SSAOSettings.Radius / abs(FragPos.z - SampleDepth));
         

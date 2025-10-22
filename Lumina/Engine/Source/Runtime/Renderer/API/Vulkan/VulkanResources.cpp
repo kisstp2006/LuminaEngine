@@ -144,6 +144,8 @@ namespace Lumina
         case EImageDimension::Unknown:
             LUMINA_NO_ENTRY()
         }
+
+        LUMINA_NO_ENTRY()
     }
 
     VkBufferUsageFlags ToVkBufferUsage(TBitFlags<EBufferUsageFlags> Usage) 
@@ -439,7 +441,7 @@ namespace Lumina
 
         if (CurrentChunk)
         {
-            uint64 alignedOffset = Align(CurrentChunk->WritePointer, Alignment);
+            uint64 alignedOffset = Align<uint64>(CurrentChunk->WritePointer, Alignment);
             uint64 endOfDataInChunk = alignedOffset + Size;
 
             if (endOfDataInChunk <= CurrentChunk->BufferSize)

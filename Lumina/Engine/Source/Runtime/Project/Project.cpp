@@ -36,6 +36,7 @@ namespace Lumina
         }
         
         bHasProjectLoaded = true;
+        OnProjectLoaded.Broadcast();
     }
 
     FString FProject::GetProjectRootDirectory() const

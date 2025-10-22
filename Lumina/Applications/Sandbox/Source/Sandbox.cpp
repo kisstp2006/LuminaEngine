@@ -1,12 +1,12 @@
 
 #include "Sandbox.h"
 #include "EntryPoint.h"
+#include "Lumina_eastl.cpp"
 #include "Assets/AssetManager/AssetManager.h"
 #include "Core/Module/ModuleManager.h"
 #include "Core/Object/Class.h"
 #include "Core/Reflection/Type/LuminaTypes.h"
 #include "Input/Input.h"
-#include "World/Entity/Systems/EntitySystem.h"
 
 using namespace Lumina;
 
@@ -16,11 +16,6 @@ Lumina::FEngine* FSandbox::CreateEngine()
 	FSandboxEngine* Engine = Memory::New<FSandboxEngine>();
 	Engine->Init(this);
 	return Engine;
-}
-
-Lumina::IDevelopmentToolUI* FSandboxEngine::CreateDevelopmentTools()
-{
-	return nullptr;
 }
 
 void FSandboxEngine::OnUpdateStage(const Lumina::FUpdateContext& Context)

@@ -27,7 +27,7 @@ namespace Lumina
     template class LUMINA_API TRefCountPtr<FShaderLibrary>;
     template class LUMINA_API TRefCountPtr<FRHIDescriptorTable>;
 
-    SIZE_T GTotalRenderResourcesAllocated = 0;
+    LUMINA_API std::atomic_int64_t GTotalRenderResourcesAllocated {0};
 
     	
     class LUMINA_API FRHIResourceList
@@ -100,13 +100,13 @@ namespace Lumina
     
     IRHIResource::IRHIResource()
     {
-        GTotalRenderResourcesAllocated++;
+        GTotalRenderResourcesAllocated.fetch_add(1);
         ListIndex = FRHIResourceList::Get().Allocate(this);
     }
 
     IRHIResource::~IRHIResource()
     {
-        GTotalRenderResourcesAllocated--;
+        GTotalRenderResourcesAllocated.fetch_sub(1);
         FRHIResourceList::Get().Deallocate(ListIndex);
         ListIndex = INDEX_NONE;
     }

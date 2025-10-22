@@ -25,6 +25,7 @@ namespace Lumina
 
     private:
 
+        int CurrentMipLevel = 0;
         float ZoomFactor = 1.0f;
         ImVec2 PanOffset = ImVec2(0.0f, 0.0f);
     };

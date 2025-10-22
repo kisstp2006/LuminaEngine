@@ -36,7 +36,7 @@ namespace Lumina
         IImGuiRenderer* GetImGuiRenderer() const { return ImGuiRenderer; }
         FUITextureCache* GetTextureCache() const { return TextureCache; }
         #endif
-        
+
         uint32 GetCurrentFrameIndex() const { return CurrentFrameIndex; }
         
     private:

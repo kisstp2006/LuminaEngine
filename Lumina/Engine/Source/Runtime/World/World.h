@@ -70,10 +70,10 @@ namespace Lumina
         void ReparentEntity(Entity Child, Entity Parent);
         void DestroyEntity(Entity Entity);
 
-        LUM_DEPRECATED("0.0.1", "Access to the registry has been deprecated")
+        //LUM_DEPRECATED("0.0.1", "Access to the registry has been deprecated")
         FEntityRegistry& GetEntityRegistry() { return EntityWorld.Registry; }
 
-        LUM_DEPRECATED("0.0.1", "Access to the registry has been deprecated")
+        //LUM_DEPRECATED("0.0.1", "Access to the registry has been deprecated")
         const FEntityRegistry& GetEntityRegistry_Immutable() const { return EntityWorld.Registry; }
 
         

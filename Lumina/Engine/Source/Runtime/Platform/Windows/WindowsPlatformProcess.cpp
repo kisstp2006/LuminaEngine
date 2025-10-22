@@ -3,7 +3,9 @@
 #include "Containers/String.h"
 #include "Paths/Paths.h"
 #include "Platform/Process/PlatformProcess.h"
-#include <Windows.h>
+#include <windows.h>
+#include <shellapi.h>
+#include <commdlg.h>
 #include <tchar.h>
 #include <PathCch.h>  // For PathFindFileName
 #include <psapi.h>
@@ -76,7 +78,77 @@ namespace Lumina::Platform
     {
         return 0;
     }
+
+    FString GetCurrentProcessPath()
+    {
+        char buffer[MAX_PATH];
+        DWORD length = GetModuleFileNameA(nullptr, buffer, MAX_PATH);
+        if (length == 0)
+        {
+            return "";
+        }
+        
+        return FString(buffer, length);
+    }
+
+    int LaunchProcess(const TCHAR* URL, const TCHAR* Params, bool bLaunchDetached)
+    {
+        if (!URL)
+        {
+            return -1;
+        }
+
+        STARTUPINFOW si{};
+        PROCESS_INFORMATION pi{};
+
+        si.cb = sizeof(si);
+
+        std::wstring commandLine = URL;
+        if (Params)
+        {
+            commandLine += L" ";
+            commandLine += Params;
+        }
+
+        DWORD creationFlags = 0;
+        if (bLaunchDetached)
+        {
+            creationFlags |= DETACHED_PROCESS | CREATE_NEW_CONSOLE;
+        }
+
+        // CreateProcessW modifies the command line string, so make a writable buffer
+        std::vector<wchar_t> cmdBuffer(commandLine.begin(), commandLine.end());
+        cmdBuffer.push_back(L'\0');
+
+        BOOL result = CreateProcessW(
+            nullptr,                  // lpApplicationName
+            cmdBuffer.data(),         // lpCommandLine
+            nullptr,                  // lpProcessAttributes
+            nullptr,                  // lpThreadAttributes
+            FALSE,                    // bInheritHandles
+            creationFlags,            // dwCreationFlags
+            nullptr,                  // lpEnvironment
+            nullptr,                  // lpCurrentDirectory
+            &si,                      // lpStartupInfo
+            &pi                       // lpProcessInformation
+        );
+
+        if (!result)
+        {
+            return static_cast<int>(GetLastError());
+        }
+
+        // Optionally detach from our process
+        CloseHandle(pi.hThread);
+        CloseHandle(pi.hProcess);
+
+        return 0; // Success
+    }
     
+    void LaunchURL(const TCHAR* URL)
+    {
+        ShellExecuteW(nullptr, TEXT("open"), URL, nullptr, nullptr, SW_SHOWNORMAL);
+    }
 
     const TCHAR* ExecutableName(bool bRemoveExtension)
     {
@@ -104,6 +176,16 @@ namespace Lumina::Platform
         if (GetProcessMemoryInfo(GetCurrentProcess(), (PROCESS_MEMORY_COUNTERS*)&pmc, sizeof(pmc)))
         {
             return pmc.PrivateUsage;
+        }
+        return 0;
+    }
+
+    SIZE_T GetProcessMemoryUsageMegaBytes()
+    {
+        PROCESS_MEMORY_COUNTERS_EX pmc;
+        if (GetProcessMemoryInfo(GetCurrentProcess(), (PROCESS_MEMORY_COUNTERS*)&pmc, sizeof(pmc)))
+        {
+            return pmc.PrivateUsage / (1024 * 1024);
         }
         return 0;
     }
@@ -151,6 +233,37 @@ namespace Lumina::Platform
         }
 
         return nullptr;
+    }
+
+    bool OpenFileDialogue(FString& OutFile, const char* Title, const char* Filter, const char* InitialDir)
+    {
+        OPENFILENAMEA ofn{};
+        char Buffer[MAX_PATH] = {};
+
+        ofn.lStructSize = sizeof(ofn);
+        ofn.hwndOwner = nullptr;
+        ofn.lpstrFilter = Filter;
+        ofn.lpstrFile = Buffer;
+        ofn.nMaxFile = MAX_PATH;
+        ofn.lpstrTitle = Title;
+        if (InitialDir)
+        {
+            ofn.lpstrInitialDir = InitialDir;
+        }
+        else
+        {
+            ofn.lpstrInitialDir = GetCurrentProcessPath().c_str();
+        }
+        ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
+
+        if (GetOpenFileNameA(&ofn))
+        {
+            OutFile = Buffer;
+            eastl::replace(OutFile.begin(), OutFile.end(), '\\', '/');
+            return true;
+        }
+
+        return false;
     }
 }
 

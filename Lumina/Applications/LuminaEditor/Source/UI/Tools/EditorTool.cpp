@@ -121,7 +121,7 @@ namespace Lumina
         CameraComponent.SetFOV(NewFOV);
         
         /** Mostly for debug, so we can easily see if there's some transparency issue */
-        ImGui::GetWindowDrawList()->AddRectFilled(WindowPosition, WindowBottomRight, IM_COL32(255, 0, 0, 255));
+        ImGui::GetWindowDrawList()->AddRectFilled(WindowPosition, WindowBottomRight, IM_COL32(0, 0, 0, 255));
         
         
         if (bViewportHovered)

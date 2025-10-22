@@ -25,7 +25,10 @@ namespace Lumina
         FPassResourceAccess AnalyzePassResources(FRGPassHandle Pass);
         TVector<TVector<int>> BuildDependencyGraph(const TVector<FPassResourceAccess>& PassAccess);
         bool HasDependency(const FPassResourceAccess& PreviousPass, const FPassResourceAccess& CurrentPass);
+        void AnalyzeLastResourceUsages(TSpan<FPassResourceAccess> PassResources);
 
+        THashMap<const IRHIResource*, FRGPassHandle> FirstWriter;
+        THashMap<const IRHIResource*, FRGPassHandle> LastReader;
         
     };
 }

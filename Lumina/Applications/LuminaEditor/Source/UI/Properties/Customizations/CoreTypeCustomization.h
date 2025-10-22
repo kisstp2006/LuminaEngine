@@ -190,8 +190,8 @@ namespace Lumina
 
     private:
 
-        glm::vec2 CachedValue;
-        glm::vec2 DisplayValue;
+        glm::vec2 CachedValue{};
+        glm::vec2 DisplayValue{};
     };
 
     class FVec3PropertyCustomization : public IPropertyTypeCustomization
@@ -209,8 +209,8 @@ namespace Lumina
 
     private:
         
-        glm::vec3 CachedValue;
-        glm::vec3 DisplayValue;
+        glm::vec3 CachedValue{};
+        glm::vec3 DisplayValue{};
     };
 
     class FVec4PropertyCustomization : public IPropertyTypeCustomization
@@ -228,8 +228,8 @@ namespace Lumina
 
     private:
 
-        glm::vec4 CachedValue;
-        glm::vec4 DisplayValue;
+        glm::vec4 CachedValue{};
+        glm::vec4 DisplayValue{};
     };
 
     class FTransformPropertyCustomization : public IPropertyTypeCustomization
@@ -245,8 +245,8 @@ namespace Lumina
         void UpdatePropertyValue(TSharedPtr<FPropertyHandle> Property) override;
         void HandleExternalUpdate(TSharedPtr<FPropertyHandle> Property) override;
 
-        FTransform CachedValue;
-        FTransform DisplayValue;
+        FTransform CachedValue{};
+        FTransform DisplayValue{};
     };
     
 }

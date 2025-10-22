@@ -96,7 +96,7 @@ namespace Lumina
             , ReaderSize(InSize)
             , bFreeOnClose(bFreeAfterClose)
         {
-            this->SetFlag(EArchiverFlags::Reading);
+            SetFlag(EArchiverFlags::Reading);
         }
 
         ~FBufferReader() override

@@ -1,10 +1,13 @@
 ﻿#pragma once
 #include "Containers/String.h"
+#include "Core/Delegates/Delegate.h"
 #include "Core/Singleton/Singleton.h"
 #include "Module/API.h"
 
 namespace Lumina
 {
+    DECLARE_MULTICAST_DELEGATE(FOnProjectLoaded);
+    
     class FProject : public TSingleton<FProject>
     {
     public:
@@ -13,7 +16,7 @@ namespace Lumina
             : bHasProjectLoaded(false)
         {}
         
-        LUMINA_API struct FSettings
+        struct FSettings
         {
             FString ProjectName;
             FString ProjectPath;
@@ -28,7 +31,8 @@ namespace Lumina
         LUMINA_API const FSettings& GetProjectSettings() const { return Settings; }
 
         LUMINA_API FString GetProjectContentDirectory() const;
-    
+
+        FOnProjectLoaded OnProjectLoaded;
 
     private:
         
