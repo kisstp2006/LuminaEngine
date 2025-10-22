@@ -117,6 +117,13 @@ python Scripts/Win-GenProjects.py
 
 # 6. Build and run the Editor
 # Set Editor as startup project → Build → Run
+# **IMPORRTANT** Build the editor in both release, and debug.
+
+# 7. Open the Sandbox project to play around
+or..
+# 8. Open Tools/ProjectConfigurator.py to create a new project.
+
+Happy coding!
 ```
 
 ### First Time Setup
