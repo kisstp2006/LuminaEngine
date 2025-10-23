@@ -6,7 +6,7 @@ import subprocess
 from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
-from typing import Optional
+from typing import Optional, List
 import threading
 
 
@@ -47,13 +47,204 @@ class DarkTheme:
     BORDER = "#555555"
 
 
+class TemplateManager:
+    """Manages project templates."""
+    
+    def __init__(self, lumina_dir: str):
+        self.lumina_dir = lumina_dir
+        self.templates_dir = os.path.join(lumina_dir, "Templates", "Projects")
+    
+    def get_available_templates(self) -> List[str]:
+        """Get list of available project templates."""
+        if not os.path.exists(self.templates_dir):
+            return []
+        
+        templates = []
+        for item in os.listdir(self.templates_dir):
+            template_path = os.path.join(self.templates_dir, item)
+            if os.path.isdir(template_path):
+                templates.append(item)
+        
+        return sorted(templates)
+    
+    def get_template_path(self, template_name: str) -> Optional[str]:
+        """Get the full path to a template."""
+        template_path = os.path.join(self.templates_dir, template_name)
+        if os.path.exists(template_path):
+            return template_path
+        return None
+    
+    def get_template_info(self, template_name: str) -> dict:
+        """Get template metadata from template.json if it exists."""
+        template_path = self.get_template_path(template_name)
+        if not template_path:
+            return {"name": template_name, "description": "No description available"}
+        
+        info_file = os.path.join(template_path, "template.json")
+        if os.path.exists(info_file):
+            try:
+                with open(info_file, 'r') as f:
+                    return json.load(f)
+            except:
+                pass
+        
+        return {"name": template_name, "description": "No description available"}
+
+
+class ProjectCreator:
+    """Handles project creation from templates."""
+    
+    def __init__(self, lumina_dir: str, log_callback):
+        self.lumina_dir = lumina_dir
+        self.log = log_callback
+        self.replacements = {}
+    
+    def set_project_info(self, project_name: str, project_path: str):
+        """Set project information for replacements."""
+        self.project_name = project_name
+        self.project_path = project_path
+        self.replacements = {
+            "${PROJECT_NAME}": project_name,
+            "${PROJECT_NAME_UPPER}": project_name.upper(),
+            "${PROJECT_NAME_LOWER}": project_name.lower(),
+            "$PROJECT_NAME": project_name,
+        }
+    
+    def should_process_file(self, file_path: str) -> bool:
+        """Check if file should be processed for replacements."""
+        text_extensions = {'.h', '.cpp', '.c', '.py', '.lua', '.json', '.txt', '.md', '.cmake', '.lproject'}
+        return Path(file_path).suffix.lower() in text_extensions
+    
+    def process_file_content(self, content: str) -> str:
+        """Replace template variables in file content."""
+        for key, value in self.replacements.items():
+            content = content.replace(key, value)
+        return content
+    
+    def process_filename(self, filename: str) -> str:
+        """Replace template variables in filename."""
+        for key, value in self.replacements.items():
+            filename = filename.replace(key, value)
+        return filename
+    
+    def copy_template(self, template_path: str, destination: str) -> bool:
+        """Copy template directory and process all files."""
+        try:
+            total_files = sum(1 for _ in Path(template_path).rglob('*') if _.is_file())
+            processed_files = 0
+            
+            for root, dirs, files in os.walk(template_path):
+                # Skip template.json in root
+                if root == template_path and 'template.json' in files:
+                    files.remove('template.json')
+                
+                # Calculate relative path from template
+                rel_path = os.path.relpath(root, template_path)
+                
+                # Process directory name
+                if rel_path != '.':
+                    processed_rel_path = self.process_filename(rel_path)
+                    dest_dir = os.path.join(destination, processed_rel_path)
+                else:
+                    dest_dir = destination
+                
+                # Create destination directory
+                os.makedirs(dest_dir, exist_ok=True)
+                
+                # Process files
+                for file in files:
+                    processed_files += 1
+                    src_file = os.path.join(root, file)
+                    
+                    # Process filename
+                    dest_filename = self.process_filename(file)
+                    dest_file = os.path.join(dest_dir, dest_filename)
+                    
+                    # Copy and process file
+                    if self.should_process_file(src_file):
+                        try:
+                            with open(src_file, 'r', encoding='utf-8') as f:
+                                content = f.read()
+                            
+                            processed_content = self.process_file_content(content)
+                            
+                            with open(dest_file, 'w', encoding='utf-8') as f:
+                                f.write(processed_content)
+                            
+                            self.log(f"Processed: {dest_filename}", "info")
+                        except UnicodeDecodeError:
+                            # If file isn't text, just copy it
+                            shutil.copy2(src_file, dest_file)
+                            self.log(f"Copied binary: {dest_filename}", "info")
+                    else:
+                        shutil.copy2(src_file, dest_file)
+                        self.log(f"Copied: {dest_filename}", "info")
+            
+            return True
+            
+        except Exception as e:
+            self.log(f"Error copying template: {e}", "error")
+            return False
+    
+    def copy_tools_directory(self):
+        """Copy Tools directory from engine to project."""
+        src = os.path.join(self.lumina_dir, "Tools")
+        dest = os.path.join(self.project_path, "Tools")
+        
+        if not os.path.exists(src):
+            self.log("Tools directory not found in engine", "warning")
+            return False
+        
+        try:
+            if os.path.exists(dest):
+                shutil.rmtree(dest)
+            shutil.copytree(src, dest)
+            self.log("Copied Tools directory", "success")
+            return True
+        except Exception as e:
+            self.log(f"Error copying Tools: {e}", "error")
+            return False
+    
+    def run_project_generation(self) -> bool:
+        """Run the GenerateProject.py script if it exists."""
+        generate_script = os.path.join(self.project_path, "GenerateProject.py")
+        
+        if not os.path.exists(generate_script):
+            self.log("GenerateProject.py not found, skipping...", "warning")
+            return True
+        
+        try:
+            self.log("Running GenerateProject.py...", "info")
+            result = subprocess.run(
+                [sys.executable, generate_script],
+                cwd=self.project_path,
+                capture_output=True,
+                text=True,
+                timeout=60
+            )
+            
+            if result.returncode == 0:
+                self.log("Project generation completed!", "success")
+                return True
+            else:
+                self.log(f"Project generation warning: {result.stderr}", "warning")
+                return True
+                
+        except subprocess.TimeoutExpired:
+            self.log("Project generation timed out", "warning")
+            return True
+        except Exception as e:
+            self.log(f"Error running GenerateProject.py: {e}", "warning")
+            return True
+
+
 class LuminaProjectCreator:
     """Main application class for Lumina Project Creator."""
     
     def __init__(self, root: tk.Tk):
         self.root = root
         self.root.title("Lumina Project Creator")
-        self.root.geometry("650x550")
+        self.root.geometry("700x600")
         self.root.resizable(False, False)
         
         # Apply dark theme
@@ -62,10 +253,17 @@ class LuminaProjectCreator:
         # Variables
         self.project_path = tk.StringVar()
         self.project_name = tk.StringVar()
+        self.selected_template = tk.StringVar()
         self.status_text = tk.StringVar(value="Ready to create a new project")
         
         # Get Lumina engine directory
         self.lumina_dir = os.getenv("LUMINA_DIR")
+        
+        # Initialize managers
+        if self.lumina_dir:
+            self.template_manager = TemplateManager(self.lumina_dir)
+        else:
+            self.template_manager = None
         
         # Setup UI
         self.setup_ui()
@@ -121,6 +319,16 @@ class LuminaProjectCreator:
             foreground=DarkTheme.FG_PRIMARY,
             bordercolor=DarkTheme.BORDER,
             insertcolor=DarkTheme.FG_PRIMARY
+        )
+        
+        style.configure("TCombobox",
+            fieldbackground=DarkTheme.BG_MEDIUM,
+            background=DarkTheme.BG_LIGHT,
+            foreground=DarkTheme.BG_DARK,
+            bordercolor=DarkTheme.BORDER,
+            arrowcolor=DarkTheme.FG_PRIMARY,
+            selectbackground=DarkTheme.ACCENT,
+            selectforeground=DarkTheme.FG_PRIMARY
         )
         
         style.configure("TLabelframe",
@@ -191,20 +399,54 @@ class LuminaProjectCreator:
         # Project Name
         ttk.Label(config_frame, text="Project Name:").grid(row=0, column=0, sticky=tk.W, pady=5, padx=(0, 10))
         name_entry = ttk.Entry(config_frame, textvariable=self.project_name, font=("Segoe UI", 10))
-        name_entry.grid(row=0, column=1, sticky=(tk.W, tk.E), pady=5, padx=(0, 10))
+        name_entry.grid(row=0, column=1, sticky=(tk.W, tk.E), pady=5, padx=(0, 10), columnspan=2)
         name_entry.focus()
         
+        # Template Selection
+        ttk.Label(config_frame, text="Template:").grid(row=1, column=0, sticky=tk.W, pady=5, padx=(0, 10))
+        self.template_combo = ttk.Combobox(
+            config_frame, 
+            textvariable=self.selected_template,
+            state='readonly',
+            font=("Segoe UI", 9)
+        )
+        self.template_combo.grid(row=1, column=1, sticky=(tk.W, tk.E), pady=5, padx=(0, 10), columnspan=2)
+        self.template_combo.bind('<<ComboboxSelected>>', self.on_template_selected)
+        
+        # Template Description
+        self.template_desc = ttk.Label(
+            config_frame,
+            text="Select a template to see description",
+            foreground=DarkTheme.FG_SECONDARY,
+            font=("Segoe UI", 8),
+            wraplength=500
+        )
+        self.template_desc.grid(row=2, column=0, columnspan=3, sticky=tk.W, pady=(0, 5))
+        
         # Project Directory
-        ttk.Label(config_frame, text="Project Directory:").grid(row=1, column=0, sticky=tk.W, pady=5, padx=(0, 10))
+        ttk.Label(config_frame, text="Project Directory:").grid(row=3, column=0, sticky=tk.W, pady=5, padx=(0, 10))
         path_entry = ttk.Entry(config_frame, textvariable=self.project_path, font=("Segoe UI", 9))
-        path_entry.grid(row=1, column=1, sticky=(tk.W, tk.E), pady=5, padx=(0, 10))
+        path_entry.grid(row=3, column=1, sticky=(tk.W, tk.E), pady=5, padx=(0, 10))
         
         browse_btn = ttk.Button(config_frame, text="Browse...", command=self.browse_directory, width=12)
-        browse_btn.grid(row=1, column=2, pady=5)
+        browse_btn.grid(row=3, column=2, pady=5)
+        
+        # Options Section
+        options_frame = ttk.LabelFrame(main_frame, text="Additional Options", padding="10")
+        options_frame.grid(row=3, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 15))
+        
+        self.starter_content_var = tk.BooleanVar()
+        self.starter_content_check = ttk.Checkbutton(
+            options_frame,
+            text="Include Starter Content (Coming Soon)",
+            variable=self.starter_content_var,
+            state='disabled'
+        )
+        self.starter_content_check.grid(row=0, column=0, sticky=tk.W)
         
         # Progress Section
         progress_frame = ttk.Frame(main_frame)
-        progress_frame.grid(row=3, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 15))
+        progress_frame.grid(row=4, column=0, columnspan=3, sticky=(tk.W, tk.E), pady=(0, 15))
         progress_frame.columnconfigure(0, weight=1)
         
         self.progress_bar = ttk.Progressbar(progress_frame, mode='determinate', length=400)
@@ -220,7 +462,7 @@ class LuminaProjectCreator:
         
         # Buttons
         button_frame = ttk.Frame(main_frame)
-        button_frame.grid(row=4, column=0, columnspan=3, pady=(10, 0))
+        button_frame.grid(row=5, column=0, columnspan=3, pady=(10, 0))
         
         self.create_btn = ttk.Button(
             button_frame, 
@@ -240,10 +482,10 @@ class LuminaProjectCreator:
         
         # Console Output
         console_frame = ttk.LabelFrame(main_frame, text="Output Log", padding="5")
-        console_frame.grid(row=5, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(15, 0))
+        console_frame.grid(row=6, column=0, columnspan=3, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(15, 0))
         console_frame.columnconfigure(0, weight=1)
         console_frame.rowconfigure(0, weight=1)
-        main_frame.rowconfigure(5, weight=1)
+        main_frame.rowconfigure(6, weight=1)
         
         self.console = tk.Text(
             console_frame, 
@@ -272,10 +514,34 @@ class LuminaProjectCreator:
         if self.lumina_dir and os.path.exists(self.lumina_dir):
             self.engine_label.config(text=self.lumina_dir, foreground=DarkTheme.SUCCESS)
             self.log(f"Engine directory found: {self.lumina_dir}", "success")
+            self.load_templates()
         else:
             self.engine_label.config(text="Not found! Set LUMINA_DIR environment variable", foreground=DarkTheme.ERROR)
             self.log("Engine directory not found. Please set LUMINA_DIR environment variable.", "error")
             self.create_btn.config(state='disabled')
+    
+    def load_templates(self):
+        """Load available templates."""
+        if not self.template_manager:
+            return
+        
+        templates = self.template_manager.get_available_templates()
+        if templates:
+            self.template_combo['values'] = templates
+            self.template_combo.current(0)
+            self.on_template_selected(None)
+            self.log(f"Found {len(templates)} template(s)", "success")
+        else:
+            self.log("No templates found in Templates/Projects directory", "warning")
+            self.create_btn.config(state='disabled')
+    
+    def on_template_selected(self, event):
+        """Handle template selection."""
+        template_name = self.selected_template.get()
+        if template_name and self.template_manager:
+            info = self.template_manager.get_template_info(template_name)
+            description = info.get('description', 'No description available')
+            self.template_desc.config(text=description)
     
     def browse_directory(self):
         """Open directory browser."""
@@ -321,7 +587,7 @@ class LuminaProjectCreator:
         self.root.update_idletasks()
     
     def sanitize_filename(self, filename: str) -> str:
-        """Sanitize filename by replacing spaces and trimming."""
+        """Sanitize filename by replacing spaces and invalid characters."""
         return filename.replace(" ", "_").strip()
     
     def validate_inputs(self) -> bool:
@@ -334,156 +600,16 @@ class LuminaProjectCreator:
             messagebox.showerror("Invalid Input", "Please select a project directory.")
             return False
         
+        if not self.selected_template.get():
+            messagebox.showerror("Invalid Input", "Please select a project template.")
+            return False
+        
         if not self.lumina_dir or not os.path.exists(self.lumina_dir):
             messagebox.showerror("Engine Not Found", "Lumina engine directory not found. Please set LUMINA_DIR environment variable.")
             return False
         
         return True
     
-    def create_project_json(self, folder: str, name: str) -> str:
-        """Create the project JSON file."""
-        file_path = os.path.join(folder, f"{name}.lproject")
-        project_data = {"ProjectName": name}
-        
-        try:
-            with open(file_path, "w") as f:
-                json.dump(project_data, f, indent=4)
-            self.log(f"Created project file: {name}.lproject", "success")
-            return file_path
-        except Exception as e:
-            self.log(f"Error creating project JSON: {e}", "error")
-            raise
-    
-    def create_premake_files(self, folder: str, name: str):
-        """Create premake configuration files."""
-        template_path = os.path.join(self.lumina_dir, "Templates/Project/premake_solution_template.txt")
-        output_path = os.path.join(folder, "premake5.lua")
-        
-        with open(template_path) as f:
-            content = f.read().replace("$PROJECT_NAME", name)
-        
-        with open(output_path, "w") as f:
-            f.write(content)
-        
-        self.log("Created premake5.lua", "success")
-    
-    def create_python_files(self, folder: str):
-        """Create Python build script."""
-        script_content = '''import subprocess
-import os
-
-def generate_project():
-    # Call premake5 to generate Visual Studio solution
-    subprocess.call(["Tools/premake5.exe", "vs2022"])
-
-if __name__ == "__main__":
-    generate_project()
-'''
-        
-        file_path = os.path.join(folder, "GenerateProject.py")
-        with open(file_path, "w") as f:
-            f.write(script_content)
-        
-        self.log("Created GenerateProject.py", "success")
-    
-    def create_module_header(self, folder: str, name: str):
-        """Create module header file."""
-        name = self.sanitize_filename(name)
-        file_path = os.path.join(folder, f"Source/{name}/{name}.h")
-        
-        content = f'''#pragma once
-#include "Core/Module/ModuleInterface.h"
-
-// This is your core game module that the engine loads.
-class F{name} : public Lumina::IModuleInterface
-{{
-    //...
-}};
-'''
-        
-        os.makedirs(os.path.dirname(file_path), exist_ok=True)
-        with open(file_path, "w") as f:
-            f.write(content)
-        
-        self.log(f"Created {name}.h", "success")
-    
-    def create_module_source(self, folder: str, name: str):
-        """Create module source file."""
-        name = self.sanitize_filename(name)
-        file_path = os.path.join(folder, f"Source/{name}/{name}.cpp")
-        
-        content = f'''#include "{name}.h"
-#include "Core/Module/ModuleManager.h"
-
-// Boilerplate module discovery and implementation.
-IMPLEMENT_MODULE(F{name}, "{name}")
-'''
-        
-        os.makedirs(os.path.dirname(file_path), exist_ok=True)
-        with open(file_path, "w") as f:
-            f.write(content)
-        
-        self.log(f"Created {name}.cpp", "success")
-        
-    def create_module_api(self, folder: str, name: str):
-        """Create module API file."""
-        name = self.sanitize_filename(name)
-        source_dir = os.path.join(folder, f"Source/{name}")
-        output_path = os.path.join(source_dir, "API.h")
-        template_path = os.path.join(self.lumina_dir, "Templates/Project/api_template.txt")
-    
-        # Ensure the directory exists
-        os.makedirs(source_dir, exist_ok=True)
-    
-        with open(template_path) as f:
-            content = f.read().replace("$PROJECT_NAME", name.upper())
-    
-        with open(output_path, "w") as f:
-            f.write(content)
-        
-        self.log("Created API.h", "success")
-
-    
-    def create_project_directories(self, directory: str, name: str):
-        """Create project directory structure."""
-        os.makedirs(directory, exist_ok=True)
-        
-        source_dir = os.path.join(directory, f"Source/{name}")
-        content_dir = os.path.join(directory, "Game/Content")
-        
-        os.makedirs(source_dir, exist_ok=True)
-        os.makedirs(content_dir, exist_ok=True)
-        
-        self.log("Created project directories", "success")
-    
-    def create_eastl_template(self, directory: str, name: str):
-        """Create EASTL template file."""
-        source_dir = os.path.join(directory, f"Source/{name}")
-        template_path = os.path.join(self.lumina_dir, "Templates/Project/eastl_template.txt")
-        output_path = os.path.join(source_dir, f"{name}_eastl.cpp")
-        
-        with open(template_path) as f:
-            content = f.read()
-        
-        with open(output_path, "w") as f:
-            f.write(content)
-        
-        self.log(f"Created {name}_eastl.lua", "success")
-    
-    def copy_tools_directory(self, folder: str):
-        """Copy Tools directory from engine."""
-        src = os.path.join(self.lumina_dir, "Tools")
-        dest = os.path.join(folder, "Tools")
-        
-        try:
-            shutil.copytree(src, dest)
-            self.log("Copied Tools directory", "success")
-        except Exception as e:
-            self.log(f"Error copying Tools: {e}", "error")
-            raise
-    
-
-
     def create_project(self):
         """Main project creation workflow."""
         if not self.validate_inputs():
@@ -496,63 +622,58 @@ IMPLEMENT_MODULE(F{name}, "{name}")
         try:
             name = self.sanitize_filename(self.project_name.get())
             base_folder = self.project_path.get()
+            template_name = self.selected_template.get()
             
             # Create project folder inside the selected directory
-            folder = os.path.join(base_folder, name)
+            project_folder = os.path.join(base_folder, name)
             
             # Check if project folder already exists
-            if os.path.exists(folder):
+            if os.path.exists(project_folder):
                 messagebox.showerror("Error", f"Project folder '{name}' already exists at this location!")
                 self.create_btn.config(state='normal')
                 return
             
-            self.log(f"Creating project '{name}' at {folder}...", "info")
+            self.log(f"Creating project '{name}' using template '{template_name}'...", "info")
+            self.update_progress(10, "Initializing...")
             
-            # Create project structure
-            steps = [
-                (10, "Creating directories...", lambda: self.create_project_directories(folder, name)),
-                (20, "Creating module header...", lambda: self.create_module_header(folder, name)),
-                (30, "Creating module source...", lambda: self.create_module_source(folder, name)),
-                (40, "Creating Python files...", lambda: self.create_python_files(folder)),
-                (50, "Creating project JSON...", lambda: self.create_project_json(folder, name)),
-                (60, "Creating EASTL template...", lambda: self.create_eastl_template(folder, name)),
-                (60, "Creating API template...", lambda: self.create_module_api(folder, name)),
-                (70, "Creating premake files...", lambda: self.create_premake_files(folder, name)),
-                (90, "Copying Tools directory...", lambda: self.copy_tools_directory(folder)),
-            ]
+            # Get template path
+            template_path = self.template_manager.get_template_path(template_name)
+            if not template_path:
+                raise Exception(f"Template '{template_name}' not found")
             
-            for progress, status, action in steps:
-                self.update_progress(progress, status)
-                action()
+            # Create project directory
+            os.makedirs(project_folder, exist_ok=True)
+            self.log(f"Created project directory: {project_folder}", "success")
             
-            self.update_progress(100, "Running project generation...")
-            self.log("Running GenerateProject.py...", "info")
-                        
-            # Run the GenerateProject.py script
-            generate_script = os.path.join(folder, "GenerateProject.py")
-            try:
-                # Run in the project directory
-                result = subprocess.run(
-                    [sys.executable, generate_script],
-                    cwd=folder,
-                    capture_output=True,
-                    text=True
-                )
-                
-                if result.returncode == 0:
-                    self.log("Project generation completed successfully!", "success")
-                else:
-                    self.log(f"Project generation warning: {result.stderr}", "warning")
-                    
-            except Exception as e:
-                self.log(f"Error running GenerateProject.py: {e}", "warning")
+            # Initialize project creator
+            creator = ProjectCreator(self.lumina_dir, self.log)
+            creator.set_project_info(name, project_folder)
+            
+            # Copy and process template
+            self.update_progress(30, "Copying template files...")
+            if not creator.copy_template(template_path, project_folder):
+                raise Exception("Failed to copy template")
+            
+            # Copy Tools directory
+            self.update_progress(70, "Copying Tools directory...")
+            creator.copy_tools_directory()
+            
+            # Run project generation
+            self.update_progress(90, "Running project generation...")
+            creator.run_project_generation()
             
             self.update_progress(100, "Project created successfully!")
             self.log(f"Project '{name}' created successfully!", "success")
             
-            messagebox.showinfo("Success", f"Project '{name}' has been created successfully!\n\nLocation: {folder}")
+            messagebox.showinfo("Success", f"Project '{name}' has been created successfully!\n\nLocation: {project_folder}")
             
-            os.startfile(folder)
+            # Open project folder
+            if sys.platform == 'win32':
+                os.startfile(project_folder)
+            elif sys.platform == 'darwin':
+                subprocess.run(['open', project_folder])
+            else:
+                subprocess.run(['xdg-open', project_folder])
             
         except Exception as e:
             self.log(f"Failed to create project: {str(e)}", "error")

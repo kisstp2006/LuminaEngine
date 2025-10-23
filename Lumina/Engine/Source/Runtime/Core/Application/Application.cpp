@@ -82,6 +82,7 @@ namespace Lumina
         Shutdown();
         
         GEngine->Shutdown();
+        Memory::Delete(GEngine);
         
         Window->Shutdown();
         Memory::Delete(Window);

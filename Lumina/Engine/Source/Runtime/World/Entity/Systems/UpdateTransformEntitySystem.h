@@ -9,12 +9,12 @@ namespace Lumina
     class LUMINA_API CUpdateTransformEntitySystem : public CEntitySystem
     {
         GENERATED_BODY()
+        ENTITY_SYSTEM(CUpdateTransformEntitySystem, RequiresUpdate(EUpdateStage::PrePhysics), RequiresUpdate(EUpdateStage::Paused))
     public:
 
-        DEFINE_SCENE_SYSTEM(CUpdateTransformEntitySystem, RequiresUpdate(EUpdateStage::PrePhysics), RequiresUpdate(EUpdateStage::Paused))
         
         void Initialize(FSystemContext& SystemContext) override;
-        void Shutdown() override;
+        void Shutdown(FSystemContext& SystemContext) override;
 
         void Update(FSystemContext& SystemContext) override;
         

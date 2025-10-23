@@ -34,11 +34,9 @@ namespace Lumina::Platform
         return FreeLibrary((HMODULE)DLLHandle);
     }
 
-    void* GetDLLExport(void* DLLHandle, const TCHAR* ProcName)
+    void* GetDLLExport(void* DLLHandle, const char* ProcName)
     {
-        FWString WideString = ProcName;
-
-        return (void*)::GetProcAddress((HMODULE)DLLHandle, StringUtils::FromWideString(WideString).c_str());
+        return (void*)::GetProcAddress((HMODULE)DLLHandle, ProcName);
     }
 
     void AddDLLDirectory(const FString& Directory)
@@ -203,9 +201,9 @@ namespace Lumina::Platform
         return Buffer;
     }
 
-    FVoidFuncPtr LumGetProcAddress(void* Handle, const TCHAR* Procedure)
+    FVoidFuncPtr LumGetProcAddress(void* Handle, const char* Procedure)
     {
-        return reinterpret_cast<FVoidFuncPtr>(GetProcAddress((HMODULE)Handle, (LPCSTR)Procedure));
+        return reinterpret_cast<FVoidFuncPtr>(GetProcAddress((HMODULE)Handle, Procedure));
     }
 
     void* LoadLibraryWithSearchPaths(const FString& Filename, const TVector<FString>& SearchPaths)

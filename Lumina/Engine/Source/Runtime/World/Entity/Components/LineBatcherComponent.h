@@ -16,11 +16,11 @@ namespace Lumina
         float Thickness = 1.0f;
     };
     
-    struct FLineBatcherComponent : SRenderComponent
+    struct LUMINA_API FLineBatcherComponent : SRenderComponent
     {
         THashMap<int32, TFixedVector<FBatchedLine, 2024>> BatchedLines;
 
-        LUMINA_API void DrawLine(const glm::vec3& Start, const glm::vec3& End, const glm::vec4& Color, float Thickness = 1.0f, float Duration = 1.0f)
+        void DrawLine(const glm::vec3& Start, const glm::vec3& End, const glm::vec4& Color, float Thickness = 1.0f, float Duration = 1.0f)
         {
             int32 Key = static_cast<int32>(Duration * 1000.0f);
             BatchedLines[Key].emplace_back(FBatchedLine
@@ -32,7 +32,7 @@ namespace Lumina
             });
         }
 
-        LUMINA_API void DrawBox(const glm::vec3& Center, const glm::vec3& Extents, const glm::quat& Rotation, const glm::vec4& Color, float Thickness = 1.0f, float Duration = 1.0f)
+        void DrawBox(const glm::vec3& Center, const glm::vec3& Extents, const glm::quat& Rotation, const glm::vec4& Color, float Thickness = 1.0f, float Duration = 1.0f)
         {
             BatchedLines.reserve(BatchedLines.size() + 12);
 
@@ -74,7 +74,7 @@ namespace Lumina
             DrawLine(corners[3], corners[7], Color, Thickness, Duration);
         }
 
-        LUMINA_API void DrawSphere(const glm::vec3& Center, float Radius, const glm::vec4& Color, uint8 Segments = 16, float Thickness = 1.0f, float Duration = 1.0f)
+        void DrawSphere(const glm::vec3& Center, float Radius, const glm::vec4& Color, uint8 Segments = 16, float Thickness = 1.0f, float Duration = 1.0f)
         {
             BatchedLines.reserve(BatchedLines.size() + (Segments - 1) * Segments + Segments * Segments);
 
@@ -118,7 +118,7 @@ namespace Lumina
             }
         }
 
-        LUMINA_API void DrawCone(const glm::vec3& Apex, const glm::vec3& Direction, float AngleRadians, float Length, const glm::vec4& Color,
+        void DrawCone(const glm::vec3& Apex, const glm::vec3& Direction, float AngleRadians, float Length, const glm::vec4& Color,
                                              uint8 Segments = 16, uint8 Stacks = 4,
                                              float Thickness = 1.0f, float Duration = 1.0f)
         {
@@ -169,7 +169,7 @@ namespace Lumina
 
         
 
-        LUMINA_API void DrawFrustum(const glm::mat4& Matrix, float zNear, float zFar, const glm::vec4& Color, float Thickness = 1.0f, float Duration = 1.0f)
+        void DrawFrustum(const glm::mat4& Matrix, float zNear, float zFar, const glm::vec4& Color, float Thickness = 1.0f, float Duration = 1.0f)
         {
             auto UnprojectCorner = [&](float x, float y, float z) -> glm::vec3
             {
@@ -211,7 +211,7 @@ namespace Lumina
             DrawLine(corners[3], corners[7], Color, Thickness, Duration);
         }
 
-        LUMINA_API void DrawArrow(const glm::vec3& Start, const glm::vec3& Direction, float Length, const glm::vec4& Color, float Thickness = 1.0f,
+        void DrawArrow(const glm::vec3& Start, const glm::vec3& Direction, float Length, const glm::vec4& Color, float Thickness = 1.0f,
                           float Duration = 1.0f,
                           float HeadSize = 0.2f)
         {
@@ -248,12 +248,12 @@ namespace Lumina
             DrawLine(Corner4, Corner1, Color, Thickness, Duration);
         }
 
-        LUMINA_API void DrawViewVolume(const FViewVolume& ViewVolume, const glm::vec4& Color, float Thickness, float Duration)
+        void DrawViewVolume(const FViewVolume& ViewVolume, const glm::vec4& Color, float Thickness, float Duration)
         {
             DrawFrustum(ViewVolume.GetViewProjectionMatrix(), ViewVolume.GetNear(), ViewVolume.GetFar(), Color, Thickness, Duration);
         }
 
-        LUMINA_API void Flush()
+        void Flush()
         {
             BatchedLines.clear();
         }

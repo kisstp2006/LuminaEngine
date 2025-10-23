@@ -15,7 +15,7 @@ namespace Lumina
         
     }
 
-    void CUpdateTransformEntitySystem::Shutdown()
+    void CUpdateTransformEntitySystem::Shutdown(FSystemContext& SystemContext)
     {
         
     }

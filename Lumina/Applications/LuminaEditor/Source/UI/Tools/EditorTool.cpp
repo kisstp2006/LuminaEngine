@@ -34,7 +34,6 @@ namespace Lumina
         if (HasWorld())
         {
             GEngine->GetEngineSubsystem<FWorldManager>()->AddWorld(World);
-        
             World->InitializeWorld();
             EditorEntity = World->SetupEditorWorld();
 

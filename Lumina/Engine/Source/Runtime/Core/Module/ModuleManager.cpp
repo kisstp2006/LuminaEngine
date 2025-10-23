@@ -17,7 +17,7 @@ namespace Lumina
             return nullptr;
         }
 
-        auto InitFunctionPtr = Platform::LumGetProcAddress<ModuleInitFunc>(ModuleHandle, TEXT("InitializeModule"));
+        auto InitFunctionPtr = Platform::LumGetProcAddress<ModuleInitFunc>(ModuleHandle, "InitializeModule");
         if (!InitFunctionPtr)
         {
             LOG_WARN("Failed to get InitializeModule export: {}", ModuleName);
@@ -62,7 +62,7 @@ namespace Lumina
         Info.ModuleInterface.reset();
         void* ModulePtr = Info.ModuleHandle;
 
-        auto ShutdownFunctionPtr = Platform::LumGetProcAddress<ModuleShutdownFunc>(ModulePtr, TEXT("ShutdownModule"));
+        auto ShutdownFunctionPtr = Platform::LumGetProcAddress<ModuleShutdownFunc>(ModulePtr, "ShutdownModule");
         ShutdownFunctionPtr();
         
         bool freed = Platform::FreeDLLHandle(ModulePtr);

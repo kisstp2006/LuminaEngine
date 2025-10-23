@@ -7,7 +7,7 @@
 
 namespace Lumina
 {
-    struct FColor
+    struct LUMINA_API FColor
     {
         float R, G, B, A;
     

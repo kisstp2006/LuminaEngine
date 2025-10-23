@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "Components/Component.h"
+#include "Core/Math/Transform.h"
 #include "Registry/EntityRegistry.h"
 
 namespace Lumina
@@ -40,6 +41,8 @@ namespace Lumina
             return Registry.emplace_or_replace<T>(entity, std::forward<TArgs>(Args)...);
         }
 
+        LUMINA_API entt::entity Create(const FName& Name, const FTransform& Transform = FTransform());
+        LUMINA_API entt::entity Create();
 
         template<typename T>
         void Erase(entt::entity Entt)

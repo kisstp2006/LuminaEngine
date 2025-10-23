@@ -9,7 +9,7 @@ namespace Lumina
     class LUMINA_API CInterpolatingMovementSystem : public CEntitySystem
     {
         GENERATED_BODY()
-        DEFINE_SCENE_SYSTEM(CInterpolatingMovementSystem, RequiresUpdate(EUpdateStage::PrePhysics, EUpdatePriority::Default))
+        ENTITY_SYSTEM(CInterpolatingMovementSystem, RequiresUpdate(EUpdateStage::PrePhysics, EUpdatePriority::Default))
 
     public:
 

@@ -28,16 +28,16 @@ namespace Lumina
             return !Context.FilterFunc || Context.FilterFunc(Item);
         };
 
-        TVector<FTreeListViewItem*> FilteredItems;
-        FilteredItems.reserve(ListItems.size());
+        //TVector<FTreeListViewItem*> FilteredItems;
+        //FilteredItems.reserve(ListItems.size());
 
-        for (FTreeListViewItem* Item : ListItems)
-        {
-            if (ShouldDrawItem(Item))
-            {
-                FilteredItems.push_back(Item);
-            }
-        }
+        //for (FTreeListViewItem* Item : ListItems)
+        //{
+        //    if (ShouldDrawItem(Item))
+        //    {
+        //        FilteredItems.push_back(Item);
+        //    }
+        //}
 
         
         ImGui::PushID(this);
@@ -47,21 +47,16 @@ namespace Lumina
             ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthStretch);
 
             ImGuiListClipper Clipper;
-            Clipper.Begin((int)FilteredItems.size());
+            Clipper.Begin((int)ListItems.size());
 
             while (Clipper.Step())
             {
                 for (int i = Clipper.DisplayStart; i < Clipper.DisplayEnd; ++i)
                 {
-                    if (!ShouldDrawItem(FilteredItems[i]))
-                    {
-                        continue;
-                    }
-                    
                     ImGui::TableNextRow();
                     ImGui::TableSetColumnIndex(0);
                     
-                    DrawListItem(FilteredItems[i], Context);
+                    DrawListItem(ListItems[i], Context);
                 }
             }
 
@@ -156,7 +151,7 @@ namespace Lumina
         if (ImGui::BeginDragDropSource())
         {
             ItemToDraw->SetDragDropPayloadData();
-            ImGui::Text(DisplayName.c_str());
+            ImGui::TextUnformatted(DisplayName.c_str());
             ImGui::EndDragDropSource();
         }
 

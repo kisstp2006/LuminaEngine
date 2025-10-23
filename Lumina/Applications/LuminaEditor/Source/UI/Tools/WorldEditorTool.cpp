@@ -814,9 +814,8 @@ namespace Lumina
         }
         
         World = InWorld;
-        GEngine->GetEngineSubsystem<FWorldManager>()->AddWorld(World);
-
         World->InitializeWorld();
+        GEngine->GetEngineSubsystem<FWorldManager>()->AddWorld(World);
         EditorEntity = World->SetupEditorWorld();
 
         SetSelectedEntity({});
@@ -937,7 +936,7 @@ namespace Lumina
         ImGui::Text(LE_ICON_CUBE " Filter by Component");
         ImGui::Separator();
 
-        for(auto &&[_, MetaType]: entt::resolve())
+        for(auto&& [_, MetaType]: entt::resolve())
         {
             using namespace entt::literals;
             auto Any = MetaType.invoke("staticstruct"_hs, {});
@@ -1048,7 +1047,7 @@ namespace Lumina
         const float AvailWidth = ImGui::GetContentRegionAvail().x;
         
         {
-            const int EntityCount = World->GetEntityRegistry().view<entt::entity>().size();
+            const SIZE_T EntityCount = World->GetEntityRegistry().view<entt::entity>().size();
             ImGui::BeginGroup();
             {
                 ImGui::AlignTextToFramePadding();
@@ -1065,7 +1064,7 @@ namespace Lumina
                     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 3.0f);
             
                     char CountBuf[32];
-                    snprintf(CountBuf, sizeof(CountBuf), "%d", EntityCount);
+                    snprintf(CountBuf, sizeof(CountBuf), "%llu", EntityCount);
                     ImGui::Button(CountBuf);
                 }
                 ImGui::EndHorizontal();
@@ -1101,9 +1100,8 @@ namespace Lumina
         
         ImGui::Spacing();
         
-        // ===== Search & Filter Section =====
         {
-            const float FilterButtonWidth = 30.0f;
+            constexpr float FilterButtonWidth = 30.0f;
             const float SearchWidth = AvailWidth - FilterButtonWidth - Style.ItemSpacing.x;
             
             // Search bar with icon
@@ -1291,7 +1289,7 @@ namespace Lumina
                 
                 ImGui::Spacing();
                 
-                // Entity Name (read-only for now)
+                // Entity Name (read-only)
                 ImGui::BeginDisabled();
                 ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.12f, 0.12f, 0.14f, 1.0f));
                 ImGui::SetNextItemWidth(-1);

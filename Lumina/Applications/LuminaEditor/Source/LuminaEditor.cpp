@@ -29,7 +29,7 @@ namespace Lumina
             AssetRegistry->RunInitialDiscovery();
         }
 
-        entt::locator<entt::meta_ctx>::reset(GetEngineMetaContext());
+        entt::locator<entt::meta_ctx>::reset(GetEngineMetaService());
 
         return bSuccess;
     }

@@ -13,7 +13,7 @@ namespace Lumina
 
         if (Module)
         {
-            auto RENDERDOC_GetAPI = Platform::LumGetProcAddress<pRENDERDOC_GetAPI>(Module, TEXT("RENDERDOC_GetAPI"));
+            auto RENDERDOC_GetAPI = Platform::LumGetProcAddress<pRENDERDOC_GetAPI>(Module, "RENDERDOC_GetAPI");
             int Ret = RENDERDOC_GetAPI(eRENDERDOC_API_Version_1_1_2, (void**)&RenderDocAPI);
             LUM_ASSERT(Ret)
         }

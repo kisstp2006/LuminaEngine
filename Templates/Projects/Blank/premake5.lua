@@ -7,41 +7,41 @@ workspace "$PROJECT_NAME"
     configurations { "Debug", "Release", "Shipping" }
     architecture "x86_64"
     startproject "$PROJECT_NAME"
-	conformancemode "On"
+    conformancemode "On"
 
-	language "C++"
-	cppdialect "C++20"
-	staticruntime "Off"
+    language "C++"
+    cppdialect "C++20"
+    staticruntime "Off"
 
-	flags  
-	{
-		"MultiProcessorCompile", 
-	}
-		
-	defines
-	{
-		"EASTL_USER_DEFINED_ALLOCATOR=1",
-		"_CRT_SECURE_NO_WARNINGS",
-		"GLM_FORCE_DEPTH_ZERO_TO_ONE",
-		"GLM_FORCE_LEFT_HANDED",
-		"IMGUI_DEFINE_MATH_OPERATORS",
-	}
-
-	filter "action:vs"
-	
-	filter "language:C++ or language:C"
-		architecture "x86_64"
-
-	buildoptions 
+    flags  
     {
-		"/Zm2000",
-	}
+        "MultiProcessorCompile", 
+    }
+        
+    defines
+    {
+        "EASTL_USER_DEFINED_ALLOCATOR=1",
+        "_CRT_SECURE_NO_WARNINGS",
+        "GLM_FORCE_DEPTH_ZERO_TO_ONE",
+        "GLM_FORCE_LEFT_HANDED",
+        "IMGUI_DEFINE_MATH_OPERATORS",
+    }
 
-	disablewarnings
+    filter "action:vs"
+    
+    filter "language:C++ or language:C"
+        architecture "x86_64"
+
+    buildoptions 
+    {
+        "/Zm2000",
+    }
+
+    disablewarnings
     {
         "4251", -- DLL-interface warning
         "4275", -- Non-DLL-interface base class
-	}
+    }
 
     warnings "Default"
 
@@ -105,7 +105,7 @@ project "$PROJECT_NAME"
     
     defines
     {
-    	"PRIMARY_GAME_MODULE",
+        "PRIMARY_GAME_MODULE",
     }
 
     files 
@@ -113,7 +113,7 @@ project "$PROJECT_NAME"
         "Source/**.h",
         "Source/**.cpp",
         "%{wks.location}/Intermediates/Reflection/%{prj.name}/**.h",
-		"%{wks.location}/Intermediates/Reflection/%{prj.name}/**.cpp",
+        "%{wks.location}/Intermediates/Reflection/%{prj.name}/**.cpp",
     }
 
     includedirs 
@@ -125,7 +125,7 @@ project "$PROJECT_NAME"
         path.join(LuminaEngineDirectory, "Intermediates/Reflection/Lumina"),
 
         reflection_directory();
-		includedependencies();
+        includedependencies();
     }
 
     links 

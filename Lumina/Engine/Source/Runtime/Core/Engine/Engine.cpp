@@ -225,7 +225,12 @@ namespace Lumina
     }
     #endif
 
-    entt::locator<entt::meta_ctx>::node_type FEngine::GetEngineMetaContext() const
+    entt::meta_ctx& FEngine::GetEngineMetaContext() const
+    {
+        return entt::locator<entt::meta_ctx>::value_or();
+    }
+
+    entt::locator<entt::meta_ctx>::node_type FEngine::GetEngineMetaService() const
     {
         return entt::locator<entt::meta_ctx>::handle();
     }

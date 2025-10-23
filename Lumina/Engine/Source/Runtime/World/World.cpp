@@ -78,10 +78,22 @@ namespace Lumina
         }
     }
 
+    void CWorld::PreLoad()
+    {
+        InitializeWorld();
+    }
+
+    void CWorld::PostLoad()
+    {
+        //...
+    }
+
     void CWorld::InitializeWorld()
     {
-        LUM_ASSERT(CameraManager == nullptr)
-        LUM_ASSERT(RenderScene == nullptr)
+        if (bInitialized)
+        {
+            return;
+        }
         
         CameraManager = Memory::New<FCameraManager>();
         RenderScene = Memory::New<FRenderScene>(this);
@@ -97,6 +109,8 @@ namespace Lumina
                 RegisterSystem(DuplicateSystem);
             }
         }
+
+        bInitialized = true;
     }
     
     Entity CWorld::SetupEditorWorld()
@@ -130,7 +144,6 @@ namespace Lumina
         auto& SystemVector = SystemUpdateList[(uint32)Stage];
         Task::ParallelFor((uint32)SystemVector.size(), SystemVector.size() / 4, [this, SystemVector, &SystemContext](uint32 Index)
         {
-
             CEntitySystem* System = SystemVector[Index];
             System->Update(SystemContext);
         });
@@ -164,12 +177,14 @@ namespace Lumina
     {
         Memory::Delete(RenderScene);
         Memory::Delete(CameraManager);
-        
+
+        FSystemContext SystemContext(this);
+
         for (uint8 i = 0; i < (uint8)EUpdateStage::Max; i++)
         {
             for (CEntitySystem* System : SystemUpdateList[i])
             {
-                System->Shutdown();
+                System->Shutdown(SystemContext);
                 System->MarkGarbage();
             }
         }
@@ -180,10 +195,16 @@ namespace Lumina
     {
         Assert(NewSystem != nullptr)
         
-        NewSystem->World = this;
-
         FSystemContext SystemContext(this);
-        NewSystem->Initialize(SystemContext);
+
+        if (bIsPlayWorld)
+        {
+            NewSystem->Initialize(SystemContext);
+        }
+        else
+        {
+            NewSystem->InitializeEditor(SystemContext);
+        }
 
         for (uint8 i = 0; i < (uint8)EUpdateStage::Max; ++i)
         {
@@ -353,8 +374,11 @@ namespace Lumina
         FObjectProxyArchiver Ar(Reader, true);
         
         CWorld* PIEWorld = NewObject<CWorld>();
+        PIEWorld->SetIsPlayWorld(true);
 
+        PIEWorld->PreLoad();
         PIEWorld->Serialize(Ar);
+        PIEWorld->PostLoad();
         
         return PIEWorld;
     }

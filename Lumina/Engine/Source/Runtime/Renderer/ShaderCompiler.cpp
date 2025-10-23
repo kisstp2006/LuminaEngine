@@ -313,6 +313,7 @@ namespace Lumina
     
             if (Preprocessed.GetCompilationStatus() != shaderc_compilation_status_success)
             {
+                PendingTasks.fetch_sub(1, std::memory_order_acq_rel);
                 LOG_ERROR("Preprocessing failed: - {}", Preprocessed.GetErrorMessage());
                 return;
             }
@@ -326,6 +327,7 @@ namespace Lumina
     
             if (CompileResult.GetCompilationStatus() != shaderc_compilation_status_success)
             {
+                PendingTasks.fetch_sub(1, std::memory_order_acq_rel);
                 LOG_ERROR("Compilation failed: - {}", CompileResult.GetErrorMessage());
                 return;
             }
@@ -334,6 +336,7 @@ namespace Lumina
             
             if (Binaries.empty())
             {
+                PendingTasks.fetch_sub(1, std::memory_order_acq_rel);
                 LOG_ERROR("Shader compiled to empty SPIR-V");
                 return;
             }

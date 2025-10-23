@@ -99,7 +99,6 @@ namespace Lumina
         {
             if (CWorld* PreviewWorld = CWorld::DuplicateWorldForPIE(WorldEditorTool->GetWorld()))
             {
-                PreviewWorld->SetIsPlayInEditorWorld(true);
                 PreviewWorld->SetPaused(false);
                 GamePreviewTool = CreateTool<FGamePreviewTool>(this, PreviewWorld);
                 WorldEditorTool->NotifyPlayInEditorStart();

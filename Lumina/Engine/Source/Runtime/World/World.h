@@ -36,6 +36,8 @@ namespace Lumina
 
         //~ Begin CObject Interface
         void Serialize(FArchive& Ar) override;
+        void PreLoad() override;
+        void PostLoad() override;
         //~ End CObject Interface
 
 
@@ -106,7 +108,7 @@ namespace Lumina
         void DrawViewVolume(const FViewVolume& ViewVolume, const glm::vec4& Color, float Thickness = 1.0f, float Duration = 1.0f);
         //~ End Debug Drawing
 
-        void SetIsPlayInEditorWorld(bool bValue) { bIsPlayInEditorWorld = bValue; }
+        void SetIsPlayWorld(bool bValue) { bIsPlayWorld = bValue; }
 
         void SetEntityTransform(Entity Entt, const FTransform& NewTransform);
 
@@ -130,9 +132,10 @@ namespace Lumina
         int64                                           WorldIndex = -1;
         double                                          DeltaTime = 0.0;
         double                                          TimeSinceCreation = 0.0;
+        uint32                                          bInitialized:1=0;
         uint32                                          bPaused:1=1;
         uint32                                          bActive:1=1;
-        uint32                                          bIsPlayInEditorWorld:1=0;
+        uint32                                          bIsPlayWorld:1=0;
         entt::entity                                    SelectedEntity;
         
     };

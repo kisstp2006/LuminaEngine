@@ -4,6 +4,10 @@
 #include "Memory/Memory.h"
 
 
+//=================================================================
+//== DO NOT MODIFY THIS FILE UNLESS YOU KNOW WHAT YOU'RE DOING.  ==
+//=================================================================
+
 namespace eastl
 {
     allocator GDefaultAllocator;

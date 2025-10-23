@@ -18,7 +18,7 @@ namespace Lumina
         
     }
 
-    void CEditorEntityMovementSystem::Shutdown()
+    void CEditorEntityMovementSystem::Shutdown(FSystemContext& SystemContext)
     {
         
     }

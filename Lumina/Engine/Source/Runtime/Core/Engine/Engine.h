@@ -56,11 +56,10 @@ namespace Lumina
         LUMINA_API IDevelopmentToolUI* GetDevelopmentToolsUI() const { return DeveloperToolUI; }
         #endif
 
-        LUMINA_API entt::locator<entt::meta_ctx>::node_type GetEngineMetaContext() const;
+        LUMINA_API entt::meta_ctx& GetEngineMetaContext() const;
+        LUMINA_API entt::locator<entt::meta_ctx>::node_type GetEngineMetaService() const;
 
-
-
-
+        
         template<typename T>
         T* GetEngineSubsystem()
         {
