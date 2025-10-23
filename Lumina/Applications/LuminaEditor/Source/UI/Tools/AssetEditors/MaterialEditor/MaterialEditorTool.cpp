@@ -137,6 +137,20 @@ namespace Lumina
     {
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(12, 12));
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8, 8));
+
+        if (CompilationResult.bIsError)
+        {
+            ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.15f, 0.15f, 0.18f, 1.0f));
+            ImGui::BeginChild("##empty_preview", ImVec2(0, 0), true);
+            
+    
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.6f, 0.65f, 1.0f));
+            ImGui::TextUnformatted(CompilationResult.CompilationLog.c_str());
+            ImGui::PopStyleColor();
+    
+            ImGui::EndChild();
+            ImGui::PopStyleColor();
+        }
     
         if (Tree.empty())
         {
@@ -210,7 +224,7 @@ namespace Lumina
             else
             {
                 ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.9f, 0.92f, 1.0f));
-                ImGui::TextUnformatted(Tree.c_str());
+                ImGui::TextUnformatted(CompilationResult.CompilationLog.c_str());
                 ImGui::PopStyleColor();
             }
     
@@ -228,7 +242,7 @@ namespace Lumina
         CompilationResult = FCompilationResultInfo();
             
         FMaterialCompiler Compiler;
-        NodeGraph->CompileGraph(&Compiler);
+        NodeGraph->CompileGraph(Compiler);
         if (Compiler.HasErrors())
         {
             for (const FMaterialCompiler::FError& Error : Compiler.GetErrors())
@@ -237,11 +251,12 @@ namespace Lumina
             }
                 
             CompilationResult.bIsError = true;
+            bGLSLPreviewDirty = true;
         }
         else
         {
             Tree = Compiler.BuildTree(ReplacementStart, ReplacementEnd);
-            CompilationResult.CompilationLog = "Generated GLSL: \n \n \n" + Tree;
+            CompilationResult.CompilationLog = "Generated GLSL: \n \n \n";
             CompilationResult.bIsError = false;
             bGLSLPreviewDirty = true;
             
@@ -275,25 +290,25 @@ namespace Lumina
             Memory::Memzero(&Material->MaterialUniforms, sizeof(FMaterialUniforms));
             Material->Parameters.clear();
             
-            for (const auto& [Name, Value] : Compiler.GetScalarParameters())
-            {
-                FMaterialParameter NewParam;
-                NewParam.ParameterName = Name;
-                NewParam.Type = EMaterialParameterType::Scalar;
-                NewParam.Index = (uint16)Value.Index;
-                Material->Parameters.push_back(NewParam);
-                Material->SetScalarValue(Name, Value.Value);
-            }
-
-            for (const auto& [Name, Value] : Compiler.GetVectorParameters())
-            {
-                FMaterialParameter NewParam;
-                NewParam.ParameterName = Name;
-                NewParam.Type = EMaterialParameterType::Vector;
-                NewParam.Index = (uint16)Value.Index;
-                Material->Parameters.push_back(NewParam);
-                Material->SetVectorValue(Name, Value.Value);
-            }
+            //for (const auto& [Name, Value] : Compiler.GetScalarParameters())
+            //{
+            //    FMaterialParameter NewParam;
+            //    NewParam.ParameterName = Name;
+            //    NewParam.Type = EMaterialParameterType::Scalar;
+            //    NewParam.Index = (uint16)Value.Index;
+            //    Material->Parameters.push_back(NewParam);
+            //    Material->SetScalarValue(Name, Value.Value);
+            //}
+            //
+            //for (const auto& [Name, Value] : Compiler.GetVectorParameters())
+            //{
+            //    FMaterialParameter NewParam;
+            //    NewParam.ParameterName = Name;
+            //    NewParam.Type = EMaterialParameterType::Vector;
+            //    NewParam.Index = (uint16)Value.Index;
+            //    Material->Parameters.push_back(NewParam);
+            //    Material->SetVectorValue(Name, Value.Value);
+            //}
 
             Material->PostLoad();
             

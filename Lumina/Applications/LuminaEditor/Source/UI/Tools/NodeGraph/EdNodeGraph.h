@@ -55,6 +55,12 @@ namespace Lumina
         virtual CEdGraphNode* OnNodeRemoved(CEdGraphNode* Node) { return nullptr; }
 
         void SetNodeSelectedCallback(const TFunction<void(CEdGraphNode*)>& Callback) { NodeSelectedCallback = Callback; }
+
+
+    private:
+
+        static bool GraphSaveSettings(const char* data, size_t size, ax::NodeEditor::SaveReasonFlags reason, void* userPointer);
+        static size_t GraphLoadSettings(char* data, void* userPointer);
         
     public:
 
@@ -67,6 +73,9 @@ namespace Lumina
         
         LUM_PROPERTY()
         TVector<uint16>                                 Connections;
+
+        LUM_PROPERTY()
+        FString GraphSaveData;
         
         THashSet<CClass*>                               SupportedNodes;
         TVector<FAction>                                Actions;
@@ -76,7 +85,6 @@ namespace Lumina
     
     private:
 
-        FString SaveFileName;
         ax::NodeEditor::EditorContext* Context = nullptr;
     };
     

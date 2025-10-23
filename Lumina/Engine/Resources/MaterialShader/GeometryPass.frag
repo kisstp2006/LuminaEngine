@@ -56,6 +56,14 @@ vec3 GetWorldNormal(vec3 FragNormal, vec2 UV, vec3 FragPos, vec3 TangentSpaceNor
     return normalize(TBN * TangentSpaceNormal);
 }
 
+
+uint EntityID       = inEntityID;
+vec3 ViewNormal     = normalize(inNormalVS.xyz);
+vec3 WorldNormal    = normalize(inNormalWS.xyz);
+vec3 WorldPosition  = inFragPos.xyz;
+vec2 UV0            = inUV;
+vec4 VertexColor    = inColor;
+
 struct SMaterialInputs
 {
     vec3    Diffuse;
@@ -66,15 +74,8 @@ struct SMaterialInputs
     float   AmbientOcclusion;
     vec3    Normal;
     float   Opacity;
+    vec3    WorldPositionOffset;
 };
-
-uint EntityID       = inEntityID;
-vec3 ViewNormal     = normalize(inNormalVS.xyz);
-vec3 WorldNormal    = normalize(inNormalWS.xyz);
-vec3 WorldPosition  = inFragPos.xyz;
-vec2 UV0            = inUV;
-vec4 VertexColor    = inColor;
-
 
 $MATERIAL_INPUTS
 

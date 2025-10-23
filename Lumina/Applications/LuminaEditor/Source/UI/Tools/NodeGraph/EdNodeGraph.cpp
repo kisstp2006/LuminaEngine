@@ -37,12 +37,32 @@ namespace Lumina
     {
     }
 
+    bool CEdNodeGraph::GraphSaveSettings(const char* data, size_t size, ax::NodeEditor::SaveReasonFlags reason, void* userPointer)
+    {
+        CEdNodeGraph* ThisGraph = (CEdNodeGraph*)userPointer;
+        ThisGraph->GraphSaveData.assign(data, size);
+        return true;
+    }
+    
+    size_t CEdNodeGraph::GraphLoadSettings(char* data, void* userPointer)
+    {
+        CEdNodeGraph* ThisGraph = (CEdNodeGraph*)userPointer;
+        if (data)
+        {
+            strcpy(data, ThisGraph->GraphSaveData.c_str());
+        }
+        return ThisGraph->GraphSaveData.size();
+    }
+    
+
     void CEdNodeGraph::Initialize()
     {
-        SaveFileName = GetName().ToString().append("EdNodeGraph.json");
         ax::NodeEditor::Config config;
         config.EnableSmoothZoom = true;
-        config.SettingsFile = SaveFileName.c_str();
+        config.UserPointer = this;
+        config.SaveSettings = GraphSaveSettings;
+        config.LoadSettings = GraphLoadSettings;
+        config.SettingsFile = nullptr;
         Context = ax::NodeEditor::CreateEditor(&config);
         
     }
@@ -118,10 +138,16 @@ namespace Lumina
 
                 ImGui::PushID(InputPin);
                 {
-                    DrawPinIcon(InputPin->HasConnection(), 255.0f, ImGui::ColorConvertU32ToFloat4(InputPin->GetPinColor()));
+                    ImVec4 PinColor = ImGui::ColorConvertU32ToFloat4(InputPin->GetPinColor());
+                    if (Node->HasError())
+                    {
+                        PinColor = ImVec4(255.0f, 0.0f, 0.0f, 255.0f);
+                    }
+                    DrawPinIcon(InputPin->HasConnection(), 255.0f, PinColor);
                     ImGui::Spring(0);
 
                     ImGui::TextUnformatted(InputPin->GetPinName().c_str());
+                    
                     ImGui::Spring(0);
                 }
                 ImGui::PopID();
@@ -144,7 +170,13 @@ namespace Lumina
                     ImGui::Spring(1, 1);
                     ImGui::TextUnformatted(OutputPin->GetPinName().c_str());
                     ImGui::Spring(0);
-                    DrawPinIcon(OutputPin->HasConnection(), 255.0f, ImGui::ColorConvertU32ToFloat4(OutputPin->GetPinColor()));
+                    
+                    ImVec4 PinColor = ImGui::ColorConvertU32ToFloat4(OutputPin->GetPinColor());
+                    if (Node->HasError())
+                    {
+                        PinColor = ImVec4(255.0f, 0.0f, 0.0f, 255.0f);
+                    }
+                    DrawPinIcon(OutputPin->HasConnection(), 255.0f, PinColor);
                 }
                 ImGui::PopID();
 
@@ -288,6 +320,8 @@ namespace Lumina
             CEdGraphNode* ToDestroy = NodesToDestroy.front();
             NodesToDestroy.pop();
             
+            NodeEditor::DeleteNode(ToDestroy->GetNodeID());
+            
             // Remove links from input pins
             for (CEdNodeGraphPin* Pin : ToDestroy->GetInputPins())
             {
@@ -313,20 +347,19 @@ namespace Lumina
                     Pin->ClearConnections();
                 }
             }
-
-            NodeEditor::DeleteNode(ToDestroy->GetNodeID());
-
-            uint32 ToDestroyIndex = NodeIDToIndex.at(ToDestroy->GetNodeID());
-            auto it = Nodes.erase_unsorted(Nodes.begin() + ToDestroyIndex);
-
-            NodeIDToIndex.erase(ToDestroy->GetNodeID());
             
-            if (it != Nodes.end())
+            uint64 ToDestroyIndex = NodeIDToIndex.at(ToDestroy->GetNodeID());
+            CEdGraphNode* MovedNode = nullptr;
+
+            if (ToDestroyIndex != Nodes.size() - 1)
             {
-                CEdGraphNode* MovedNode = it->Get();
+                MovedNode = Nodes.back().Get();
                 MovedNode->bInitialPosSet = false;
                 NodeIDToIndex[MovedNode->GetNodeID()] = ToDestroyIndex;
             }
+
+            Nodes.erase_unsorted(Nodes.begin() + ToDestroyIndex);
+            NodeIDToIndex.erase(ToDestroy->GetNodeID());
             
             ToDestroy->MarkGarbage();
             ValidateGraph();
@@ -343,7 +376,7 @@ namespace Lumina
         ImGui::SetNextWindowSize(PopupSize, ImGuiCond_Once);
 
         ImGuiTextFilter Filter;
-        Filter.Draw("Node");
+        Filter.Draw();
         
         THashMap<FName, TVector<CClass*>> CategoryMap;
         THashMap<FName, bool> Expanded;

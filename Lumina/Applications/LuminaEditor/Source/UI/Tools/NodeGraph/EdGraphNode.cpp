@@ -4,6 +4,7 @@
 #include "Core/Math/Hash/Hash.h"
 #include "Material/MaterialGraphTypes.h"
 #include "imgui-node-editor/imgui_node_editor.h"
+#include "Tools/UI/ImGui/ImGuiDesignIcons.h"
 
 namespace Lumina
 {
@@ -71,7 +72,14 @@ namespace Lumina
 
     void CEdGraphNode::DrawNodeTitleBar()
     {
-        ImGui::TextUnformatted(GetNodeDisplayName().c_str());
+        if (HasError())
+        {
+            ImGui::TextColored(ImVec4(255.0f, 0.0f, 0.0f, 255.f), LE_ICON_EXCLAMATION_THICK " %s", GetNodeDisplayName().c_str());
+        }
+        else
+        {
+            ImGui::TextUnformatted(GetNodeDisplayName().c_str());
+        }
     }
 
     CEdNodeGraphPin* CEdGraphNode::GetPin(uint16 ID, ENodePinDirection Direction)

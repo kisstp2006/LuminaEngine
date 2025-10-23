@@ -115,7 +115,10 @@ namespace Lumina
         RegisterGraphNode(CMaterialExpression_Max::StaticClass());
         RegisterGraphNode(CMaterialExpression_Step::StaticClass());
         RegisterGraphNode(CMaterialExpression_Lerp::StaticClass());
+        RegisterGraphNode(CMaterialExpression_Clamp::StaticClass());
 
+        RegisterGraphNode(CMaterialExpression_Append::StaticClass());
+        RegisterGraphNode(CMaterialExpression_ComponentMask::StaticClass());
         RegisterGraphNode(CMaterialExpression_VertexNormal::StaticClass());
         RegisterGraphNode(CMaterialExpression_TexCoords::StaticClass());
         RegisterGraphNode(CMaterialNodeGetTime::StaticClass());
@@ -143,7 +146,7 @@ namespace Lumina
         
     }
 
-    void CMaterialNodeGraph::CompileGraph(FMaterialCompiler* Compiler)
+    void CMaterialNodeGraph::CompileGraph(FMaterialCompiler& Compiler)
     {
         LUMINA_PROFILE_SCOPE();
         
@@ -170,7 +173,7 @@ namespace Lumina
             Error.ErrorName = "Cyclic";
             Error.ErrorDescription = "Cycle detected in material node graph! Graph must be acyclic!";
             Error.ErrorNode = static_cast<CMaterialGraphNode*>(CyclicNode);
-            Compiler->AddError(Error);
+            Compiler.AddError(Error);
             return;
         }
 
@@ -191,15 +194,15 @@ namespace Lumina
             }
         }
 
-        Compiler->NewLine();
-        Compiler->NewLine();
+        Compiler.NewLine();
+        Compiler.NewLine();
 
         for (SIZE_T i = 0; i < SortedNodes.size(); ++i)
         {
             CEdGraphNode* Node = SortedNodes[i];
             
             Node->SetDebugExecutionOrder((uint32)i);
-            if (Node == Nodes[0].Get())
+            if (Node->GetClass() == CMaterialOutputNode::StaticClass())
             {
                 continue; 
             }
@@ -211,7 +214,14 @@ namespace Lumina
         // Start off the compilation process using the MaterialOutput node as the kick-off.
         CMaterialGraphNode* MaterialOutputNode = static_cast<CMaterialGraphNode*>(Nodes[0].Get());
         MaterialOutputNode->GenerateDefinition(Compiler);
-        
+
+        for (auto& Error : Compiler.GetErrors())
+        {
+            if (Error.ErrorNode)
+            {
+                Error.ErrorNode->SetError(Error.ErrorName);
+            }
+        }
     }
 
     void CMaterialNodeGraph::ValidateGraph()
@@ -370,7 +380,4 @@ namespace Lumina
     
         return nullptr;
     }
-
-
-
 }

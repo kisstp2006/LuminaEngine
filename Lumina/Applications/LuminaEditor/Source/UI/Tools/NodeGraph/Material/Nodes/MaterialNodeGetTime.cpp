@@ -5,13 +5,13 @@
 
 namespace Lumina
 {
-    uint32 CMaterialNodeGetTime::GenerateExpression(FMaterialCompiler* Compiler)
+    uint32 CMaterialNodeGetTime::GenerateExpression(FMaterialCompiler& Compiler)
     {
         return CMaterialExpression::GenerateExpression(Compiler);
     }
 
-    void CMaterialNodeGetTime::GenerateDefinition(FMaterialCompiler* Compiler)
+    void CMaterialNodeGetTime::GenerateDefinition(FMaterialCompiler& Compiler)
     {
-        Compiler->Time(FullName);
+        Compiler.Time(FullName);
     }
 }

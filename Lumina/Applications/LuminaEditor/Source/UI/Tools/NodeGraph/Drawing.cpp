@@ -360,14 +360,18 @@ void Graph::GraphNodeBuilder::EndHeader()
 void Graph::GraphNodeBuilder::Input(ax::NodeEditor::PinId id)
 {
     if (CurrentStage == Stage::Begin)
+    {
         SetStage(Stage::Content);
+    }
 
     const auto applyPadding = (CurrentStage == Stage::Input);
 
     SetStage(Stage::Input);
 
     if (applyPadding)
+    {
         ImGui::Spring(0);
+    }
 
     Pin(id, ax::NodeEditor::Detail::PinKind::Input);
 
@@ -384,7 +388,9 @@ void Graph::GraphNodeBuilder::EndInput()
 void Graph::GraphNodeBuilder::Middle()
 {
     if (CurrentStage == Stage::Begin)
+    {
         SetStage(Stage::Content);
+    }
 
     SetStage(Stage::Middle);
 }
@@ -392,14 +398,18 @@ void Graph::GraphNodeBuilder::Middle()
 void Graph::GraphNodeBuilder::Output(ax::NodeEditor::PinId id)
 {
     if (CurrentStage == Stage::Begin)
+    {
         SetStage(Stage::Content);
+    }
 
     const auto applyPadding = (CurrentStage == Stage::Output);
 
     SetStage(Stage::Output);
 
     if (applyPadding)
+    {
         ImGui::Spring(0);
+    }
 
     Pin(id, ax::NodeEditor::PinKind::Output);
 
@@ -416,7 +426,9 @@ void Graph::GraphNodeBuilder::EndOutput()
 bool Graph::GraphNodeBuilder::SetStage(Stage stage)
 {
     if (stage == CurrentStage)
+    {
         return false;
+    }
 
     auto oldStage = CurrentStage;
     CurrentStage = stage;
@@ -494,7 +506,9 @@ bool Graph::GraphNodeBuilder::SetStage(Stage stage)
 
         case Stage::Content:
             if (oldStage == Stage::Begin)
+            {
                 ImGui::Spring(0);
+            }
 
             ImGui::BeginHorizontal("content");
             ImGui::Spring(0, 0);
@@ -507,7 +521,9 @@ bool Graph::GraphNodeBuilder::SetStage(Stage stage)
             ed::PushStyleVar(ed::StyleVar_PivotSize, ImVec2(0, 0));
 
             if (!HasHeader)
+            {
                 ImGui::Spring(1, 0);
+            }
             break;
 
         case Stage::Middle:
@@ -517,23 +533,33 @@ bool Graph::GraphNodeBuilder::SetStage(Stage stage)
 
         case Stage::Output:
             if (oldStage == Stage::Middle || oldStage == Stage::Input)
+            {
                 ImGui::Spring(1);
+            }
             else
+            {
                 ImGui::Spring(1, 0);
+            }
             ImGui::BeginVertical("outputs", ImVec2(0, 0), 1.0f);
 
             ed::PushStyleVar(ed::StyleVar_PivotAlignment, ImVec2(1.0f, 0.5f));
             ed::PushStyleVar(ed::StyleVar_PivotSize, ImVec2(0, 0));
 
             if (!HasHeader)
+            {
                 ImGui::Spring(1, 0);
+            }
             break;
 
         case Stage::End:
             if (oldStage == Stage::Input)
+            {
                 ImGui::Spring(1, 0);
+            }
             if (oldStage != Stage::Begin)
+            {
                 ImGui::EndHorizontal();
+            }
             ContentMin = ImGui::GetItemRectMin();
             ContentMax = ImGui::GetItemRectMax();
 

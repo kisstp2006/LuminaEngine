@@ -232,6 +232,7 @@ namespace Lumina
                 if (CompileResult.GetCompilationStatus() != shaderc_compilation_status_success)
                 {
                     LOG_ERROR("Compilation failed: {0} - {1}", Path, CompileResult.GetErrorMessage());
+                    PendingTasks.fetch_sub(1, std::memory_order_acq_rel);
                     continue;
                 }
     

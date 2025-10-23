@@ -48,15 +48,15 @@ namespace Lumina
         A->SetComponentMask(EComponentMask::A);
     }
 
-    uint32 CMaterialExpression_TextureSample::GenerateExpression(FMaterialCompiler* Compiler)
+    uint32 CMaterialExpression_TextureSample::GenerateExpression(FMaterialCompiler& Compiler)
     {
-        Compiler->DefineTextureSample(FullName);
+        Compiler.DefineTextureSample(FullName);
         return 0;
     }
 
-    void CMaterialExpression_TextureSample::GenerateDefinition(FMaterialCompiler* Compiler)
+    void CMaterialExpression_TextureSample::GenerateDefinition(FMaterialCompiler& Compiler)
     {
-        Compiler->TextureSample(FullName, Texture, UV);
+        Compiler.TextureSample(FullName, Texture, UV);
     }
 
     void CMaterialExpression_TextureSample::SetNodeValue(void* Value)

@@ -7,9 +7,13 @@
 #include "Platform/Filesystem/FileHelper.h"
 #include "UI/Tools/NodeGraph/EdGraphNode.h"
 
-
 namespace Lumina
 {
+    FMaterialCompiler::FMaterialCompiler()
+    {
+        ShaderChunks.reserve(2000);
+    }
+
     FString FMaterialCompiler::BuildTree(SIZE_T& StartReplacement, SIZE_T& EndReplacement)
     {
         FString FragmentPath = Paths::GetEngineResourceDirectory() + "/MaterialShader/GeometryPass.frag";
@@ -33,10 +37,217 @@ namespace Lumina
         else
         {
             LOG_ERROR("Missing [$MATERIAL_INPUTS] in base shader!");
+            return FString();
         }
         
         return LoadedString;
     }
+
+    void FMaterialCompiler::ValidateConnections(CMaterialInput* A, CMaterialInput* B)
+    {
+        // Could add type compatibility checking here
+    }
+
+    FString FMaterialCompiler::GetVectorType(EMaterialValueType Type) const
+    {
+        switch (Type)
+        {
+            case EMaterialValueType::Float: return "float";
+            case EMaterialValueType::Float2: return "vec2";
+            case EMaterialValueType::Float3: return "vec3";
+            case EMaterialValueType::Float4: return "vec4";
+            default: return "float";
+        }
+    }
+
+    FString FMaterialCompiler::GetVectorType(int32 ComponentCount) const
+    {
+        switch (ComponentCount)
+        {
+            case 1: return "float";
+            case 2: return "vec2";
+            case 3: return "vec3";
+            case 4: return "vec4";
+            default: return "float";
+        }
+    }
+
+    int32 FMaterialCompiler::GetComponentCount(EComponentMask Mask) const
+    {
+        int32 Count = 0;
+        if (static_cast<uint32>(Mask) & static_cast<uint32>(EComponentMask::R))
+        {
+            Count++;
+        }
+        if (static_cast<uint32>(Mask) & static_cast<uint32>(EComponentMask::G))
+        {
+            Count++;
+        }
+        if (static_cast<uint32>(Mask) & static_cast<uint32>(EComponentMask::B))
+        {
+            Count++;
+        }
+        if (static_cast<uint32>(Mask) & static_cast<uint32>(EComponentMask::A))
+        {
+            Count++;
+        }
+        return Count;
+    }
+
+    int32 FMaterialCompiler::GetComponentCount(EMaterialValueType Type) const
+    {
+        switch (Type)
+        {
+            case EMaterialValueType::Float: return 1;
+            case EMaterialValueType::Float2: return 2;
+            case EMaterialValueType::Float3: return 3;
+            case EMaterialValueType::Float4: return 4;
+            default: return 1;
+        }
+    }
+
+    EMaterialValueType FMaterialCompiler::GetTypeFromComponentCount(int32 Count) const
+    {
+        switch (Count)
+        {
+            case 1: return EMaterialValueType::Float;
+            case 2: return EMaterialValueType::Float2;
+            case 3: return EMaterialValueType::Float3;
+            case 4: return EMaterialValueType::Float4;
+            default: return EMaterialValueType::Float;
+        }
+    }
+
+    void FMaterialCompiler::RegisterNodeOutput(const FString& NodeName, EMaterialValueType Type, EComponentMask Mask)
+    {
+        FNodeOutputInfo Info;
+        Info.Type = Type;
+        Info.Mask = Mask;
+        Info.NodeName = NodeName;
+        NodeOutputs[NodeName] = Info;
+    }
+
+    FMaterialCompiler::FNodeOutputInfo FMaterialCompiler::GetNodeOutputInfo(const FString& NodeName) const
+    {
+        auto It = NodeOutputs.find(NodeName);
+        if (It != NodeOutputs.end())
+        {
+            return It->second;
+        }
+        
+        FNodeOutputInfo DefaultInfo;
+        DefaultInfo.Type = EMaterialValueType::Float4;
+        DefaultInfo.Mask = EComponentMask::RGBA;
+        DefaultInfo.NodeName = NodeName;
+        return DefaultInfo;
+    }
+
+    FMaterialCompiler::FInputValue FMaterialCompiler::GetTypedInputValue(CMaterialInput* Input, float DefaultValue)
+    {
+        return GetTypedInputValue(Input, eastl::to_string(DefaultValue));
+    }
+
+    FMaterialCompiler::FInputValue FMaterialCompiler::GetTypedInputValue(CMaterialInput* Input, const FString& DefaultValueStr)
+    {
+        FInputValue Result;
+        
+        if (Input->HasConnection())
+        {
+            CMaterialOutput* Conn = Input->GetConnection<CMaterialOutput>(0);
+            FString NodeName = Conn->GetOwningNode()->GetNodeFullName();
+            FNodeOutputInfo Info = GetNodeOutputInfo(NodeName);
+            
+            Result.Type = Info.Type;
+            Result.ComponentCount = GetComponentCount(Info.Type);
+            
+            FString Swizzle = GetSwizzleForMask(Conn->GetComponentMask());
+            
+            // If swizzle is applied, determine the resulting type
+            if (!Swizzle.empty())
+            {
+                int32 SwizzleCount = Swizzle.length() - 1; // -1 for the '.' character
+                Result.ComponentCount = SwizzleCount;
+                Result.Type = GetTypeFromComponentCount(SwizzleCount);
+                Result.Value = NodeName + Swizzle;
+            }
+            else
+            {
+                Result.Value = NodeName;
+            }
+        }
+        else
+        {
+            // No connection - use default
+            Result.Type = EMaterialValueType::Float;
+            Result.ComponentCount = 1;
+            Result.Value = DefaultValueStr;
+        }
+        
+        return Result;
+    }
+
+    EMaterialValueType FMaterialCompiler::DetermineResultType(EMaterialValueType A, EMaterialValueType B, bool IsComponentWise)
+    {
+        int32 CountA = GetComponentCount(A);
+        int32 CountB = GetComponentCount(B);
+        
+        if (IsComponentWise)
+        {
+            // For component-wise ops (*, /, etc.), scalar broadcasts to match the other
+            if (CountA == 1)
+            {
+                return B;
+            }
+            if (CountB == 1)
+            {
+                return A;
+            }
+
+            // Both are vectors - they should match or this is an error
+            // For now, return the larger type
+            return CountA >= CountB ? A : B;
+        }
+        else
+        {
+            // For operations like dot product that reduce dimensionality
+            return EMaterialValueType::Float;
+        }
+    }
+
+    void FMaterialCompiler::EmitBinaryOp(const FString& Op, CMaterialInput* A, CMaterialInput* B, float DefaultA, float DefaultB, bool IsComponentWise)
+    {
+        FString OwningNode = A->GetOwningNode()->GetNodeFullName();
+        
+        FInputValue AValue = GetTypedInputValue(A, DefaultA);
+        FInputValue BValue = GetTypedInputValue(B, DefaultB);
+        
+        // Determine result type
+        EMaterialValueType ResultType = DetermineResultType(AValue.Type, BValue.Type, IsComponentWise);
+        FString ResultTypeStr = GetVectorType(ResultType);
+        
+        // Check for invalid operations
+        if (AValue.ComponentCount > 1 && BValue.ComponentCount > 1 && AValue.ComponentCount != BValue.ComponentCount)
+        {
+            FError Error;
+            Error.ErrorNode         = A->GetOwningNode<CMaterialGraphNode>();
+            Error.ErrorName         = "Type Mismatch";
+            Error.ErrorDescription  = "Cannot perform " + Op + " between " + GetVectorType(AValue.Type) + " and " + GetVectorType(BValue.Type);
+            AddError(Error);
+            
+            // Still generate code but with a warning comment
+            ShaderChunks.append("// ERROR: Type mismatch\n");
+        }
+        
+        // Emit the operation
+        ShaderChunks.append(ResultTypeStr + " " + OwningNode + " = " + AValue.Value + " " + Op + " " + BValue.Value + ";\n");
+        
+        // Register the output
+        RegisterNodeOutput(OwningNode, ResultType, EComponentMask::RGBA);
+    }
+
+    // ========================================================================
+    // Parameter Definitions
+    // ========================================================================
 
     void FMaterialCompiler::DefineFloatParameter(const FString& NodeID, const FName& ParamID, float Value)
     {
@@ -48,6 +259,7 @@ namespace Lumina
 
         FString IndexString = eastl::to_string(ScalarParameters[ParamID].Index);
         ShaderChunks.append("float " + NodeID + " = GetMaterialScalar(" + IndexString + ");\n");
+        RegisterNodeOutput(NodeID, EMaterialValueType::Float, EComponentMask::R);
     }
 
     void FMaterialCompiler::DefineFloat2Parameter(const FString& NodeID, const FName& ParamID, float Value[2])
@@ -55,12 +267,12 @@ namespace Lumina
         if (VectorParameters.find(ParamID) == VectorParameters.end())
         {
             VectorParameters[ParamID].Index = NumVectorParams++;
-            VectorParameters[ParamID].Value = glm::vec4(Value[0], Value[1], 1.0f, 1.0f);
+            VectorParameters[ParamID].Value = glm::vec4(Value[0], Value[1], 0.0f, 1.0f);
         }
 
         FString IndexString = eastl::to_string(VectorParameters[ParamID].Index);
-        
-        ShaderChunks.append("vec4 " + NodeID + " = GetMaterialVec4(" + IndexString + ");\n");
+        ShaderChunks.append("vec2 " + NodeID + " = GetMaterialVec4(" + IndexString + ").xy;\n");
+        RegisterNodeOutput(NodeID, EMaterialValueType::Float2, EComponentMask::RG);
     }
 
     void FMaterialCompiler::DefineFloat3Parameter(const FString& NodeID, const FName& ParamID, float Value[3])
@@ -72,7 +284,8 @@ namespace Lumina
         }
         
         FString IndexString = eastl::to_string(VectorParameters[ParamID].Index);
-        ShaderChunks.append("vec4 " + NodeID + " = GetMaterialVec4(" + IndexString + ");\n");
+        ShaderChunks.append("vec3 " + NodeID + " = GetMaterialVec4(" + IndexString + ").xyz;\n");
+        RegisterNodeOutput(NodeID, EMaterialValueType::Float3, EComponentMask::RGB);
     }
 
     void FMaterialCompiler::DefineFloat4Parameter(const FString& NodeID, const FName& ParamID, float Value[4])
@@ -85,22 +298,26 @@ namespace Lumina
         
         FString IndexString = eastl::to_string(VectorParameters[ParamID].Index);
         ShaderChunks.append("vec4 " + NodeID + " = GetMaterialVec4(" + IndexString + ");\n");
+        RegisterNodeOutput(NodeID, EMaterialValueType::Float4, EComponentMask::RGBA);
     }
 
+    // ========================================================================
+    // Constant Definitions
+    // ========================================================================
 
     void FMaterialCompiler::DefineConstantFloat(const FString& ID, float Value)
     {
         FString ValueString = eastl::to_string(Value);
-    
         ShaderChunks.append("float " + ID + " = " + ValueString + ";\n");
+        RegisterNodeOutput(ID, EMaterialValueType::Float, EComponentMask::R);
     }
 
     void FMaterialCompiler::DefineConstantFloat2(const FString& ID, float Value[2])
     {
         FString ValueStringX = eastl::to_string(Value[0]);
         FString ValueStringY = eastl::to_string(Value[1]);
-
-        ShaderChunks.append("vec4 " + ID + " = vec4(" + ValueStringX + ", " + ValueStringY + ", 0.0, 1.0);\n");
+        ShaderChunks.append("vec2 " + ID + " = vec2(" + ValueStringX + ", " + ValueStringY + ");\n");
+        RegisterNodeOutput(ID, EMaterialValueType::Float2, EComponentMask::RG);
     }
 
     void FMaterialCompiler::DefineConstantFloat3(const FString& ID, float Value[3])
@@ -108,8 +325,8 @@ namespace Lumina
         FString ValueStringX = eastl::to_string(Value[0]);
         FString ValueStringY = eastl::to_string(Value[1]);
         FString ValueStringZ = eastl::to_string(Value[2]);
-
-        ShaderChunks.append("vec4 " + ID + " = vec4(" + ValueStringX + ", " + ValueStringY + ", " + ValueStringZ + ", 1.0);\n");
+        ShaderChunks.append("vec3 " + ID + " = vec3(" + ValueStringX + ", " + ValueStringY + ", " + ValueStringZ + ");\n");
+        RegisterNodeOutput(ID, EMaterialValueType::Float3, EComponentMask::RGB);
     }
 
     void FMaterialCompiler::DefineConstantFloat4(const FString& ID, float Value[4])
@@ -118,38 +335,50 @@ namespace Lumina
         FString ValueStringY = eastl::to_string(Value[1]);
         FString ValueStringZ = eastl::to_string(Value[2]);
         FString ValueStringW = eastl::to_string(Value[3]);
-
-        ShaderChunks.append("vec4 " + ID + " = vec4(" + ValueStringX + ", " + ValueStringY + ", " + ValueStringZ + ", " + ValueStringW + ");\n");
+        ShaderChunks.append("vec4 " + ID + " = vec4(" + ValueStringX + ", " + ValueStringY + ", " + 
+                           ValueStringZ + ", " + ValueStringW + ");\n");
+        RegisterNodeOutput(ID, EMaterialValueType::Float4, EComponentMask::RGBA);
     }
+
+    // ========================================================================
+    // Texture Operations
+    // ========================================================================
 
     void FMaterialCompiler::DefineTextureSample(const FString& ID)
     {
-        ShaderChunks.append("layout(set = 1, binding = " + eastl::to_string(BindingIndex) + ") uniform sampler2D " + ID + "_sample;\n");
+        ShaderChunks.append("layout(set = 1, binding = " + eastl::to_string(BindingIndex) + 
+                           ") uniform sampler2D " + ID + "_sample;\n");
         BindingIndex++;
     }
 
     void FMaterialCompiler::TextureSample(const FString& ID, CTexture* Texture, CMaterialInput* Input)
     {
-        if (Texture == nullptr)
-        {
-            return;
-        }
-        if (Texture->RHIImage == nullptr)
+        if (Texture == nullptr || Texture->RHIImage == nullptr)
         {
             return;
         }
 
-        FString UVData = "UV0";
-        if (Input->HasConnection())
+        FInputValue UVValue = GetTypedInputValue(Input, "vec2(UV0)");
+        
+        // Ensure we have vec2 for UVs
+        FString UVStr;
+        if (UVValue.ComponentCount >= 2)
         {
-            CMaterialOutput* AConn = Cast<CMaterialOutput>(Input->GetConnections()[0]);
-            UVData = AConn->GetOwningNode()->GetNodeFullName();
+            UVStr = UVValue.Value + ".xy";
+        }
+        else
+        {
+            UVStr = "vec2(" + UVValue.Value + ")";
         }
         
-        
-        ShaderChunks.append("vec4 " + ID + " = texture(" + ID + "_sample" + ", " + UVData + ".xy);\n");
+        ShaderChunks.append("vec4 " + ID + " = texture(" + ID + "_sample, " + UVStr + ");\n");
+        RegisterNodeOutput(ID, EMaterialValueType::Float4, EComponentMask::RGBA);
         BoundImages.push_back(Texture);
     }
+
+    // ========================================================================
+    // Built-in Inputs
+    // ========================================================================
 
     void FMaterialCompiler::NewLine()
     {
@@ -158,326 +387,78 @@ namespace Lumina
 
     void FMaterialCompiler::VertexNormal(const FString& ID)
     {
-        ShaderChunks.append("vec4 " + ID + " = vec4(WorldNormal.xyz, 1.0);\n");
+        ShaderChunks.append("vec3 " + ID + " = WorldNormal.xyz;\n");
+        RegisterNodeOutput(ID, EMaterialValueType::Float3, EComponentMask::RGB);
     }
 
     void FMaterialCompiler::TexCoords(const FString& ID)
     {
-        ShaderChunks.append("vec4 " + ID + " = vec4(UV0, 1.0, 1.0);\n");
+        ShaderChunks.append("vec2 " + ID + " = UV0;\n");
+        RegisterNodeOutput(ID, EMaterialValueType::Float2, EComponentMask::RG);
     }
 
     void FMaterialCompiler::WorldPos(const FString& ID)
     {
-        ShaderChunks.append("vec4 " + ID + " = vec4(inModelMatrix[3].xyz, 1.0);\n");
+        ShaderChunks.append("vec3 " + ID + " = inModelMatrix[3].xyz;\n");
+        RegisterNodeOutput(ID, EMaterialValueType::Float3, EComponentMask::RGB);
     }
 
     void FMaterialCompiler::CameraPos(const FString& ID)
     {
-        ShaderChunks.append("vec4 " + ID + " = vec4(GetCameraPosition(), 1.0);\n");
+        ShaderChunks.append("vec3 " + ID + " = GetCameraPosition();\n");
+        RegisterNodeOutput(ID, EMaterialValueType::Float3, EComponentMask::RGB);
     }
 
     void FMaterialCompiler::EntityID(const FString& ID)
     {
         ShaderChunks.append("float " + ID + " = float(EntityID);\n");
-    }
-
-    void FMaterialCompiler::Saturate(CMaterialInput* A, CMaterialInput* /*B*/)
-    {
-        FString OwningNode = A->GetOwningNode()->GetNodeFullName();
-
-        FString AValue;
-        if (A->HasConnection())
-        {
-            CMaterialOutput* AConn = Cast<CMaterialOutput>(A->GetConnections()[0]);
-            FString Swizzle = GetSwizzleForMask(AConn->GetComponentMask());
-            AValue = "vec4(" + AConn->GetOwningNode()->GetNodeFullName() + Swizzle + ")";
-        }
-        else
-        {
-            AValue = "vec4(0.0)";
-        }
-
-        ShaderChunks.append("vec4 " + OwningNode + " = clamp(" + AValue + ", 0.0, 1.0);\n");
-    }
-
-    void FMaterialCompiler::Normalize(CMaterialInput* A, CMaterialInput* /*B*/)
-    {
-        FString OwningNode = A->GetOwningNode()->GetNodeFullName();
-
-        FString AValue;
-        if (A->HasConnection())
-        {
-            CMaterialOutput* AConn = Cast<CMaterialOutput>(A->GetConnections()[0]);
-            FString Swizzle = GetSwizzleForMask(AConn->GetComponentMask());
-            AValue = "vec3(" + AConn->GetOwningNode()->GetNodeFullName() + Swizzle + ")";
-        }
-        else
-        {
-            AValue = "vec3(0.0, 0.0, 1.0)";
-        }
-
-        ShaderChunks.append("vec3 " + OwningNode + " = normalize(" + AValue + ");\n");
-    }
-
-    void FMaterialCompiler::Distance(CMaterialInput* A, CMaterialInput* B)
-    {
-        FString OwningNode = A->GetOwningNode()->GetNodeFullName();
-
-        FString AValue, BValue;
-
-        if (A->HasConnection())
-        {
-            CMaterialOutput* AConn = Cast<CMaterialOutput>(A->GetConnections()[0]);
-            FString Swizzle = GetSwizzleForMask(AConn->GetComponentMask());
-            AValue = "vec3(" + AConn->GetOwningNode()->GetNodeFullName() + Swizzle + ")";
-        }
-        else
-        {
-            AValue = "vec3(0.0)";
-        }
-
-        if (B->HasConnection())
-        {
-            CMaterialOutput* BConn = Cast<CMaterialOutput>(B->GetConnections()[0]);
-            FString Swizzle = GetSwizzleForMask(BConn->GetComponentMask());
-            BValue = "vec3(" + BConn->GetOwningNode()->GetNodeFullName() + Swizzle + ")";
-        }
-        else
-        {
-            BValue = "vec3(0.0)";
-        }
-
-        ShaderChunks.append("float " + OwningNode + " = distance(" + AValue + ", " + BValue + ");\n");
-    }
-
-    void FMaterialCompiler::Abs(CMaterialInput* A, CMaterialInput* /*B*/)
-    {
-        FString OwningNode = A->GetOwningNode()->GetNodeFullName();
-
-        FString AValue;
-        if (A->HasConnection())
-        {
-            CMaterialOutput* AConn = Cast<CMaterialOutput>(A->GetConnections()[0]);
-            FString Swizzle = GetSwizzleForMask(AConn->GetComponentMask());
-            AValue = "vec4(" + AConn->GetOwningNode()->GetNodeFullName() + Swizzle + ")";
-        }
-        else
-        {
-            AValue = "vec4(0.0)";
-        }
-
-        ShaderChunks.append("vec4 " + OwningNode + " = abs(" + AValue + ");\n");
-    }
-
-    void FMaterialCompiler::SmoothStep(CMaterialInput* A, CMaterialInput* B, CMaterialInput* C)
-    {
-        FString OwningNode = A->GetOwningNode()->GetNodeFullName();
-        CMaterialExpression_SmoothStep* Node = A->GetOwningNode<CMaterialExpression_SmoothStep>();
-
-        FString AValue, BValue, CValue;
-
-        // Edge0
-        if (A->HasConnection())
-        {
-            CMaterialOutput* AConn = Cast<CMaterialOutput>(A->GetConnections()[0]);
-            FString Swizzle = GetSwizzleForMask(AConn->GetComponentMask());
-            AValue = "vec4(" + AConn->GetOwningNode()->GetNodeFullName() + Swizzle + ")";
-        }
-        else
-        {
-            FString ConstAString = eastl::to_string(Node->ConstA);
-            AValue = "vec4(" + ConstAString + ")";
-        }
-
-        // Edge1
-        if (B->HasConnection())
-        {
-            CMaterialOutput* BConn = Cast<CMaterialOutput>(B->GetConnections()[0]);
-            FString Swizzle = GetSwizzleForMask(BConn->GetComponentMask());
-            BValue = "vec4(" + BConn->GetOwningNode()->GetNodeFullName() + Swizzle + ")";
-        }
-        else
-        {
-            FString ConstBString = eastl::to_string(Node->ConstB);
-            BValue = "vec4(" + ConstBString + ")";
-        }
-
-        // Handle C input
-        if (C->HasConnection())
-        {
-            CMaterialOutput* CConn = Cast<CMaterialOutput>(C->GetConnections()[0]);
-            FString Swizzle = GetSwizzleForMask(CConn->GetComponentMask());
-            CValue = "vec4(" + CConn->GetOwningNode()->GetNodeFullName() + Swizzle + ")";
-        }
-        else
-        {
-            FString ConstCString = eastl::to_string(Node->X);
-            CValue = "vec4(" + ConstCString + ")";
-        }
-
-        ShaderChunks.append("vec4 " + OwningNode + " = smoothstep(" + AValue + ", " + BValue + ", " + CValue + ");\n");
+        RegisterNodeOutput(ID, EMaterialValueType::Float, EComponentMask::R);
     }
 
     void FMaterialCompiler::Time(const FString& ID)
     {
-        ShaderChunks.append("vec4 " + ID + " = vec4(GetTime());\n");
+        ShaderChunks.append("float " + ID + " = GetTime();\n");
+        RegisterNodeOutput(ID, EMaterialValueType::Float, EComponentMask::R);
     }
+
+    // ========================================================================
+    // Math Operations
+    // ========================================================================
 
     void FMaterialCompiler::Multiply(CMaterialInput* A, CMaterialInput* B)
     {
-        FString OwningNode = A->GetOwningNode()->GetNodeFullName();
         CMaterialExpression_Multiplication* Node = A->GetOwningNode<CMaterialExpression_Multiplication>();
-
-        FString AValue, BValue;
-
-        if (A->HasConnection())
-        {
-            CMaterialOutput* AConn = Cast<CMaterialOutput>(A->GetConnections()[0]);
-            FString Swizzle = GetSwizzleForMask(AConn->GetComponentMask());
-            AValue = "vec4(" + AConn->GetOwningNode()->GetNodeFullName() + Swizzle + ")";
-        }
-        else
-        {
-            FString ConstAString = eastl::to_string(Node->ConstA);
-            AValue = "vec4(" + ConstAString + ")";
-        }
-
-        if (B->HasConnection())
-        {
-            CMaterialOutput* BConn = Cast<CMaterialOutput>(B->GetConnections()[0]);
-            FString Swizzle = GetSwizzleForMask(BConn->GetComponentMask());
-            BValue = "vec4(" + BConn->GetOwningNode()->GetNodeFullName() + Swizzle + ")";
-        }
-        else
-        {
-            FString ConstBString = eastl::to_string(Node->ConstB);
-            BValue = "vec4(" + ConstBString + ")";
-        }
-
-        FString ResultType = "vec4";
-
-        ShaderChunks.append(ResultType + " " + OwningNode + " = " + AValue + " * " + BValue + ";\n");
+        EmitBinaryOp("*", A, B, Node->ConstA, Node->ConstB, true);
     }
-
 
     void FMaterialCompiler::Divide(CMaterialInput* A, CMaterialInput* B)
     {
-        FString OwningNode = A->GetOwningNode()->GetNodeFullName();
         CMaterialExpression_Division* Node = A->GetOwningNode<CMaterialExpression_Division>();
-
-        FString AValue, BValue;
-
-        if (A->HasConnection())
-        {
-            CMaterialOutput* AConn = Cast<CMaterialOutput>(A->GetConnections()[0]);
-            FString Swizzle = GetSwizzleForMask(AConn->GetComponentMask());
-            AValue = "vec4(" + AConn->GetOwningNode()->GetNodeFullName() + Swizzle + ")";
-        }
-        else
-        {
-            AValue = "vec4(" + eastl::to_string(Node->ConstA) + ")";
-        }
-
-        if (B->HasConnection())
-        {
-            CMaterialOutput* BConn = Cast<CMaterialOutput>(B->GetConnections()[0]);
-            FString Swizzle = GetSwizzleForMask(BConn->GetComponentMask());
-            BValue = "vec4(" + BConn->GetOwningNode()->GetNodeFullName() + Swizzle + ")";
-        }
-        else
-        {
-            BValue = "vec4(" + eastl::to_string(Node->ConstB) + ")";
-        }
-
-        ShaderChunks.append("vec4 " + OwningNode + " = " + AValue + " / " + BValue + ";\n");
+        EmitBinaryOp("/", A, B, Node->ConstA, Node->ConstB, true);
     }
-
 
     void FMaterialCompiler::Add(CMaterialInput* A, CMaterialInput* B)
     {
-        FString OwningNode = A->GetOwningNode()->GetNodeFullName();
         CMaterialExpression_Addition* Node = A->GetOwningNode<CMaterialExpression_Addition>();
-
-        FString AValue, BValue;
-
-        if (A->HasConnection())
-        {
-            CMaterialOutput* AConn = Cast<CMaterialOutput>(A->GetConnections()[0]);
-            FString Swizzle = GetSwizzleForMask(AConn->GetComponentMask());
-            AValue = "vec4(" + AConn->GetOwningNode()->GetNodeFullName() + Swizzle + ")";
-        }
-        else
-        {
-            AValue = "vec4(" + eastl::to_string(Node->ConstA) + ")";
-        }
-
-        if (B->HasConnection())
-        {
-            CMaterialOutput* BConn = Cast<CMaterialOutput>(B->GetConnections()[0]);
-            FString Swizzle = GetSwizzleForMask(BConn->GetComponentMask());
-            BValue = "vec4(" + BConn->GetOwningNode()->GetNodeFullName() + Swizzle + ")";
-        }
-        else
-        {
-            BValue = "vec4(" + eastl::to_string(Node->ConstB) + ")";
-        }
-
-        ShaderChunks.append("vec4 " + OwningNode + " = " + AValue + " + " + BValue + ";\n");
+        EmitBinaryOp("+", A, B, Node->ConstA, Node->ConstB, true);
     }
-
-
 
     void FMaterialCompiler::Subtract(CMaterialInput* A, CMaterialInput* B)
     {
-        FString OwningNode = A->GetOwningNode()->GetNodeFullName();
         CMaterialExpression_Subtraction* Node = A->GetOwningNode<CMaterialExpression_Subtraction>();
-
-        FString AValue, BValue;
-
-        if (A->HasConnection())
-        {
-            CMaterialOutput* AConn = Cast<CMaterialOutput>(A->GetConnections()[0]);
-            FString Swizzle = GetSwizzleForMask(AConn->GetComponentMask());
-            AValue = "vec4(" + AConn->GetOwningNode()->GetNodeFullName() + Swizzle + ")";
-        }
-        else
-        {
-            AValue = "vec4(" + eastl::to_string(Node->ConstA) + ")";
-        }
-
-        if (B->HasConnection())
-        {
-            CMaterialOutput* BConn = Cast<CMaterialOutput>(B->GetConnections()[0]);
-            FString Swizzle = GetSwizzleForMask(BConn->GetComponentMask());
-            BValue = "vec4(" + BConn->GetOwningNode()->GetNodeFullName() + Swizzle + ")";
-        }
-        else
-        {
-            BValue = "vec4(" + eastl::to_string(Node->ConstB) + ")";
-        }
-
-        ShaderChunks.append("vec4 " + OwningNode + " = " + AValue + " - " + BValue + ";\n");
+        EmitBinaryOp("-", A, B, Node->ConstA, Node->ConstB, true);
     }
-    
+
     void FMaterialCompiler::Sin(CMaterialInput* A, CMaterialInput* B)
     {
         FString OwningNode = A->GetOwningNode()->GetNodeFullName();
         CMaterialExpression_Sin* Node = A->GetOwningNode<CMaterialExpression_Sin>();
 
-        FString AValue;
-        if (A->HasConnection())
-        {
-            CMaterialOutput* AConn = Cast<CMaterialOutput>(A->GetConnections()[0]);
-            FString Swizzle = GetSwizzleForMask(AConn->GetComponentMask());
-            AValue = "vec4(" + AConn->GetOwningNode()->GetNodeFullName() + Swizzle + ")";
-        }
-        else
-        {
-            FString ConstAString = eastl::to_string(Node->ConstA);
-            AValue = "vec4(" + ConstAString + ")";
-        }
+        FInputValue AValue = GetTypedInputValue(A, Node->ConstA);
+        FString TypeStr = GetVectorType(AValue.Type);
 
-        ShaderChunks.append("vec4 " + OwningNode + " = sin(" + AValue + ");\n");
+        ShaderChunks.append(TypeStr + " " + OwningNode + " = sin(" + AValue.Value + ");\n");
+        RegisterNodeOutput(OwningNode, AValue.Type, EComponentMask::RGBA);
     }
 
     void FMaterialCompiler::Cos(CMaterialInput* A, CMaterialInput* B)
@@ -485,20 +466,11 @@ namespace Lumina
         FString OwningNode = A->GetOwningNode()->GetNodeFullName();
         CMaterialExpression_Cosin* Node = A->GetOwningNode<CMaterialExpression_Cosin>();
 
-        FString AValue;
-        if (A->HasConnection())
-        {
-            CMaterialOutput* AConn = Cast<CMaterialOutput>(A->GetConnections()[0]);
-            FString Swizzle = GetSwizzleForMask(AConn->GetComponentMask());
-            AValue = "vec4(" + AConn->GetOwningNode()->GetNodeFullName() + Swizzle + ")";
-        }
-        else
-        {
-            FString ConstAString = eastl::to_string(Node->ConstA);
-            AValue = "vec4(" + ConstAString + ")";
-        }
+        FInputValue AValue = GetTypedInputValue(A, Node->ConstA);
+        FString TypeStr = GetVectorType(AValue.Type);
 
-        ShaderChunks.append("vec4 " + OwningNode + " = cos(" + AValue + ");");
+        ShaderChunks.append(TypeStr + " " + OwningNode + " = cos(" + AValue.Value + ");\n");
+        RegisterNodeOutput(OwningNode, AValue.Type, EComponentMask::RGBA);
     }
 
     void FMaterialCompiler::Floor(CMaterialInput* A, CMaterialInput* B)
@@ -506,20 +478,11 @@ namespace Lumina
         FString OwningNode = A->GetOwningNode()->GetNodeFullName();
         CMaterialExpression_Floor* Node = A->GetOwningNode<CMaterialExpression_Floor>();
 
-        FString AValue;
-        if (A->HasConnection())
-        {
-            CMaterialOutput* AConn = Cast<CMaterialOutput>(A->GetConnections()[0]);
-            FString Swizzle = GetSwizzleForMask(AConn->GetComponentMask());
-            AValue = "vec4(" + AConn->GetOwningNode()->GetNodeFullName() + Swizzle + ")";
-        }
-        else
-        {
-            FString ConstAString = eastl::to_string(Node->ConstA);
-            AValue = "vec4(" + ConstAString + ")";
-        }
+        FInputValue AValue = GetTypedInputValue(A, Node->ConstA);
+        FString TypeStr = GetVectorType(AValue.Type);
 
-        ShaderChunks.append("vec4 " + OwningNode + " = floor(" + AValue + ");\n");
+        ShaderChunks.append(TypeStr + " " + OwningNode + " = floor(" + AValue.Value + ");\n");
+        RegisterNodeOutput(OwningNode, AValue.Type, EComponentMask::RGBA);
     }
 
     void FMaterialCompiler::Ceil(CMaterialInput* A, CMaterialInput* B)
@@ -527,171 +490,126 @@ namespace Lumina
         FString OwningNode = A->GetOwningNode()->GetNodeFullName();
         CMaterialExpression_Ceil* Node = A->GetOwningNode<CMaterialExpression_Ceil>();
 
-        FString AValue;
-        if (A->HasConnection())
-        {
-            CMaterialOutput* AConn = Cast<CMaterialOutput>(A->GetConnections()[0]);
-            FString Swizzle = GetSwizzleForMask(AConn->GetComponentMask());
-            AValue = "vec4(" + AConn->GetOwningNode()->GetNodeFullName() + Swizzle + ")";
-        }
-        else
-        {
-            FString ConstAString = eastl::to_string(Node->ConstA);
-            AValue = "vec4(" + ConstAString + ")";
-        }
+        FInputValue AValue = GetTypedInputValue(A, Node->ConstA);
+        FString TypeStr = GetVectorType(AValue.Type);
 
-        ShaderChunks.append("vec4 " + OwningNode + " = ceil(" + AValue + ");\n");
+        ShaderChunks.append(TypeStr + " " + OwningNode + " = ceil(" + AValue.Value + ");\n");
+        RegisterNodeOutput(OwningNode, AValue.Type, EComponentMask::RGBA);
     }
 
     void FMaterialCompiler::Power(CMaterialInput* A, CMaterialInput* B)
     {
-        FString OwningNode = A->GetOwningNode()->GetNodeFullName();
         CMaterialExpression_Power* Node = A->GetOwningNode<CMaterialExpression_Power>();
+        
+        FString OwningNode = A->GetOwningNode()->GetNodeFullName();
+        FInputValue AValue = GetTypedInputValue(A, Node->ConstA);
+        FInputValue BValue = GetTypedInputValue(B, Node->ConstB);
+        
+        EMaterialValueType ResultType = DetermineResultType(AValue.Type, BValue.Type, true);
+        FString TypeStr = GetVectorType(ResultType);
 
-        FString AValue, BValue;
-        if (A->HasConnection())
+        // Check for invalid operations
+        if (AValue.ComponentCount > 1 && BValue.ComponentCount > 1 && AValue.ComponentCount != BValue.ComponentCount)
         {
-            CMaterialOutput* AConn = Cast<CMaterialOutput>(A->GetConnections()[0]);
-            FString Swizzle = GetSwizzleForMask(AConn->GetComponentMask());
-            AValue = "vec4(" + AConn->GetOwningNode()->GetNodeFullName() + Swizzle + ")";
-        }
-        else
-        {
-            FString ConstAString = eastl::to_string(Node->ConstA);
-            AValue = "vec4(" + ConstAString + ")";
-        }
-
-        if (B->HasConnection())
-        {
-            CMaterialOutput* BConn = Cast<CMaterialOutput>(B->GetConnections()[0]);
-            FString Swizzle = GetSwizzleForMask(BConn->GetComponentMask());
-            BValue = "vec4(" + BConn->GetOwningNode()->GetNodeFullName() + Swizzle + ")";
-        }
-        else
-        {
-            FString ConstBString = eastl::to_string(Node->ConstB);
-            BValue = "vec4(" + ConstBString + ")";
+            FError Error;
+            Error.ErrorNode         = A->GetOwningNode<CMaterialGraphNode>();
+            Error.ErrorName         = "Type Mismatch";
+            Error.ErrorDescription  = "Cannot perform Power between " + GetVectorType(AValue.Type) + " and " + GetVectorType(BValue.Type);
+            AddError(Error);
+            
+            ShaderChunks.append("// ERROR: Type mismatch\n");
         }
 
-        ShaderChunks.append("vec4 " + OwningNode + " = pow(" + AValue + ", " + BValue + ");\n");
+        ShaderChunks.append(TypeStr + " " + OwningNode + " = pow(" + AValue.Value + ", " + BValue.Value + ");\n");
+        RegisterNodeOutput(OwningNode, ResultType, EComponentMask::RGBA);
     }
 
     void FMaterialCompiler::Mod(CMaterialInput* A, CMaterialInput* B)
     {
-        FString OwningNode = A->GetOwningNode()->GetNodeFullName();
         CMaterialExpression_Mod* Node = A->GetOwningNode<CMaterialExpression_Mod>();
 
-        FString AValue, BValue;
-        if (A->HasConnection())
-        {
-            CMaterialOutput* AConn = Cast<CMaterialOutput>(A->GetConnections()[0]);
-            FString Swizzle = GetSwizzleForMask(AConn->GetComponentMask());
-            AValue = "vec4(" + AConn->GetOwningNode()->GetNodeFullName() + Swizzle + ")";
-        }
-        else
-        {
-            FString ConstAString = eastl::to_string(Node->ConstA);
-            AValue = "vec4(" + ConstAString + ")";
-        }
-
-        if (B->HasConnection())
-        {
-            CMaterialOutput* BConn = Cast<CMaterialOutput>(B->GetConnections()[0]);
-            FString Swizzle = GetSwizzleForMask(BConn->GetComponentMask());
-            BValue = "vec4(" + BConn->GetOwningNode()->GetNodeFullName() + Swizzle + ")";
-        }
-        else
-        {
-            FString ConstBString = eastl::to_string(Node->ConstB);
-            BValue = "vec4(" + ConstBString + ")";
-        }
-
-        ShaderChunks.append("vec4 " + OwningNode + " = mod(" + AValue + ", " + BValue + ");\n");
+        //...
     }
 
     void FMaterialCompiler::Min(CMaterialInput* A, CMaterialInput* B)
     {
-        FString OwningNode = A->GetOwningNode()->GetNodeFullName();
         CMaterialExpression_Min* Node = A->GetOwningNode<CMaterialExpression_Min>();
-        FString ConstAString = eastl::to_string(Node->ConstA);
-        FString ConstBString = eastl::to_string(Node->ConstB);
+        
+        FString OwningNode = A->GetOwningNode()->GetNodeFullName();
+        FInputValue AValue = GetTypedInputValue(A, Node->ConstA);
+        FInputValue BValue = GetTypedInputValue(B, Node->ConstB);
+        
+        EMaterialValueType ResultType = DetermineResultType(AValue.Type, BValue.Type, true);
+        FString TypeStr = GetVectorType(ResultType);
 
-        FString AValue = "vec4(" + ConstAString + ")";
-        FString BValue = "vec4(" + ConstBString + ")";
+        // Check for invalid operations
+        if (AValue.ComponentCount > 1 && BValue.ComponentCount > 1 && AValue.ComponentCount != BValue.ComponentCount)
+        {
+            FError Error;
+            Error.ErrorNode         = A->GetOwningNode<CMaterialGraphNode>();
+            Error.ErrorName         = "Type Mismatch";
+            Error.ErrorDescription  = "Cannot perform Power between " + GetVectorType(AValue.Type) + " and " + GetVectorType(BValue.Type);
+            AddError(Error);
+            
+            ShaderChunks.append("// ERROR: Type mismatch\n");
+        }
 
-        if (A->HasConnection())
-            AValue = A->GetConnections()[0]->GetOwningNode()->GetNodeFullName();
-
-        if (B->HasConnection())
-            BValue = B->GetConnections()[0]->GetOwningNode()->GetNodeFullName();
-
-        ShaderChunks.append("vec4 " + OwningNode + " = min(" + AValue + ", " + BValue + ");\n");
+        ShaderChunks.append(TypeStr + " " + OwningNode + " = min(" + AValue.Value + ", " + BValue.Value + ");\n");
+        RegisterNodeOutput(OwningNode, ResultType, EComponentMask::RGBA);
     }
 
     void FMaterialCompiler::Max(CMaterialInput* A, CMaterialInput* B)
     {
-        FString OwningNode = A->GetOwningNode()->GetNodeFullName();
         CMaterialExpression_Max* Node = A->GetOwningNode<CMaterialExpression_Max>();
+        
+        FString OwningNode = A->GetOwningNode()->GetNodeFullName();
+        FInputValue AValue = GetTypedInputValue(A, Node->ConstA);
+        FInputValue BValue = GetTypedInputValue(B, Node->ConstB);
+        
+        EMaterialValueType ResultType = DetermineResultType(AValue.Type, BValue.Type, true);
+        FString TypeStr = GetVectorType(ResultType);
 
-        FString AValue, BValue;
-        if (A->HasConnection())
+        // Check for invalid operations
+        if (AValue.ComponentCount > 1 && BValue.ComponentCount > 1 && AValue.ComponentCount != BValue.ComponentCount)
         {
-            CMaterialOutput* AConn = Cast<CMaterialOutput>(A->GetConnections()[0]);
-            FString Swizzle = GetSwizzleForMask(AConn->GetComponentMask());
-            AValue = "vec4(" + AConn->GetOwningNode()->GetNodeFullName() + Swizzle + ")";
-        }
-        else
-        {
-            FString ConstAString = eastl::to_string(Node->ConstA);
-            AValue = "vec4(" + ConstAString + ")";
-        }
-
-        if (B->HasConnection())
-        {
-            CMaterialOutput* BConn = Cast<CMaterialOutput>(B->GetConnections()[0]);
-            FString Swizzle = GetSwizzleForMask(BConn->GetComponentMask());
-            BValue = "vec4(" + BConn->GetOwningNode()->GetNodeFullName() + Swizzle + ")";
-        }
-        else
-        {
-            FString ConstBString = eastl::to_string(Node->ConstB);
-            BValue = "vec4(" + ConstBString + ")";
+            FError Error;
+            Error.ErrorNode         = A->GetOwningNode<CMaterialGraphNode>();
+            Error.ErrorName         = "Type Mismatch";
+            Error.ErrorDescription  = "Cannot perform Power between " + GetVectorType(AValue.Type) + " and " + GetVectorType(BValue.Type);
+            AddError(Error);
+            
+            ShaderChunks.append("// ERROR: Type mismatch\n");
         }
 
-        ShaderChunks.append("vec4 " + OwningNode + " = max(" + AValue + ", " + BValue + ");\n");
+        ShaderChunks.append(TypeStr + " " + OwningNode + " = max(" + AValue.Value + ", " + BValue.Value + ");\n");
+        RegisterNodeOutput(OwningNode, ResultType, EComponentMask::RGBA);
     }
 
     void FMaterialCompiler::Step(CMaterialInput* A, CMaterialInput* B)
     {
-        FString OwningNode = A->GetOwningNode()->GetNodeFullName();
         CMaterialExpression_Step* Node = A->GetOwningNode<CMaterialExpression_Step>();
+        
+        FString OwningNode = A->GetOwningNode()->GetNodeFullName();
+        FInputValue AValue = GetTypedInputValue(A, Node->ConstA);
+        FInputValue BValue = GetTypedInputValue(B, Node->ConstB);
+        
+        EMaterialValueType ResultType = DetermineResultType(AValue.Type, BValue.Type, true);
+        FString TypeStr = GetVectorType(ResultType);
 
-        FString AValue, BValue;
-        if (A->HasConnection())
+        // Check for invalid operations
+        if (AValue.ComponentCount > 1 && BValue.ComponentCount > 1 && AValue.ComponentCount != BValue.ComponentCount)
         {
-            CMaterialOutput* AConn = Cast<CMaterialOutput>(A->GetConnections()[0]);
-            FString Swizzle = GetSwizzleForMask(AConn->GetComponentMask());
-            AValue = "vec4(" + AConn->GetOwningNode()->GetNodeFullName() + Swizzle + ")";
-        }
-        else
-        {
-            FString ConstAString = eastl::to_string(Node->ConstA); // edge
-            AValue = "vec4(" + ConstAString + ")";
-        }
-
-        if (B->HasConnection())
-        {
-            CMaterialOutput* BConn = Cast<CMaterialOutput>(B->GetConnections()[0]);
-            FString Swizzle = GetSwizzleForMask(BConn->GetComponentMask());
-            BValue = "vec4(" + BConn->GetOwningNode()->GetNodeFullName() + Swizzle + ")";
-        }
-        else
-        {
-            FString ConstBString = eastl::to_string(Node->ConstB); // input
-            BValue = "vec4(" + ConstBString + ")";
+            FError Error;
+            Error.ErrorNode         = A->GetOwningNode<CMaterialGraphNode>();
+            Error.ErrorName         = "Type Mismatch";
+            Error.ErrorDescription  = "Cannot perform Power between " + GetVectorType(AValue.Type) + " and " + GetVectorType(BValue.Type);
+            AddError(Error);
+            
+            ShaderChunks.append("// ERROR: Type mismatch\n");
         }
 
-        ShaderChunks.append("vec4 " + OwningNode + " = step(" + AValue + ", " + BValue + ");\n");
+        ShaderChunks.append(TypeStr + " " + OwningNode + " = step(" + AValue.Value + ", " + BValue.Value + ");\n");
+        RegisterNodeOutput(OwningNode, ResultType, EComponentMask::RGBA);
     }
 
     void FMaterialCompiler::Lerp(CMaterialInput* A, CMaterialInput* B, CMaterialInput* C)
@@ -699,48 +617,171 @@ namespace Lumina
         FString OwningNode = A->GetOwningNode()->GetNodeFullName();
         CMaterialExpression_Lerp* Node = A->GetOwningNode<CMaterialExpression_Lerp>();
 
-        FString AValue, BValue, CValue;
+        FInputValue AValue = GetTypedInputValue(A, Node->ConstA);
+        FInputValue BValue = GetTypedInputValue(B, Node->ConstB);
+        FInputValue CValue = GetTypedInputValue(C, Node->Alpha);
+        
+        // Result type is determined by A and B (should match)
+        EMaterialValueType ResultType = DetermineResultType(AValue.Type, BValue.Type, true);
+        FString TypeStr = GetVectorType(ResultType);
 
-        // Handle A input
-        if (A->HasConnection())
+        // Check for invalid operations
+        if (AValue.ComponentCount > 1 && BValue.ComponentCount > 1 && AValue.ComponentCount != BValue.ComponentCount)
         {
-            CMaterialOutput* AConn = Cast<CMaterialOutput>(A->GetConnections()[0]);
-            FString Swizzle = GetSwizzleForMask(AConn->GetComponentMask());
-            AValue = "vec4(" + AConn->GetOwningNode()->GetNodeFullName() + Swizzle + ")";
-        }
-        else
-        {
-            FString ConstAString = eastl::to_string(Node->ConstA);
-            AValue = "vec4(" + ConstAString + ")";
-        }
-
-        // Handle B input
-        if (B->HasConnection())
-        {
-            CMaterialOutput* BConn = Cast<CMaterialOutput>(B->GetConnections()[0]);
-            FString Swizzle = GetSwizzleForMask(BConn->GetComponentMask());
-            BValue = "vec4(" + BConn->GetOwningNode()->GetNodeFullName() + Swizzle + ")";
-        }
-        else
-        {
-            FString ConstBString = eastl::to_string(Node->ConstB);
-            BValue = "vec4(" + ConstBString + ")";
+            FError Error;
+            Error.ErrorNode         = A->GetOwningNode<CMaterialGraphNode>();
+            Error.ErrorName         = "Type Mismatch";
+            Error.ErrorDescription  = "Cannot perform Power between " + GetVectorType(AValue.Type) + " and " + GetVectorType(BValue.Type);
+            AddError(Error);
+            
+            ShaderChunks.append("// ERROR: Type mismatch\n");
         }
 
-        // Handle C input
-        if (C->HasConnection())
+        ShaderChunks.append(TypeStr + " " + OwningNode + " = mix(" + AValue.Value + ", " + BValue.Value + ", " + CValue.Value + ");\n");
+        RegisterNodeOutput(OwningNode, ResultType, EComponentMask::RGBA);
+    }
+
+    void FMaterialCompiler::Clamp(CMaterialInput* A, CMaterialInput* B, CMaterialInput* C)
+    {
+        FString OwningNode = A->GetOwningNode()->GetNodeFullName();
+        CMaterialExpression_Clamp* Node = A->GetOwningNode<CMaterialExpression_Clamp>();
+
+        FInputValue XValue = GetTypedInputValue(C, "1.0f");
+        FInputValue AValue = GetTypedInputValue(A, Node->ConstA);
+        FInputValue BValue = GetTypedInputValue(B, Node->ConstB);
+        
+        EMaterialValueType ResultType = DetermineResultType(AValue.Type, BValue.Type, true);
+        ResultType = DetermineResultType(ResultType, XValue.Type, true);
+        FString TypeStr = GetVectorType(ResultType);
+
+        // Check for invalid operations
+        if (AValue.ComponentCount > 1 && BValue.ComponentCount > 1 && XValue.ComponentCount > 1 && AValue.ComponentCount != BValue.ComponentCount != XValue.ComponentCount)
         {
-            CMaterialOutput* CConn = Cast<CMaterialOutput>(C->GetConnections()[0]);
-            FString Swizzle = GetSwizzleForMask(CConn->GetComponentMask());
-            CValue = "vec4(" + CConn->GetOwningNode()->GetNodeFullName() + Swizzle + ")";
-        }
-        else
-        {
-            FString ConstCString = eastl::to_string(Node->Alpha);
-            CValue = "vec4(" + ConstCString + ")";
+            FError Error;
+            Error.ErrorNode         = A->GetOwningNode<CMaterialGraphNode>();
+            Error.ErrorName         = "Type Mismatch";
+            Error.ErrorDescription  = "Cannot perform clamp between " + GetVectorType(XValue.Type) + ", " + GetVectorType(AValue.Type) + " and " + GetVectorType(BValue.Type);
+            AddError(Error);
+            
+            ShaderChunks.append("// ERROR: Type mismatch\n");
         }
 
-        ShaderChunks.append("vec4 " + OwningNode + " = mix(" + AValue + ", " + BValue + ", " + CValue + ");\n");
+        ShaderChunks.append(TypeStr + " " + OwningNode + " = clamp(" + XValue.Value + ", " + AValue.Value + ", " + BValue.Value + ");\n");
+        RegisterNodeOutput(OwningNode, ResultType, EComponentMask::RGBA);
+    }
+
+    void FMaterialCompiler::SmoothStep(CMaterialInput* A, CMaterialInput* B, CMaterialInput* C)
+    {
+        FString OwningNode = A->GetOwningNode()->GetNodeFullName();
+        CMaterialExpression_SmoothStep* Node = A->GetOwningNode<CMaterialExpression_SmoothStep>();
+
+        FInputValue AValue = GetTypedInputValue(A, Node->ConstA);
+        FInputValue BValue = GetTypedInputValue(B, Node->ConstB);
+        FInputValue CValue = GetTypedInputValue(C, Node->X);
+        
+        EMaterialValueType ResultType = DetermineResultType(AValue.Type, BValue.Type, true);
+        ResultType = DetermineResultType(ResultType, CValue.Type, true);
+        FString TypeStr = GetVectorType(ResultType);
+
+        // Check for invalid operations
+        if (AValue.ComponentCount > 1 && BValue.ComponentCount > 1 && AValue.ComponentCount != BValue.ComponentCount)
+        {
+            FError Error;
+            Error.ErrorNode         = A->GetOwningNode<CMaterialGraphNode>();
+            Error.ErrorName         = "Type Mismatch";
+            Error.ErrorDescription  = "Cannot perform smoothstep between " + GetVectorType(AValue.Type) + " and " + GetVectorType(BValue.Type);
+            AddError(Error);
+            
+            ShaderChunks.append("// ERROR: Type mismatch\n");
+        }
+
+        ShaderChunks.append(TypeStr + " " + OwningNode + " = smoothstep(" + AValue.Value + ", " + BValue.Value + ", " + CValue.Value + ");\n");
+        RegisterNodeOutput(OwningNode, ResultType, EComponentMask::RGBA);
+    }
+
+    // ========================================================================
+    // Vector Operations
+    // ========================================================================
+
+    void FMaterialCompiler::Saturate(CMaterialInput* A, CMaterialInput* /*B*/)
+    {
+        FString OwningNode = A->GetOwningNode()->GetNodeFullName();
+
+        FInputValue AValue = GetTypedInputValue(A, "0.0");
+        FString TypeStr = GetVectorType(AValue.Type);
+
+        ShaderChunks.append(TypeStr + " " + OwningNode + " = clamp(" + AValue.Value + ", " + TypeStr + "(0.0), " + TypeStr + "(1.0));\n");
+        RegisterNodeOutput(OwningNode, AValue.Type, EComponentMask::RGBA);
+    }
+
+    void FMaterialCompiler::Normalize(CMaterialInput* A, CMaterialInput* /*B*/)
+    {
+        FString OwningNode = A->GetOwningNode()->GetNodeFullName();
+
+        FInputValue AValue = GetTypedInputValue(A, "vec3(0.0, 0.0, 1.0)");
+        
+        // Normalize requires at least vec2
+        if (AValue.ComponentCount < 2)
+        {
+            FError Error;
+            Error.ErrorName = "Invalid Type";
+            Error.ErrorDescription = "Normalize requires at least a vec2 input";
+            Error.ErrorNode = A->GetOwningNode<CMaterialGraphNode>();
+            AddError(Error);
+            
+            // Default to vec3
+            AValue.Value = "vec3(0.0, 0.0, 1.0)";
+            AValue.Type = EMaterialValueType::Float3;
+            AValue.ComponentCount = 3;
+        }
+        
+        FString TypeStr = GetVectorType(AValue.Type);
+        ShaderChunks.append(TypeStr + " " + OwningNode + " = normalize(" + AValue.Value + ");\n");
+        RegisterNodeOutput(OwningNode, AValue.Type, EComponentMask::RGBA);
+    }
+
+    void FMaterialCompiler::Distance(CMaterialInput* A, CMaterialInput* B)
+    {
+        FString OwningNode = A->GetOwningNode()->GetNodeFullName();
+
+        FInputValue AValue = GetTypedInputValue(A, "0.0");
+        FInputValue BValue = GetTypedInputValue(B, "0.0");
+        
+        // Distance requires vectors of same dimension
+        if (AValue.ComponentCount < 2)
+        {
+            AValue.Value = "vec3(" + AValue.Value + ")";
+            AValue.ComponentCount = 3;
+        }
+        
+        if (BValue.ComponentCount < 2)
+        {
+            BValue.Value = "vec3(" + BValue.Value + ")";
+            BValue.ComponentCount = 3;
+        }
+        
+        if (AValue.ComponentCount != BValue.ComponentCount)
+        {
+            FError Error;
+            Error.ErrorName = "Type Mismatch";
+            Error.ErrorDescription = "Distance requires vectors of the same dimension";
+            Error.ErrorNode = A->GetOwningNode<CMaterialGraphNode>();
+            AddError(Error);
+        }
+
+        ShaderChunks.append("float " + OwningNode + " = distance(" + AValue.Value + ", " + BValue.Value + ");\n");
+        RegisterNodeOutput(OwningNode, EMaterialValueType::Float, EComponentMask::R);
+    }
+
+    void FMaterialCompiler::Abs(CMaterialInput* A, CMaterialInput* /*B*/)
+    {
+        FString OwningNode = A->GetOwningNode()->GetNodeFullName();
+
+        FInputValue AValue = GetTypedInputValue(A, "0.0");
+        FString TypeStr = GetVectorType(AValue.Type);
+
+        ShaderChunks.append(TypeStr + " " + OwningNode + " = abs(" + AValue.Value + ");\n");
+        RegisterNodeOutput(OwningNode, AValue.Type, EComponentMask::RGBA);
     }
 
     void FMaterialCompiler::GetBoundTextures(TVector<TObjectHandle<CTexture>>& Images)
