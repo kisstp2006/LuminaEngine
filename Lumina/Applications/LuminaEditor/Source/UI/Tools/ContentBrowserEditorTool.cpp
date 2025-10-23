@@ -1,6 +1,7 @@
 ﻿#include "ContentBrowserEditorTool.h"
 
 #include "EditorToolContext.h"
+#include "LuminaEditor.h"
 #include "Assets/AssetManager/AssetManager.h"
 #include "Assets/AssetRegistry/AssetRegistry.h"
 #include "Assets/Definition/AssetDefinition.h"
@@ -85,7 +86,7 @@ namespace Lumina
             DrawContentBrowser(Contxt, bIsFocused, ImVec2(Right, 0));
         });
         
-        SelectedPath = FProject::Get().GetProjectContentDirectory().c_str();
+        SelectedPath = GEditorEngine->GetProject().GetProjectContentDirectory().c_str();
 
         GEngine->GetEngineSubsystem<FAssetRegistry>()->GetOnAssetRegistryUpdated().AddMember(this, &FContentBrowserEditorTool::RefreshContentBrowser);
         

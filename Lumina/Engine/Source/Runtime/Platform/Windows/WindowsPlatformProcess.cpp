@@ -203,7 +203,7 @@ namespace Lumina::Platform
         return Buffer;
     }
 
-    FVoidFuncPtr LumGetProcAddress(void* Handle, const char* Procedure)
+    FVoidFuncPtr LumGetProcAddress(void* Handle, const TCHAR* Procedure)
     {
         return reinterpret_cast<FVoidFuncPtr>(GetProcAddress((HMODULE)Handle, (LPCSTR)Procedure));
     }

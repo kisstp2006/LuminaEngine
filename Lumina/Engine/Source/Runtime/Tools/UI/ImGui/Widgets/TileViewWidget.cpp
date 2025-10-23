@@ -72,7 +72,7 @@ namespace Lumina
         ListItems.clear();
     }
 
-    void FTileViewWidget::RebuildTree(FTileViewContext Context, bool bKeepSelections)
+    void FTileViewWidget::RebuildTree(const FTileViewContext& Context, bool bKeepSelections)
     {
         Assert(bDirty)
 
@@ -99,12 +99,12 @@ namespace Lumina
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(8, 8));
         ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
         
-        if (ItemToDraw->bSelected)
-        {
-            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.25f, 0.5f, 0.8f, 0.5f));
-            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.6f, 0.9f, 0.6f));
-            ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.35f, 0.65f, 0.95f, 0.7f));
-        }
+        //if (ItemToDraw->bSelected)
+        //{
+        //    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.25f, 0.5f, 0.8f, 0.5f));
+        //    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.6f, 0.9f, 0.6f));
+        //    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.35f, 0.65f, 0.95f, 0.7f));
+        //}
         
         bool wasClicked = false;
         
@@ -125,10 +125,10 @@ namespace Lumina
             }
         }
         
-        if (ItemToDraw->bSelected)
-        {
-            ImGui::PopStyleColor(3);
-        }
+        //if (ItemToDraw->bSelected)
+        //{
+        //    ImGui::PopStyleColor(3);
+        //}
     
         ImGui::PopStyleVar(2);
     

@@ -16,6 +16,10 @@
         Lumina::Memory::InitializeThreadHeap(); \
         return Lumina::Memory::New<ModuleClass>(); \
     } \
+       extern "C" __declspec(dllexport) void ShutdownModule() \
+    { \
+        Lumina::Memory::ShutdownThreadHeap(); \
+    } \
 
 
 namespace Lumina
@@ -24,10 +28,11 @@ namespace Lumina
     {
         FName ModuleName;
         TUniquePtr<IModuleInterface> ModuleInterface;
-        void* Module;
+        void* ModuleHandle;
     };
     
     using ModuleInitFunc = IModuleInterface* (*)();
+    using ModuleShutdownFunc = void (*)();
     
     class FModuleManager : public TSingleton<FModuleManager>
     {

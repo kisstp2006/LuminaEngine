@@ -223,7 +223,6 @@ namespace Lumina::Memory
     {
         Free((void*&)Type);
     }
-    
 }
 
 

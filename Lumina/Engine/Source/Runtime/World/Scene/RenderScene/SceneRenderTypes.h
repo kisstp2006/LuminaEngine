@@ -46,18 +46,17 @@ namespace Lumina
     
     enum class ERenderSceneDebugFlags : uint8
     {
-        None     = 0,
-        Position = 1,
-        Normals  = 2,
-        Albedo   = 3,
-        SSAO     = 4,
-        Material = 5,
-        Depth    = 6,
-        Overdraw = 7,
-        Cascade1 = 8,
-        Cascade2 = 9,
-        Cascade3 = 10,
-        Cascade4 = 11,
+        None                = 0,
+        Position            = 1,
+        Normals             = 2,
+        Albedo              = 3,
+        SSAO                = 4,
+		AmbientOcclusion    = 5,
+		Roughness           = 6,
+		Metallic            = 7,
+		Specular            = 8,
+        Depth               = 9,
+        ShadowAtlas		    = 10,
     };
     
     struct FCameraData

@@ -15,9 +15,10 @@ namespace Lumina
     static void RegisterMeta() { \
         using namespace entt::literals; \
         entt::locator<entt::meta_ctx>::reset(GEngine->GetEngineMetaContext()); \
-        entt::meta_factory<Type>{}.type(#Type ## _hs); \
-        entt::meta_factory<Type>().func<&Type::GetComponentStructType>("staticstruct"_hs); \
-        entt::meta_factory<Type>().func<&Type::AddComponent>("addcomponent"_hs); \
+        entt::meta_factory<Type>() \
+        .type(#Type ## _hs) \
+        .func<&Type::GetComponentStructType>("staticstruct"_hs) \
+        .func<&Type::AddComponent>("addcomponent"_hs); \
     } \
     struct DeferredAutoRegister { \
         DeferredAutoRegister() { \

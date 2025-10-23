@@ -98,7 +98,7 @@ namespace Lumina
     private:
 
         
-        void RebuildTree(FTileViewContext Context, bool bKeepSelections = false);
+        void RebuildTree(const FTileViewContext& Context, bool bKeepSelections = false);
         
         void DrawItem(FTileViewItem* ItemToDraw, const FTileViewContext& Context, ImVec2 DrawSize);
 

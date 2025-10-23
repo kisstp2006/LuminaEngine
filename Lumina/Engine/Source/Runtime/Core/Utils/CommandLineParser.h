@@ -89,6 +89,11 @@ namespace Lumina
         {
             return PositionalArgs;
         }
+
+        const THashMap<FName, FString>& GetAll() const
+        {
+            return Args;
+        }
     
     private:
     

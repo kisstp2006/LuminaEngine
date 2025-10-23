@@ -8,23 +8,25 @@ layout(set = 1, binding = 1) uniform sampler2D uDepth;
 layout(set = 1, binding = 2) uniform sampler2D uNormal;
 layout(set = 1, binding = 3) uniform sampler2D uAlbedo;
 layout(set = 1, binding = 4) uniform sampler2D uSSAO;
-layout(set = 1, binding = 5) uniform sampler2DArray uShadowCascade;
+layout(set = 1, binding = 5) uniform sampler2D uMaterial;
+layout(set = 1, binding = 6) uniform sampler2D uShadowAtlas;
+
 
 layout(location = 0) in vec2 vUV;
 layout(location = 0) out vec4 OutFragColor;
 
-#define DEBUG_NONE     0
-#define DEBUG_POSITION 1
-#define DEBUG_NORMALS  2
-#define DEBUG_ALBEDO   3
-#define DEBUG_SSAO     4
-#define DEBUG_MATERIAL 5
-#define DEBUG_DEPTH    6
-#define DEBUG_OVERDRAW 7
-#define DEBUG_CASCADE1 8
-#define DEBUG_CASCADE2 9
-#define DEBUG_CASCADE3 10
-#define DEBUG_CASCADE4 11
+
+#define DEBUG_NONE              0
+#define DEBUG_POSITION          1
+#define DEBUG_NORMALS           2
+#define DEBUG_ALBEDO            3
+#define DEBUG_SSAO              4
+#define DEBUG_AMBIENT_OCCLUSION 5
+#define DEBUG_ROUGHNESS         6
+#define DEBUG_METALLIC          7
+#define DEBUG_SPECULAR          8
+#define DEBUG_DEPTH             9
+#define DEBUG_SHADOW_ATLAS      10
 
 layout(push_constant) uniform DebugInfo
 {
@@ -67,14 +69,36 @@ void main()
         OutFragColor = vec4(vec3(ssao), 1.0);
         return;
     }
-    
-    if (Debug.DebugFlags == DEBUG_MATERIAL)
+
+    if(Debug.DebugFlags == DEBUG_AMBIENT_OCCLUSION)
     {
-        vec3 material = texture(uAlbedo, vUV).rgb;
-        OutFragColor = vec4(material, 1.0);
+        float ao = texture(uMaterial, vUV).r;
+        OutFragColor = vec4(vec3(ao), 1.0);
+        return;
+    }
+
+    if(Debug.DebugFlags == DEBUG_ROUGHNESS)
+    {
+        float Roughness = texture(uMaterial, vUV).g;
+        OutFragColor = vec4(vec3(Roughness), 1.0);
+        return;
+    }
+
+    if(Debug.DebugFlags == DEBUG_METALLIC)
+    {
+        float Metallic = texture(uMaterial, vUV).b;
+        OutFragColor = vec4(vec3(Metallic), 1.0);
+        return;
+    }
+
+    if(Debug.DebugFlags == DEBUG_SPECULAR)
+    {
+        float Specular = texture(uMaterial, vUV).a;
+        OutFragColor = vec4(vec3(Specular), 1.0);
         return;
     }
     
+
     if (Debug.DebugFlags == DEBUG_DEPTH)
     {
         float depth = texture(uDepth, vUV).r;
@@ -86,47 +110,13 @@ void main()
         return;
     }
 
-    if (Debug.DebugFlags == DEBUG_CASCADE1)
+    if(Debug.DebugFlags == DEBUG_SHADOW_ATLAS)
     {
-        float depth = texture(uShadowCascade, vec3(vUV, 0)).r;
-        OutFragColor = vec4(vec3(depth), 1.0);
+        float Shadow = texture(uShadowAtlas, vUV).r;
+        Shadow *= 1.5;
+        OutFragColor = vec4(vec3(Shadow), 1.0);
         return;
     }
 
-    if (Debug.DebugFlags == DEBUG_CASCADE2)
-    {
-        float depth = texture(uShadowCascade, vec3(vUV, 1)).r;
-        OutFragColor = vec4(vec3(depth), 1.0);
-        return;
-    }
-    
-    if (Debug.DebugFlags == DEBUG_CASCADE3)
-    {
-        float depth = texture(uShadowCascade, vec3(vUV, 2)).r;
-        OutFragColor = vec4(vec3(depth), 1.0);
-        return;
-    }
-    
-    if (Debug.DebugFlags == DEBUG_CASCADE4)
-    {
-        float depth = texture(uShadowCascade, vec3(vUV, 3)).r;
-        OutFragColor = vec4(vec3(depth), 1.0);
-        return;
-    }
-
-
-
-    //if (Debug.DebugFlags == DEBUG_OVERDRAW)
-    //{
-    //    ivec2 size = imageSize(uOverdrawImage);
-    //    ivec2 pix = ivec2(vUV * vec2(size));
-    //    uint count = imageLoad(uOverdrawImage, pix).r;
-    //
-    //    uint maxExpected = 8u;
-    //    float t = clamp(float(count) / float(maxExpected), 0.0, 1.0);
-    //
-    //    vec3 color = mix(vec3(0.0, 1.0, 0.0), vec3(1.0, 0.0, 0.0), t);
-    //    OutFragColor = vec4(color, 1.0);
-    //    return;
-    //}
+    OutFragColor.a = 1.0;
 }

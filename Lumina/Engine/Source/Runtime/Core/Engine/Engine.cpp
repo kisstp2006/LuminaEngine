@@ -81,7 +81,9 @@ namespace Lumina
         EngineSubsystems.RemoveSubsystem<FRenderManager>();
 
         Physics::Shutdown();
+        
         FTaskSystem::Shutdown();
+        
         FModuleManager::Get().UnloadAllModules();
         
         return false;
@@ -225,9 +227,9 @@ namespace Lumina
 
     entt::locator<entt::meta_ctx>::node_type FEngine::GetEngineMetaContext() const
     {
-        return entt::locator<entt::meta_ctx>::handle(); 
+        return entt::locator<entt::meta_ctx>::handle();
     }
-    
+
     void FEngine::SetEngineViewportSize(const FIntVector2D& InSize)
     {
         EngineViewport->SetSize(InSize);

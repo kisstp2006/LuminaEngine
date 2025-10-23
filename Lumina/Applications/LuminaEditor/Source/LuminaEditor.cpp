@@ -1,6 +1,5 @@
 #include "LuminaEditor.h"
 #include "EntryPoint.h"
-#include "Lumina_eastl.cpp"
 #include "Core/Module/ModuleManager.h"
 #include "Project/Project.h"
 #include "Renderer/RenderResource.h"
@@ -10,15 +9,22 @@ namespace Lumina
 {
     bool FEditorEngine::Init(FApplication* App)
     {
-        TOptional<FString> Project = FApplication::CommandLine.Get("project");
-        if (Project.has_value())
+        Project = MakeUniquePtr<FProject>();
+        
+        TOptional<FString> ProjectPath = FApplication::CommandLine.Get("project");
+        
+        if (ProjectPath.has_value())
         {
-            FProject::Get().LoadProject(Project.value());
+            Project->LoadProject(ProjectPath.value());
+        }
+        else
+        {
+            LOG_INFO("No project passed in via command-line");
         }
         
         bool bSuccess = FEngine::Init(App);
 
-        if (FProject::Get().HasLoadedProject())
+        if (Project->HasLoadedProject())
         {
             AssetRegistry->RunInitialDiscovery();
         }
@@ -26,6 +32,11 @@ namespace Lumina
         entt::locator<entt::meta_ctx>::reset(GetEngineMetaContext());
 
         return bSuccess;
+    }
+
+    bool FEditorEngine::Shutdown()
+    {
+        return FEngine::Shutdown();
     }
 
     IDevelopmentToolUI* FEditorEngine::CreateDevelopmentTools()

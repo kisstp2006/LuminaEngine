@@ -1810,7 +1810,8 @@
                 SetDesc.AddItem(FBindingSetItem::TextureSRV(2, GBuffer.Normals));
                 SetDesc.AddItem(FBindingSetItem::TextureSRV(3, GBuffer.AlbedoSpec));
                 SetDesc.AddItem(FBindingSetItem::TextureSRV(4, SSAOBlur));
-                SetDesc.AddItem(FBindingSetItem::TextureSRV(5, CascadedShadowMap));
+                SetDesc.AddItem(FBindingSetItem::TextureSRV(5, GBuffer.Material));
+                SetDesc.AddItem(FBindingSetItem::TextureSRV(6, ShadowAtlas.GetImage()));
 
                 SetDesc.AddItem(FBindingSetItem::PushConstants(0, sizeof(uint32)));
 

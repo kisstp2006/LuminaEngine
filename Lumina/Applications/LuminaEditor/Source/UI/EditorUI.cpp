@@ -22,6 +22,7 @@
 #include <client/TracyProfiler.hpp>
 
 #include "implot.h"
+#include "LuminaEditor.h"
 #include "assets/assettypes/archetype/archetype.h"
 #include "Assets/AssetTypes/Material/Material.h"
 #include "Assets/AssetTypes/Material/MaterialInstance.h"
@@ -519,7 +520,7 @@ namespace Lumina
             EditorTools.push_back(NewTool);
         }
 
-        if (!FProject::Get().HasLoadedProject())
+        if (!GEditorEngine->GetProject().HasLoadedProject())
         {
             OpenProjectDialog();
         }
@@ -1708,7 +1709,7 @@ namespace Lumina
                         if (ImGui::Button("##SandboxCard", ImVec2(cardWidth, cardHeight)))
                         {
                             FString SandboxProjectDirectory = Paths::GetEngineInstallDirectory() + "/Applications/Sandbox/Sandbox.lproject";
-                            FProject::Get().LoadProject(SandboxProjectDirectory);
+                            GEditorEngine->GetProject().LoadProject(SandboxProjectDirectory);
                             ContentBrowser->RefreshContentBrowser();
                             GEngine->GetEngineSubsystem<FAssetRegistry>()->RunInitialDiscovery();
                             bShouldClose = true;
@@ -1792,7 +1793,7 @@ namespace Lumina
                     FString Project;
                     if (Platform::OpenFileDialogue(Project, "Open Project", "Lumina Project (*.lproject)\0*.lproject\0All Files (*.*)\0*.*\0"))
                     {
-                        FProject::Get().LoadProject(Project);
+                        GEditorEngine->GetProject().LoadProject(Project);
                         ContentBrowser->RefreshContentBrowser();
                         GEngine->GetEngineSubsystem<FAssetRegistry>()->RunInitialDiscovery();
                         bShouldClose = true;

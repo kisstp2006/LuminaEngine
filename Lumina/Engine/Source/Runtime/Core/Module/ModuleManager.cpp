@@ -17,8 +17,7 @@ namespace Lumina
             return nullptr;
         }
 
-        ModuleInitFunc InitFunctionPtr = reinterpret_cast<ModuleInitFunc>(Platform::GetDLLExport(ModuleHandle, TEXT("InitializeModule")));
-
+        auto InitFunctionPtr = Platform::LumGetProcAddress<ModuleInitFunc>(ModuleHandle, TEXT("InitializeModule"));
         if (!InitFunctionPtr)
         {
             LOG_WARN("Failed to get InitializeModule export: {}", ModuleName);
@@ -34,7 +33,7 @@ namespace Lumina
         }
 
         FModuleInfo* ModuleInfo = GetOrCreateModuleInfo(ModuleName);
-        ModuleInfo->Module = ModuleHandle;
+        ModuleInfo->ModuleHandle = ModuleHandle;
         ModuleInfo->ModuleInterface.reset(ModuleInterface);
 
         ModuleInterface->StartupModule();
@@ -61,8 +60,11 @@ namespace Lumina
         
         ModuleHashMap.erase(it);
         Info.ModuleInterface.reset();
-        void* ModulePtr = Info.Module;
+        void* ModulePtr = Info.ModuleHandle;
 
+        auto ShutdownFunctionPtr = Platform::LumGetProcAddress<ModuleShutdownFunc>(ModulePtr, TEXT("ShutdownModule"));
+        ShutdownFunctionPtr();
+        
         bool freed = Platform::FreeDLLHandle(ModulePtr);
         if (!freed)
         {

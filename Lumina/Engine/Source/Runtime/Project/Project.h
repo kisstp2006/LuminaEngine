@@ -8,14 +8,15 @@ namespace Lumina
 {
     DECLARE_MULTICAST_DELEGATE(FOnProjectLoaded);
     
-    class FProject : public TSingleton<FProject>
+    class FProject
     {
     public:
 
         FProject()
             : bHasProjectLoaded(false)
         {}
-        
+
+
         struct FSettings
         {
             FString ProjectName;
@@ -36,8 +37,9 @@ namespace Lumina
 
     private:
         
-        FSettings   Settings;
+        FSettings           Settings;
 
-        uint8       bHasProjectLoaded:1;
+        uint8               bHasProjectLoaded:1;
     };
+
 }

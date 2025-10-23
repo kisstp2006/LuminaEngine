@@ -1,7 +1,13 @@
 #pragma once
 
 #include "Core/Application/Application.h"
+#include "Memory/SmartPtr.h"
 
+
+namespace Lumina
+{
+    class FProject;
+}
 
 namespace Lumina
 {
@@ -17,8 +23,15 @@ namespace Lumina
     public:
 
         bool Init(FApplication* App) override;
+        bool Shutdown() override;
         IDevelopmentToolUI* CreateDevelopmentTools() override;
+
+        FProject& GetProject() const { return *Project.get(); }
     
+    private:
+        
+        TUniquePtr<FProject> Project;
+
     };
     
 

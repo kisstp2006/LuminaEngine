@@ -50,7 +50,7 @@ namespace eastl
 
     const char* allocator::get_name() const
     {
-        return EASTL_ALLOCATOR_DEFAULT_NAME;
+        return "Lumina";
     }
 
     void allocator::set_name(const char* EASTL_NAME(pName))
@@ -96,7 +96,7 @@ namespace eastl
     void AssertionFailure(const char* expression)
     {
         std::fprintf(stderr, "EASTL Assertion Failure: %s\n", expression);
-        Assert(0);
+        Assert(0)
     }
 }
 

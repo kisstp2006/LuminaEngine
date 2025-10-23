@@ -121,7 +121,7 @@ namespace Lumina
             ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 6.0f);
             ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12, 10));
 
-            if (ImGui::BeginChild("##Toolbar", ImVec2(0, 0), ImGuiChildFlags_AlwaysUseWindowPadding,ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoScrollbar))
+            if (ImGui::BeginChild("##Toolbar", ImVec2(0, 0), ImGuiChildFlags_AlwaysUseWindowPadding))
             {
                 // Mip level selector
                 if (ImageDesc.NumMips > 1)
@@ -142,7 +142,7 @@ namespace Lumina
             ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 6.0f);
             ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12, 8));
 
-            if (ImGui::BeginChild("##InfoBar", ImVec2(0, 0), ImGuiChildFlags_AlwaysUseWindowPadding,ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoInputs))
+            if (ImGui::BeginChild("##InfoBar", ImVec2(0, 0), ImGuiChildFlags_AlwaysUseWindowPadding))
             {
                 ImGui::Text("%.0f%% | %dx%d | Pan: [%.0f, %.0f]",
                     ZoomFactor * 100.0f,

@@ -281,6 +281,7 @@ namespace eastl
 	#define EASTL_DLL 1
 #endif
 
+
 #ifndef EASTL_API // If the build file hasn't already defined this to be dllexport...
 	#if EASTL_DLL
 		#if defined(_MSC_VER)
@@ -301,6 +302,8 @@ namespace eastl
 		#define EASTL_LOCAL
 	#endif
 #endif
+
+
 
 
 ///////////////////////////////////////////////////////////////////////////////

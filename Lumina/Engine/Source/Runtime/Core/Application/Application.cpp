@@ -33,9 +33,9 @@ namespace Lumina
     int32 FApplication::Run(int argc, char** argv)
     {
         LUMINA_PROFILE_SCOPE();
-        LOG_TRACE("Initializing Application: {0}", ApplicationName.c_str());
-
         CommandLine.Parse(argc, argv);
+        
+        LOG_TRACE("Initializing Application: {0}", ApplicationName);
         
         //---------------------------------------------------------------
         // Application initialization.
