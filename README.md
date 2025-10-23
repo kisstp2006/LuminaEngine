@@ -60,6 +60,10 @@ Lumina is a modern C++ game engine designed for learning and experimentation wit
 
 <div align="center">
 
+<img src="https://github.com/user-attachments/assets/a6a6a5bb-034e-4423-a25b-2c4dcad6bbc6" alt=Project Creator width=800  />
+
+* One click project creator
+
 <img src="https://github.com/user-attachments/assets/a6b973ba-851e-4732-b30b-eb0bf14b08e1" alt="Scene Editor" width="800"/>
 
 *Real-time scene editing with ImGui-based editor*
@@ -296,6 +300,8 @@ Lumina is inspired by and learns from these excellent open-source engines:
 - [**Spartan Engine**](https://github.com/PanosK92/SpartanEngine) - Feature-rich Vulkan engine
 - [**Kohi Game Engine**](https://kohiengine.com/) - Educational engine series
 - [**ezEngine**](https://ezengine.net/) - Professional open-source engine
+- [**GoDot**](https://godotengine.org/) - AAA quality open source C++ game engine.
+- [**Unreal Engine**](https://www.unrealengine.com/) - Does it need an introduction?
 
 Special thanks to the entire game engine development community for sharing knowledge and resources.
 
