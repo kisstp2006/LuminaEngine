@@ -300,6 +300,8 @@ Lumina is inspired by and learns from these excellent open-source engines:
 - [**Spartan Engine**](https://github.com/PanosK92/SpartanEngine) - Feature-rich Vulkan engine
 - [**Kohi Game Engine**](https://kohiengine.com/) - Educational engine series
 - [**ezEngine**](https://ezengine.net/) - Professional open-source engine
+- [**GoDot**](https://godotengine.org/) - AAA quality open source C++ game engine.
+- [**Unreal Engine**](https://www.unrealengine.com/) - Does it need an introduction?
 
 Special thanks to the entire game engine development community for sharing knowledge and resources.
 
