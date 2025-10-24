@@ -20,11 +20,6 @@ namespace Lumina
         
         Icon(ImVec2(24.f, 24.0f), iconType, bConnected, Color, ImColor(32, 32, 32, Alpha));
     }
-
-    static ImRect ImGui_GetItemRect()
-    {
-        return ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
-    }
     
     uint16 GNodeID = 0;
     
@@ -40,6 +35,7 @@ namespace Lumina
     bool CEdNodeGraph::GraphSaveSettings(const char* data, size_t size, ax::NodeEditor::SaveReasonFlags reason, void* userPointer)
     {
         CEdNodeGraph* ThisGraph = (CEdNodeGraph*)userPointer;
+        ThisGraph->GraphSaveData.clear();
         ThisGraph->GraphSaveData.assign(data, size);
         return true;
     }
@@ -81,25 +77,23 @@ namespace Lumina
     void CEdNodeGraph::DrawGraph()
     {
         LUMINA_PROFILE_SCOPE();
-
         using namespace ax;
         
         NodeEditor::SetCurrentEditor(Context);
-
         NodeEditor::Begin(GetPathName().c_str());
-
+    
         Graph::GraphNodeBuilder NodeBuilder;
-
         
-        THashMap<uint32, uint64> NodeIDToIndex;
+        THashMap<uint64, uint64> NodeIDToIndex;
         TVector<TPair<CEdNodeGraphPin*, CEdNodeGraphPin*>> Links;
         Links.reserve(40);
-
+    
         uint32 Index = 0;
         for (CEdGraphNode* Node : Nodes)
         {
+            NodeIDToIndex[Node->GetNodeID()] = Index;
+            
             NodeBuilder.Begin(Node->GetNodeID());
-            NodeIDToIndex.emplace(Node->GetNodeID(), Index);
             
             if (!Node->WantsTitlebar())
             {
@@ -119,7 +113,7 @@ namespace Lumina
             ImGui::Dummy(ImVec2(Node->GetMinNodeTitleBarSize()));
             ImGui::Spring(0);
             NodeBuilder.EndHeader();
-
+    
             if (Node->GetInputPins().empty())
             {
                 ImGui::BeginVertical("inputs", ImVec2(0,0), 0.0f);
@@ -135,7 +129,7 @@ namespace Lumina
                 }
                 
                 NodeBuilder.Input(InputPin->GetGUID());
-
+    
                 ImGui::PushID(InputPin);
                 {
                     ImVec4 PinColor = ImGui::ColorConvertU32ToFloat4(InputPin->GetPinColor());
@@ -145,7 +139,7 @@ namespace Lumina
                     }
                     DrawPinIcon(InputPin->HasConnection(), 255.0f, PinColor);
                     ImGui::Spring(0);
-
+    
                     ImGui::TextUnformatted(InputPin->GetPinName().c_str());
                     
                     ImGui::Spring(0);
@@ -154,10 +148,9 @@ namespace Lumina
                 
                 NodeBuilder.EndInput();
             }
-
+    
             NodeBuilder.Middle();
             Node->DrawNodeBody();
-            
             
             for (CEdNodeGraphPin* OutputPin : Node->GetOutputPins())
             {
@@ -166,7 +159,7 @@ namespace Lumina
                 ImGui::PushID(OutputPin);
                 {
                     ImGui::Spring(0);
-
+    
                     ImGui::Spring(1, 1);
                     ImGui::TextUnformatted(OutputPin->GetPinName().c_str());
                     ImGui::Spring(0);
@@ -179,14 +172,15 @@ namespace Lumina
                     DrawPinIcon(OutputPin->HasConnection(), 255.0f, PinColor);
                 }
                 ImGui::PopID();
-
+    
                 NodeBuilder.EndOutput();
             }
             
             NodeBuilder.End(Node->WantsTitlebar());
             Index++;
         }
-
+    
+        // Background context menu
         NodeEditor::Suspend();
         {
             if (NodeEditor::ShowBackgroundContextMenu())
@@ -197,14 +191,12 @@ namespace Lumina
             if (ImGui::BeginPopup("Create New Node"))
             {
                 DrawGraphContextMenu();
-            
                 ImGui::EndPopup();
             }
-            
         }
-        
         NodeEditor::Resume();
-
+    
+        // Handle node selection
         bool bAnyNodeSelected = false;
         for (CEdGraphNode* Node : Nodes)
         {
@@ -217,84 +209,116 @@ namespace Lumina
                 }
             }
         }
-
-        if (!bAnyNodeSelected)
+    
+        if (!bAnyNodeSelected && NodeSelectedCallback)
         {
-            if (NodeSelectedCallback)
-            {
-                NodeSelectedCallback(nullptr);
-            }
+            NodeSelectedCallback(nullptr);
         }
         
+        // Draw all links
         uint32 LinkID = 1;
         for (auto& [Start, End] : Links)
         {
             NodeEditor::Link(LinkID++, Start->GetGUID(), End->GetGUID());
         }
         
+        // Handle link creation
         if (NodeEditor::BeginCreate())
         {
             NodeEditor::PinId StartPinID, EndPinID;
             if (NodeEditor::QueryNewLink(&StartPinID, &EndPinID))
             {
-                if (((StartPinID && EndPinID) && (StartPinID != EndPinID)) && NodeEditor::AcceptNewItem())
+                if (StartPinID && EndPinID && StartPinID != EndPinID)
                 {
-                    CEdNodeGraphPin* StartPin = nullptr;
-                    CEdNodeGraphPin* EndPin = nullptr;
-
-                    for (CEdGraphNode* Node : Nodes)
+                    if (NodeEditor::AcceptNewItem())
                     {
-                        StartPin = Node->GetPin(StartPinID.Get(), ENodePinDirection::Output);
-                        if (StartPin)
+                        CEdNodeGraphPin* StartPin = nullptr;
+                        CEdNodeGraphPin* EndPin = nullptr;
+    
+                        for (CEdGraphNode* Node : Nodes)
                         {
-                            break;
+                            StartPin = Node->GetPin(StartPinID.Get(), ENodePinDirection::Output);
+                            if (StartPin)
+                            {
+                                break;
+                            }
                         }
-                    }
-
-                    for (CEdGraphNode* Node : Nodes)
-                    {
-                        EndPin = Node->GetPin(EndPinID.Get(), ENodePinDirection::Input);
-                        if (EndPin)
+    
+                        for (CEdGraphNode* Node : Nodes)
                         {
-                            break;
+                            EndPin = Node->GetPin(EndPinID.Get(), ENodePinDirection::Input);
+                            if (EndPin)
+                            {
+                                break;
+                            }
                         }
-                    }
-
-                    bool bValid = true;
-
-                    if (!StartPin || !EndPin || StartPin == EndPin || StartPin->OwningNode == EndPin->OwningNode)
-                    {
-                        bValid = false;
-                    }
-
-                    if (EndPin && EndPin->HasConnection())
-                    {
-                        bValid = false;
-                    }
-
-                    if (bValid)
-                    {
-                        StartPin->AddConnection(EndPin);
-                        EndPin->AddConnection(StartPin);
-
-                        ValidateGraph();
+    
+                        bool bValid = StartPin && EndPin && 
+                                      StartPin != EndPin && 
+                                      StartPin->OwningNode != EndPin->OwningNode &&
+                                      !EndPin->HasConnection();
+    
+                        if (bValid)
+                        {
+                            StartPin->AddConnection(EndPin);
+                            EndPin->AddConnection(StartPin);
+                            ValidateGraph();
+                        }
                     }
                 }
             }
+            NodeEditor::EndCreate();
         }
-        NodeEditor::EndCreate();
         
-        
+        // Handle deletion
         if (NodeEditor::BeginDelete())
         {
-
+            // Handle node deletion
             NodeEditor::NodeId NodeId = 0;
             while (NodeEditor::QueryDeletedNode(&NodeId))
             {
-                CEdGraphNode* Node = Nodes[NodeIDToIndex.at(NodeId.Get())];
-                if (NodeEditor::AcceptDeletedItem() && Node->IsDeletable())
+                auto NodeItr = eastl::find_if(Nodes.begin(), Nodes.end(), [NodeId] (const TObjectHandle<CEdGraphNode>& A)
                 {
-                    NodesToDestroy.push(Node);
+                    return A->GetNodeID() == NodeId.Get();
+                });
+
+                if (NodeItr != Nodes.end())
+                {
+                    CEdGraphNode* Node = *NodeItr;
+                    if (!Node->IsDeletable() || !NodeEditor::AcceptDeletedItem())
+                    {
+                        continue;
+                    }
+                    
+                    for (CEdNodeGraphPin* Pin : Node->GetInputPins())
+                    {
+                        if (Pin->HasConnection())
+                        {
+                            TVector<CEdNodeGraphPin*> PinConnections = Pin->GetConnections();
+                            for (CEdNodeGraphPin* ConnectedPin : PinConnections)
+                            {
+                                ConnectedPin->DisconnectFrom(Pin);
+                            }
+                            Pin->ClearConnections();
+                        }
+                    }
+        
+                    for (CEdNodeGraphPin* Pin : Node->GetOutputPins())
+                    {
+                        if (Pin->HasConnection())
+                        {
+                            TVector<CEdNodeGraphPin*> PinConnections = Pin->GetConnections();
+                            for (CEdNodeGraphPin* ConnectedPin : PinConnections)
+                            {
+                                ConnectedPin->DisconnectFrom(Pin);
+                            }
+                            Pin->ClearConnections();
+                        }
+                    }
+                    
+                    Nodes.erase(NodeItr);
+                    Node->MarkGarbage();
+                    ValidateGraph();
                 }
             }
             
@@ -303,70 +327,21 @@ namespace Lumina
             {
                 if (NodeEditor::AcceptDeletedItem())
                 {
-                    const TPair<CEdNodeGraphPin*, CEdNodeGraphPin*>& Pair = Links[DeletedLinkId.Get() - 1];
-
-                    Pair.first->RemoveConnection(Pair.second);
-                    Pair.second->RemoveConnection(Pair.first);
-                    ValidateGraph();
-                }
-            }
-        }
-        
-        NodeEditor::EndDelete();
-
-
-        while (!NodesToDestroy.empty())
-        {
-            CEdGraphNode* ToDestroy = NodesToDestroy.front();
-            NodesToDestroy.pop();
-            
-            NodeEditor::DeleteNode(ToDestroy->GetNodeID());
-            
-            // Remove links from input pins
-            for (CEdNodeGraphPin* Pin : ToDestroy->GetInputPins())
-            {
-                if (Pin->HasConnection())
-                {
-                    for (CEdNodeGraphPin* ConnectedPin : Pin->GetConnections())
+                    uint32 LinkIndex = DeletedLinkId.Get() - 1;
+                    if (LinkIndex < Links.size())
                     {
-                        ConnectedPin->DisconnectFrom(Pin);
+                        const TPair<CEdNodeGraphPin*, CEdNodeGraphPin*>& Pair = Links[LinkIndex];
+                        Pair.first->RemoveConnection(Pair.second);
+                        Pair.second->RemoveConnection(Pair.first);
+                        ValidateGraph();
                     }
-                    Pin->ClearConnections();
                 }
             }
-
-            // Remove links from output pins
-            for (CEdNodeGraphPin* Pin : ToDestroy->GetOutputPins())
-            {
-                if (Pin->HasConnection())
-                {
-                    for (CEdNodeGraphPin* ConnectedPin : Pin->GetConnections())
-                    {
-                        ConnectedPin->DisconnectFrom(Pin);
-                    }
-                    Pin->ClearConnections();
-                }
-            }
-            
-            uint64 ToDestroyIndex = NodeIDToIndex.at(ToDestroy->GetNodeID());
-            CEdGraphNode* MovedNode = nullptr;
-
-            if (ToDestroyIndex != Nodes.size() - 1)
-            {
-                MovedNode = Nodes.back().Get();
-                MovedNode->bInitialPosSet = false;
-                NodeIDToIndex[MovedNode->GetNodeID()] = ToDestroyIndex;
-            }
-
-            Nodes.erase_unsorted(Nodes.begin() + ToDestroyIndex);
-            NodeIDToIndex.erase(ToDestroy->GetNodeID());
-            
-            ToDestroy->MarkGarbage();
-            ValidateGraph();
+    
+            NodeEditor::EndDelete();
         }
     
         NodeEditor::End();
-        
         NodeEditor::SetCurrentEditor(nullptr);
     }
 
@@ -466,9 +441,9 @@ namespace Lumina
 
     uint64 CEdNodeGraph::AddNode(CEdGraphNode* InNode)
     {
-        SIZE_T NewID = Nodes.size();
+        SIZE_T NewID = NextID++;
         InNode->FullName = InNode->GetNodeDisplayName() + "_" + eastl::to_string(NewID);
-        InNode->NodeID = NewID + 1;
+        InNode->NodeID = NewID;
 
         Nodes.push_back(InNode);
 

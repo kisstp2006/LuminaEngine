@@ -79,10 +79,10 @@ namespace Lumina
         
         THashSet<CClass*>                               SupportedNodes;
         TVector<FAction>                                Actions;
-        TQueue<CEdGraphNode*>                           NodesToDestroy;
-        
         TFunction<void(CEdGraphNode*)>                  NodeSelectedCallback;
-    
+
+        SIZE_T                                          NextID = 1;
+        
     private:
 
         ax::NodeEditor::EditorContext* Context = nullptr;
