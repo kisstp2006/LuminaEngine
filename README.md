@@ -102,6 +102,9 @@ Lumina is a modern C++ game engine designed for learning and experimentation wit
 
 ### Installation
 
+Lumina's installation is being worked on, at the moment a majority of it's steps are compiled down into just running Setup.py.
+However I've noticed some issues with UTF-8 chars on Window's terminals, if the terminal opens and closes quickly, keep trying.
+
 ```bash
 # 1. Clone the repository
 git clone https://github.com/mrdrelliot/lumina.git
@@ -110,22 +113,13 @@ cd lumina
 # 2. Run setup (downloads dependencies automatically)
 python Setup.py
 
-# 3. Generate Visual Studio solution
-python Scripts/Win-GenProjects.py
+# 3. Build and run the Editor
+Set Editor as startup project → Build → Run
 
-# 4. Build the Reflector (required for reflection system)
-# Open Lumina.sln → Build Reflector project in Release mode
-
-# 5. Regenerate solution with reflection data
-python Scripts/Win-GenProjects.py
-
-# 6. Build and run the Editor
-# Set Editor as startup project → Build → Run
-# **IMPORRTANT** Build the editor in both release, and debug.
-
-# 7. Open the Sandbox project to play around
+# 4. Select a project
+Open the Sandbox project to play around
 or..
-# 8. Open Tools/ProjectConfigurator.py to create a new project.
+Open Tools/ProjectConfigurator.py to create a new project.
 
 Happy coding!
 ```
