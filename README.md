@@ -114,11 +114,12 @@ cd lumina
 python Setup.py
 
 # 3. Build and run the Editor
-# Set Editor as startup project → Build → Run
+Set Editor as startup project → Build → Run
 
-# 4. Open the Sandbox project to play around
+# 4. Select a project
+Open the Sandbox project to play around
 or..
-# 4. Open Tools/ProjectConfigurator.py to create a new project.
+Open Tools/ProjectConfigurator.py to create a new project.
 
 Happy coding!
 ```
