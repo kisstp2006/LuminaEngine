@@ -238,6 +238,8 @@ def run_reflection():
             configuration="Release",
             platform="x64"
         )
+
+        time.sleep(1.0)
         
         # Run the reflector
         Reflection.run_reflector(output_dir, "Reflector")

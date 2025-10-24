@@ -72,7 +72,7 @@ def build_reflector(solution_path, project_name, configuration="Debug", platform
     
     # Check if solution exists
     if not os.path.exists(solution_path):
-        print(Fore.RED + Style.BRIGHT + f"✗ Solution not found: {solution_path}")
+        print(Fore.RED + Style.BRIGHT + f"Solution not found: {solution_path}")
         sys.exit(1)
     
     # Find the project file
@@ -108,7 +108,7 @@ def build_reflector(solution_path, project_name, configuration="Debug", platform
         os.makedirs(output_dir, exist_ok=True)
         print(Fore.GREEN + f"Output directory created\n")
     
-    print(Fore.CYAN + Style.BRIGHT + f"🔨 Building {project_name}...")
+    print(Fore.CYAN + Style.BRIGHT + f"Building {project_name}...")
     print(Fore.WHITE + f"   Project: {project_path}")
     print(Fore.WHITE + f"   Configuration: {configuration}")
     print(Fore.WHITE + f"   Platform: {platform}")
@@ -187,10 +187,10 @@ def run_reflector(output_dir, project_name="Reflector"):
     executable_path = os.path.join(output_dir, f"{project_name}.exe")
     
     if not os.path.exists(executable_path):
-        print(Fore.RED + Style.BRIGHT + f"✗ Executable not found: {executable_path}")
+        print(Fore.RED + Style.BRIGHT + f"Executable not found: {executable_path}")
         sys.exit(1)
     
-    print(Fore.CYAN + Style.BRIGHT + f"\n🚀 Running {project_name}...")
+    print(Fore.CYAN + Style.BRIGHT + f"\nRunning {project_name}...")
     print(Fore.WHITE + f"   Executable: {executable_path}\n")
     print(Fore.WHITE + "-" * 80 + "\n")
     

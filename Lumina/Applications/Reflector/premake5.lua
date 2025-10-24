@@ -6,8 +6,8 @@ project "Reflector"
 
     outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
 
-    targetdir ("%{wks.location}/Binaries/" .. outputdir)
-    objdir ("%{wks.location}/Intermediates/Obj/" .. outputdir .. "/%{prj.name}")
+    targetdir ("%{LuminaEngineDirectory}/Binaries/" .. outputdir)
+    objdir ("%{LuminaEngineDirectory}/Intermediates/Obj/" .. outputdir .. "/%{prj.name}")
 
     configurations { "Release" }
 
@@ -17,6 +17,12 @@ project "Reflector"
         
 	removedefines { }
 
+
+	prebuildcommands 
+	{
+		"{MKDIR} \"%{LuminaEngineDirectory}/Binaries/%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}\"",
+	    "{COPYFILE} \"%{LuminaEngineDirectory}/External/LLVM/bin/libclang.dll\" \"%%{LuminaEngineDirectory}/Binaries/%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}/\"",
+	}
 
 	libdirs
 	{
