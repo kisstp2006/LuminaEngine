@@ -17,11 +17,6 @@ project "Reflector"
         
 	removedefines { }
 
-	postbuildcommands 
-	{
-	    "{COPYFILE} \"%{wks.location}/External/LLVM/bin/libclang.dll\" \"%{wks.location}/Binaries/%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}/\"",
-	}
-
 
 	libdirs
 	{

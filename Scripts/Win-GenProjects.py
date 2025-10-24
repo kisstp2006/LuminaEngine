@@ -1,6 +1,7 @@
 import os
 import subprocess
 import sys
+import time
 import platform
 import zipfile
 import shutil
@@ -21,11 +22,21 @@ def ensure_package(package_name, import_name=None):
 ensure_package("colorama")
 ensure_package("requests")
 
-import colorama
-from colorama import Fore, Back, Style
-import requests
+try:
+    from colorama import Fore, Style, Back, init
+    init(autoreset=True)
+except ImportError:
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "colorama"])
+    from colorama import Fore, Style, Back, init
+    init(autoreset=True)
 
-colorama.init(autoreset=True)
+
+try:
+    import requests
+except ImportError:
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "requests"])
+    import requests
+
 
 # --- Constants ---
 VULKAN_SDK_URL = "https://vulkan.lunarg.com/sdk/home"
@@ -35,16 +46,15 @@ PREMAKE_URL = f"https://github.com/premake/premake-core/releases/download/v{PREM
 
 # --- Fancy Header ---
 def print_header():
-    """Print a professional-looking header."""
-    border = "═" * 70
+    border = "=" * 70
     print(f"\n{Fore.CYAN}{Style.BRIGHT}{border}")
     print(f"{Fore.WHITE}{Style.BRIGHT}{'LUMINA ENGINE - PROJECT GENERATOR':^70}")
     print(f"{Fore.CYAN}{Style.BRIGHT}{border}{Style.RESET_ALL}\n")
 
 def print_section(title):
     """Print a section header."""
-    print(f"\n{Fore.YELLOW}{Style.BRIGHT}▶ {title}{Style.RESET_ALL}")
-    print(f"{Fore.YELLOW}{'─' * (len(title) + 2)}{Style.RESET_ALL}")
+    print(f"\n{Fore.YELLOW}{Style.BRIGHT} - {title}{Style.RESET_ALL}")
+    print(f"{Fore.YELLOW}{'-' * (len(title) + 2)}{Style.RESET_ALL}")
 
 def print_success(message):
     """Print a success message."""
@@ -255,35 +265,37 @@ def main():
     # Step 2: Check Python
     if not check_python_requirements():
         print_error("\nSetup failed: Python requirements not met")
-        input("\nPress Enter to exit...")
+        time.sleep(1.5)
         return 1
     
     # Step 3: Check Vulkan
     if not check_vulkan():
         print_error("\nSetup failed: Vulkan SDK required")
-        input("\nPress Enter to exit...")
+        time.sleep(1.5)
         return 1
     
     # Step 4: Setup Premake
     premake_path = setup_premake()
     if not premake_path:
         print_error("\nSetup failed: Could not install Premake5")
-        input("\nPress Enter to exit...")
+        time.sleep(1.5)
         return 1
     
     # Step 5: Generate solution
     if not generate_solution(premake_path):
         print_error("\nSetup failed: Solution generation failed")
-        input("\nPress Enter to exit...")
+        time.sleep(1.5)
         return 1
     
     # Success!
-    print(f"\n{Fore.GREEN}{Style.BRIGHT}{'═' * 70}")
-    print(f"{Fore.GREEN}{Style.BRIGHT}{'✓ SETUP COMPLETE!':^70}")
-    print(f"{Fore.GREEN}{Style.BRIGHT}{'═' * 70}{Style.RESET_ALL}\n")
-    
+    print(f"\n{Fore.GREEN}{Style.BRIGHT}{'=' * 70}")
+    print(f"{Fore.GREEN}{Style.BRIGHT}{'SETUP COMPLETE!':^70}")
+    print(f"{Fore.GREEN}{Style.BRIGHT}{'=' * 70}{Style.RESET_ALL}\n")
     print_info("You can now open the solution file in Visual Studio 2022")
-    input("\nPress Enter to exit...")
+    time.sleep(0.25)
+    print_success("This window will close in 2 seconds...")
+    time.sleep(2.0)
+
     return 0
 
 if __name__ == "__main__":
@@ -296,5 +308,4 @@ if __name__ == "__main__":
         print(f"\n{Fore.RED}{Style.BRIGHT}Unexpected error: {e}{Style.RESET_ALL}")
         import traceback
         traceback.print_exc()
-        input("\nPress Enter to exit...")
         sys.exit(1)
