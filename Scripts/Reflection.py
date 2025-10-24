@@ -14,36 +14,43 @@ except ImportError:
 
 def find_msbuild():
     """
-    Find MSBuild.exe in common Visual Studio installation paths.
+    Find MSBuild.exe using vswhere.exe.
     Returns the path to MSBuild.exe or None if not found.
     """
-    possible_paths = [
-        # VS 2022
-        r"C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe",
-        r"C:\Program Files\Microsoft Visual Studio\2022\Professional\MSBuild\Current\Bin\MSBuild.exe",
-        r"C:\Program Files\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe",
-        r"C:\Program Files (x86)\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe",
-        r"C:\Program Files (x86)\Microsoft Visual Studio\2022\Professional\MSBuild\Current\Bin\MSBuild.exe",
-        r"C:\Program Files (x86)\Microsoft Visual Studio\2022\Enterprise\MSBuild\Current\Bin\MSBuild.exe",
-        # VS 2019
-        r"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\MSBuild\Current\Bin\MSBuild.exe",
-        r"C:\Program Files (x86)\Microsoft Visual Studio\2019\Professional\MSBuild\Current\Bin\MSBuild.exe",
-        r"C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\MSBuild\Current\Bin\MSBuild.exe",
-        # VS 2017
-        r"C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\MSBuild\15.0\Bin\MSBuild.exe",
-        r"C:\Program Files (x86)\Microsoft Visual Studio\2017\Professional\MSBuild\15.0\Bin\MSBuild.exe",
-        r"C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\MSBuild\15.0\Bin\MSBuild.exe",
-    ]
+    import subprocess
     
-    # Check if MSBuild is in PATH
+    # Check if MSBuild is in PATH first
     msbuild_path = shutil.which("msbuild")
     if msbuild_path:
         return msbuild_path
     
-    # Check common installation paths
-    for path in possible_paths:
-        if os.path.exists(path):
-            return path
+    # Use vswhere to find Visual Studio installation
+    vswhere_path = r"C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe"
+    
+    if not os.path.exists(vswhere_path):
+        return None
+    
+    try:
+        # Find the latest Visual Studio installation with MSBuild
+        result = subprocess.run(
+            [
+                vswhere_path,
+                "-latest",
+                "-requires", "Microsoft.Component.MSBuild",
+                "-find", r"MSBuild\**\Bin\MSBuild.exe",
+                "-prerelease"
+            ],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        
+        msbuild_path = result.stdout.strip()
+        if msbuild_path and os.path.exists(msbuild_path):
+            return msbuild_path
+            
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        pass
     
     return None
 
@@ -131,7 +138,7 @@ def build_reflector(solution_path, project_name, configuration="Debug", platform
         # Run MSBuild
         result = subprocess.run(
             cmd,
-            capture_output=True,
+            capture_output=False,
             text=True,
             encoding='utf-8',
             errors='replace',
