@@ -53,6 +53,7 @@ namespace Lumina
 
     FRHIImageRef FUITextureCache::GetImage(const FName& Path)
     {
+        FScopeLock Lock(Mutex);
         FEntry* Entry = GetOrCreateGroup(Path);
         Entry->LastUseFrame.store(GEngine->GetUpdateContext().GetFrame(), std::memory_order_relaxed);
         return Entry ? Entry->RHIImage : nullptr;
@@ -60,6 +61,7 @@ namespace Lumina
 
     ImTextureRef FUITextureCache::GetImTexture(const FName& Path)
     {
+        FScopeLock Lock(Mutex);
         FEntry* Entry = GetOrCreateGroup(Path);
         Entry->LastUseFrame.store(GEngine->GetUpdateContext().GetFrame(), std::memory_order_relaxed);
         return Entry ? Entry->ImTexture : ImTextureRef();

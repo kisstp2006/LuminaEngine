@@ -40,15 +40,6 @@ namespace Lumina
         FName BaseName = (InBaseName == NAME_None) ? Class->GetName() : InBaseName;
 
         FName FullName = BaseName;
-        if (Package)
-        {
-            TInlineString<256> Path;
-            Path.append(Package->GetName().c_str())
-            .append(".")
-            .append(BaseName.c_str());
-
-            FullName = Path.c_str();
-        }
         
         // First, try the base name directly
         if (FindObjectFast(Class, Package, FullName) == nullptr)

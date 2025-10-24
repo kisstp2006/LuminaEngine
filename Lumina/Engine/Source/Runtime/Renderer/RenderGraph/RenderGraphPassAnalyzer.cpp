@@ -18,9 +18,7 @@ namespace Lumina
         });
 
         AnalyzeLastResourceUsages(PassAccess);
-
-
-
+        
         TVector<TVector<int>> Dependencies = BuildDependencyGraph(PassAccess);
 
         return GroupPasses(Passes, Dependencies);

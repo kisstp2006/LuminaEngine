@@ -21,8 +21,6 @@ namespace Lumina
         Icon(ImVec2(24.f, 24.0f), iconType, bConnected, Color, ImColor(32, 32, 32, Alpha));
     }
     
-    uint16 GNodeID = 0;
-    
     CEdNodeGraph::CEdNodeGraph()
         : NodeSelectedCallback()
     {
@@ -60,7 +58,6 @@ namespace Lumina
         config.LoadSettings = GraphLoadSettings;
         config.SettingsFile = nullptr;
         Context = ax::NodeEditor::CreateEditor(&config);
-        
     }
 
     void CEdNodeGraph::Shutdown()
@@ -269,7 +266,7 @@ namespace Lumina
             }
             NodeEditor::EndCreate();
         }
-        
+
         // Handle deletion
         if (NodeEditor::BeginDelete())
         {
@@ -277,6 +274,9 @@ namespace Lumina
             NodeEditor::NodeId NodeId = 0;
             while (NodeEditor::QueryDeletedNode(&NodeId))
             {
+                // Unfortunately the way we do this now is a bit gross, it's too much of a pain to keep these nodes and the internal NodeEditor nodes in sync.
+                // This is the way it's done in the examples, and even though it's essentially O(n^2), it seems to be working correctly.
+                // Realistically it shouldn't matter too much, and should be fine.
                 auto NodeItr = eastl::find_if(Nodes.begin(), Nodes.end(), [NodeId] (const TObjectHandle<CEdGraphNode>& A)
                 {
                     return A->GetNodeID() == NodeId.Get();
