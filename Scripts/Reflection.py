@@ -138,7 +138,7 @@ def build_reflector(solution_path, project_name, configuration="Debug", platform
         # Run MSBuild
         result = subprocess.run(
             cmd,
-            capture_output=False,
+            capture_output=True,
             text=True,
             encoding='utf-8',
             errors='replace',
@@ -251,7 +251,7 @@ if __name__ == '__main__':
     # Configuration
     solution_file = "Lumina.sln"
     reflector_project = "Reflector"
-    build_config = "Debug"
+    build_config = "Release"
     build_platform = "x64"
     
     print(Fore.CYAN + Style.BRIGHT + "═" * 80)
