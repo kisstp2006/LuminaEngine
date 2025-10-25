@@ -11,11 +11,9 @@
 
 #include "rpmalloc.h"
 
-// EE HACK
 #if _WIN32
 #pragma warning( disable : 4574 )
 #endif
-// End EE HACK
 
 ////////////
 ///
@@ -95,7 +93,7 @@
 #endif
 #ifndef ENABLE_VALIDATE_ARGS
 //! Enable validation of args to public entry points
-#define ENABLE_VALIDATE_ARGS      0
+#define ENABLE_VALIDATE_ARGS      1
 #endif
 #ifndef ENABLE_STATISTICS
 //! Enable statistics collection

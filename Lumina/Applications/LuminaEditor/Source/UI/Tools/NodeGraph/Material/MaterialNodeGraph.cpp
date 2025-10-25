@@ -148,8 +148,6 @@ namespace Lumina
 
     void CMaterialNodeGraph::CompileGraph(FMaterialCompiler& Compiler)
     {
-        LUMINA_PROFILE_SCOPE();
-        
         TVector<CEdGraphNode*> SortedNodes;
         TVector<CEdGraphNode*> NodesToEvaluate;
         TSet<CEdGraphNode*> ReachableNodes;
@@ -255,8 +253,6 @@ namespace Lumina
     
     CEdGraphNode* CMaterialNodeGraph::TopologicalSort(const TVector<TObjectHandle<CEdGraphNode>>& NodesToSort, TVector<CEdGraphNode*>& SortedNodes)
     {
-        LUMINA_PROFILE_SCOPE();
-
         THashMap<CEdGraphNode*, uint32> InDegree;
         TQueue<CEdGraphNode*> ReadyQueue;
         THashSet<CEdGraphNode*> ReachableNodes;

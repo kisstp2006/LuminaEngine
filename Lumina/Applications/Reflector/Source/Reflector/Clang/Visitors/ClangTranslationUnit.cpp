@@ -10,42 +10,42 @@
 
 namespace Lumina::Reflection
 {
-
-    uint64_t GFilesLookedAt;
+    uint64_t GTranslationUnitsVisited;
+    uint64_t GTranslationUnitsParsed;
     
     CXChildVisitResult VisitTranslationUnit(CXCursor Cursor, CXCursor Parent, CXClientData ClientData)
     {
+        GTranslationUnitsVisited++;
         
-        GFilesLookedAt++;
+        CXSourceLocation Loc = clang_getCursorLocation(Cursor);
+        if (clang_Location_isInSystemHeader(Loc))
+        {
+            return CXChildVisit_Continue;
+        }
         
         FClangParserContext* ParserContext = (FClangParserContext*)ClientData;
         
         eastl::string FilePath = ClangUtils::GetHeaderPathForCursor(Cursor);
         FStringHash Hash = FStringHash(FilePath);
 
-        if (ParserContext->Project.HeaderHashMap.find(Hash) == ParserContext->Project.HeaderHashMap.end())
+        auto Iter = ParserContext->Project->HeaderHashMap.find(Hash);
+        if (Iter == ParserContext->Project->HeaderHashMap.end())
         {
             return CXChildVisit_Continue;
         }
-
-        ParserContext->ReflectedHeader = ParserContext->Project.HeaderHashMap.at(Hash);
+        
+        GTranslationUnitsParsed++;
+        
+        ParserContext->ReflectedHeader = &Iter->second;
         
         CXCursorKind CursorKind = clang_getCursorKind(Cursor);
         eastl::string CursorName = ClangUtils::GetCursorDisplayName(Cursor);
-        eastl::string ParentCursorName = ClangUtils::GetCursorDisplayName(Parent);
-
-        // Get the source location of the cursor
-        CXSourceLocation Location = clang_getCursorLocation(Cursor);
-        CXFile CursorFile;
-        unsigned Line, Column, Offset;
-        clang_getSpellingLocation(Location, &CursorFile, &Line, &Column, &Offset);
-
         
-        switch (CursorKind)
+        switch (CursorKind)  // NOLINT(clang-diagnostic-switch-enum)
         {
             case (CXCursor_MacroExpansion):
                 {
-                    return Visitor::VisitMacro(Cursor, &ParserContext->ReflectedHeader, ParserContext);
+                    return Visitor::VisitMacro(Cursor, ParserContext->ReflectedHeader, ParserContext);
                 }
             
             case(CXCursor_ClassDecl):

@@ -4,6 +4,7 @@
 #include "Core/DisableAllWarnings.h"
 #include "Core/LuminaMacros.h"
 #include "Core/Math/Hash/Hash.h"
+#include "Core/Threading/Thread.h"
 
 enum class EName : uint32;
 PRAGMA_DISABLE_ALL_WARNINGS
@@ -40,7 +41,8 @@ namespace Lumina
     class FNameTable
     {
     private:
-        
+
+        FMutex Mutex;
         eastl::hash_map<uint64, const char*> HashToString;
         FStringPool Pool;
         
@@ -62,6 +64,8 @@ namespace Lumina
             }
 
             const uint64 ID = Hash::XXHash::GetHash64(Str);
+
+            FScopeLock Lock(Mutex);
             
             auto It = HashToString.find(ID);
             if ((It != HashToString.end()))

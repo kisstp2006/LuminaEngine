@@ -14,26 +14,33 @@ namespace Lumina
     {
         FName SquareTexturePath = Paths::GetEngineResourceDirectory() + "/Textures/WhiteSquareTexture.png";
         FRHIImageRef RHI = Import::Textures::CreateTextureFromImport(GRenderContext, SquareTexturePath.ToString(), false);
-
         ImTextureRef ImTex = ImGuiX::ToImTextureRef(RHI);
-
+    
         SquareWhiteTexture.first = SquareTexturePath;
-        
         SquareWhiteTexture.second = Memory::New<FEntry>();
         SquareWhiteTexture.second->Name = SquareTexturePath; 
         SquareWhiteTexture.second->RHIImage = RHI;
         SquareWhiteTexture.second->ImTexture = ImTex;
-        SquareWhiteTexture.second->State.store(ETextureState::Ready, std::memory_order_release);
+        SquareWhiteTexture.second->State = ETextureState::Ready;
+        
         Images.emplace(SquareTexturePath, SquareWhiteTexture.second);
     }
-
+    
     FUITextureCache::~FUITextureCache()
     {
-        while (HasImagesPendingLoad())
+        // Wait for pending loads
+        while (true)
         {
+            {
+                FScopeLock Lock(Mutex);
+                if (!HasImagesPendingLoad_Internal())
+                    break;
+            }
             Threading::Sleep(1);
         }
-
+    
+        FScopeLock Lock(Mutex);
+        
         Memory::Delete(SquareWhiteTexture.second);
         SquareWhiteTexture.second = nullptr;
         Images.erase(SquareWhiteTexture.first);
@@ -45,46 +52,61 @@ namespace Lumina
         
         Images.clear();
     }
-
+    
     FUITextureCache& FUITextureCache::Get()
     {
         return *GetEngineSystem<FRenderManager>().GetTextureCache();
     }
-
+    
     FRHIImageRef FUITextureCache::GetImage(const FName& Path)
     {
         FScopeLock Lock(Mutex);
-        FEntry* Entry = GetOrCreateGroup(Path);
-        Entry->LastUseFrame.store(GEngine->GetUpdateContext().GetFrame(), std::memory_order_relaxed);
-        return Entry ? Entry->RHIImage : nullptr;
+        FEntry* Entry = GetOrCreateGroup_Internal(Path);
+        if (Entry)
+        {
+            Entry->LastUseFrame = GEngine->GetUpdateContext().GetFrame();
+            return Entry->RHIImage;
+        }
+        return nullptr;
     }
-
+    
     ImTextureRef FUITextureCache::GetImTexture(const FName& Path)
     {
         FScopeLock Lock(Mutex);
-        FEntry* Entry = GetOrCreateGroup(Path);
-        Entry->LastUseFrame.store(GEngine->GetUpdateContext().GetFrame(), std::memory_order_relaxed);
-        return Entry ? Entry->ImTexture : ImTextureRef();
+        FEntry* Entry = GetOrCreateGroup_Internal(Path);
+        if (Entry)
+        {
+            Entry->LastUseFrame = GEngine->GetUpdateContext().GetFrame();
+            return Entry->ImTexture;
+        }
+        return ImTextureRef();
     }
-
+    
     void FUITextureCache::StartFrame()
     {
+        FScopeLock Lock(Mutex);
         SquareWhiteTexture.second->LastUseFrame = GEngine->GetUpdateContext().GetFrame();
     }
-
+    
     void FUITextureCache::EndFrame()
     {
         LUMINA_PROFILE_SCOPE();
-
-        uint64 CurrentFrame = GEngine->GetUpdateContext().GetFrame();
-
+    
         FScopeLock Lock(Mutex);
-        eastl::erase_if(Images, [CurrentFrame](auto& pair) -> bool
+        
+        uint64 CurrentFrame = GEngine->GetUpdateContext().GetFrame();
+    
+        eastl::erase_if(Images, [this, CurrentFrame](auto& pair) -> bool
         {
             FEntry* Entry = pair.second;
-            if (Entry->State.load(std::memory_order_acquire) == ETextureState::Ready)
+            
+            // Don't delete the square white texture
+            if (Entry == SquareWhiteTexture.second)
+                return false;
+                
+            if (Entry->State == ETextureState::Ready)
             {
-                uint64 LastUse = Entry->LastUseFrame.load(std::memory_order_acquire);
+                uint64 LastUse = Entry->LastUseFrame;
                 if (CurrentFrame - LastUse > 1000)
                 {
                     GEngine->GetEngineSubsystem<FRenderManager>()->GetImGuiRenderer()->DestroyImTexture(Entry->ImTexture);
@@ -95,77 +117,79 @@ namespace Lumina
             return false;
         });
     }
-
+    
     bool FUITextureCache::HasImagesPendingLoad() const
+    {
+        FScopeLock Lock(Mutex);
+        return HasImagesPendingLoad_Internal();
+    }
+    
+    bool FUITextureCache::HasImagesPendingLoad_Internal() const
     {
         for (auto& [Name, Entry] : Images)
         {
-            if (Entry->State.load() == ETextureState::Loading)
+            if (Entry->State == ETextureState::Loading)
             {
                 return true;
             }
         }
-
         return false;
     }
     
-    FUITextureCache::FEntry* FUITextureCache::GetOrCreateGroup(const FName& PathName)
+    FUITextureCache::FEntry* FUITextureCache::GetOrCreateGroup_Internal(const FName& PathName)
     {
         LUMINA_PROFILE_SCOPE();
         
+        // Try to find existing entry
         auto Iter = Images.find(PathName);
         if (Iter != Images.end())
         {
             FEntry* Entry = Iter->second;
-            if (Entry->State.load(std::memory_order_acquire) == ETextureState::Ready)
+            if (Entry->State == ETextureState::Ready)
             {
                 return Entry;
             }
             
+            // Still loading, return placeholder
             return SquareWhiteTexture.second;
         }
     
+        // Create new entry
         FEntry* NewEntry = Memory::New<FEntry>();
         NewEntry->Name = PathName;
-        NewEntry->State.store(ETextureState::Empty, std::memory_order_release);
-        
+        NewEntry->State = ETextureState::Loading;
         NewEntry->RHIImage = nullptr;
         NewEntry->ImTexture = {};
+        NewEntry->LastUseFrame = GEngine->GetUpdateContext().GetFrame();
     
-        auto [InsertedIter, Inserted] = Images.try_emplace(PathName, NewEntry);
-        FEntry* Entry = InsertedIter->second;
+        Images.emplace(PathName, NewEntry);
         
-        if (!Inserted) // Another thread inserted it first
+        // Start async load (captures Entry pointer which is now stable in the map)
+        Task::AsyncTask(1, 1, [this, NewEntry, PathName](uint32, uint32, uint32)
         {
-            Memory::Delete(NewEntry);
-    
-            if (Entry->State.load(std::memory_order_acquire) == ETextureState::Ready)
-            {
-                return Entry;
-            }
+            FString PathString = PathName.ToString();
+            FRHIImageRef NewImage = Import::Textures::CreateTextureFromImport(GRenderContext, PathString, false);
+            ImTextureRef NewImTexture = ImGuiX::ToImTextureRef(NewImage);
             
-            return SquareWhiteTexture.second;
-        }
-    
-        ETextureState Expected = ETextureState::Empty;
-        if (Entry->State.compare_exchange_strong(Expected, ETextureState::Loading, std::memory_order_acq_rel))
-        {
-            Task::AsyncTask(1, 1, [this, Entry, PathName](uint32, uint32, uint32)
             {
                 FScopeLock Lock(Mutex);
-
-                FString PathString = PathName.ToString();
-                FRHIImageRef NewImage = Import::Textures::CreateTextureFromImport(GRenderContext, PathString, false);
-                ImTextureRef NewImTexture = ImGuiX::ToImTextureRef(NewImage);
                 
-                Entry->RHIImage = NewImage;
-                Entry->ImTexture = NewImTexture;
-                Entry->LastUseFrame.store(GEngine->GetUpdateContext().GetFrame(), std::memory_order_release);
-                
-                Entry->State.store(ETextureState::Ready, std::memory_order_release);
-            });
-        }
+                auto Iter = Images.find(PathName);
+                if (Iter != Images.end() && Iter->second == NewEntry)
+                {
+                    NewEntry->RHIImage = NewImage;
+                    NewEntry->ImTexture = NewImTexture;
+                    NewEntry->State = ETextureState::Ready;
+                }
+                else
+                {
+                    // Entry was removed, clean up the texture we just loaded
+                    GEngine->GetEngineSubsystem<FRenderManager>()->GetImGuiRenderer()->DestroyImTexture(NewImTexture);
+                }
+            }
+        });
     
+        // Return placeholder while loading
         return SquareWhiteTexture.second;
     }
 }

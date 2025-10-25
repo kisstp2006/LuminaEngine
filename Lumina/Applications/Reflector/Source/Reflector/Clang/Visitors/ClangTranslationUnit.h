@@ -5,4 +5,5 @@
 namespace Lumina::Reflection
 {
     CXChildVisitResult VisitTranslationUnit(CXCursor Cursor, CXCursor Parent, CXClientData ClientData);
+    
 }

@@ -21,7 +21,10 @@ namespace Lumina
             {
                 CObjectBase* Obj = Entry.Object;
                 
-                if (!Obj) continue;
+                if (!Obj)
+                {
+                    continue;
+                }
 
                 if (bIncludeDerivedClasses)
                 {
@@ -68,7 +71,7 @@ namespace Lumina
             }
         }
 
-        TFixedVector<CObjectBase*, 2024> AllObjects;
+        TFixedVector<CObjectBase*, 1024> AllObjects;
         SIZE_T Index;
     };
 }

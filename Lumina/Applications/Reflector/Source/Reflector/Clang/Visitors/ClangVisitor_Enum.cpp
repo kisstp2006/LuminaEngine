@@ -57,7 +57,7 @@ namespace Lumina::Reflection::Visitor
 
         
         FReflectionMacro Macro;
-        if(!Context->TryFindMacroForCursor(Context->ReflectedHeader.HeaderPath, Cursor, Macro))
+        if(!Context->TryFindMacroForCursor(Context->ReflectedHeader->HeaderPath, Cursor, Macro))
         {
             return CXChildVisit_Continue;
         }
@@ -76,9 +76,9 @@ namespace Lumina::Reflection::Visitor
         }
         
         FReflectedEnum* Enum = Context->ReflectionDatabase.GetOrCreateReflectedType<FReflectedEnum>(FStringHash(FullyQualifiedName));
-        Enum->DisplayName = CursorName;
-        Enum->LineNumber = ClangUtils::GetCursorLineNumber(Cursor);
-        Enum->HeaderID = Context->ReflectedHeader.HeaderPath;
+        Enum->DisplayName   = std::move(CursorName);
+        Enum->LineNumber    = ClangUtils::GetCursorLineNumber(Cursor);
+        Enum->HeaderID      = Context->ReflectedHeader->HeaderPath;
 
         FReflectedType* PreviousParentType = Context->ParentReflectedType;
         

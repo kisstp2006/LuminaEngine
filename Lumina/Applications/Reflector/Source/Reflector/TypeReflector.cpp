@@ -23,41 +23,92 @@ namespace Lumina::Reflection
     bool FTypeReflector::ParseSolution()
     {
         std::ifstream slnFile(Solution.GetPath().c_str());
-
+        if (!slnFile.is_open())
+        {
+            std::cerr << "Failed to open solution file: " << Solution.GetPath().c_str() << "\n";
+            return false;
+        }
+    
         eastl::vector<eastl::string> ProjectFilePaths;
-
         std::string CurrentLine;
+        CurrentLine.reserve(512); // Reserve space to avoid reallocations
+    
         while (std::getline(slnFile, CurrentLine))
         {
             eastl::string Line(CurrentLine.c_str());
-            if (Line.find(VS_PROJECT_ID) != eastl::string::npos)
+            
+            size_t ProjectIdPos = Line.find(VS_PROJECT_ID);
+            if (ProjectIdPos == eastl::string::npos)
             {
-                auto projectNameStartIdx = Line.find(" = \"");
-                projectNameStartIdx += 4;
-                auto projectNameEndIdx = Line.find("\", \"", projectNameStartIdx);
-                auto projectPathStartIdx = projectNameEndIdx + 4;
-                auto projectPathEndIdx = Line.find("\"", projectPathStartIdx);
-                const eastl::string projectPathString = Line.substr(projectPathStartIdx, projectPathEndIdx - projectPathStartIdx);
+                continue;
+            }
 
-                eastl::string ProjectPath = Solution.GetParentPath() + "\\" + projectPathString;
+            // Parse: Project("{...}") = "ProjectName", "ProjectPath", "{...}"
+            size_t NameStart = Line.find(" = \"");
+            if (NameStart == eastl::string::npos)
+            {
+                continue;
+            }
+
+            NameStart += 4;
+            size_t NameEnd = Line.find("\", \"", NameStart);
+            if (NameEnd == eastl::string::npos)
+            {
+                continue;
+            }
+
+            eastl::string ProjectName = Line.substr(NameStart, NameEnd - NameStart);
+            
+            // Skip the Reflector project itself
+            if (ProjectName == "Reflector")
+            {
+                continue;
+            }
+
+            size_t PathStart = NameEnd + 4;
+            size_t PathEnd = Line.find("\"", PathStart);
+            if (PathEnd == eastl::string::npos)
+            {
+                continue;
+            }
+
+            eastl::string ProjectRelativePath = Line.substr(PathStart, PathEnd - PathStart);
+            
+            // Convert backslashes to forward slashes for consistency
+            eastl::replace(ProjectRelativePath.begin(), ProjectRelativePath.end(), '\\', '/');
+            
+            eastl::string ProjectPath = Solution.GetParentPath() + "/" + ProjectRelativePath;
+            
+            // Verify project file exists before adding
+            if (std::filesystem::exists(ProjectPath.c_str()))
+            {
                 ProjectFilePaths.push_back(std::move(ProjectPath));
             }
+            else
+            {
+                std::cerr << "Warning: Project file not found: " << ProjectPath.c_str() << "\n";
+            }
         }
-
+    
         slnFile.close();
-
-        eastl::sort(ProjectFilePaths.begin(), ProjectFilePaths.end(), [](const eastl::string& A, const eastl::string& B)
+    
+        if (ProjectFilePaths.empty())
         {
-            return A < B;
-        });
-
+            std::cerr << "Warning: No valid projects found in solution\n";
+            return false;
+        }
+    
+        // Sort for deterministic ordering
+        eastl::sort(ProjectFilePaths.begin(), ProjectFilePaths.end());
+    
+        // Parse each project
         for (const eastl::string& FilePath : ProjectFilePaths)
         {
             FReflectedProject Project(Solution.GetPath(), FilePath);
             
             if (Project.Parse())
             {
-                Solution.AddReflectedProject(Project);
+                Solution.AddReflectedProject(std::move(Project));
             }
         }
         
@@ -83,7 +134,7 @@ namespace Lumina::Reflection
             
             if (!Parser.Parse(Project.SolutionPath, Project.Headers, Project))
             {
-                std::cout << "Failed to parse\n";
+                std::cout << "No files to parse in " << Project.Name.c_str() << "\n";
             }
         }
 
@@ -94,12 +145,18 @@ namespace Lumina::Reflection
         {
             if (!Parser.Parse(Project.SolutionPath, Project.Headers, Project))
             {
-                std::cout << "Failed to parse\n";
+                std::cout << "No files to parse in " << Project.Name.c_str() << "\n";
             }
         }
 
+        for (FReflectedProject& Project : Projects)
+        {
+            Parser.Dispose(Project);
+        }
+
         std::cout << "[Reflection] Number of headers reflected: " << Parser.ParsingContext.NumHeadersReflected << "\n";
-        std::cout << "[Reflection] Number of files looked at: " << GFilesLookedAt << "\n";
+        std::cout << "[Reflection] Number of translation units looked at: " << GTranslationUnitsVisited << "\n";
+        std::cout << "[Reflection] Number of translation units parsed: " << GTranslationUnitsParsed << "\n";
 
         if (Parser.ParsingContext.HasError())
         {

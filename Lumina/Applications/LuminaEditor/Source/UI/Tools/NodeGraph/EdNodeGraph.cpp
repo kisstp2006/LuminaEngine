@@ -3,10 +3,10 @@
 #include "EdGraphNode.h"
 #include "Core/Object/Class.h"
 #include <Core/Reflection/Type/LuminaTypes.h>
-
 #include "Drawing.h"
 #include "imgui_internal.h"
 #include "Core/Object/Cast.h"
+#include "Core/Object/Package/Package.h"
 #include "Core/Profiler/Profile.h"
 #include "imgui-node-editor/imgui_node_editor_internal.h"
 #include "Tools/UI/ImGui/ImGuiX.h"
@@ -33,6 +33,7 @@ namespace Lumina
     bool CEdNodeGraph::GraphSaveSettings(const char* data, size_t size, ax::NodeEditor::SaveReasonFlags reason, void* userPointer)
     {
         CEdNodeGraph* ThisGraph = (CEdNodeGraph*)userPointer;
+        ThisGraph->GetPackage()->MarkDirty();
         ThisGraph->GraphSaveData.clear();
         ThisGraph->GraphSaveData.assign(data, size);
         return true;
@@ -77,7 +78,7 @@ namespace Lumina
         using namespace ax;
         
         NodeEditor::SetCurrentEditor(Context);
-        NodeEditor::Begin(GetPathName().c_str());
+        NodeEditor::Begin(GetQualifiedName().c_str());
     
         Graph::GraphNodeBuilder NodeBuilder;
         
@@ -264,9 +265,11 @@ namespace Lumina
                     }
                 }
             }
-            NodeEditor::EndCreate();
         }
 
+        NodeEditor::EndCreate();
+
+        
         // Handle deletion
         if (NodeEditor::BeginDelete())
         {
@@ -337,9 +340,9 @@ namespace Lumina
                     }
                 }
             }
-    
-            NodeEditor::EndDelete();
         }
+        NodeEditor::EndDelete();
+
     
         NodeEditor::End();
         NodeEditor::SetCurrentEditor(nullptr);

@@ -56,6 +56,11 @@ namespace Lumina::Reflection
                             continue;
                         }
 
+                        if (HeaderFileFullPath.find("ObjectMacros") != eastl::string::npos)
+                        {
+                            continue;
+                        }
+
                         eastl::replace(HeaderFileFullPath.begin(), HeaderFileFullPath.end(), '\\', '/');
                         HeaderFileFullPath.make_lower();
                         FReflectedHeader Header(HeaderFileFullPath);

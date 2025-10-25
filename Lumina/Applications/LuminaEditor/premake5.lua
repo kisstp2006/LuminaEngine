@@ -26,7 +26,6 @@ project "Editor"
     	"EnkiTS",
 		"Tracy",
 		"XXHash",
-		"RPMalloc",
 		"EnTT",
 	 }
 	 

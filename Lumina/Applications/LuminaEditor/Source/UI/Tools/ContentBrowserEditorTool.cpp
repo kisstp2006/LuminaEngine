@@ -116,10 +116,8 @@ namespace Lumina
         ContentBrowserTileViewContext.DrawItemOverrideFunction = [this] (FTileViewItem* Item) -> bool
         {
             FContentBrowserTileViewItem* ContentItem = static_cast<FContentBrowserTileViewItem*>(Item);
-        
-            ImTextureRef ImTexture = GetEngineSystem<FRenderManager>().GetTextureCache()->GetImTexture(
-                Paths::GetEngineResourceDirectory() + "/Textures/Folder.png"
-            );
+            
+            ImTextureRef ImTexture = FUITextureCache::Get().GetImTexture(Paths::GetEngineResourceDirectory() + "/Textures/Folder.png");
         
             ImVec4 TintColor = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
             
@@ -127,16 +125,12 @@ namespace Lumina
             {
                 if (ContentItem->GetAssetData().IsRedirector())
                 {
-                    ImTexture = GetEngineSystem<FRenderManager>().GetTextureCache()->GetImTexture(
-                        Paths::GetEngineResourceDirectory() + "/Textures/Redirect.png"
-                    );
+                    ImTexture = FUITextureCache::Get().GetImTexture(Paths::GetEngineResourceDirectory() + "/Textures/Redirect.png");
                     TintColor = ImVec4(0.7f, 0.7f, 1.0f, 1.0f);
                 }
                 else
                 {
-                    ImTexture = GetEngineSystem<FRenderManager>().GetTextureCache()->GetImTexture(
-                        Paths::GetEngineResourceDirectory() + "/Textures/SkeletalMeshIcon.png"
-                    );
+                    ImTexture = FUITextureCache::Get().GetImTexture(Paths::GetEngineResourceDirectory() + "/Textures/SkeletalMeshIcon.png");
                 }
             }
             else

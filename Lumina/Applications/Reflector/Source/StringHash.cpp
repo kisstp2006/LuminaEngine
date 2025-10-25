@@ -1,11 +1,12 @@
 ﻿#include "StringHash.h"
 
+#include "EASTL/fixed_hash_map.h"
 #include "Reflector/Clang/Utils.h"
 
 
 namespace Lumina
 {
-    class FNameHashMap : public eastl::hash_map<uint64_t, eastl::string>
+    class FNameHashMap : public eastl::fixed_hash_map<uint64_t, eastl::string, 64>
     {
         eastl::hash_node<value_type, false> const* const* GetBuckets() const { return mpBucketArray; }
     };
@@ -43,7 +44,12 @@ namespace Lumina
         :FStringHash(Str.c_str())
     {
     }
-    
+
+    FStringHash::FStringHash(const eastl::string_view& Str)
+        :FStringHash(Str.data())
+    {
+    }
+
     bool FStringHash::IsNone() const
     {
         auto Itr = gNameCache->find(ID);

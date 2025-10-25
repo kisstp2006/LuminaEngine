@@ -94,7 +94,6 @@ workspace "Lumina"
 		include "Lumina/Engine/ThirdParty/imgui"
 		include "Lumina/Engine/Thirdparty/Tracy"
 		include "Lumina/Engine/ThirdParty/xxhash"
-		include "Lumina/Engine/ThirdParty/rpmalloc"
 		include "Lumina/Engine/ThirdParty/entt"
 	group ""
 

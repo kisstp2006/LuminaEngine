@@ -44,11 +44,12 @@ namespace Lumina
     
     private:
 
-        FEntry* GetOrCreateGroup(const FName& PathName);
+        bool HasImagesPendingLoad_Internal() const;
+        FEntry* GetOrCreateGroup_Internal(const FName& PathName);
         
     private:
 
-        FMutex                      Mutex;
+        mutable FMutex              Mutex;
 
         THashMap<FName, FEntry*>    Images;
         

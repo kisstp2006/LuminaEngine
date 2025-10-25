@@ -3,6 +3,7 @@
 #include "StringHash.h"
 
 #include "EASTL/hash_map.h"
+#include "Reflector/Clang/Visitors/ClangTranslationUnit.h"
 
 namespace Lumina::Reflection
 {
@@ -20,6 +21,8 @@ namespace Lumina::Reflection
         eastl::string                                   ParentPath;
         eastl::vector<FReflectedHeader>                 Headers;
         eastl::hash_map<FStringHash, FReflectedHeader>  HeaderHashMap;
+        CXTranslationUnit                               TranslationUnit = nullptr;
+        CXIndex                                         ClangIndex = nullptr;
     
     };
 }

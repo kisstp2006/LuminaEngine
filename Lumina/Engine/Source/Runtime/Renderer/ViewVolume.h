@@ -15,7 +15,6 @@ namespace Lumina
      * Fully encompasses a view for a camera. 
      */
     
-    LUM_STRUCT()
     class LUMINA_API FViewVolume
     {
     public:

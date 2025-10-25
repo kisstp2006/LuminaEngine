@@ -5,8 +5,8 @@
 
 namespace Lumina
 {
-    FMutex StackMutex;
-    static TVector<FObjectInitializer*> InitializerStack;
+    static FMutex StackMutex;
+    static TFixedVector<FObjectInitializer*, 4> InitializerStack;
 
     FObjectInitializer::FObjectInitializer(CObject* Obj, CPackage* InPackage, const FConstructCObjectParams& InParams)
         : Object(Obj)

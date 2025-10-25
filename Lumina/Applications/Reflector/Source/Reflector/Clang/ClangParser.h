@@ -9,7 +9,8 @@ namespace Lumina::Reflection
 
         FClangParser();
 
-        bool Parse(const eastl::string& SolutionPath, eastl::vector<FReflectedHeader>& Headers, const FReflectedProject& Project);
+        bool Parse(const eastl::string& SolutionPath, eastl::vector<FReflectedHeader>& Headers, FReflectedProject& Project);
+        void Dispose(FReflectedProject& Project);
         
         FClangParserContext ParsingContext;
     

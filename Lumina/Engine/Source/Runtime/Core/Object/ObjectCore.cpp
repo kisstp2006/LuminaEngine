@@ -24,7 +24,7 @@ namespace Lumina
     /** Allocates a section of memory for the new object, does not place anything into the memory */
     static CObjectBase* AllocateCObjectMemory(const CClass* InClass, EObjectFlags InFlags)
     {
-        // Force 16-byte minimal alignment for cache friendliness.
+        // Force 16-byte minimal
         uint32 Alignment = Math::Max<uint32>(16, InClass->GetAlignment());
         
         return GCObjectAllocator.AllocateCObject(InClass->GetSize(), Alignment);
@@ -35,14 +35,10 @@ namespace Lumina
         LUMINA_PROFILE_SCOPE();
         Assert(Class)
         
-        FScopeLock Lock(ObjectNameMutex);
-        
         FName BaseName = (InBaseName == NAME_None) ? Class->GetName() : InBaseName;
-
-        FName FullName = BaseName;
         
         // First, try the base name directly
-        if (FindObjectFast(Class, Package, FullName) == nullptr)
+        if (FindObjectFast(Class, Package, BaseName) == nullptr)
         {
             return BaseName;
         }

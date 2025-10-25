@@ -25,10 +25,10 @@ namespace Lumina
     public:
 
         FStringHash() = default;
-        explicit FStringHash(nullptr_t) : ID(0) {}
         FStringHash(const char* Char);
         explicit FStringHash(uint64_t InID) :ID(InID) {}
         explicit FStringHash(const eastl::string& Str);
+        explicit FStringHash(const eastl::string_view& Str);
 
         bool IsValid() const { return ID != 0; }
         bool IsNone() const;

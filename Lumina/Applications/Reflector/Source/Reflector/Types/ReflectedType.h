@@ -52,28 +52,44 @@ enum class EPropertyTypeFlags : uint64_t
 
 namespace Lumina::Reflection
 {
+    constexpr uint32_t Hash(const char* str)
+    {
+        uint32_t hash = 5381;
+        while (*str)
+        {
+            hash = ((hash << 5) + hash) + static_cast<unsigned char>(*str++);
+        }
+        return hash;
+    }
+
     inline EPropertyTypeFlags GetCoreTypeFromName(const char* Name)
     {
-        if (Name == nullptr)                            return EPropertyTypeFlags::None;
-        if (strcmp(Name, "bool") == 0)                  return EPropertyTypeFlags::Bool;
-        if (strcmp(Name, "uint8") == 0)                 return EPropertyTypeFlags::UInt8;
-        if (strcmp(Name, "uint16") == 0)                return EPropertyTypeFlags::UInt16;
-        if (strcmp(Name, "uint32") == 0)                return EPropertyTypeFlags::UInt32;
-        if (strcmp(Name, "uint64") == 0)                return EPropertyTypeFlags::UInt64;
-        if (strcmp(Name, "int8") == 0)                  return EPropertyTypeFlags::Int8;
-        if (strcmp(Name, "int16") == 0)                 return EPropertyTypeFlags::Int16;
-        if (strcmp(Name, "int32") == 0)                 return EPropertyTypeFlags::Int32;
-        if (strcmp(Name, "int64") == 0)                 return EPropertyTypeFlags::Int64;
-        if (strcmp(Name, "float") == 0)                 return EPropertyTypeFlags::Float;
-        if (strcmp(Name, "double") == 0)                return EPropertyTypeFlags::Double;
-        if (strcmp(Name, "Lumina::CClass") == 0)        return EPropertyTypeFlags::Class;
-        if (strcmp(Name, "Lumina::FName") == 0)         return EPropertyTypeFlags::Name;
-        if (strcmp(Name, "Lumina::FString") == 0)       return EPropertyTypeFlags::String;
-        if (strcmp(Name, "Lumina::TVector") == 0)       return EPropertyTypeFlags::Vector;
-        if (strcmp(Name, "Lumina::TObjectHandle") == 0) return EPropertyTypeFlags::Object;
-        if (strcmp(Name, "Lumina::CObject") == 0)       return EPropertyTypeFlags::Object;
+        if (Name == nullptr)
+        {
+            return EPropertyTypeFlags::None;
+        }
 
-        return EPropertyTypeFlags::None;
+        switch (Hash(Name))
+        {
+        case Hash("bool"):                      return EPropertyTypeFlags::Bool;
+        case Hash("uint8"):                     return EPropertyTypeFlags::UInt8;
+        case Hash("uint16"):                    return EPropertyTypeFlags::UInt16;
+        case Hash("uint32"):                    return EPropertyTypeFlags::UInt32;
+        case Hash("uint64"):                    return EPropertyTypeFlags::UInt64;
+        case Hash("int8"):                      return EPropertyTypeFlags::Int8;
+        case Hash("int16"):                     return EPropertyTypeFlags::Int16;
+        case Hash("int32"):                     return EPropertyTypeFlags::Int32;
+        case Hash("int64"):                     return EPropertyTypeFlags::Int64;
+        case Hash("float"):                     return EPropertyTypeFlags::Float;
+        case Hash("double"):                    return EPropertyTypeFlags::Double;
+        case Hash("Lumina::CClass"):            return EPropertyTypeFlags::Class;
+        case Hash("Lumina::FName"):             return EPropertyTypeFlags::Name;
+        case Hash("Lumina::FString"):           return EPropertyTypeFlags::String;
+        case Hash("Lumina::TVector"):           return EPropertyTypeFlags::Vector;
+        case Hash("Lumina::TObjectHandle"):     return EPropertyTypeFlags::Object;
+        case Hash("Lumina::CObject"):           return EPropertyTypeFlags::Object;
+        default:                                   return EPropertyTypeFlags::None;
+        }
     }
     
     /** Abstract base to all reflected types */
@@ -102,15 +118,15 @@ namespace Lumina::Reflection
         void GenerateMetadata(const eastl::string& InMetadata);
 
         eastl::vector<eastl::shared_ptr<FReflectedProperty>>    Props;
+        eastl::vector<FMetadataPair>                            Metadata;
         eastl::string                                           Project;
-        uint32_t                                                GeneratedBodyLineNumber;
-        uint32_t                                                LineNumber;
-        eastl::string                                           HeaderID;
+        eastl::string_view                                      HeaderID;
         eastl::string                                           DisplayName;
         eastl::string                                           QualifiedName;
         eastl::string                                           Namespace;
+        uint32_t                                                GeneratedBodyLineNumber;
+        uint32_t                                                LineNumber;
         EType                                                   Type;
-        eastl::vector<FMetadataPair>                            Metadata;
     };
     
 

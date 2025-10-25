@@ -36,10 +36,8 @@ namespace Lumina
             {
                 if (this != &Other)
                 {
-                    Object.store(Other.Object.load(std::memory_order_relaxed),
-                                 std::memory_order_relaxed);
-                    Generation.store(Other.Generation.load(std::memory_order_relaxed),
-                                     std::memory_order_relaxed);
+                    Object.store(Other.Object.load(std::memory_order_relaxed), std::memory_order_relaxed);
+                    Generation.store(Other.Generation.load(std::memory_order_relaxed), std::memory_order_relaxed);
                 }
                 return *this;
             }
@@ -53,10 +51,8 @@ namespace Lumina
             {
                 if (this != &Other)
                 {
-                    Object.store(Other.Object.load(std::memory_order_relaxed),
-                                 std::memory_order_relaxed);
-                    Generation.store(Other.Generation.load(std::memory_order_relaxed),
-                                     std::memory_order_relaxed);
+                    Object.store(Other.Object.load(std::memory_order_relaxed), std::memory_order_relaxed);
+                    Generation.store(Other.Generation.load(std::memory_order_relaxed), std::memory_order_relaxed);
                 }
                 return *this;
             }
@@ -104,28 +100,22 @@ namespace Lumina
         void Deallocate(FObjectHandle Handle)
         {
             FScopeLock Lock(Mutex);
-            const uint32 index = Handle.Index;
-    
-            if (!IsIndexPublished(index))
-            {
-                return;
-            }
+            const uint32 Index = Handle.Index;
+            
+            LUM_ASSERT(IsIndexPublished(Index))
 
-            Objects[index].Object.store(nullptr, std::memory_order_release);
-            Objects[index].Generation.fetch_add(1u, std::memory_order_acq_rel);
+            Objects[Index].Object.store(nullptr, std::memory_order_release);
+            Objects[Index].Generation.fetch_add(1u, std::memory_order_acq_rel);
     
-            Free.push_back(index);
+            Free.push_back(Index);
             NumAlive.fetch_sub(1u, std::memory_order_relaxed);
         }
     
         void Deallocate(uint32 Index)
         {
             FScopeLock Lock(Mutex);
-    
-            if (!IsIndexPublished(Index))
-            {
-                return;
-            }
+
+            LUM_ASSERT(IsIndexPublished(Index))
     
             Objects[Index].Object.store(nullptr, std::memory_order_release);
             Objects[Index].Generation.fetch_add(1u, std::memory_order_acq_rel);
@@ -219,6 +209,7 @@ namespace Lumina
         TFixedVector<uint32, 1024> Free;
     
     private:
+        
         std::atomic<uint32>        NumAlive { 0 };
     
         // Highest initialized index + 1 that readers may legally access.

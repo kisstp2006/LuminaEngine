@@ -31,6 +31,8 @@ project "Lumina"
         "%{LuminaEngineDirectory}/Intermediates/Reflection/Lumina/**.cpp",
         
         
+        "Engine/ThirdParty/rpmalloc/**.h",
+        "Engine/ThirdParty/rpmalloc/**.c",
         "Engine/ThirdParty/RenderDoc/renderdoc_app.h",
         "Engine/ThirdParty/stb_image/**.h",
         "Engine/ThirdParty/glm/glm/**.hpp",
@@ -54,7 +56,6 @@ project "Lumina"
         "Engine/ThirdParty/fastgltf/deps/simdjson/**.cpp",
     }
 
-    -- Exclude GLM source files (header-only library)
     removefiles
     {
         "Engine/ThirdParty/glm/glm/**.cpp",
@@ -84,7 +85,6 @@ project "Lumina"
         "EnkiTS",
         "Tracy",
         "XXHash",
-        "RPMalloc",
         "EnTT",
         "vulkan-1.lib",
         "PhysXExtensions_static_64.lib",

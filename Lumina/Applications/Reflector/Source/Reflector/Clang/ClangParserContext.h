@@ -16,7 +16,6 @@ namespace Lumina::Reflection
             : ParentReflectedType(nullptr)
             , LastReflectedType(nullptr)
             , Solution("")
-            , Project("", "")
         {
         }
 
@@ -52,8 +51,8 @@ namespace Lumina::Reflection
         mutable eastl::string                                       WarningMessage;
         
         FProjectSolution                                            Solution;
-        FReflectedProject                                           Project;
-        FReflectedHeader                                            ReflectedHeader;
+        FReflectedProject*                                          Project = nullptr;
+        FReflectedHeader*                                           ReflectedHeader = nullptr;
         
         eastl::hash_map<uint64, eastl::vector<FReflectionMacro>>    ReflectionMacros;
         eastl::hash_map<uint64, eastl::queue<FReflectionMacro>>     GeneratedBodyMacros;

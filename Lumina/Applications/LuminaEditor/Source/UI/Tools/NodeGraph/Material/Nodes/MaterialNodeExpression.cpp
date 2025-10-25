@@ -17,11 +17,6 @@ namespace Lumina
         Output->SetShouldDrawEditor(false);
     }
 
-    void CMaterialExpression_Math::Serialize(FArchive& Ar)
-    {
-        CMaterialExpression::Serialize(Ar);
-    }
-
     void CMaterialExpression_Math::BuildNode()
     {
         Super::BuildNode();
@@ -361,12 +356,6 @@ namespace Lumina
     void CMaterialExpression_TexCoords::GenerateDefinition(FMaterialCompiler& Compiler)
     {
         Compiler.TexCoords(FullName);
-    }
-
-    void CMaterialExpression_Constant::Serialize(FArchive& Ar)
-    {
-        CMaterialExpression::Serialize(Ar);
-        Ar << Value;
     }
 
     void CMaterialExpression_Constant::DrawContextMenu()
@@ -914,11 +903,6 @@ namespace Lumina
     void CMaterialExpression_Step::GenerateDefinition(FMaterialCompiler& Compiler)
     {
         Compiler.Step(A, B);
-    }
-
-    void CMaterialExpression_Lerp::Serialize(FArchive& Ar)
-    {
-        CMaterialExpression_Math::Serialize(Ar);
     }
 
     void CMaterialExpression_Lerp::BuildNode()

@@ -6,8 +6,121 @@
 #include <cstdlib>
 
 #include "StringHash.h"
+#include "Reflector/Allocator.h"
 #include "Reflector/TypeReflector.h"
 #include "Reflector/Clang/ClangParser.h"
+
+FLinearAllocator& GetGlobalAllocator()
+{
+    static FLinearAllocator GAllocator;
+    return GAllocator;
+}
+
+// Single object allocation
+void* operator new(size_t size)
+{
+    return GetGlobalAllocator().Alloc(size);
+}
+
+void* operator new(size_t size, std::align_val_t alignment)
+{
+    return GetGlobalAllocator().Alloc(size, static_cast<size_t>(alignment));
+}
+
+// Array allocation
+void* operator new[](size_t size)
+{
+    return GetGlobalAllocator().Alloc(size);
+}
+
+void* operator new[](size_t size, std::align_val_t alignment)
+{
+    return GetGlobalAllocator().Alloc(size, static_cast<size_t>(alignment));
+}
+
+// Nothrow variants
+void* operator new(size_t size, const std::nothrow_t&) noexcept
+{
+    return GetGlobalAllocator().Alloc(size);
+}
+
+void* operator new(size_t size, std::align_val_t alignment, const std::nothrow_t&) noexcept
+{
+    return GetGlobalAllocator().Alloc(size, static_cast<size_t>(alignment));
+}
+
+void* operator new[](size_t size, const std::nothrow_t&) noexcept
+{
+    return GetGlobalAllocator().Alloc(size);
+}
+
+void* operator new[](size_t size, std::align_val_t alignment, const std::nothrow_t&) noexcept
+{
+    return GetGlobalAllocator().Alloc(size, static_cast<size_t>(alignment));
+}
+
+// Deletion operators (all no-ops for linear allocator)
+void operator delete(void* ptr) noexcept
+{
+    // no-op: memory never freed
+}
+
+void operator delete(void* ptr, std::align_val_t alignment) noexcept
+{
+    // no-op: memory never freed
+}
+
+void operator delete[](void* ptr) noexcept
+{
+    // no-op: memory never freed
+}
+
+void operator delete[](void* ptr, std::align_val_t alignment) noexcept
+{
+    // no-op: memory never freed
+}
+
+// Sized deallocation (C++14)
+void operator delete(void* ptr, size_t size) noexcept
+{
+    // no-op: memory never freed
+}
+
+void operator delete(void* ptr, size_t size, std::align_val_t alignment) noexcept
+{
+    // no-op: memory never freed
+}
+
+void operator delete[](void* ptr, size_t size) noexcept
+{
+    // no-op: memory never freed
+}
+
+void operator delete[](void* ptr, size_t size, std::align_val_t alignment) noexcept
+{
+    // no-op: memory never freed
+}
+
+// Nothrow deletion variants
+void operator delete(void* ptr, const std::nothrow_t&) noexcept
+{
+    // no-op: memory never freed
+}
+
+void operator delete(void* ptr, std::align_val_t alignment, const std::nothrow_t&) noexcept
+{
+    // no-op: memory never freed
+}
+
+void operator delete[](void* ptr, const std::nothrow_t&) noexcept
+{
+    // no-op: memory never freed
+}
+
+void operator delete[](void* ptr, std::align_val_t alignment, const std::nothrow_t&) noexcept
+{
+    // no-op: memory never freed
+}
 
 
 int main(int argc, char* argv[])
@@ -126,6 +239,7 @@ int main(int argc, char* argv[])
     std::cout << "===============================================\n";
     std::cout << "Total Time: " << (parseTime + buildTime + GenTime) << " seconds\n";
     std::cout << "===============================================\n";
+
 
     Lumina::FStringHash::Shutdown();
     

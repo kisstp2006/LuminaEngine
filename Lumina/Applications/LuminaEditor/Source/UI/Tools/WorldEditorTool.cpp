@@ -1653,7 +1653,7 @@ namespace Lumina
 
         if (SelectedEntity.IsValid())
         {
-            for (const auto& [ID, Set] : World->GetEntityRegistry().storage())
+            for (auto [ID, Set] : World->GetEntityRegistry().storage())
             {
                 if (Set.contains(SelectedEntity.GetHandle()))
                 {

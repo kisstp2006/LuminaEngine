@@ -1,5 +1,5 @@
 #pragma once
-
+#define ENABLE_VALIDATE_ARGS
 #include <rpmalloc.h>
 #include <EASTL/type_traits.h>
 #include "Core/Assertions/Assert.h"
@@ -18,7 +18,6 @@ inline bool GIsMemorySystemShutdown = false;
 inline rpmalloc_config_t GrpmallocConfig;
 
 constexpr SIZE_T DEFAULT_ALIGNMENT = 0;
-constexpr SIZE_T MIN_ALIGNMENT = 8;
 
 namespace Lumina::Memory
 {
@@ -52,7 +51,7 @@ namespace Lumina::Memory
 
     LUMINA_API inline void CustomAssert(const char* pMessage)
     {
-#if 0
+#if 1
         if (Logging::IsInitialized())
         {
             LOG_CRITICAL("[Memory] - ", pMessage);
@@ -143,7 +142,7 @@ namespace Lumina::Memory
 
     template<typename T, typename ... ConstructorParams>
     requires eastl::is_constructible_v<T, ConstructorParams...> && (!eastl::is_array_v<T>)
-    NODISCARD T* New(ConstructorParams&&... Params)  // NOLINT(cppcoreguidelines-missing-std-forward)
+    NODISCARD FORCEINLINE T* New(ConstructorParams&&... Params)  // NOLINT(cppcoreguidelines-missing-std-forward)
     {
         void* Memory = Malloc(sizeof(T), alignof(T));
         return new(Memory) T(eastl::forward<ConstructorParams>(Params)...);

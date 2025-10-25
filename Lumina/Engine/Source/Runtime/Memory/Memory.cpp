@@ -9,8 +9,10 @@ namespace Lumina
         if (!GIsMemorySystemInitialized)
         {
             Memzero(&GrpmallocConfig, sizeof(rpmalloc_config_t));
-            GrpmallocConfig.error_callback = &CustomAssert;
-
+            GrpmallocConfig.error_callback = CustomAssert;
+            GrpmallocConfig.enable_huge_pages = true;
+            
+        
             rpmalloc_initialize_config(&GrpmallocConfig);
 
             GIsMemorySystemInitialized = true;
@@ -25,7 +27,7 @@ namespace Lumina
         rpmalloc_global_statistics_t stats;
         rpmalloc_global_statistics(&stats);
         
-        std::cout << "[Lumina] - Memory System Shutdown with " << stats.mapped << " bytes.\n";
+        std::cout << "[Lumina] - Memory System Shutdown.\n";
 
         GIsMemorySystemInitialized = false;
         rpmalloc_finalize();
@@ -34,11 +36,6 @@ namespace Lumina
 
     void Memory::InitializeThreadHeap()
     {
-        LUMINA_PROFILE_SCOPE();
-
-        // Since our tasks are not bound to a specific thread and we may alloc on one and free on another. This prevents us from calling thread finalize when we shut down a thread
-        // as we can not guarantee that we have freed everything that may have been allocated from this thread.
-        // This is not a problem since on application shutdown, we call rpmalloc_finalize, which will release the thread heaps
         rpmalloc_thread_initialize();
     }
 
@@ -52,8 +49,8 @@ namespace Lumina
         }
 
         // Ensure minimum alignment rules
-        SIZE_T defaultAlignment = (size < 16) ? 8 : 16;
-        SIZE_T Align = (alignment < defaultAlignment) ? defaultAlignment : (alignment);
+        SIZE_T DefaultAlignment = (size < 16) ? 8 : 16;
+        SIZE_T Align = (alignment < DefaultAlignment) ? DefaultAlignment : (alignment);
 
         return Align;
     }
@@ -73,27 +70,14 @@ namespace Lumina
     void* Memory::Malloc(size_t size, size_t alignment)
     {
 #if LUMINA_RPMALLOC
-
-        if (size == 0)
-        {
-            return nullptr;
-        }
-        
         if(!GIsMemorySystemInitialized)
         {
             Initialize();
         }
 
-        if (!IsThreadHeapInitialized()) [[unlikely]]
-        {
-            InitializeThreadHeap();
-        }
-
         SIZE_T ActualAlignment = GetActualAlignment(size, alignment);
         void* pMemory = rpaligned_alloc(ActualAlignment, size);
         
-        Assert(IsAligned(pMemory, ActualAlignment))
-
         LUMINA_PROFILE_ALLOC(pMemory, size);
 #else
         SIZE_T ActualAlignment = GetActualAlignment(size, alignment);

@@ -2,8 +2,8 @@
 #include "MaterialGraphNode.h"
 #include "UI/Tools/NodeGraph/Material/MaterialInput.h"
 #include "UI/Tools/NodeGraph/Material/MaterialOutput.h"
-#include "MaterialNodeExpression.generated.h"
 #include "UI/Tools/NodeGraph/Material/MaterialCompiler.h"
+#include "MaterialNodeExpression.generated.h"
 
 namespace Lumina
 {
@@ -29,7 +29,6 @@ namespace Lumina
         GENERATED_BODY()
         
     public:
-        void Serialize(FArchive& Ar) override;
         void BuildNode() override;
         
         FInlineString GetNodeCategory() const override { return "Math"; }
@@ -353,7 +352,6 @@ namespace Lumina
         GENERATED_BODY()
     public:
         
-        void Serialize(FArchive& Ar) override;
         void BuildNode() override;
 
         FString GetNodeDisplayName() const override { return "Lerp"; }
@@ -526,9 +524,7 @@ namespace Lumina
         GENERATED_BODY()
     public:
         
-
-        void Serialize(FArchive& Ar) override;
-
+        
         FInlineString GetNodeCategory() const override { return "Constants"; }
         void DrawContextMenu() override;
         void DrawNodeTitleBar() override;
