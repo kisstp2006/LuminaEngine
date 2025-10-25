@@ -335,7 +335,7 @@ namespace Lumina
     void CStaticMeshFactory::TryImport(const FString& RawPath, const FString& DestinationPath)
     {
         FString VirtualPath = Paths::ConvertToVirtualPath(DestinationPath);
-        
+
         uint32 Counter = 0;
         for (TUniquePtr<FMeshResource>& MeshResource : ImportedData.Resources)
         {
@@ -350,6 +350,12 @@ namespace Lumina
 
             NewMesh->MeshResources = eastl::move(MeshResource);
 
+            if (ImportedData.Textures.empty())
+            {
+                Counter++;
+                continue;
+            }
+
             Task::ParallelFor(ImportedData.Textures, ImportedData.Textures.size() / 4, [&](const Import::Mesh::GLTF::FGLTFImage& Texture)
             {
                 CTextureFactory* TextureFactory = CTextureFactory::StaticClass()->GetDefaultObject<CTextureFactory>();
@@ -363,6 +369,12 @@ namespace Lumina
                                              
                 TextureFactory->TryImport(TexturePath, TextureDestination);
             });
+
+            if (ImportedData.Materials.empty())
+            {
+                Counter++;
+                continue;
+            }
 
             for (SIZE_T i = 0; i < ImportedData.Materials[Counter].size(); ++i)
             {
