@@ -2,8 +2,8 @@
 
 #include "Core/Object/Class.h"
 #include "Core/Object/Object.h"
-#include "UI/Properties/PropertyTable.h"
 #include "Core/Object/ObjectHandleTyped.h"
+#include "UI/Properties/PropertyTable.h"
 #include "UI/Tools/EditorTool.h"
 
 namespace Lumina

@@ -60,7 +60,10 @@ namespace Lumina
         bool CompileShaderPaths(TSpan<FString> ShaderPaths, TSpan<FShaderCompileOptions> CompileOptions, CompletedFunc OnCompleted) override;
         void ReflectSpirv(TSpan<uint32> SpirV, FShaderReflection& Reflection, bool bReflectFull);
 
-        bool HasPendingRequests() const override { return PendingTasks.load(std::memory_order_relaxed) != 0; }
+        bool HasPendingRequests() const override
+        {
+            return PendingTasks.load(std::memory_order_acquire) != 0;
+        }
         
         FMutex                      RequestMutex;
 

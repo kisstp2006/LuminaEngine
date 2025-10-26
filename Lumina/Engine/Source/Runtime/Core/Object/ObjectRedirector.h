@@ -15,7 +15,7 @@ namespace Lumina
         void Serialize(FArchive& Ar) override;
         void Serialize(IStructuredArchive::FSlot Slot) override;
         
-        CObject* RedirectionObject;
+        CObject* RedirectionObject = nullptr;
     
     };
 }

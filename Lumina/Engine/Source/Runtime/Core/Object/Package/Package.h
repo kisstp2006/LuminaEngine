@@ -360,9 +360,6 @@ namespace Lumina
 
         LUMINA_API void CreateExports();
         LUMINA_API void CreateImports();
-
-        void WriteImports(FPackageSaver& Saver, TSpan<CObject*> Imports);
-        void WriteExports(FPackageSaver& Saver, TSpan<CObject*> Exports);
         
         
         /**

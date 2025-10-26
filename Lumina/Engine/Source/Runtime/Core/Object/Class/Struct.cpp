@@ -116,43 +116,41 @@ namespace Lumina
     {
         if (Ar.IsWriting())
         {
+            uint32 SizeBefore = Ar.Tell();
+            
             uint32 NumProperties = 0;
             int64 NumPropertiesWritePos = Ar.Tell();
             Ar << NumProperties;
-            
+        
             for (FProperty* Current = LinkedProperty; Current; Current = (FProperty*)Current->Next)
             {
                 FPropertyTag PropertyTag;
                 PropertyTag.Type = Current->GetTypeAsFName();
                 PropertyTag.Name = Current->GetPropertyName();
-    
-                // Remember where we're writing the tag
+
+                // Write a placeholder tag to measure its size
                 int64 TagPosition = Ar.Tell();
-                
                 Ar << PropertyTag;
-    
-                // Record where the actual property data starts
-                int64 DataStartPosition = Ar.Tell();
-                
+                int64 AfterTagPosition = Ar.Tell();
+            
+                PropertyTag.Offset = AfterTagPosition;
+            
                 void* ValuePtr = Current->GetValuePtr<void>(Data);
-                
-                // TODO, temp garbage.
+            
                 if (dynamic_cast<FArrayProperty*>(Current))
                 {
                     ValuePtr = Data;
                 }
-                    
+                
                 Current->Serialize(Ar, ValuePtr);
-    
+
                 int64 DataEndPosition = Ar.Tell();
-                int64 DataSize = DataEndPosition - DataStartPosition;
-                
-                // Go back and update the tag with correct Size and Offset
+                PropertyTag.Size = (int32)(DataEndPosition - AfterTagPosition);
+            
+                // Go back and rewrite the tag with correct values
                 Ar.Seek(TagPosition);
-                PropertyTag.Size = (int32)DataSize;
-                PropertyTag.Offset = DataStartPosition;
                 Ar << PropertyTag;
-                
+            
                 Ar.Seek(DataEndPosition);
 
                 NumProperties++;
@@ -162,10 +160,13 @@ namespace Lumina
             Ar.Seek(NumPropertiesWritePos);
             Ar << NumProperties;
             Ar.Seek(Pos);
-            
+
+            LOG_INFO("[Writing] Size After: {}", Ar.Tell() - SizeBefore);
         }
         else if (Ar.IsReading())
         {
+            uint32 SizeBefore = Ar.Tell();
+
             uint32 NumProperties = 0;
             Ar << NumProperties;
 
@@ -174,16 +175,18 @@ namespace Lumina
             {
                 FPropertyTag Tag;
                 Ar << Tag;
-                
+        
+                int64 DataStartPos = Ar.Tell();
+        
                 FProperty* FoundProperty = nullptr;
 
-                // First try for an O(n) search.
+                // First try for an O(n) search, as the order may still match.
                 if (Current->GetTypeAsFName() == Tag.Type && Current->GetPropertyName() == Tag.Name)
                 {
                     FoundProperty = Current;
                     Current = (FProperty*)Current->Next;
                 }
-                
+        
                 // Property was not found, fallback to an O(n^2) search, as it may have changed order.
                 if (FoundProperty == nullptr)
                 {
@@ -196,10 +199,9 @@ namespace Lumina
                         }
                     }
                 }
-                
+        
                 if (FoundProperty)
                 {
-                    Ar.Seek(Tag.Offset);
                     void* ValuePtr = FoundProperty->GetValuePtr<void>(Data);
 
                     // TODO, temp garbage.
@@ -207,7 +209,7 @@ namespace Lumina
                     {
                         ValuePtr = Data;
                     }
-                    
+            
                     FoundProperty->Serialize(Ar, ValuePtr);
                 }
                 else
@@ -215,11 +217,13 @@ namespace Lumina
                     // Property doesn't exist, skip it
                     LOG_WARN("Property '{}' of type '{}' not found in struct, skipping", Tag.Name.ToString(), Tag.Type.ToString());
                 }
-                
+        
                 // Always seek past this property's data to read the next tag
-                // This ensures we're positioned correctly whether we read the property or not
-                Ar.Seek(Tag.Offset + Tag.Size);
+                Ar.Seek(DataStartPos + Tag.Size);
             }
+
+            LOG_INFO("[Reading] Size After: {}", Ar.Tell() - SizeBefore);
+
         }
     }
 

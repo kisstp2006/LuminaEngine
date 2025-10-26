@@ -33,9 +33,13 @@ namespace Lumina
     bool CEdNodeGraph::GraphSaveSettings(const char* data, size_t size, ax::NodeEditor::SaveReasonFlags reason, void* userPointer)
     {
         CEdNodeGraph* ThisGraph = (CEdNodeGraph*)userPointer;
-        ThisGraph->GetPackage()->MarkDirty();
-        ThisGraph->GraphSaveData.clear();
-        ThisGraph->GraphSaveData.assign(data, size);
+        
+        if (reason != ax::NodeEditor::SaveReasonFlags::None && !ThisGraph->bFirstDraw)
+        {
+            ThisGraph->GetPackage()->MarkDirty();
+            ThisGraph->GraphSaveData.assign(data, size);
+        }
+        
         return true;
     }
     
@@ -342,10 +346,11 @@ namespace Lumina
             }
         }
         NodeEditor::EndDelete();
-
-    
+        
         NodeEditor::End();
         NodeEditor::SetCurrentEditor(nullptr);
+
+        bFirstDraw = false;
     }
 
     void CEdNodeGraph::DrawGraphContextMenu()

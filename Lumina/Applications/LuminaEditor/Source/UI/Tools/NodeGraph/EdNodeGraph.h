@@ -82,6 +82,8 @@ namespace Lumina
         TFunction<void(CEdGraphNode*)>                  NodeSelectedCallback;
 
         SIZE_T                                          NextID = 1;
+
+        bool                                            bFirstDraw = true;
         
     private:
 

@@ -30,20 +30,7 @@ namespace Lumina
             }
         }
     }
-
-    void CEdGraphNode::Serialize(FArchive& Ar)
-    {
-        Super::Serialize(Ar);
-
-        for (auto& PinVector : NodePins)
-        {
-            for (CEdNodeGraphPin* Pin : PinVector)
-            {
-                Pin->Serialize(Ar);
-            }
-        }
-    }
-
+    
     void CEdGraphNode::PushNodeStyle()
     {
         using namespace ax;

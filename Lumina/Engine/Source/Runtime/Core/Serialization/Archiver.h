@@ -208,11 +208,19 @@ namespace Lumina
             return *this;
         }
 
-        virtual FArchive& operator<<(FName& str)
+        virtual FArchive& operator<<(FName& Name)
         {
-            FString String(str.c_str());
-            *this << String;
-            str = FName(String);
+            if (IsReading())
+            {
+                FString LoadedString;
+                *this << LoadedString;
+                Name = FName(LoadedString);
+            }
+            else
+            {
+                FString SavedString(Name.ToString());
+                *this << SavedString;
+            }
 
             return *this;
         }

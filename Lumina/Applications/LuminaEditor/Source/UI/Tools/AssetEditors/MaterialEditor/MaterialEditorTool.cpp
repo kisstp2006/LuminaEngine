@@ -311,8 +311,7 @@ namespace Lumina
             //}
 
             Material->PostLoad();
-            
-            OnSave();
+            Material->GetPackage()->MarkDirty();
         }
     }
 

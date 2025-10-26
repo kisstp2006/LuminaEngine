@@ -71,12 +71,13 @@ namespace Lumina
 
         if (ImGui::MenuItem(LE_ICON_CONTENT_SAVE"##Save"))
         {
-            Task::AsyncTask(1, 1, [this](uint32 Start, uint32 End, uint32 Thread)
+            Task::AsyncTask(1, 1, [this](uint32, uint32, uint32)
             {
                 OnSave();
             });
         }
 
+        ImGui::BeginDisabled();
         if (ImGui::MenuItem(LE_ICON_UNDO_VARIANT"##Undo"))
         {
             OnUndo();
@@ -85,12 +86,13 @@ namespace Lumina
 
         //-------------------------------------------------------------------------
 
+        
         if (ImGui::MenuItem(LE_ICON_REDO_VARIANT"##Redo"))
         {
             
         }
         ImGuiX::ItemTooltip( "Redo" );
-        
+        ImGui::EndDisabled();
 
         if (ImGui::BeginMenu(LE_ICON_HELP_CIRCLE_OUTLINE" Help"))
         {

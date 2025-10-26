@@ -174,7 +174,7 @@ namespace Lumina
             : FBitFlags(i)
         {}
 
-        TBitFlags(TBitFlags<T> const& flags)
+        TBitFlags(const TBitFlags<T>& flags)
             : FBitFlags( flags.Flags )
         {}
 
@@ -199,13 +199,13 @@ namespace Lumina
         //-------------------------------------------------------------------------
 
         template<typename... Args>
-        inline void SetMultipleFlags(Args&&... args)
+        FORCEINLINE void SetMultipleFlags(Args&&... args)
         {
             ((Flags |= 1u << (uint8) eastl::forward<Args>(args)), ...);
         }
 
         template<typename... Args>
-        inline bool AreAnyFlagsSet(Args&&... args) const
+        FORCEINLINE bool AreAnyFlagsSet(Args&&... args) const
         {
             uint32 mask = 0;
             ((mask |= 1u << (uint8) eastl::forward<Args>(args)), ...);

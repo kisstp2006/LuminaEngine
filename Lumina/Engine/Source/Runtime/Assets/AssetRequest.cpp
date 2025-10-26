@@ -20,7 +20,7 @@ namespace Lumina
 
         // The extension is just an easy way to get the string after the "." delimiter.
         FString Name = Paths::GetExtension(AssetPath);
-        
+    
         FullPath = Paths::ResolveVirtualPath(FullPath);
 
         CPackage* Package = CPackage::LoadPackage(FullPath.c_str());
@@ -29,7 +29,7 @@ namespace Lumina
             LOG_INFO("Failed to load package at path: {}", FullPath);
             return false;
         }
-        
+    
         PendingObject = FindObject<CObject>(Package, Name);
         if (PendingObject != nullptr)
         {
@@ -37,19 +37,43 @@ namespace Lumina
             {
                 Package->LoadObject(PendingObject);
             }
-        
+    
             if (PendingObject->HasAnyFlag(OF_NeedsPostLoad))
             {
                 PendingObject->PostLoad();
                 PendingObject->ClearFlags(OF_NeedsPostLoad);
             }
-
-            if (CObjectRedirector* Redirector = Cast<CObjectRedirector>(PendingObject))
+        
+            // Recursively follow redirectors until we hit a non-redirector object
+            while (CObjectRedirector* Redirector = Cast<CObjectRedirector>(PendingObject))
             {
-                PendingObject = Redirector->RedirectionObject;
+                CObject* RedirectedObject = Redirector->RedirectionObject;
+            
+                if (RedirectedObject == nullptr)
+                {
+                    break;
+                }
+            
+                if (RedirectedObject->HasAnyFlag(OF_NeedsLoad))
+                {
+                    // Need to load the redirected object's package if necessary
+                    CPackage* RedirectedPackage = RedirectedObject->GetPackage();
+                    if (RedirectedPackage != nullptr)
+                    {
+                        RedirectedPackage->LoadObject(RedirectedObject);
+                    }
+                }
+            
+                if (RedirectedObject->HasAnyFlag(OF_NeedsPostLoad))
+                {
+                    RedirectedObject->PostLoad();
+                    RedirectedObject->ClearFlags(OF_NeedsPostLoad);
+                }
+            
+                PendingObject = RedirectedObject;
             }
         }
-        
+    
         return true;
     }
 }

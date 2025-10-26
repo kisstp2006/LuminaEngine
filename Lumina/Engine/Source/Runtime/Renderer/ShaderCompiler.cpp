@@ -257,9 +257,9 @@ namespace Lumina
                 
                 LOG_TRACE("Compiled shader {0} in {1:.2f} ms (Thread {2})", Filename, DurationMs.count(), Thread);
                 
-                PendingTasks.fetch_sub(1, std::memory_order_acq_rel);
-                
                 Callback(Memory::Move(Shader));
+
+                PendingTasks.fetch_sub(1, std::memory_order_acq_rel);
             }
         }, ETaskPriority::High);
     
@@ -349,10 +349,10 @@ namespace Lumina
             Shader.Binaries = Memory::Move(Binaries);
 
             ReflectSpirv(Shader.Binaries, Shader.Reflection, true);
+            
+            Callback(Memory::Move(Shader));
 
             PendingTasks.fetch_sub(1, std::memory_order_acq_rel);
-
-            Callback(Memory::Move(Shader));
             
         });
         

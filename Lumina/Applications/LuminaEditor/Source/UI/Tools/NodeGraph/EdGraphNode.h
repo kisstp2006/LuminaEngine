@@ -35,9 +35,7 @@ namespace Lumina
         ~CEdGraphNode() override;
 
         virtual void BuildNode() { }
-
-        void Serialize(FArchive& Ar) override;
-
+        
         virtual FInlineString GetNodeCategory() const { return "General"; }
         
         FString GetNodeFullName() { return FullName; }

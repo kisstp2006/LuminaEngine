@@ -1,8 +1,7 @@
 ﻿#include "AssetEditorTool.h"
-#include "Core/Object/Class.h"
+#include "Core/Object/Package/Package.h"
 #include "Paths/Paths.h"
 #include "Platform/Filesystem/FileHelper.h"
-#include "Core/Object/Package/Package.h"
 #include "Tools/UI/ImGui/ImGuiX.h"
 
 namespace Lumina
@@ -30,7 +29,7 @@ namespace Lumina
     {
         FString FullPath = Paths::ResolveVirtualPath(Asset->GetPathName());
         Paths::AddPackageExtension(FullPath);
-
+        
         if (CPackage::SavePackage(Asset->GetPackage(), FullPath.c_str()))
         {
             GetEngineSystem<FAssetRegistry>().AssetSaved(Asset);

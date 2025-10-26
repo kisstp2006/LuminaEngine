@@ -51,7 +51,7 @@ namespace Lumina::Memory
 
     LUMINA_API inline void CustomAssert(const char* pMessage)
     {
-#if 1
+#if 0
         if (Logging::IsInitialized())
         {
             LOG_CRITICAL("[Memory] - ", pMessage);

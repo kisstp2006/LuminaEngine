@@ -483,15 +483,14 @@ namespace Lumina
         LUMINA_PROFILE_SCOPE();
 
         WaitIdle();
-        
-        ImmediateCommandList.SafeRelease();
-        
-        ShaderLibrary.SafeRelease();
-        PipelineCache.ReleasePipelines();
-        DescriptorCache.ReleaseResources();
 
         ShaderCompiler->Shutdown();
         Memory::Delete(ShaderCompiler);
+        
+        ImmediateCommandList.SafeRelease();
+        ShaderLibrary.SafeRelease();
+        PipelineCache.ReleasePipelines();
+        DescriptorCache.ReleaseResources();
         
         Memory::Delete(Swapchain);
         
