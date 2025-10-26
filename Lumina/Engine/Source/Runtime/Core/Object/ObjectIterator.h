@@ -17,31 +17,29 @@ namespace Lumina
         explicit TObjectIterator(bool bIncludeDerivedClasses = true)
             : Index(0)
         {
-            for (FCObjectArray::FEntry& Entry : GObjectArray.Objects)
+            GObjectArray.ForEachObject([&](CObjectBase* Object, int32)
             {
-                CObjectBase* Obj = Entry.Object;
-                
-                if (!Obj)
+                if (!Object)
                 {
-                    continue;
+                    return;
                 }
 
                 if (bIncludeDerivedClasses)
                 {
-                    if (Obj->IsA<T>())
+                    if (Object->IsA<T>())
                     {
-                        AllObjects.push_back(Obj);
+                        AllObjects.push_back(Object);
                     }
                 }
                 else
                 {
-                    if (typeid(*Obj) == typeid(T))
+                    if (typeid(*Object) == typeid(T))
                     {
-                        AllObjects.push_back(Obj);
+                        AllObjects.push_back(Object);
                     }
                 }
-            }
-
+            });
+            
             AdvanceToNextValid();
         }
         

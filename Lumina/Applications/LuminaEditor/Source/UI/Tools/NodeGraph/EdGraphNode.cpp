@@ -2,6 +2,7 @@
 
 #include "EdNodeGraphPin.h"
 #include "Core/Math/Hash/Hash.h"
+#include "Core/Object/ObjectAllocator.h"
 #include "Material/MaterialGraphTypes.h"
 #include "imgui-node-editor/imgui_node_editor.h"
 #include "Tools/UI/ImGui/ImGuiDesignIcons.h"
@@ -26,7 +27,7 @@ namespace Lumina
         {
             for (CEdNodeGraphPin* Pin : PinVector)
             {
-                Pin->MarkGarbage();
+                DestroyCObject(Pin);
             }
         }
     }

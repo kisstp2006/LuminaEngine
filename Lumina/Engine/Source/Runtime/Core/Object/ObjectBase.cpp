@@ -6,18 +6,17 @@
 #include "Class.h"
 #include "DeferredRegistry.h"
 #include "Lumina.h"
+#include "ObjectAllocator.h"
 #include "ObjectArray.h"
 #include "ObjectHash.h"
 #include "EASTL/sort.h"
-#include "GarbageCollection/GarbageCollector.h"
 #include "Log/Log.h"
 #include "Memory/Memory.h"
 #include "Package/Package.h"
 
 namespace Lumina
 {
-
-    LUMINA_API FCObjectArray                       GObjectArray;
+    LUMINA_API FCObjectArray GObjectArray;
 
     struct FPendingRegistrantInfo
     {
@@ -51,18 +50,15 @@ namespace Lumina
         ClassPrivate = const_cast<CClass*>(Initializer->Params.Class);
         PackagePrivate = Initializer->Package;
 
-        uint32 Index = GObjectArray.Allocate(this).Index;
+        uint32 Index = GObjectArray.AllocateObject(this).Index;
         AddObject(NamePrivate, Index);
 
     }
 
     CObjectBase::~CObjectBase()
     {
-        Assert(IsMarkedGarbage())
-        
         FObjectHashTables::Get().RemoveObject(this);
-
-        GObjectArray.Deallocate(InternalIndex);
+        GObjectArray.DeallocateObject(InternalIndex);
     }
 
     CObjectBase::CObjectBase(EObjectFlags InFlags)
@@ -92,7 +88,7 @@ namespace Lumina
     {
         if (--RefCount == 0)
         {
-            MarkGarbage();
+            
         }
 
         return RefCount;
@@ -121,7 +117,7 @@ namespace Lumina
         Assert(ClassPrivate == nullptr)
         ClassPrivate = InClass;
 
-        uint32 Index = GObjectArray.Allocate(this).Index;
+        uint32 Index = GObjectArray.AllocateObject(this).Index;
         AddObject(NamePrivate, Index);
     }
     
@@ -139,26 +135,10 @@ namespace Lumina
         FObjectHashTables::Get().AddObject(this);
     }
 
-    void CObjectBase::MarkGarbage()
-    {
-        GarbageCollection::AddGarbage(this);
-    }
-
-    void CObjectBase::DestroyNow()
-    {
-        Assert(!IsMarkedGarbage())
-        SetFlag(OF_MarkedGarbage);
-        OnMarkedGarbage();
-        OnDestroy();
-
-        Memory::Delete(this);
-    }
-
     void CObjectBase::AddObject(const FName& Name, uint32 InInternalIndex)
     {
         InternalIndex = InInternalIndex;
 
-        FName PackageName = PackagePrivate ? PackagePrivate->GetName() : NAME_None;
         FObjectHashTables::Get().AddObject(this);
     }
 
@@ -297,18 +277,20 @@ namespace Lumina
         
     }
 
+    void InitializeCObjectSystem()
+    {
+        GObjectArray.AllocateObjectPool(1000);
+    }
+
     void ShutdownCObjectSystem()
     {
-        for (FCObjectArray::FEntry& Entry : GObjectArray.Objects)
+        GObjectArray.ForEachObject([](CObjectBase* Object, int32)
         {
-            if (CObjectBase* Object = Entry.Object.load(std::memory_order_relaxed))
-            {
-                Object->MarkGarbage();
-            }
-        }
+            DestroyCObject(Object);
+        });
         
-        GarbageCollection::CollectGarbage();
-
+        GObjectArray.Shutdown();
+        
         FObjectHashTables::Get().Clear();
     }
 

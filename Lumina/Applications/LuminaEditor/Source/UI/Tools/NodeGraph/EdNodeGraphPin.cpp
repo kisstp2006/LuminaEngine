@@ -11,7 +11,9 @@ namespace Lumina
     void CEdNodeGraphPin::DisconnectFrom(CEdNodeGraphPin* OtherPin)
     {
         if (!OtherPin)
+        {
             return;
+        }
 
         auto it = eastl::find(Connections.begin(), Connections.end(), OtherPin);
         if (it != Connections.end())

@@ -116,8 +116,6 @@ namespace Lumina
     {
         if (Ar.IsWriting())
         {
-            uint32 SizeBefore = Ar.Tell();
-            
             uint32 NumProperties = 0;
             int64 NumPropertiesWritePos = Ar.Tell();
             Ar << NumProperties;
@@ -161,12 +159,9 @@ namespace Lumina
             Ar << NumProperties;
             Ar.Seek(Pos);
 
-            LOG_INFO("[Writing] Size After: {}", Ar.Tell() - SizeBefore);
         }
         else if (Ar.IsReading())
         {
-            uint32 SizeBefore = Ar.Tell();
-
             uint32 NumProperties = 0;
             Ar << NumProperties;
 
@@ -221,9 +216,7 @@ namespace Lumina
                 // Always seek past this property's data to read the next tag
                 Ar.Seek(DataStartPos + Tag.Size);
             }
-
-            LOG_INFO("[Reading] Size After: {}", Ar.Tell() - SizeBefore);
-
+            
         }
     }
 

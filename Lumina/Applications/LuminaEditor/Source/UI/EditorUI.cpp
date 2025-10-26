@@ -433,7 +433,7 @@ namespace Lumina
             
             if (ImGui::Begin(TitleText.c_str(), (bool*)&bShowObjectDebug, ImGuiWindowFlags_MenuBar))
             {
-                uint32 TotalObjects = GObjectArray.GetNumObjectsAlive();
+                uint32 TotalObjects = GObjectArray.GetNumAliveObjects();
                 
                 // Menu Bar
                 if (ImGui::BeginMenuBar())
@@ -1686,7 +1686,7 @@ namespace Lumina
 
         ImGui::SameLine();
 
-        SIZE_T CObjectCount = GObjectArray.GetNumObjectsAlive();
+        int32 CObjectCount = GObjectArray.GetNumAliveObjects();
         const TInlineString<100> ObjectStats(TInlineString<100>::CtorSprintf(), "CObjects: %i", CObjectCount);
         ImGui::TextUnformatted(ObjectStats.c_str());
     }

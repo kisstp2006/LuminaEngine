@@ -350,8 +350,10 @@ namespace Lumina
                 {
                     CEdGraphNode* ConnectedNode = ConnectedPin->GetOwningNode();
                     if (ReachableNodes.find(ConnectedNode) == ReachableNodes.end())
+                    {
                         continue;
-    
+                    }
+
                     if (--InDegree[ConnectedNode] == 0)
                     {
                         ReadyQueue.push(ConnectedNode);

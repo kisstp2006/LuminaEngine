@@ -1,4 +1,5 @@
 #pragma once
+#include "ObjectAllocator.h"
 #include "ObjectArray.h"
 #include "Core/Templates/LuminaTemplate.h"
 
@@ -53,7 +54,7 @@ namespace Lumina
         {
             if (Object)
             {
-                Handle = GObjectArray.ToHandle(Object);
+                Handle = GObjectArray.GetHandleByObject(Object);
             }
         }
 
@@ -129,15 +130,9 @@ namespace Lumina
         
         ReferencedType* Get() const
         {
-            return (ReferencedType*)(GObjectArray.Resolve(Handle));
+            return (ReferencedType*)(GObjectArray.ResolveHandle(Handle));
         }
 
-        void MarkGarbage()
-        {
-            Get()->MarkGarbage();
-            Handle = FObjectHandle();
-        }
-        
         bool IsValid() const
         {
             if (*this == FObjectHandle())
@@ -148,13 +143,6 @@ namespace Lumina
         }
 
         FObjectHandle GetHandle() const { return Handle; }
-    
-    private:
-        
-        static bool IsObjectPtrNull(const FObjectHandle& ObjectHandle)
-        {
-            return !ObjectHandle.operator bool();
-        }
     
     private:
 		

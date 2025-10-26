@@ -253,7 +253,7 @@ namespace Lumina
             return false;
         }
 
-        if (Obj->HasAnyFlag(OF_NeedsLoad | OF_MarkedGarbage))
+        if (Obj->HasAnyFlag(OF_NeedsLoad))
         {
             return false;
         }
@@ -268,7 +268,7 @@ namespace Lumina
             return false;
         }
 
-        if (Obj->HasAnyFlag(OF_NeedsLoad | OF_MarkedGarbage))
+        if (Obj->HasAnyFlag(OF_NeedsLoad))
         {
             return false;
         }
@@ -303,8 +303,14 @@ namespace Lumina
             }
         }
     }
-
     
+    void DestroyCObject(CObjectBase* Object)
+    {
+        Object->OnDestroy();
+        GCObjectAllocator.FreeCObject(Object);
+    }
+
+
     static void ConstructPropertyMetadata(FProperty* NewProperty, uint16 NumMetadata, const FMetaDataPairParam* ParamArray)
     {
         for (uint16 i = 0; i < NumMetadata; ++i)

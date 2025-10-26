@@ -14,7 +14,7 @@ namespace Lumina
     {
         if (IsWriting())
         {
-            if (Value)
+            if (Value.IsValid())
             {
                 FString SavedString(Value.Resolve()->GetQualifiedName().c_str());
                 InnerArchive << SavedString;
@@ -38,7 +38,7 @@ namespace Lumina
 
             Value = FindObject<CObject>(nullptr, LoadedString);
 
-            if (!Value && bLoadIfFindFails)
+            if (!Value.IsValid() && bLoadIfFindFails)
             {
                 Value = LoadObject<CObject>(nullptr, LoadedString);
             }   

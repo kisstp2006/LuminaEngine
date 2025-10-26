@@ -2,6 +2,7 @@
 
 #include <fastgltf/types.hpp>
 
+#include "Core/Object/ObjectAllocator.h"
 #include "Core/Profiler/Profile.h"
 #include "Renderer/RHIIncl.h"
 
@@ -16,7 +17,7 @@ namespace Lumina
         for (FManagedWorld& World : Worlds)
         {
             World.World->ShutdownWorld();
-            World.World->MarkGarbage();
+            DestroyCObject(World.World);
         }
         
         Worlds.clear();

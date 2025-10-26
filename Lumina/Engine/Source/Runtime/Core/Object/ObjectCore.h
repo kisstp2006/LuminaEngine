@@ -68,6 +68,9 @@ namespace Lumina
         return static_cast<T*>(NewObject(InClass, Package, Name, Flags));
     }
     
+    LUMINA_API void DestroyCObject(CObjectBase* Object);
+
+    
 
     template<typename T>
     T* GetMutableDefault()

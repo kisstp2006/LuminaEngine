@@ -1,20 +1,19 @@
 ﻿#include "Engine.h"
 #include "Assets/AssetManager/AssetManager.h"
-#include "Core/Windows/Window.h"
 #include "Assets/AssetRegistry/AssetRegistry.h"
 #include "Core/Application/Application.h"
 #include "Core/Module/ModuleManager.h"
-#include "Core/Object/GarbageCollection/GarbageCollector.h"
 #include "Core/Profiler/Profile.h"
+#include "Core/Windows/Window.h"
 #include "Input/InputSubsystem.h"
 #include "Physics/Physics.h"
 #include "Renderer/RenderContext.h"
-#include "World/WorldManager.h"
 #include "Renderer/RenderManager.h"
 #include "Renderer/RenderResource.h"
 #include "Renderer/RHIGlobals.h"
 #include "TaskSystem/TaskSystem.h"
 #include "Tools/UI/DevelopmentToolUI.h"
+#include "World/WorldManager.h"
 
 namespace Lumina
 {
@@ -30,13 +29,14 @@ namespace Lumina
         GEngine = this;
         Application = App;
 
+        InitializeCObjectSystem();
         
         FTaskSystem::Initialize();
         Physics::Initialize();
         
         RenderManager = EngineSubsystems.AddSubsystem<FRenderManager>();
         EngineViewport = GRenderContext->CreateViewport(Windowing::GetPrimaryWindowHandle()->GetExtent());
-        
+
         ProcessNewlyLoadedCObjects();
         
         FEntityComponentRegistry::Get().RegisterAll();
@@ -209,7 +209,6 @@ namespace Lumina
             }
         }
 
-        GarbageCollection::CollectGarbage();
         UpdateContext.MarkFrameEnd(glfwGetTime());
         
         return true;

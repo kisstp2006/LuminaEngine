@@ -4,8 +4,8 @@
 #include "Core/Engine/Engine.h"
 #include "Core/Object/Cast.h"
 #include "Core/Object/Class.h"
+#include "Core/Object/ObjectAllocator.h"
 #include "Core/Object/ObjectRedirector.h"
-#include "Core/Object/GarbageCollection/GarbageCollector.h"
 #include "Core/Profiler/Profile.h"
 #include "Paths/Paths.h"
 #include "Platform/Filesystem/FileHelper.h"
@@ -74,22 +74,25 @@ namespace Lumina
             return false;
         }
 
-        for (FObjectExport& Export : Package->ExportTable)
+        TVector<CObject*> ExportObjects;
+        ExportObjects.reserve(20);
+        GetObjectsWithPackage(Package, ExportObjects);
+
+        for (CObject* ExportObject : ExportObjects)
         {
-            if (Export.Object)
+            if (ExportObject != Package)
             {
-                Export.Object->MarkGarbage();
+                DestroyCObject(ExportObject);
             }
         }
         
         Package->ExportTable.clear();
+        Package->ImportTable.clear();
 
         GEngine->GetEngineSubsystem<FAssetRegistry>()->AssetDeleted(Package);
+
+        DestroyCObject(Package);
         
-        Package->MarkGarbage();
-
-        GarbageCollection::CollectGarbage();
-
         return true;
     }
 
@@ -170,6 +173,12 @@ namespace Lumina
     bool CPackage::SavePackage(CPackage* Package, const FName& FileName)
     {
         LUMINA_PROFILE_SCOPE();
+
+        if (Package == nullptr)
+        {
+            LOG_ERROR("Cannot save a null package! {}", FileName);
+            return false;
+        }
 
         FString PathString = FileName.ToString();
         if (!Paths::HasExtension(PathString, "lasset"))
@@ -253,6 +262,8 @@ namespace Lumina
             Package->ExportTable.size(),
             Package->ImportTable.size(),
             static_cast<double>(FileBinary.size()) / 1024.0);
+
+        Package->ClearDirty();
         
         return true;
     }

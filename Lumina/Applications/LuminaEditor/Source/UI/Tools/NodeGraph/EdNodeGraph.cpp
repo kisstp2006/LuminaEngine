@@ -8,7 +8,9 @@
 #include "Core/Object/Cast.h"
 #include "Core/Object/Package/Package.h"
 #include "Core/Profiler/Profile.h"
+#include "EASTL/sort.h"
 #include "imgui-node-editor/imgui_node_editor_internal.h"
+#include "Tools/UI/ImGui/ImGuiDesignIcons.h"
 #include "Tools/UI/ImGui/ImGuiX.h"
 
 namespace Lumina
@@ -48,7 +50,7 @@ namespace Lumina
         CEdNodeGraph* ThisGraph = (CEdNodeGraph*)userPointer;
         if (data)
         {
-            strcpy(data, ThisGraph->GraphSaveData.c_str());
+            memcpy(data, ThisGraph->GraphSaveData.data(), ThisGraph->GraphSaveData.size());
         }
         return ThisGraph->GraphSaveData.size();
     }
@@ -324,7 +326,10 @@ namespace Lumina
                     }
                     
                     Nodes.erase(NodeItr);
-                    Node->MarkGarbage();
+
+                    DestroyCObject(Node);
+                    Node = nullptr;
+                    
                     ValidateGraph();
                 }
             }
@@ -353,67 +358,225 @@ namespace Lumina
         bFirstDraw = false;
     }
 
+
     void CEdNodeGraph::DrawGraphContextMenu()
     {
-        ImVec2 PopupSize(200, 350);
-        ImGui::SetNextWindowSize(PopupSize, ImGuiCond_Once);
+        const ImVec2 PopupSize(320, 450);
+        const ImVec2 SearchBarPadding(12, 10);
+        const ImVec2 CategoryPadding(8, 6);
+        const float ItemHeight = 28.0f;
+        const float CategorySpacing = 4.0f;
+        static char SearchBuffer[256] = "";
 
-        ImGuiTextFilter Filter;
-        Filter.Draw();
+        ImGui::SetNextWindowSize(PopupSize, ImGuiCond_Always);
         
-        THashMap<FName, TVector<CClass*>> CategoryMap;
-        THashMap<FName, bool> Expanded;
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 1));
+        {
+            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, SearchBarPadding);
+            ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.12f, 0.12f, 0.14f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.14f, 0.14f, 0.16f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.16f, 0.16f, 0.18f, 1.0f));
+            
+            ImGui::SetCursorPos(ImVec2(12, 12));
+            ImGui::PushItemWidth(PopupSize.x - 24);
+
+            
+            bool SearchChanged = ImGui::InputTextWithHint("##NodeSearch", LE_ICON_BOOK_SEARCH " Search nodes...", 
+                SearchBuffer, 
+                IM_ARRAYSIZE(SearchBuffer),
+                ImGuiInputTextFlags_AutoSelectAll);
+            
+            ImGui::PopItemWidth();
+            ImGui::PopStyleColor(3);
+            ImGui::PopStyleVar();
+        }
+        
+        // Separator line
+        ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 8);
+        ImGui::PushStyleColor(ImGuiCol_Separator, ImVec4(0.25f, 0.25f, 0.27f, 1.0f));
+        ImGui::Separator();
+        ImGui::PopStyleColor();
+        
+        
+        struct FNodeInfo
+        {
+            CClass* NodeClass;
+            CEdGraphNode* CDO;
+            int MatchScore;
+        };
+        
+        THashMap<FName, TVector<FNodeInfo>> CategoryMap;
+        TVector<FName> CategoryOrder;
+        int TotalMatches = 0;
+        
         for (CClass* NodeClass : SupportedNodes)
         {
             CEdGraphNode* CDO = Cast<CEdGraphNode>(NodeClass->GetDefaultObject());
             FName Category = CDO->GetNodeCategory().c_str();
             
-            if (Filter.PassFilter(CDO->GetNodeDisplayName().c_str()))
+
+            if (CategoryMap.find(Category) == CategoryMap.end())
             {
-                CategoryMap[Category].push_back(NodeClass);
-                Expanded[Category] = true;
+                CategoryOrder.push_back(Category);
             }
-            else
+            
+            int Score = 100;
+            if (SearchBuffer[0] != '\0' && strncmp(CDO->GetNodeDisplayName().c_str(), SearchBuffer, strlen(SearchBuffer)) == 0)
             {
-                Expanded[Category] = false;
+                Score += 50;
             }
+            
+            CategoryMap[Category].push_back({NodeClass, CDO, Score});
+            TotalMatches++;
+        }
+        
+        // Sort nodes within each category by relevance
+        for (auto& [Category, NodesInMap] : CategoryMap)
+        {
+            eastl::sort(NodesInMap.begin(), NodesInMap.end(), [](const FNodeInfo& A, const FNodeInfo& B)
+            {
+                if (A.MatchScore != B.MatchScore)
+                {
+                    return A.MatchScore > B.MatchScore;
+                }
+                return strcmp(A.CDO->GetNodeDisplayName().c_str(), B.CDO->GetNodeDisplayName().c_str()) < 0;
+            });
         }
 
-        ImVec2 ChildSize = ImVec2(-1, PopupSize.y - 40);
-        if (ImGui::BeginChild("NodeList", ChildSize, false, ImGuiWindowFlags_HorizontalScrollbar))
+        constexpr float HeaderHeight = 54; // Search bar + separator
+        constexpr float FooterHeight = 32; // Status bar
+        ImVec2 ChildSize = ImVec2(PopupSize.x, PopupSize.y - HeaderHeight - FooterHeight);
+        
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, CategorySpacing));
+        
+        if (ImGui::BeginChild("##NodeList", ChildSize, false, 
+            ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse))
         {
-            for (const auto& [Category, NodeClasses] : CategoryMap)
+            ImGui::PushStyleColor(ImGuiCol_ScrollbarBg, ImVec4(0.08f, 0.08f, 0.10f, 0.9f));
+            ImGui::PushStyleColor(ImGuiCol_ScrollbarGrab, ImVec4(0.25f, 0.25f, 0.27f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_ScrollbarGrabHovered, ImVec4(0.35f, 0.35f, 0.37f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_ScrollbarGrabActive, ImVec4(0.45f, 0.45f, 0.47f, 1.0f));
+            
+            if (ImGui::BeginChild("##ScrollRegion", ImVec2(0, 0), false))
             {
-                ImGuiTreeNodeFlags Flags = ImGuiTreeNodeFlags_Framed;
-                if (Expanded.at(Category))
-                {
-                    Flags |= ImGuiTreeNodeFlags_DefaultOpen;
-                }
+                bool IsFirstCategory = true;
                 
-                if (ImGui::CollapsingHeader(Category.c_str(), Flags))
+                for (const FName& Category : CategoryOrder)
                 {
-                    ImGui::Indent(10);
-                
-                    for (CClass* NodeClass : NodeClasses)
+                    const auto& NodeInfos = CategoryMap[Category];
+                    
+                    if (!IsFirstCategory)
                     {
-                        CEdGraphNode* NodeCDO = NodeClass->GetDefaultObject<CEdGraphNode>();
-                        ImGui::PushID(NodeCDO);
-                        if (ImGui::Selectable(NodeCDO->GetNodeDisplayName().c_str()))
-                        {
-                            CEdGraphNode* NewNode = CreateNode(NodeClass);
-                            ax::NodeEditor::SetNodePosition(NewNode->GetNodeID(), ax::NodeEditor::ScreenToCanvas(ImGui::GetMousePosOnOpeningCurrentPopup()));
-                            ImGui::CloseCurrentPopup();
-                        }
-
-                        ImGuiX::ItemTooltip("%s", NodeCDO->GetNodeTooltip().c_str());
-                        ImGui::PopID();
+                        ImGui::Dummy(ImVec2(0, CategorySpacing));
                     }
-
-                    ImGui::Unindent(10);
+                    IsFirstCategory = false;
+                    
+                    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, CategoryPadding);
+                    ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.18f, 0.18f, 0.20f, 1.0f));
+                    ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.20f, 0.20f, 0.22f, 1.0f));
+                    ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(0.22f, 0.22f, 0.24f, 1.0f));
+                    
+                    ImGui::SetCursorPosX(4);
+                    bool IsOpen = ImGui::CollapsingHeader(Category.c_str(), ImGuiTreeNodeFlags_DefaultOpen | ImGuiTreeNodeFlags_SpanAvailWidth);
+                    
+                    ImGui::PopStyleColor(3);
+                    ImGui::PopStyleVar();
+                    
+                    if (IsOpen)
+                    {
+                        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 1));
+                        ImGui::PushStyleVar(ImGuiStyleVar_SelectableTextAlign, ImVec2(0.0f, 0.5f));
+                        
+                        for (const FNodeInfo& Info : NodeInfos)
+                        {
+                            ImGui::PushID(Info.CDO);
+                            
+                            ImVec4 AccentColor = ImVec4(0.8f, 0.4f, 0.2f, 1.0f);
+                            
+                            ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.12f, 0.12f, 0.14f, 1.0f));
+                            ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.16f, 0.16f, 0.18f, 1.0f));
+                            ImGui::PushStyleColor(ImGuiCol_HeaderActive, AccentColor * ImVec4(1, 1, 1, 0.3f));
+                            
+                            ImGui::SetCursorPosX(16);
+                            
+                            ImDrawList* DrawList = ImGui::GetWindowDrawList();
+                            ImVec2 CursorPos = ImGui::GetCursorScreenPos();
+                            DrawList->AddRectFilled(ImVec2(CursorPos.x - 8, CursorPos.y + ItemHeight * 0.3f), ImVec2(CursorPos.x - 5, CursorPos.y + ItemHeight * 0.7f),
+                                ImGui::GetColorU32(AccentColor),
+                                2.0f
+                            );
+                            
+                            if (ImGui::Selectable(Info.CDO->GetNodeDisplayName().c_str(), false, ImGuiSelectableFlags_SpanAvailWidth, ImVec2(0, ItemHeight)))
+                            {
+                                CEdGraphNode* NewNode = CreateNode(Info.NodeClass);
+                                ax::NodeEditor::SetNodePosition(NewNode->GetNodeID(), ax::NodeEditor::ScreenToCanvas(ImGui::GetMousePosOnOpeningCurrentPopup()));
+                                ImGui::CloseCurrentPopup();
+                            }
+                            
+                            if (ImGui::IsItemHovered(ImGuiHoveredFlags_DelayShort))
+                            {
+                                ImGui::BeginTooltip();
+                                ImGui::PushStyleColor(ImGuiCol_Text, AccentColor);
+                                ImGui::Text("%s", Info.CDO->GetNodeDisplayName().c_str());
+                                ImGui::PopStyleColor();
+                                
+                                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.7f, 0.7f, 0.7f, 1.0f));
+                                ImGui::TextWrapped("%s", Info.CDO->GetNodeTooltip().c_str());
+                                ImGui::PopStyleColor();
+                                ImGui::EndTooltip();
+                            }
+                            
+                            ImGui::PopStyleColor(3);
+                            ImGui::PopID();
+                        }
+                        
+                        ImGui::PopStyleVar(2);
+                    }
                 }
+                
+                if (TotalMatches == 0 && SearchBuffer[0] != '\0')
+                {
+                    ImGui::SetCursorPosY(ChildSize.y * 0.4f);
+                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
+                    
+                    const char* NoResultsText = "No nodes found";
+                    float TextWidth = ImGui::CalcTextSize(NoResultsText).x;
+                    ImGui::SetCursorPosX((PopupSize.x - TextWidth) * 0.5f);
+                    ImGui::Text("%s", NoResultsText);
+                    
+                    ImGui::PopStyleColor();
+                }
+                
+                ImGui::EndChild();
             }
+            
+            ImGui::PopStyleColor(4);
             ImGui::EndChild();
         }
+        
+        ImGui::PopStyleVar(2);
+        
+        ImGui::PushStyleColor(ImGuiCol_Separator, ImVec4(0.25f, 0.25f, 0.27f, 1.0f));
+        ImGui::Separator();
+        ImGui::PopStyleColor();
+        
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.6f, 0.6f, 1.0f));
+        ImGui::SetCursorPos(ImVec2(12, PopupSize.y - 24));
+        
+        if (TotalMatches > 0)
+        {
+            ImGui::Text("%d node%s found", TotalMatches, TotalMatches == 1 ? "" : "s");
+        }
+        else if (SearchBuffer[0] == '\0')
+        {
+            ImGui::Text("%d node%s available", (int)SupportedNodes.size(), SupportedNodes.size() == 1 ? "" : "s");
+        }
+        
+        ImGui::PopStyleColor();
+        
+        ImGui::PopStyleVar(2);
     }
 
 

@@ -18,20 +18,17 @@ namespace Lumina
         /** Is this a default subobject of a class? */
         OF_DefaultObject        = 1 << 1,
 
-        /** Is this object already marked for garbage? */
-        OF_MarkedGarbage        = 1 << 2,
-
         /** Does this object need to be loaded after creation? */
-        OF_NeedsLoad            = 1 << 3,
+        OF_NeedsLoad            = 1 << 2,
 
         /** Does this object need PostLoad called? This will not deserialize the object again. */
-        OF_NeedsPostLoad        = 1 << 4,
+        OF_NeedsPostLoad        = 1 << 3,
 
         /** Was this object loaded from a package */
-        OF_WasLoaded            = 1 << 5,
+        OF_WasLoaded            = 1 << 4,
 
         /** Object is public outside of it's package (assets and such) */
-        OF_Public               = 1 << 6,
+        OF_Public               = 1 << 5,
         
     };
 
@@ -48,7 +45,6 @@ namespace Lumina
 
         if (EnumHasAnyFlags(Flags, OF_Transient))       Result += "OF_Transient|";
         if (EnumHasAnyFlags(Flags, OF_DefaultObject))   Result += "OF_DefaultObject|";
-        if (EnumHasAnyFlags(Flags, OF_MarkedGarbage))   Result += "OF_MarkedGarbage|";
         if (EnumHasAnyFlags(Flags, OF_NeedsLoad))       Result += "OF_NeedsLoad|";
         if (EnumHasAnyFlags(Flags, OF_NeedsLoad))       Result += "OF_NeedsPostLoad|";
         if (EnumHasAnyFlags(Flags, OF_WasLoaded))       Result += "OF_WasLoaded|";

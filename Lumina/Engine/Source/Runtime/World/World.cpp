@@ -3,6 +3,7 @@
 #include "WorldManager.h"
 #include "Core/Engine/Engine.h"
 #include "Core/Object/Class.h"
+#include "Core/Object/ObjectAllocator.h"
 #include "Core/Object/ObjectIterator.h"
 #include "Core/Object/Package/Package.h"
 #include "Core/Serialization/MemoryArchiver.h"
@@ -175,26 +176,38 @@ namespace Lumina
 
     void CWorld::ShutdownWorld()
     {
-        Memory::Delete(RenderScene);
-        Memory::Delete(CameraManager);
-
         FSystemContext SystemContext(this);
 
+        // Collect unique systems across all stages
+        TVector<CEntitySystem*> UniqueSystems;
+    
         for (uint8 i = 0; i < (uint8)EUpdateStage::Max; i++)
         {
             for (CEntitySystem* System : SystemUpdateList[i])
             {
-                System->Shutdown(SystemContext);
-                System->MarkGarbage();
+                if (eastl::find(UniqueSystems.begin(), UniqueSystems.end(), System) == UniqueSystems.end())
+                {
+                    UniqueSystems.push_back(System);
+                }
             }
+        
+            SystemUpdateList[i].clear();
         }
-        SystemUpdateList->clear();
+
+        for (CEntitySystem* System : UniqueSystems)
+        {
+            System->Shutdown(SystemContext);
+            DestroyCObject(System);
+        }
+
+        Memory::Delete(RenderScene);
+        Memory::Delete(CameraManager);
     }
 
     bool CWorld::RegisterSystem(CEntitySystem* NewSystem)
     {
         Assert(NewSystem != nullptr)
-        
+    
         FSystemContext SystemContext(this);
 
         if (bIsPlayWorld)
@@ -206,14 +219,25 @@ namespace Lumina
             NewSystem->InitializeEditor(SystemContext);
         }
 
+        bool StagesModified[(uint8)EUpdateStage::Max] = {};
+
         for (uint8 i = 0; i < (uint8)EUpdateStage::Max; ++i)
         {
             if (NewSystem->GetRequiredUpdatePriorities()->IsStageEnabled((EUpdateStage)i))
             {
                 SystemUpdateList[i].push_back(NewSystem);
+                StagesModified[i] = true;
+            }
+        }
+
+        for (uint8 i = 0; i < (uint8)EUpdateStage::Max; ++i)
+        {
+            if (!StagesModified[i])
+            {
+                continue;
             }
 
-            auto Predicate = [i] (CEntitySystem* A, CEntitySystem* B)
+            auto Predicate = [i](CEntitySystem* A, CEntitySystem* B)
             {
                 const uint8 PriorityA = A->GetRequiredUpdatePriorities()->GetPriorityForStage((EUpdateStage)i);
                 const uint8 PriorityB = B->GetRequiredUpdatePriorities()->GetPriorityForStage((EUpdateStage)i);
@@ -383,7 +407,7 @@ namespace Lumina
         return PIEWorld;
     }
 
-    const TVector<TObjectHandle<CEntitySystem>>& CWorld::GetSystemsForUpdateStage(EUpdateStage Stage)
+    const TVector<CEntitySystem*>& CWorld::GetSystemsForUpdateStage(EUpdateStage Stage)
     {
         return SystemUpdateList[uint32(Stage)];
     }

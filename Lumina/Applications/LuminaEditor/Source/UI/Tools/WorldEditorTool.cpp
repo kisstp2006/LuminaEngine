@@ -810,7 +810,8 @@ namespace Lumina
         {
             World->ShutdownWorld();
             GEngine->GetEngineSubsystem<FWorldManager>()->RemoveWorld(World);
-            World.MarkGarbage();
+            DestroyCObject(World);
+            World = nullptr;
         }
         
         World = InWorld;

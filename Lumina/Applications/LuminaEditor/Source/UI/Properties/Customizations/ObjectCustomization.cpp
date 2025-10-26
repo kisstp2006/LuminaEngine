@@ -107,7 +107,7 @@ namespace Lumina
                         if (ImGui::Selectable(Asset.FullPath.c_str()))
                         {
                             Obj = LoadObject<CObject>(nullptr, Asset.FullPath);
-                            ObjectHandle = GObjectArray.ToHandle(Obj);
+                            ObjectHandle = FObjectHandle(Obj);
                             ImGui::CloseCurrentPopup();
                     
                             bWasChanged = true;

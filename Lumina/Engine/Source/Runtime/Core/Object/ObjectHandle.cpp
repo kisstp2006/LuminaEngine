@@ -4,23 +4,18 @@
 
 namespace Lumina
 {
-    FObjectHandle::FObjectHandle(nullptr_t)
+    FObjectHandle::FObjectHandle(const CObjectBase* InObject)
     {
-    }
-
-    FObjectHandle::FObjectHandle(uint32 InIndex, uint32 InGeneration)
-        : Index(InIndex)
-        , Generation(InGeneration)
-    {
-    }
-
-    FObjectHandle::FObjectHandle(const CObject* Object)
-    {
-        *this = GObjectArray.ToHandle((const CObjectBase*)Object);
+        if (InObject == nullptr)
+        {
+            *this = FObjectHandle();
+            return;
+        }
+        *this = GObjectArray.GetHandleByIndex(InObject->GetInternalIndex());
     }
 
     CObject* FObjectHandle::Resolve() const
     {
-        return (CObject*)GObjectArray.Resolve(*this);
+        return (CObject*)GObjectArray.GetObjectByIndex(Index);
     }
 }

@@ -30,35 +30,24 @@ namespace Lumina
         LUMINA_API uint32 GetRefCount() const override { return RefCount; }
         //~ End IRefCountedObject
         
-        
         LUMINA_API void BeginRegister();
         LUMINA_API void FinishRegister(CClass* InClass, const TCHAR* InName);
 
         LUMINA_API EObjectFlags GetFlags() const { return ObjectFlags; }
 
-        LUMINA_API void ClearFlags(EObjectFlags Flags) { EnumRemoveFlags(ObjectFlags, Flags); }
-        LUMINA_API void SetFlag(EObjectFlags Flags) { EnumAddFlags(ObjectFlags, Flags); }
+        LUMINA_API void ClearFlags(EObjectFlags Flags) const { EnumRemoveFlags(ObjectFlags, Flags); }
+        LUMINA_API void SetFlag(EObjectFlags Flags) const { EnumAddFlags(ObjectFlags, Flags); }
         LUMINA_API bool HasAnyFlag(EObjectFlags Flag) const { return EnumHasAnyFlags(ObjectFlags, Flag); }
         LUMINA_API bool HasAllFlags(EObjectFlags Flags) const { return EnumHasAllFlags(ObjectFlags, Flags); }
         
 
         /** Low level object rename, will remove and reload into hash buckets. Only call this if you've verified it's safe */
         LUMINA_API void HandleNameChange(FName NewName, CPackage* NewPackage = nullptr) noexcept;
-        
-        /** Adds this object to the pending deletion queue, recommended to manually null the memory to avoid stale access */
-        LUMINA_API void MarkGarbage();
-
-        /** Forcefully destroys this object now, without adding to the queue. Recommended to manually null the memory to avoid stale access */
-        LUMINA_API void DestroyNow();
-
-        /** Has this object previously been marked for destruction? */
-        LUMINA_API bool IsMarkedGarbage() const { return HasAnyFlag(OF_MarkedGarbage); }
 
         /** Called just before the destructor is called and the memory is freed */
         LUMINA_API virtual void OnDestroy() { }
 
-        /** Called when the object is initially marked as garbage */
-        LUMINA_API virtual void OnMarkedGarbage() { }
+        LUMINA_API int32 GetInternalIndex() const { return InternalIndex; }
         
     private:
 
@@ -149,13 +138,13 @@ namespace Lumina
         CPackage*               PackagePrivate = nullptr;
         
         /** Internal index into the global object array. */
-        uint32                  InternalIndex;
+        int32                   InternalIndex = -1;
 
         /** Index into this object's package export map */
         int64                   LoaderIndex = 0;
 
         /** Internal reference count to this object */
-        mutable uint32          RefCount = 0;
+        mutable int32           RefCount = 0;
     };
 
 //---------------------------------------------------------------------------------------------------
@@ -192,6 +181,7 @@ namespace Lumina
     };
 
 
+    LUMINA_API void InitializeCObjectSystem();
     LUMINA_API void ShutdownCObjectSystem();
 
     /** Invoked from static constructor in generated code */

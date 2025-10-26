@@ -1,17 +1,15 @@
 
 #include "Application.h"
-#include "tracy/Tracy.hpp"
 #include "ApplicationGlobalState.h"
 #include "Assets/AssetManager/AssetManager.h"
 #include "Core/Module/ModuleManager.h"
-#include "Core/Object/ObjectBase.h"
-#include "Core/Object/ObjectCore.h"
 #include "Core/Utils/CommandLineParser.h"
 #include "Core/Windows/Window.h"
 #include "Core/Windows/WindowTypes.h"
 #include "Paths/Paths.h"
 #include "Platform/Process/PlatformProcess.h"
 #include "Project/Project.h"
+#include "tracy/Tracy.hpp"
 
 namespace Lumina
 {

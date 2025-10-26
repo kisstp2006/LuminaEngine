@@ -56,7 +56,8 @@ namespace Lumina
         {
             World->ShutdownWorld();
             UpdateContext.GetSubsystem<FWorldManager>()->RemoveWorld(World);
-            World.MarkGarbage();
+            DestroyCObject(World.Get());
+            World = nullptr;
         }
         
         ToolWindows.clear();

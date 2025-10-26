@@ -96,7 +96,7 @@ namespace Lumina
 
         FRenderScene* GetRenderer() const { return RenderScene; }
 
-        const TVector<TObjectHandle<CEntitySystem>>& GetSystemsForUpdateStage(EUpdateStage Stage);
+        const TVector<CEntitySystem*>& GetSystemsForUpdateStage(EUpdateStage Stage);
 
         //~ Begin Debug Drawing
         void DrawDebugLine(const glm::vec3& Start, const glm::vec3& End, const glm::vec4& Color, float Thickness = 1.0f, float Duration = 1.0f);
@@ -127,7 +127,7 @@ namespace Lumina
         FCameraManager*                                 CameraManager = nullptr;
         FRenderScene*                                   RenderScene = nullptr;
         
-        TVector<TObjectHandle<CEntitySystem>>           SystemUpdateList[(int32)EUpdateStage::Max];
+        TVector<CEntitySystem*>                         SystemUpdateList[(int32)EUpdateStage::Max];
         
         int64                                           WorldIndex = -1;
         double                                          DeltaTime = 0.0;

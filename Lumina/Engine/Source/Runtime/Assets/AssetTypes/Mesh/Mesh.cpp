@@ -61,7 +61,7 @@ namespace Lumina
     {
         LUMINA_PROFILE_SCOPE();
 
-        if (HasAnyFlag(OF_NeedsLoad) || HasAllFlags(OF_MarkedGarbage))
+        if (HasAnyFlag(OF_NeedsLoad))
         {
             return false;
         }
