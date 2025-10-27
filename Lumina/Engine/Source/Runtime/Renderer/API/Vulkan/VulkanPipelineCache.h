@@ -6,6 +6,7 @@
 
 namespace Lumina
 {
+    struct FRenderPassDesc;
     class IVulkanShader;
     struct FComputePipelineDesc;
     struct FGraphicsPipelineDesc;
@@ -25,7 +26,7 @@ namespace Lumina
             TVector<FName> Shaders;
         };
 
-        FRHIGraphicsPipelineRef GetOrCreateGraphicsPipeline(FVulkanDevice* Device, const FGraphicsPipelineDesc& InDesc);
+        FRHIGraphicsPipelineRef GetOrCreateGraphicsPipeline(FVulkanDevice* Device, const FGraphicsPipelineDesc& InDesc, const FRenderPassDesc& RenderPassDesc);
         FRHIComputePipelineRef GetOrCreateComputePipeline(FVulkanDevice* Device, const FComputePipelineDesc& InDesc);
 
         void PostShaderRecompiled(const FRHIShader* Shader);

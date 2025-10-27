@@ -168,6 +168,15 @@ namespace Lumina
         { t.size() } -> std::convertible_to<size_t>;
     };
 
+    template<typename T>
+    concept TriviallyComparableVector =
+        requires(const T& v) {
+        { v.data() } -> std::convertible_to<const void*>;
+        { v.size() } -> std::convertible_to<size_t>;
+        typename T::value_type;
+        } &&
+        std::is_trivially_copyable_v<typename T::value_type>;
+
 
     // Find an element in a vector
     template<typename T>
@@ -282,39 +291,38 @@ namespace Lumina
     }
 
     //-------------------------------------------------------------------------
-
-    template<typename T>
-    requires std::is_trivially_constructible_v<T>
-    NODISCARD bool VectorsAreEqual(const T& A, const T& B)
-    {
-        if (A.size() != B.size())
-        {
-            return false;
-        }
-
-        return std::memcmp(A.data(), B.data(), A.size() * sizeof(T)) == 0;
-    }
-
-    template<typename T>
-    requires !std::is_trivially_constructible_v<T>
-    bool VectorsAreEqual(const T& A, const T& B)
-    {
-        if (A.size() != B.size())
-        {
-            return false;
-        }
-
-        for (size_t i = 0; i < A.size(); ++i)
-        {
-            if (A[i] != B[i])
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
     
+    /** 
+     * Checks if two vectors are equal using std::memcmp for trivially copyable types,
+     * otherwise falls back to std::equal.
+     */
+    template <typename T>
+    NODISCARD constexpr bool VectorsAreEqual(const T& A, const T& B)
+    {
+        if (A.size() != B.size())
+            {
+            return false;
+        }
+        
+        return std::equal(A.begin(), A.end(), B.begin());
+    }
+
+    /** 
+     * Checks if two vectors with trivially copyable elements are equal using std::memcmp.
+     * This is a more restrictive version that enforces the trivially copyable constraint at compile time.
+     */
+    template <typename T>
+    requires(std::is_trivially_copyable_v<typename T::value_type>)
+    NODISCARD bool VectorsAreTriviallyEqual(const T& A, const T& B)
+    {
+        if (A.size() != B.size())
+        {
+            return false;
+        }
+    
+        using ValueType = T::value_type;
+        return std::memcmp(A.data(), B.data(), A.size() * sizeof(ValueType)) == 0;
+    }
 
     template<typename T, typename V, eastl_size_t S>
     NODISCARD bool VectorContains(TFixedVector<T, S> const& vector, V const& value)

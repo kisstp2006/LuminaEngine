@@ -573,7 +573,7 @@ namespace Lumina
 
         friend class FVulkanRenderContext;
 
-        FVulkanGraphicsPipeline(FVulkanDevice* InDevice, const FGraphicsPipelineDesc& InDesc);
+        FVulkanGraphicsPipeline(FVulkanDevice* InDevice, const FGraphicsPipelineDesc& InDesc, const FRenderPassDesc& RenderPassDesc);
 
         const FGraphicsPipelineDesc& GetDesc() const override { return Desc; }
         void* GetAPIResourceImpl(EAPIResourceType Type) override;

@@ -262,13 +262,13 @@ namespace Lumina
     	static const TFixedVector<IRHIResource*, 400>& GetAllRHIResources();
     	
     	template<typename T, EAPIResourceType Type = EAPIResourceType::Default>
-		T GetAPIResource()
+		T GetAPI()
     	{
     		void* Resource = GetAPIResourceImpl(Type);
     		return static_cast<T>(Resource);
     	}
 
-    	void* GetAPIResource(EAPIResourceType Type)
+    	void* GetAPI(EAPIResourceType Type)
     	{
     		void* Resource = GetAPIResourceImpl(Type);
     		return Resource;
@@ -1101,8 +1101,6 @@ namespace Lumina
             EBlendFactor 	DestBlendAlpha = EBlendFactor::Zero;
             EBlendOp     	BlendOpAlpha = EBlendOp::Add;
             EColorMask   	ColorWriteMask = EColorMask::All;
-        	EFormat			Format = EFormat::BGRA8_UNORM;
-        	bool			bEnabled = false;
 
             constexpr RenderTarget& SetBlendEnable(bool enable) { bBlendEnable = enable; return *this; }
             constexpr RenderTarget& EnableBlend() { bBlendEnable = true; return *this; }
@@ -1114,7 +1112,6 @@ namespace Lumina
             constexpr RenderTarget& SetDestBlendAlpha(EBlendFactor value) { DestBlendAlpha = value; return *this; }
             constexpr RenderTarget& SetBlendOpAlpha(EBlendOp value) { BlendOpAlpha = value; return *this; }
             constexpr RenderTarget& SetColorWriteMask(EColorMask value) { ColorWriteMask = value; return *this; }
-        	constexpr RenderTarget& SetFormat(EFormat InFormat) { Format = InFormat; return *this; }
         	
             constexpr bool operator ==(const RenderTarget& other) const
             {
@@ -1125,8 +1122,7 @@ namespace Lumina
                     && SrcBlendAlpha == other.SrcBlendAlpha
                     && DestBlendAlpha == other.DestBlendAlpha
                     && BlendOpAlpha == other.BlendOpAlpha
-                    && ColorWriteMask == other.ColorWriteMask
-					&& Format == other.Format;
+                    && ColorWriteMask == other.ColorWriteMask;
             }
 
             constexpr bool operator !=(const RenderTarget& other) const
@@ -1138,7 +1134,7 @@ namespace Lumina
         RenderTarget Targets[MaxRenderTargets];
         bool AlphaToCoverageEnable = false;
 
-        constexpr FBlendState& SetRenderTarget(uint32 index, const RenderTarget& target) { Targets[index] = target; Targets[index].bEnabled = true; return *this; }
+        constexpr FBlendState& SetRenderTarget(uint32 index, const RenderTarget& target) { Targets[index] = target; return *this; }
         constexpr FBlendState& SetAlphaToCoverageEnable(bool enable) { AlphaToCoverageEnable = enable; return *this; }
         constexpr FBlendState& EnableAlphaToCoverage() { AlphaToCoverageEnable = true; return *this; }
         constexpr FBlendState& DisableAlphaToCoverage() { AlphaToCoverageEnable = false; return *this; }
@@ -1146,7 +1142,9 @@ namespace Lumina
         constexpr bool operator ==(const FBlendState& other) const
         {
             if (AlphaToCoverageEnable != other.AlphaToCoverageEnable)
-                return false;
+            {
+	            return false;
+            }
 
             for (uint32_t i = 0; i < MaxRenderTargets; ++i)
             {
@@ -1791,7 +1789,9 @@ namespace Lumina
 
 		FORCEINLINE FGraphicsState& SetRenderPass(const FRenderPassDesc& value) { RenderPass = value; return *this; }
 		FORCEINLINE FGraphicsState& SetPipeline(FRHIGraphicsPipeline* value) { Pipeline = value; return *this; }
-		FORCEINLINE FGraphicsState& SetViewport(const FViewportState& value) { ViewportState = value; return *this; }
+		FORCEINLINE FGraphicsState& AddViewport(const FViewport& Viewport) { ViewportState.Viewports.push_back(Viewport); return *this; }
+		FORCEINLINE FGraphicsState& AddScissor(const FRect& Scissor) { ViewportState.Scissors.push_back(Scissor); return *this; }
+		FORCEINLINE FGraphicsState& SetViewportState(const FViewportState& value) { ViewportState = value; return *this; }
 		FORCEINLINE FGraphicsState& AddBindingSet(FRHIBindingSet* value) { Bindings.push_back(value); return *this; }
 		FORCEINLINE FGraphicsState& AddVertexBuffer(const FVertexBufferBinding& value) { VertexBuffers.push_back(value); return *this; }
 		FORCEINLINE FGraphicsState& SetVertexBuffer(const FVertexBufferBinding& value)

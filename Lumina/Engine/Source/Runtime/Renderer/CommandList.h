@@ -123,8 +123,6 @@ namespace Lumina
         
         virtual void SetPushConstants(const void* Data, SIZE_T ByteSize) = 0;
         
-        virtual void SetViewport(float MinX, float MinY, float MinZ, float MaxX, float MaxY, float MaxZ) = 0;
-        virtual void SetScissorRect(uint32 MinX, uint32 MinY, uint32 MaxX, uint32 MaxY) = 0;
         virtual void SetGraphicsState(const FGraphicsState& State) = 0;
         
         virtual void Draw(uint32 VertexCount, uint32 InstanceCount, uint32 FirstVertex, uint32 FirstInstance) = 0;

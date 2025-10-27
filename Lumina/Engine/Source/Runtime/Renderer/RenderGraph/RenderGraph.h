@@ -86,7 +86,8 @@ namespace Lumina
         TVector<FRGPassHandle>          Passes;
         TVector<FRGPassGroup>           ParallelGroups;
 
-        uint32                          HighestGroupCount;
+        uint32                          HighestGroupCount = 0;
+        uint32                          TotalPasses = 0;
     };
 }
 

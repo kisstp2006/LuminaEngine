@@ -4,7 +4,7 @@ namespace Lumina
 {
     void FVulkanGraphicsState::SetVertexStream(FRHIBuffer* Buffer, uint32 Index, uint32 Offset)
     {
-        PendingStreams[Index].Stream = Buffer->GetAPIResource<VkBuffer>();
+        PendingStreams[Index].Stream = Buffer->GetAPI<VkBuffer>();
         PendingStreams[Index].BufferOffset = Offset;
     }
 

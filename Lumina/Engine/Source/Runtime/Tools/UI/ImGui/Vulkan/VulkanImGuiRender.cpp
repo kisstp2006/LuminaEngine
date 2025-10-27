@@ -222,7 +222,7 @@ namespace Lumina
 		
 				CmdList.BeginRenderPass(RenderPass);
 				{
-					ImGui_ImplVulkan_RenderDrawData(DrawData, CmdList.GetAPIResource<VkCommandBuffer>());
+					ImGui_ImplVulkan_RenderDrawData(DrawData, CmdList.GetAPI<VkCommandBuffer>());
 				}
 				CmdList.EndRenderPass();
 			}
@@ -309,7 +309,7 @@ namespace Lumina
 		
     	
 		ReferencedImages.push_back(Image);
-	    VkImage VulkanImage = Image->GetAPIResource<VkImage>();
+	    VkImage VulkanImage = Image->GetAPI<VkImage>();
 		
 		const FTextureSubresourceSet Subresource = AllSubresources;
 		FVulkanImage::ESubresourceViewType ViewType = GetTextureViewType(EFormat::UNKNOWN, Image->GetDescription().Format);
@@ -324,7 +324,7 @@ namespace Lumina
 
     	FRHISamplerRef Sampler = TStaticRHISampler<>::GetRHI();
 		
-    	VkSampler VulkanSampler = Sampler->GetAPIResource<VkSampler>();
+    	VkSampler VulkanSampler = Sampler->GetAPI<VkSampler>();
     	
     	VkDescriptorSet DescriptorSet = ImGui_ImplVulkan_AddTexture(VulkanSampler, View, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     	ImageCache.insert_or_assign(VulkanImage, DescriptorSet);

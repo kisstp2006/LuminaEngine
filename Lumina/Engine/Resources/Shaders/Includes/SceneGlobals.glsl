@@ -36,7 +36,6 @@ layout(set = 0, binding = 3) readonly buffer FLightData
     vec3    SunDirection;
     bool    bHasSun;
 
-    mat4    CascadeViewProjections[4];
     vec4    CascadeSplits;
 
     vec4    AmbientLight;

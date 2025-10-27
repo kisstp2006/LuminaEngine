@@ -26,12 +26,12 @@ namespace Lumina
 
     struct FResourceStateMapping2 // for use with KHR_synchronization2
     {
-            EResourceStates State;
-            VkPipelineStageFlags2 stageFlags;
-            VkAccessFlags2 accessMask;
-            VkImageLayout imageLayout;
-            FResourceStateMapping2(EResourceStates InState, VkPipelineStageFlags2 InStageFlags, VkAccessFlags2 InAccessMask, VkImageLayout ImageLayout) :
-                State(InState), stageFlags(InStageFlags), accessMask(InAccessMask), imageLayout(ImageLayout)
+         EResourceStates State;
+         VkPipelineStageFlags2 stageFlags;
+         VkAccessFlags2 accessMask;
+         VkImageLayout imageLayout;
+         FResourceStateMapping2(EResourceStates InState, VkPipelineStageFlags2 InStageFlags, VkAccessFlags2 InAccessMask, VkImageLayout ImageLayout) :
+             State(InState), stageFlags(InStageFlags), accessMask(InAccessMask), imageLayout(ImageLayout)
         {}
     };
     
@@ -96,8 +96,8 @@ namespace Lumina
 
         void SetPushConstants(const void* Data, SIZE_T ByteSize) override;
 
-        void SetViewport(float MinX, float MinY, float MinZ, float MaxX, float MaxY, float MaxZ) override;
-        void SetScissorRect(uint32 MinX, uint32 MinY, uint32 MaxX, uint32 MaxY) override;
+        static VkViewport ToVkViewport(float MinX, float MinY, float MinZ, float MaxX, float MaxY, float MaxZ);
+        static VkRect2D ToVkScissorRect(uint32 MinX, uint32 MinY, uint32 MaxX, uint32 MaxY);
         void SetGraphicsState(const FGraphicsState& State) override;
         
         void Draw(uint32 VertexCount, uint32 InstanceCount, uint32 FirstVertex, uint32 FirstInstance) override;

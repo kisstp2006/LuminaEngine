@@ -53,7 +53,7 @@
         constexpr int GShadowMapResolution      = 4096;
         constexpr int GShadowAtlasResolution    = 8192;
         constexpr int GShadowCubemapResolution  = 512;
-        constexpr int GMaxPointLightShadows     = 16;
+        constexpr int GMaxPointLightShadows     = 100;
 
         FRenderScene::FRenderScene(CWorld* InWorld)
             : World(InWorld)
@@ -269,7 +269,7 @@
                     .AddBindingLayout(BindingLayout)
                     .SetVertexShader(VertexShader);
                     
-                FRHIGraphicsPipelineRef Pipeline = GRenderContext->CreateGraphicsPipeline(Desc);
+                FRHIGraphicsPipelineRef Pipeline = GRenderContext->CreateGraphicsPipeline(Desc, RenderPass);
                 
                 for (SIZE_T CurrentDraw = 0; CurrentDraw < MeshDrawCommands.size(); ++CurrentDraw)
                 {
@@ -279,7 +279,7 @@
                     GraphicsState.AddVertexBuffer({ Batch.VertexBuffer });
                     GraphicsState.SetIndexBuffer({ Batch.IndexBuffer });
                     GraphicsState.SetRenderPass(RenderPass);
-                    GraphicsState.SetViewport(MakeViewportStateFromImage(GetRenderTarget()));
+                    GraphicsState.SetViewportState(MakeViewportStateFromImage(GetRenderTarget()));
                     GraphicsState.SetPipeline(Pipeline);
                     GraphicsState.AddBindingSet(BindingSet);
                     GraphicsState.SetIndirectParams(IndirectDrawBuffer);
@@ -335,24 +335,6 @@
                     .SetDepthAttachment(Depth)
                     .SetRenderArea(GetRenderTarget()->GetExtent());
                 
-
-                FBlendState BlendState;
-                
-                FBlendState::RenderTarget NormalTarget;
-                NormalTarget.SetFormat(EFormat::RGBA16_FLOAT);
-                BlendState.SetRenderTarget(0, NormalTarget);
-                
-                FBlendState::RenderTarget MaterialTarget;
-                MaterialTarget.SetFormat(EFormat::RGBA8_UNORM);
-                BlendState.SetRenderTarget(1, MaterialTarget);
-                
-                FBlendState::RenderTarget AlbedoSpecTarget;
-                AlbedoSpecTarget.SetFormat(EFormat::RGBA8_UNORM);
-                BlendState.SetRenderTarget(2, AlbedoSpecTarget);
-
-                FBlendState::RenderTarget PickerTarget;
-                PickerTarget.SetFormat(EFormat::R32_UINT);
-                BlendState.SetRenderTarget(3, PickerTarget);
                 
                 FRasterState RasterState;
                 RasterState.EnableDepthClip();
@@ -362,7 +344,6 @@
                     .DisableDepthWrite();
                 
                 FRenderState RenderState;
-                RenderState.SetBlendState(BlendState);
                 RenderState.SetRasterState(RasterState);
                 RenderState.SetDepthStencilState(DepthState);
                 
@@ -384,8 +365,8 @@
                         .SetRenderPass(RenderPass)
                         .AddVertexBuffer({ Batch.VertexBuffer })
                         .SetIndexBuffer({ Batch.IndexBuffer })
-                        .SetViewport(MakeViewportStateFromImage(GetRenderTarget()))
-                        .SetPipeline(GRenderContext->CreateGraphicsPipeline(Desc))
+                        .SetViewportState(MakeViewportStateFromImage(GetRenderTarget()))
+                        .SetPipeline(GRenderContext->CreateGraphicsPipeline(Desc, RenderPass))
                         .SetIndirectParams(IndirectDrawBuffer)
                         .AddBindingSet(BindingSet)
                         .AddBindingSet(Mat->GetBindingSet());
@@ -428,11 +409,7 @@
 
                         FRasterState RasterState;
                         RasterState.SetCullNone();
-        
-                        FBlendState BlendState;
-                        FBlendState::RenderTarget RenderTarget;
-                        RenderTarget.SetFormat(EFormat::R8_UNORM);
-                        BlendState.SetRenderTarget(0, RenderTarget);
+                        
         
                         FDepthStencilState DepthState;
                         DepthState.DisableDepthTest();
@@ -441,7 +418,6 @@
                         FRenderState RenderState;
                         RenderState.SetRasterState(RasterState);
                         RenderState.SetDepthStencilState(DepthState);
-                        RenderState.SetBlendState(BlendState);
                 
                         FGraphicsPipelineDesc Desc;
                         Desc.SetDebugName("SSAO Pass");
@@ -451,14 +427,14 @@
                         Desc.SetVertexShader(VertexShader);
                         Desc.SetPixelShader(PixelShader);
         
-                        FRHIGraphicsPipelineRef Pipeline = GRenderContext->CreateGraphicsPipeline(Desc);
+                        FRHIGraphicsPipelineRef Pipeline = GRenderContext->CreateGraphicsPipeline(Desc, RenderPass);
 
                         FGraphicsState GraphicsState;
                         GraphicsState.SetPipeline(Pipeline);
                         GraphicsState.AddBindingSet(BindingSet);
                         GraphicsState.AddBindingSet(SSAOPassSet);
                         GraphicsState.SetRenderPass(RenderPass);
-                        GraphicsState.SetViewport(MakeViewportStateFromImage(SSAOImage));
+                        GraphicsState.SetViewportState(MakeViewportStateFromImage(SSAOImage));
 
                         CmdList.SetGraphicsState(GraphicsState);
                     
@@ -493,11 +469,6 @@
                         FRasterState RasterState;
                         RasterState.SetCullNone();
         
-                        FBlendState BlendState;
-                        FBlendState::RenderTarget RenderTarget;
-                        RenderTarget.SetFormat(EFormat::R8_UNORM);
-                        BlendState.SetRenderTarget(0, RenderTarget);
-        
                         FDepthStencilState DepthState;
                         DepthState.DisableDepthTest();
                         DepthState.DisableDepthWrite();
@@ -505,7 +476,6 @@
                         FRenderState RenderState;
                         RenderState.SetRasterState(RasterState);
                         RenderState.SetDepthStencilState(DepthState);
-                        RenderState.SetBlendState(BlendState);
                 
                         FGraphicsPipelineDesc Desc;
                         Desc.SetDebugName("SSAO Blur Pass");
@@ -515,14 +485,14 @@
                         Desc.SetVertexShader(VertexShader);
                         Desc.SetPixelShader(PixelShader);
         
-                        FRHIGraphicsPipelineRef Pipeline = GRenderContext->CreateGraphicsPipeline(Desc);
+                        FRHIGraphicsPipelineRef Pipeline = GRenderContext->CreateGraphicsPipeline(Desc, RenderPass);
 
                         FGraphicsState GraphicsState;
                         GraphicsState.SetPipeline(Pipeline);
                         GraphicsState.AddBindingSet(BindingSet);
                         GraphicsState.AddBindingSet(SSAOBlurPassSet);
                         GraphicsState.SetRenderPass(RenderPass);
-                        GraphicsState.SetViewport(MakeViewportStateFromImage(GetRenderTarget()));
+                        GraphicsState.SetViewportState(MakeViewportStateFromImage(GetRenderTarget()));
 
                         CmdList.SetGraphicsState(GraphicsState);
                     
@@ -571,15 +541,9 @@
             
                     FRasterState RasterState;
                     RasterState.SetCullNone();
-            
-                    FBlendState BlendState;
-                    FBlendState::RenderTarget RenderTarget;
-                    BlendState.SetRenderTarget(0, RenderTarget);
-           
-            
+                    
                     FRenderState RenderState;
                     RenderState.SetRasterState(RasterState);
-                    RenderState.SetBlendState(BlendState);
             
                     FGraphicsPipelineDesc Desc;
                     Desc.SetDebugName("Environment Pass");
@@ -588,13 +552,13 @@
                     Desc.SetVertexShader(VertexShader);
                     Desc.SetPixelShader(PixelShader);
             
-                    FRHIGraphicsPipelineRef Pipeline = GRenderContext->CreateGraphicsPipeline(Desc);
+                    FRHIGraphicsPipelineRef Pipeline = GRenderContext->CreateGraphicsPipeline(Desc, RenderPass);
             
                     FGraphicsState GraphicsState;
                     GraphicsState.AddBindingSet(BindingSet);
                     GraphicsState.SetPipeline(Pipeline);
                     GraphicsState.SetRenderPass(RenderPass);
-                    GraphicsState.SetViewport(MakeViewportStateFromImage(GetRenderTarget()));
+                    GraphicsState.SetViewportState(MakeViewportStateFromImage(GetRenderTarget()));
           
                     CmdList.SetGraphicsState(GraphicsState);
                 
@@ -636,15 +600,9 @@
                 
                 FRasterState RasterState;
                 RasterState.SetCullNone();
-                
-                FBlendState BlendState;
-                FBlendState::RenderTarget RenderTarget;
-                BlendState.SetRenderTarget(0, RenderTarget);
-        
 
                 FRenderState RenderState;
                 RenderState.SetRasterState(RasterState);
-                RenderState.SetBlendState(BlendState);
                 
                 FGraphicsPipelineDesc Desc;
                 Desc.SetDebugName("Lighting Pass");
@@ -654,14 +612,14 @@
                 Desc.SetVertexShader(VertexShader);
                 Desc.SetPixelShader(PixelShader);
         
-                FRHIGraphicsPipelineRef Pipeline = GRenderContext->CreateGraphicsPipeline(Desc);
+                FRHIGraphicsPipelineRef Pipeline = GRenderContext->CreateGraphicsPipeline(Desc, RenderPass);
 
                 FGraphicsState GraphicsState;
                 GraphicsState.SetPipeline(Pipeline);
                 GraphicsState.AddBindingSet(BindingSet);
                 GraphicsState.AddBindingSet(LightingPassSet);
                 GraphicsState.SetRenderPass(RenderPass);                
-                GraphicsState.SetViewport(MakeViewportStateFromImage(GetRenderTarget()));
+                GraphicsState.SetViewportState(MakeViewportStateFromImage(GetRenderTarget()));
 
                 CmdList.SetGraphicsState(GraphicsState);
                 
@@ -706,10 +664,6 @@
                 RasterState.SetCullNone();
                 RasterState.SetLineWidth(2.5f);
         
-                FBlendState BlendState;
-                FBlendState::RenderTarget RenderTarget;
-                BlendState.SetRenderTarget(0, RenderTarget);
-        
                 FDepthStencilState DepthState;
                 DepthState.EnableDepthTest();
                 DepthState.SetDepthFunc(EComparisonFunc::GreaterOrEqual);
@@ -718,7 +672,6 @@
                 FRenderState RenderState;
                 RenderState.SetRasterState(RasterState);
                 RenderState.SetDepthStencilState(DepthState);
-                RenderState.SetBlendState(BlendState);
                 
                 FGraphicsPipelineDesc Desc;
                 Desc.SetDebugName("Batched Line Draw");
@@ -729,13 +682,13 @@
                 Desc.SetVertexShader(VertexShader);
                 Desc.SetPixelShader(PixelShader);
         
-                FRHIGraphicsPipelineRef Pipeline = GRenderContext->CreateGraphicsPipeline(Desc);
+                FRHIGraphicsPipelineRef Pipeline = GRenderContext->CreateGraphicsPipeline(Desc, RenderPass);
 
                 FGraphicsState GraphicsState;
                 GraphicsState.SetPipeline(Pipeline);
                 GraphicsState.AddVertexBuffer({ SimpleVertexBuffer });
                 GraphicsState.SetRenderPass(RenderPass);
-                GraphicsState.SetViewport(MakeViewportStateFromImage(GetRenderTarget()));
+                GraphicsState.SetViewportState(MakeViewportStateFromImage(GetRenderTarget()));
 
                 CmdList.SetGraphicsState(GraphicsState);
 
@@ -776,11 +729,6 @@
                 FRasterState RasterState;
                 RasterState.SetCullNone();
                 
-                FBlendState BlendState;
-                FBlendState::RenderTarget RenderTarget;
-                RenderTarget.SetFormat(EFormat::RGBA32_FLOAT);
-                BlendState.SetRenderTarget(0, RenderTarget);
-        
                 FDepthStencilState DepthState;
                 DepthState.DisableDepthTest();
                 DepthState.DisableDepthWrite();
@@ -788,7 +736,6 @@
                 FRenderState RenderState;
                 RenderState.SetRasterState(RasterState);
                 RenderState.SetDepthStencilState(DepthState);
-                RenderState.SetBlendState(BlendState);
                 
                 FGraphicsPipelineDesc Desc;
                 Desc.SetDebugName("Debug Draw Pass");
@@ -798,14 +745,14 @@
                 Desc.SetVertexShader(VertexShader);
                 Desc.SetPixelShader(PixelShader);
         
-                FRHIGraphicsPipelineRef Pipeline = GRenderContext->CreateGraphicsPipeline(Desc);
+                FRHIGraphicsPipelineRef Pipeline = GRenderContext->CreateGraphicsPipeline(Desc, RenderPass);
 
                 FGraphicsState GraphicsState;
                 GraphicsState.SetPipeline(Pipeline);
                 GraphicsState.AddBindingSet(BindingSet);
                 GraphicsState.AddBindingSet(DebugPassSet);
                 GraphicsState.SetRenderPass(RenderPass);               
-                GraphicsState.SetViewport(MakeViewportStateFromImage(DebugVisualizationImage));
+                GraphicsState.SetViewportState(MakeViewportStateFromImage(DebugVisualizationImage));
 
                 CmdList.SetGraphicsState(GraphicsState);
 
@@ -821,8 +768,8 @@
             float SizeX = (float)Image->GetSizeX();
 
             FViewportState ViewportState;
-            ViewportState.Viewport = FViewport(SizeX, SizeY);
-            ViewportState.Scissor = FRect(SizeX, SizeY);
+            ViewportState.Viewports.emplace_back(FViewport(SizeX, SizeY));
+            ViewportState.Scissors.emplace_back(FRect(SizeX, SizeY));
 
             return ViewportState;
         }
@@ -1020,8 +967,6 @@
                     .SetVertexShader(VertexShader)
                     .SetPixelShader(PixelShader);
 
-                    
-                FRHIGraphicsPipelineRef Pipeline = GRenderContext->CreateGraphicsPipeline(Desc);
                 
                 for (size_t LightNum = 0; LightNum < LightData.NumLights; ++LightNum)
                 {
@@ -1032,78 +977,47 @@
                         continue;
                     }
                     
-                    FViewVolume LightView(90.0f, 1.0f, 0.01f, Light.Radius);
-                    
-                    auto SetView = [&Light](FViewVolume& View, uint32 Index)
+                    float SizeY = (float)GShadowCubemapResolution;
+                    float SizeX = (float)GShadowCubemapResolution;
+            
+                    FViewportState ViewportState;
+                    for (int i = 0; i < 6; ++i)
                     {
-                        switch (Index)
-                        {
-                        case 0: // + X
-                            View.SetView(Light.Position, FViewVolume::RightAxis, FViewVolume::DownAxis);
-                            break;
-                        case 1: // - X
-                            View.SetView(Light.Position, FViewVolume::LeftAxis, FViewVolume::DownAxis);
-                            break;
-                        case 2: // + Y
-                            View.SetView(Light.Position, FViewVolume::UpAxis, FViewVolume::ForwardAxis);
-                            break;
-                        case 3: // - Y
-                            View.SetView(Light.Position, FViewVolume::DownAxis, FViewVolume::BackwardAxis);
-                            break;
-                        case 4: // + Z
-                            View.SetView(Light.Position, FViewVolume::ForwardAxis, FViewVolume::DownAxis);
-                            break;
-                        case 5: // - Z
-                            View.SetView(Light.Position, FViewVolume::BackwardAxis, FViewVolume::DownAxis);
-                            break;
-                        default:
-                            LUMINA_NO_ENTRY()
-                        }
-                    };
-                    
-                    for (int Face = 0; Face < 6; ++Face)
-                    {
-                        SetView(LightView, Face);
-                        glm::mat4 Transform = LightView.ToReverseDepthViewProjectionMatrix();
-
-                        uint32 LayerIndex = Light.Shadow.ShadowMapIndex * 6 + Face;
+                        ViewportState.Viewports.emplace_back(FViewport(SizeX, SizeY));
+                        ViewportState.Scissors.emplace_back(FRect(SizeX, SizeY));
+                    }
                         
-                        FRenderPassDesc::FAttachment Depth; Depth
-                            .SetImage(PointLightShadowMap)
-                            .SetArraySliceRange(LayerIndex, 1)
-                            .SetDepthClearValue(1.0f);
+            
+                    uint32 BaseLayerIndex = Light.Shadow.ShadowMapIndex * 6;
+                        
+                    FRenderPassDesc::FAttachment Depth; Depth
+                        .SetImage(PointLightShadowMap)
+                        .SetArraySliceRange(BaseLayerIndex, 6)
+                        .SetDepthClearValue(1.0f);
                 
-                        FRenderPassDesc RenderPass; RenderPass
-                            .SetDepthAttachment(Depth)
-                            .SetRenderArea(FIntVector2D(GShadowCubemapResolution, GShadowCubemapResolution));
+                    FRenderPassDesc RenderPass; RenderPass
+                        .SetDepthAttachment(Depth)
+                        .SetRenderArea(FIntVector2D(GShadowCubemapResolution, GShadowCubemapResolution));
+
+                    FRHIGraphicsPipelineRef Pipeline = GRenderContext->CreateGraphicsPipeline(Desc, RenderPass);
+                    
+                    for (SIZE_T CurrentDraw = 0; CurrentDraw < MeshDrawCommands.size(); ++CurrentDraw)
+                    {
+                        const FMeshDrawCommand& Batch = MeshDrawCommands[CurrentDraw];
+
+                        FGraphicsState GraphicsState; GraphicsState
+                            .SetRenderPass(RenderPass)
+                            .SetViewportState(ViewportState)
+                            .SetPipeline(Pipeline)
+                            .AddBindingSet(BindingSet)
+                            .AddBindingSet(ShadowPassSet)
+                            .SetIndirectParams(IndirectDrawBuffer);
                         
-                        for (SIZE_T CurrentDraw = 0; CurrentDraw < MeshDrawCommands.size(); ++CurrentDraw)
-                        {
-                            const FMeshDrawCommand& Batch = MeshDrawCommands[CurrentDraw];
-
-                            FViewportState ViewportState = MakeViewportStateFromImage(PointLightShadowMap);
-                            
-                            FGraphicsState GraphicsState; GraphicsState
-                                .SetRenderPass(RenderPass)
-                                .SetViewport(ViewportState)
-                                .SetPipeline(Pipeline)
-                                .AddBindingSet(BindingSet)
-                                .AddBindingSet(ShadowPassSet)
-                                .SetIndirectParams(IndirectDrawBuffer);
-
-                            GraphicsState.AddVertexBuffer({ Batch.VertexBuffer }).SetIndexBuffer({ Batch.IndexBuffer });
-                            CmdList.SetGraphicsState(GraphicsState);
-
-                            FShadowMappingPC Data
-                            {
-                                .LightMatrix    = Transform,
-                                .LightPos       = Light.Position,
-                                .LightRadius    = Light.Radius
-                            };
-                            
-                            CmdList.SetPushConstants(&Data, sizeof(FShadowMappingPC));
-                            CmdList.DrawIndexedIndirect(1, Batch.IndirectDrawOffset * sizeof(FDrawIndexedIndirectArguments));
-                        }
+                        GraphicsState.AddVertexBuffer({ Batch.VertexBuffer }).SetIndexBuffer({ Batch.IndexBuffer });
+                        CmdList.SetGraphicsState(GraphicsState);
+                        
+                        CmdList.SetPushConstants(&LightNum, sizeof(uint32));
+                        CmdList.DrawIndexedIndirect(1, Batch.IndirectDrawOffset * sizeof(FDrawIndexedIndirectArguments));
                     }
                 }
             });
@@ -1130,7 +1044,6 @@
                         .SetDepthFunc(EComparisonFunc::LessOrEqual))
                         .SetRasterState(FRasterState().SetSlopeScaleDepthBias(1.75f).SetDepthBias(100).SetCullFront());
 
-
                 
                 FGraphicsPipelineDesc Desc; Desc
                     .SetDebugName("Spot Shadow Pass")
@@ -1141,9 +1054,7 @@
                     .SetVertexShader(VertexShader)
                     .SetPixelShader(PixelShader);
                     
-                    
-                FRHIGraphicsPipelineRef Pipeline = GRenderContext->CreateGraphicsPipeline(Desc);
-
+                
                 
                 for (size_t LightNum = 0; LightNum < LightData.NumLights; ++LightNum)
                 {
@@ -1166,9 +1077,12 @@
                     FRenderPassDesc RenderPass; RenderPass
                         .SetDepthAttachment(Depth)
                         .SetRenderArea(FIntVector2D(GShadowAtlasResolution, GShadowAtlasResolution));
+
+                    FRHIGraphicsPipelineRef Pipeline = GRenderContext->CreateGraphicsPipeline(Desc, RenderPass);
+
                     
                     FViewportState ViewportState;
-                    ViewportState.Viewport = FViewport
+                    ViewportState.Viewports.emplace_back(FViewport
                     (
                         (float)TilePixelX,
                         (float)TilePixelX + TileSize,
@@ -1176,24 +1090,26 @@
                         (float)TilePixelY + TileSize,
                         0.0f,
                         1.0f 
-                    );
+                    ));
 
                     // FRect(minX, maxX, minY, maxY)
-                    ViewportState.Scissor = FRect
+                    ViewportState.Scissors.emplace_back(FRect
                     (
                         (int)TilePixelX,
                         (int)TilePixelX + TileSize,
                         (int)TilePixelY,
                         (int)TilePixelY + TileSize
-                    );
+                    ));
                     
                     FGraphicsState GraphicsState; GraphicsState
                         .SetRenderPass(RenderPass)
-                        .SetViewport(ViewportState)
+                        .SetViewportState(ViewportState)
                         .SetPipeline(Pipeline)
                         .AddBindingSet(BindingSet)
                         .AddBindingSet(ShadowPassSet)
                         .SetIndirectParams(IndirectDrawBuffer);                    
+
+
                     
                     for (SIZE_T CurrentDraw = 0; CurrentDraw < MeshDrawCommands.size(); ++CurrentDraw)
                     {
@@ -1203,14 +1119,7 @@
                         GraphicsState.SetIndexBuffer({Batch.IndexBuffer});
                         CmdList.SetGraphicsState(GraphicsState);
                         
-                        FShadowMappingPC Data
-                        {
-                            .LightMatrix    = Light.ViewProjection,
-                            .LightPos       = Light.Position,
-                            .LightRadius    = Light.Radius,
-                        };
-                        
-                        CmdList.SetPushConstants(&Data, sizeof(FShadowMappingPC));
+                        CmdList.SetPushConstants(&LightNum, sizeof(uint32));
                         CmdList.DrawIndexedIndirect(1, Batch.IndirectDrawOffset * sizeof(FDrawIndexedIndirectArguments));
                     }
                 }
@@ -1251,8 +1160,6 @@
                     .SetVertexShader(VertexShader);
                     //.SetPixelShader(PixelShader);
 
-                    
-                    FRHIGraphicsPipelineRef Pipeline = GRenderContext->CreateGraphicsPipeline(Desc);
                 
                 for (int i = 0; i < NumCascades; ++i)
                 {
@@ -1265,7 +1172,8 @@
                     FRenderPassDesc RenderPass; RenderPass
                         .SetDepthAttachment(Depth, FTextureSubresourceSet(0, 1, i, 1))
                         .SetRenderArea(FIntVector2D(Cascade.ShadowMapSize.x, Cascade.ShadowMapSize.y));
-                    
+
+                    FRHIGraphicsPipelineRef Pipeline = GRenderContext->CreateGraphicsPipeline(Desc, RenderPass);
                     
                     for (SIZE_T CurrentDraw = 0; CurrentDraw < MeshDrawCommands.size(); ++CurrentDraw)
                     {
@@ -1273,7 +1181,7 @@
 
                         FGraphicsState GraphicsState; GraphicsState
                             .SetRenderPass(RenderPass)
-                            .SetViewport(MakeViewportStateFromImage(CascadedShadowMap))
+                            .SetViewportState(MakeViewportStateFromImage(CascadedShadowMap))
                             .SetPipeline(Pipeline)
                             .AddBindingSet(BindingSet)
                             .AddBindingSet(ShadowPassSet)
@@ -1283,15 +1191,8 @@
                         
                         CmdList.SetGraphicsState(GraphicsState);
 
-                        
-                        FShadowMappingPC Data
-                        {
-                            .LightMatrix = Cascade.LightViewProjection,
-                            .LightPos = LightData.Lights[0].Position,
-                            .LightRadius = 1000000.0f,
-                        };
-                        
-                        CmdList.SetPushConstants(&Data, sizeof(FShadowMappingPC));
+                        uint32 LightIndex = 0;
+                        CmdList.SetPushConstants(&LightIndex, sizeof(uint32));
                         CmdList.DrawIndexedIndirect(1, Batch.IndirectDrawOffset * sizeof(FDrawIndexedIndirectArguments));
                     }
                 }
@@ -1468,10 +1369,6 @@
                     Light.Color         = PackColor(DirectionalLightComponent.Color, DirectionalLightComponent.Intensity);
                     Light.Direction     = glm::normalize(DirectionalLightComponent.Direction);
 
-                    LightData.SunDirection = Light.Direction;
-                    LightData.Lights[0] = Memory::Move(Light);
-                    LightData.NumLights++;
-
                     const FViewVolume& ViewVolume = SceneViewport->GetViewVolume();
 
                     float NearClip = ViewVolume.GetNear();
@@ -1552,12 +1449,17 @@
                         Cascade.SplitDepth = (NearClip + SplitDist * ClipRange) * -1.0f;
                         Cascade.LightViewProjection = LightOrthoMatrix * LightViewMatrix;
 
-                        LightData.CascadeViewProjections[i] = Cascade.LightViewProjection;
+                        Light.ViewProjection[i] = Cascade.LightViewProjection;
 
                         Cascade.ShadowMapSize = glm::ivec2(GShadowMapResolution);
 
                         LastSplitDist = CascadeSplits[i];
                     }
+
+                    LightData.SunDirection = Light.Direction;
+                    LightData.NumLights++;
+                    
+                    LightData.Lights[0] = Memory::Move(Light);
                 });
             }
 
@@ -1578,6 +1480,42 @@
                     Light.Color                 = PackColor(PointLightComponent.LightColor, PointLightComponent.Intensity);
                     Light.Radius                = PointLightComponent.Attenuation;
                     Light.Position              = TransformComponent.WorldTransform.Location;
+
+                                        
+                    FViewVolume LightView(90.0f, 1.0f, 0.01f, Light.Radius);
+                    
+                    auto SetView = [&Light](FViewVolume& View, uint32 Index)
+                    {
+                        switch (Index)
+                        {
+                        case 0: // + X
+                            View.SetView(Light.Position, FViewVolume::RightAxis, FViewVolume::DownAxis);
+                            break;
+                        case 1: // - X
+                            View.SetView(Light.Position, FViewVolume::LeftAxis, FViewVolume::DownAxis);
+                            break;
+                        case 2: // + Y
+                            View.SetView(Light.Position, FViewVolume::UpAxis, FViewVolume::ForwardAxis);
+                            break;
+                        case 3: // - Y
+                            View.SetView(Light.Position, FViewVolume::DownAxis, FViewVolume::BackwardAxis);
+                            break;
+                        case 4: // + Z
+                            View.SetView(Light.Position, FViewVolume::ForwardAxis, FViewVolume::DownAxis);
+                            break;
+                        case 5: // - Z
+                            View.SetView(Light.Position, FViewVolume::BackwardAxis, FViewVolume::DownAxis);
+                            break;
+                        default:
+                            LUMINA_NO_ENTRY()
+                        }
+                    };
+
+                    for (int Face = 0; Face < 6; ++Face)
+                    {
+                        SetView(LightView, Face);
+                        Light.ViewProjection[Face] = LightView.ToReverseDepthViewProjectionMatrix();                        
+                    }
                     
                     if (PointLightComponent.bCastShadows)
                     {
@@ -1625,7 +1563,7 @@
                     Light.Color                 = PackColor(SpotLightComponent.LightColor, SpotLightComponent.Intensity);
                     Light.Radius                = SpotLightComponent.Attenuation;
                     Light.Angles                = glm::vec2(InnerCos, OuterCos);
-                    Light.ViewProjection        = ViewVolume.ToReverseDepthViewProjectionMatrix();
+                    Light.ViewProjection[0]     = ViewVolume.ToReverseDepthViewProjectionMatrix();
 
                     if (SpotLightComponent.bCastShadows)
                     {
@@ -1862,7 +1800,7 @@
 
             {
                 FBindingSetDesc SetDesc;
-                SetDesc.AddItem(FBindingSetItem::PushConstants(0, sizeof(FShadowMappingPC)));
+                SetDesc.AddItem(FBindingSetItem::PushConstants(0, sizeof(uint32)));
 
                 TBitFlags<ERHIShaderType> Visibility;
                 Visibility.SetMultipleFlags(ERHIShaderType::Vertex, ERHIShaderType::Fragment);
@@ -2174,7 +2112,7 @@
                 ImageDesc.Extent = {GShadowCubemapResolution, GShadowCubemapResolution};
                 ImageDesc.Flags.SetMultipleFlags(EImageCreateFlags::DepthAttachment, EImageCreateFlags::ShaderResource, EImageCreateFlags::CubeCompatible);
                 ImageDesc.Dimension = EImageDimension::TextureCubeArray;
-                ImageDesc.ArraySize = 6 * 16;
+                ImageDesc.ArraySize = 6 * GMaxPointLightShadows;
                 ImageDesc.Format = EFormat::D16;
                 ImageDesc.bKeepInitialState = true;
                 ImageDesc.InitialState = EResourceStates::DepthWrite;

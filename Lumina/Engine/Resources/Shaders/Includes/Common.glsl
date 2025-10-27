@@ -88,7 +88,7 @@ struct FLight
     vec3 Direction;
     float Radius;
     
-    mat4 ViewProjection;
+    mat4 ViewProjection[6];
     
     vec2 Angles;
     uint Flags;
@@ -101,8 +101,8 @@ struct FCluster
 {
     vec4 MinPoint;
     vec4 MaxPoint;
-    uint Count;
     uint LightIndices[LIGHTS_PER_CLUSTER];
+    uint Count;
 };
 
 

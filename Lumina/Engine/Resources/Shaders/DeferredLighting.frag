@@ -144,7 +144,9 @@ float Shadow_Directional(float bias, vec3 worldPos)
         }
     }
 
-    vec4 shadowCoord = LightData.CascadeViewProjections[CascadeIndex] * vec4(worldPos, 1.0);
+    FLight Light = GetLightAt(0);
+
+    vec4 shadowCoord = Light.ViewProjection[CascadeIndex] * vec4(worldPos, 1.0);
     vec3 projCoords = shadowCoord.xyz / shadowCoord.w;
     vec2 uv = projCoords.xy * 0.5 + 0.5;
     float currentDepth = projCoords.z;
@@ -273,7 +275,7 @@ float Shadow_Point(FLight light, vec3 worldPos, float bias)
 float Shadow_Spot(FLight light, vec3 worldPos, float bias)
 {
     // Transform to light clip space
-    vec4 shadowCoord = light.ViewProjection * vec4(worldPos, 1.0);
+    vec4 shadowCoord = light.ViewProjection[0] * vec4(worldPos, 1.0);
     vec3 projCoords = shadowCoord.xyz / shadowCoord.w;
 
     if(projCoords.z > 1.0)

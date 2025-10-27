@@ -227,6 +227,8 @@ namespace Lumina
         NODISCARD float Height() const { return MaxY - MinY; }
     };
 
+    
+
     struct FRect
     {
         int MinX, MaxX;
@@ -697,6 +699,8 @@ namespace Lumina
         FVertexBufferBinding& SetOffset(uint64 value) { Offset = value; return *this; }
     };
 
+    static_assert(std::is_trivially_copyable_v<FVertexBufferBinding>);
+
     struct FIndexBufferBinding
     {
         FRHIBuffer* Buffer = nullptr;
@@ -716,12 +720,15 @@ namespace Lumina
         FIndexBufferBinding& SetOffset(uint32 value) { Offset = value; return *this; }
     };
 
+    static_assert(std::is_trivially_copyable_v<FIndexBufferBinding>);
+
     struct FViewportState
     {
-        FViewport   Viewport;
-        FRect       Scissor;
+        TFixedVector<FViewport, 16>   Viewports;
+        TFixedVector<FRect, 16>       Scissors;
     };
-    
+
+
     
     template <>
     struct FVertexTypeTraits<FVertex>

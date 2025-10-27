@@ -1321,7 +1321,7 @@ namespace Lumina
                     ImageInfo.imageView = View;
                     ImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
                     ImageInfo.sampler = Item.TextureResource.Sampler ?
-                    Item.TextureResource.Sampler->GetAPIResource<VkSampler>() : TStaticRHISampler<>::GetRHI()->GetAPIResource<VkSampler>();
+                    Item.TextureResource.Sampler->GetAPI<VkSampler>() : TStaticRHISampler<>::GetRHI()->GetAPI<VkSampler>();
 
                     
                     Write.pImageInfo = &ImageInfo;
@@ -1569,7 +1569,7 @@ namespace Lumina
 
     }
 
-    FVulkanGraphicsPipeline::FVulkanGraphicsPipeline(FVulkanDevice* InDevice, const FGraphicsPipelineDesc& InDesc)
+    FVulkanGraphicsPipeline::FVulkanGraphicsPipeline(FVulkanDevice* InDevice, const FGraphicsPipelineDesc& InDesc, const FRenderPassDesc& RenderPassDesc)
         :FVulkanPipeline(InDevice)
     {
         Desc = InDesc;
@@ -1588,7 +1588,7 @@ namespace Lumina
         {
             VkPipelineShaderStageCreateInfo VertexStage = {};
             VertexStage.sType                   = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-            VertexStage.module                  = InDesc.VS->GetAPIResource<VkShaderModule>();
+            VertexStage.module                  = InDesc.VS->GetAPI<VkShaderModule>();
             VertexStage.pName                   = "main";
             VertexStage.pNext                   = nullptr;
             VertexStage.stage                   = VK_SHADER_STAGE_VERTEX_BIT;
@@ -1600,7 +1600,7 @@ namespace Lumina
         {
             VkPipelineShaderStageCreateInfo FragmentStage = {};
             FragmentStage.sType                 = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-            FragmentStage.module                = InDesc.PS->GetAPIResource<VkShaderModule>();
+            FragmentStage.module                = InDesc.PS->GetAPI<VkShaderModule>();
             FragmentStage.pName                 = "main";
             FragmentStage.pNext                 = nullptr;
             FragmentStage.stage                 = VK_SHADER_STAGE_FRAGMENT_BIT;
@@ -1653,7 +1653,7 @@ namespace Lumina
         MultisampleState.sType                  = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
         MultisampleState.rasterizationSamples   = VK_SAMPLE_COUNT_1_BIT;
 
-        FDepthStencilState DepthState = InDesc.RenderState.DepthStencilState;
+        const FDepthStencilState& DepthState = InDesc.RenderState.DepthStencilState;
         
         VkPipelineDepthStencilStateCreateInfo DepthStencilState = {};
         DepthStencilState.sType                     = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
@@ -1664,43 +1664,77 @@ namespace Lumina
         ConvertStencilOps(DepthState.FrontFaceStencil, DepthStencilState);
         ConvertStencilOps(DepthState.BackFaceStencil, DepthStencilState);
 
-        FBlendState BlendState = InDesc.RenderState.BlendState;
+        const FBlendState& BlendState = InDesc.RenderState.BlendState;
 
-        TFixedVector<VkFormat, 2> ColorAttachmentFormats;
-        TFixedVector<VkPipelineColorBlendAttachmentState, 2> ColorBlendAttachmentStates;
-        for (const FBlendState::RenderTarget& RenderTarget : BlendState.Targets)
+        uint32 NumArraySlices = 0;
+
+        TFixedVector<VkFormat, 8> ColorAttachmentFormats(RenderPassDesc.ColorAttachments.size());
+        TFixedVector<VkPipelineColorBlendAttachmentState, 8> ColorBlendAttachmentStates(RenderPassDesc.ColorAttachments.size());
+        for (size_t i = 0; i < ColorBlendAttachmentStates.size(); ++i)
         {
-            if (!RenderTarget.bEnabled)
+            const FTextureSubresourceSet Subresource = RenderPassDesc.ColorAttachments[i].Subresources.Resolve(RenderPassDesc.ColorAttachments[i].Image->GetDescription(), true);
+
+            if (NumArraySlices)
             {
-                continue;
+                LUM_ASSERT(NumArraySlices == Subresource.NumArraySlices)
+            }
+            else
+            {
+                NumArraySlices = Subresource.NumArraySlices;
             }
             
-            VkPipelineColorBlendAttachmentState ColorBlendAttachment = {};
-            ColorBlendAttachment.colorWriteMask             = VK_COLOR_COMPONENT_FLAG_BITS_MAX_ENUM;
-            ColorBlendAttachment.colorBlendOp               = (RenderTarget.BlendOp == EBlendOp::Add) ? VK_BLEND_OP_ADD : VK_BLEND_OP_MAX;
-            ColorBlendAttachment.alphaBlendOp               = (RenderTarget.BlendOpAlpha == EBlendOp::Add) ? VK_BLEND_OP_ADD : VK_BLEND_OP_MAX;
-            ColorBlendAttachment.srcColorBlendFactor        = ToVkBlendFactor(RenderTarget.SrcBlend);
-            ColorBlendAttachment.dstColorBlendFactor        = ToVkBlendFactor(RenderTarget.DestBlend);
-            ColorBlendAttachment.srcAlphaBlendFactor        = ToVkBlendFactor(RenderTarget.SrcBlendAlpha);
-            ColorBlendAttachment.dstAlphaBlendFactor        = ToVkBlendFactor(RenderTarget.DestBlendAlpha);
-            ColorBlendAttachment.blendEnable                = RenderTarget.bBlendEnable;
+            EFormat AttachmentFormat = RenderPassDesc.ColorAttachments[i].Format == EFormat::UNKNOWN
+                                       ? RenderPassDesc.ColorAttachments[i].Image->GetDescription().Format
+                                       : RenderPassDesc.ColorAttachments[i].Format;
+
+            const FBlendState::RenderTarget& RenderTarget           = BlendState.Targets[i];
+            ColorAttachmentFormats[i]                               = ConvertFormat(AttachmentFormat);
             
-            ColorAttachmentFormats.push_back(ConvertFormat(RenderTarget.Format));
-            ColorBlendAttachmentStates.push_back(Memory::Move(ColorBlendAttachment));
-            
+            ColorBlendAttachmentStates[i].colorWriteMask            = VK_COLOR_COMPONENT_FLAG_BITS_MAX_ENUM;
+            ColorBlendAttachmentStates[i].colorBlendOp              = (RenderTarget.BlendOp == EBlendOp::Add) ? VK_BLEND_OP_ADD : VK_BLEND_OP_MAX;
+            ColorBlendAttachmentStates[i].alphaBlendOp              = (RenderTarget.BlendOpAlpha == EBlendOp::Add) ? VK_BLEND_OP_ADD : VK_BLEND_OP_MAX;
+            ColorBlendAttachmentStates[i].srcColorBlendFactor       = ToVkBlendFactor(RenderTarget.SrcBlend);
+            ColorBlendAttachmentStates[i].dstColorBlendFactor       = ToVkBlendFactor(RenderTarget.DestBlend);
+            ColorBlendAttachmentStates[i].srcAlphaBlendFactor       = ToVkBlendFactor(RenderTarget.SrcBlendAlpha);
+            ColorBlendAttachmentStates[i].dstAlphaBlendFactor       = ToVkBlendFactor(RenderTarget.DestBlendAlpha);
+            ColorBlendAttachmentStates[i].blendEnable               = RenderTarget.bBlendEnable;
+
         }
-        
+
         VkPipelineColorBlendStateCreateInfo ColorBlendState = {};
         ColorBlendState.sType               = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
         ColorBlendState.attachmentCount     = (uint32)ColorBlendAttachmentStates.size();
         ColorBlendState.pAttachments        = ColorBlendAttachmentStates.data();
 
-        VkPipelineRenderingCreateInfo RenderingCreateInfo = {};
-        RenderingCreateInfo.sType                       = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
-        RenderingCreateInfo.colorAttachmentCount        = (uint32)ColorBlendAttachmentStates.size();
-        RenderingCreateInfo.pColorAttachmentFormats     = ColorAttachmentFormats.data();
-        RenderingCreateInfo.depthAttachmentFormat       = VK_FORMAT_D32_SFLOAT;
-        RenderingCreateInfo.stencilAttachmentFormat     = VK_FORMAT_UNDEFINED;
+        
+        VkFormat DepthAttachmentFormat = VK_FORMAT_UNDEFINED;
+        if (RenderPassDesc.DepthAttachment.IsValid())
+        {
+            const FTextureSubresourceSet Subresource = RenderPassDesc.DepthAttachment.Subresources.Resolve(RenderPassDesc.DepthAttachment.Image->GetDescription(), true);
+
+            EFormat Format = RenderPassDesc.DepthAttachment.Format == EFormat::UNKNOWN
+                                                    ? RenderPassDesc.DepthAttachment.Image->GetDescription().Format
+                                                    : RenderPassDesc.DepthAttachment.Format;
+            if (NumArraySlices)
+            {
+                LUM_ASSERT(NumArraySlices == Subresource.NumArraySlices)
+            }
+            else
+            {
+                NumArraySlices = Subresource.NumArraySlices;
+            }
+
+            DepthAttachmentFormat = ConvertFormat(Format);
+        }
+        
+        VkPipelineRenderingCreateInfo RenderingCreateInfo   = {};
+        RenderingCreateInfo.sType                           = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;
+        RenderingCreateInfo.colorAttachmentCount            = (uint32)ColorBlendAttachmentStates.size();
+        RenderingCreateInfo.pColorAttachmentFormats         = ColorAttachmentFormats.data();
+        RenderingCreateInfo.depthAttachmentFormat           = DepthAttachmentFormat;
+        RenderingCreateInfo.stencilAttachmentFormat         = VK_FORMAT_UNDEFINED;
+        RenderingCreateInfo.viewMask = (NumArraySlices > 1) ? ((1u << NumArraySlices) - 1u) : 0u;
+
         
         VkGraphicsPipelineCreateInfo CreateInfo = {};
         CreateInfo.sType                        = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
@@ -1744,7 +1778,7 @@ namespace Lumina
         
         VkPipelineShaderStageCreateInfo StageInfo = {};
         StageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-        StageInfo.module = InDesc.CS->GetAPIResource<VkShaderModule>();
+        StageInfo.module = InDesc.CS->GetAPI<VkShaderModule>();
         StageInfo.pName = "main";
         StageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
         

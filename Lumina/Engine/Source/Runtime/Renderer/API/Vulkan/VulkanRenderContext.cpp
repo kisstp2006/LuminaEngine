@@ -612,10 +612,13 @@ namespace Lumina
         DeviceFeatures.fillModeNonSolid         = VK_TRUE;
         DeviceFeatures.wideLines                = VK_TRUE; // @TODO Don't keep this.
         DeviceFeatures.imageCubeArray           = VK_TRUE;
+        DeviceFeatures.multiViewport            = VK_TRUE;
+        DeviceFeatures.multiDrawIndirect        = VK_TRUE;
 
         VkPhysicalDeviceVulkan11Features Features11 = {};
         Features11.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
         Features11.shaderDrawParameters             = VK_TRUE;
+        Features11.multiview                        = VK_TRUE;
         
         VkPhysicalDeviceVulkan12Features Features12 = {};
         Features12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
@@ -865,7 +868,7 @@ namespace Lumina
                     VkDescriptorImageInfo& ImageInfo = ImageWriteInfos.emplace_back();
                     ImageInfo.imageView = View;
                     ImageInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-                    ImageInfo.sampler = TStaticRHISampler<>::GetRHI()->GetAPIResource<VkSampler>();
+                    ImageInfo.sampler = TStaticRHISampler<>::GetRHI()->GetAPI<VkSampler>();
 
                     
                     Write.pImageInfo = &ImageInfo;
@@ -996,9 +999,9 @@ namespace Lumina
         return PipelineCache.GetOrCreateComputePipeline(VulkanDevice, Desc);
     }
 
-    FRHIGraphicsPipelineRef FVulkanRenderContext::CreateGraphicsPipeline(const FGraphicsPipelineDesc& Desc)
+    FRHIGraphicsPipelineRef FVulkanRenderContext::CreateGraphicsPipeline(const FGraphicsPipelineDesc& Desc, const FRenderPassDesc& RenderPassDesc)
     {
-        return PipelineCache.GetOrCreateGraphicsPipeline(VulkanDevice, Desc);
+        return PipelineCache.GetOrCreateGraphicsPipeline(VulkanDevice, Desc, RenderPassDesc);
     }
 
     void FVulkanRenderContext::SetObjectName(IRHIResource* Resource, const char* Name, EAPIResourceType Type)
@@ -1009,7 +1012,7 @@ namespace Lumina
             NameInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
             NameInfo.pObjectName = Name;
             NameInfo.objectType = ToVkObjectType(Type);
-            NameInfo.objectHandle = reinterpret_cast<uint64>(Resource->GetAPIResource(Type));
+            NameInfo.objectHandle = reinterpret_cast<uint64>(Resource->GetAPI(Type));
 
             GetDebugUtils().DebugUtilsObjectNameEXT(GetDevice()->GetDevice(), &NameInfo);
         }

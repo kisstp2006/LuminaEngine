@@ -154,9 +154,9 @@ namespace Lumina
         
         VkBlitImageInfo2 BlitInfo       = {};
         BlitInfo.sType                  = VK_STRUCTURE_TYPE_BLIT_IMAGE_INFO_2;
-        BlitInfo.srcImage               = Src->GetAPIResource<VkImage>();
+        BlitInfo.srcImage               = Src->GetAPI<VkImage>();
         BlitInfo.srcImageLayout         = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-        BlitInfo.dstImage               = Dst->GetAPIResource<VkImage>();
+        BlitInfo.dstImage               = Dst->GetAPI<VkImage>();
         BlitInfo.dstImageLayout         = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
         BlitInfo.filter                 = VK_FILTER_LINEAR;
 
@@ -371,8 +371,8 @@ namespace Lumina
         CommandListStats.NumCopies++;
         vkCmdCopyBufferToImage(
             CurrentCommandBuffer->CommandBuffer,
-            UploadBuffer->GetAPIResource<VkBuffer>(),
-            Dst->GetAPIResource<VkImage, EAPIResourceType::Image>(),
+            UploadBuffer->GetAPI<VkBuffer>(),
+            Dst->GetAPI<VkImage, EAPIResourceType::Image>(),
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             1, &CopyRegion
         );
@@ -405,6 +405,8 @@ namespace Lumina
         Value.float32[1] = Color.G;
         Value.float32[2] = Color.B;
         Value.float32[3] = Color.A;
+
+        CurrentCommandBuffer->AddReferencedResource(Image);
 
         CommandListStats.NumClearCommands++;
         vkCmdClearColorImage(CurrentCommandBuffer->CommandBuffer, VulkanImage->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &Value, 1, &SubresourceRange);
@@ -442,6 +444,9 @@ namespace Lumina
         Value.int32[2] = (int32)Color;
         Value.int32[3] = (int32)Color;
 
+
+        CurrentCommandBuffer->AddReferencedResource(Image);
+        
         CommandListStats.NumClearCommands++;
         vkCmdClearColorImage(CurrentCommandBuffer->CommandBuffer, VulkanImage->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &Value, 1, &SubresourceRange);
     }
@@ -635,7 +640,7 @@ namespace Lumina
             const SIZE_T SizeToWrite = (Size + 3) & ~3ull;
             
             LUMINA_PROFILE_SECTION("vkCmdUpdateBuffer");
-            vkCmdUpdateBuffer(CurrentCommandBuffer->CommandBuffer, Buffer->GetAPIResource<VkBuffer>(), Offset, SizeToWrite, Data);
+            vkCmdUpdateBuffer(CurrentCommandBuffer->CommandBuffer, Buffer->GetAPI<VkBuffer>(), Offset, SizeToWrite, Data);
         }
         else
         {
@@ -964,6 +969,8 @@ namespace Lumina
         TFixedVector<VkRenderingAttachmentInfo, 4> ColorAttachments(PassInfo.ColorAttachments.size());
         VkRenderingAttachmentInfo DepthAttachment = {};
 
+        uint32 NumArraySlices = 0;
+        
         for (SIZE_T i = 0; i < PassInfo.ColorAttachments.size(); ++i)
         {
             FRenderPassDesc::FAttachment PassAttachment = PassInfo.ColorAttachments[i];
@@ -993,6 +1000,15 @@ namespace Lumina
                 Attachment.clearValue.color.float32[3] = PassAttachment.ClearColor.a;
             }
             ColorAttachments[i] = Attachment;
+
+            if (NumArraySlices)
+            {
+                LUM_ASSERT(NumArraySlices == Subresource.NumArraySlices)
+            }
+            else
+            {
+                NumArraySlices = Subresource.NumArraySlices;
+            }
         }
         
         
@@ -1019,6 +1035,15 @@ namespace Lumina
             DepthAttachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
             DepthAttachment.clearValue.depthStencil.depth = PassInfo.DepthAttachment.ClearColor.r;
             DepthAttachment.clearValue.depthStencil.stencil = (uint32)PassInfo.DepthAttachment.ClearColor.g;
+
+            if (NumArraySlices)
+            {
+                LUM_ASSERT(NumArraySlices == Subresource.NumArraySlices)
+            }
+            else
+            {
+                NumArraySlices = Subresource.NumArraySlices;
+            }
         }
         
         VkRenderingInfo RenderInfo = {};
@@ -1028,7 +1053,8 @@ namespace Lumina
         RenderInfo.pDepthAttachment = (DepthAttachment.imageView != VK_NULL_HANDLE) ? &DepthAttachment : nullptr;
         RenderInfo.renderArea.extent.width = PassInfo.RenderArea.X;
         RenderInfo.renderArea.extent.height = PassInfo.RenderArea.Y;
-        RenderInfo.layerCount = 1;
+        RenderInfo.layerCount = NumArraySlices;
+        RenderInfo.viewMask = (NumArraySlices > 1) ? ((1u << NumArraySlices) - 1u) : 0u;
 
         TracyVkZone(CurrentCommandBuffer->TracyContext, CurrentCommandBuffer->CommandBuffer, "vkCmdBeginRendering")        
         vkCmdBeginRendering(CurrentCommandBuffer->CommandBuffer, &RenderInfo);
@@ -1074,7 +1100,7 @@ namespace Lumina
         Range.layerCount     = 1;                           // Only clearing one layer
         
         TracyVkZone(CurrentCommandBuffer->TracyContext, CurrentCommandBuffer->CommandBuffer, "vkCmdClearColorImage")        
-        vkCmdClearColorImage(CurrentCommandBuffer->CommandBuffer, Image->GetAPIResource<VkImage, EAPIResourceType::Image>(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &Value, 1, &Range);
+        vkCmdClearColorImage(CurrentCommandBuffer->CommandBuffer, Image->GetAPI<VkImage, EAPIResourceType::Image>(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &Value, 1, &Range);
     }
 
     void FVulkanCommandList::BindBindingSets(VkPipelineBindPoint BindPoint, VkPipelineLayout PipelineLayout, TFixedVector<FRHIBindingSet*, 1> BindingSets)
@@ -1175,13 +1201,13 @@ namespace Lumina
         vkCmdPushConstants(CurrentCommandBuffer->CommandBuffer, CurrentPipelineLayout, PushConstantVisibility, 0, (uint32)ByteSize, Data);
     }
 
-    void FVulkanCommandList::SetViewport(float MinX, float MinY, float MinZ, float MaxX, float MaxY, float MaxZ)
+    VkViewport FVulkanCommandList::ToVkViewport(float MinX, float MinY, float MinZ, float MaxX, float MaxY, float MaxZ)
     {
-        LUMINA_PROFILE_SCOPE();
+        
+        VkViewport Viewport = {};
 #define FLIP 0;
 
 #if FLIP
-        VkViewport Viewport = {};
         Viewport.x        = MinX;
         Viewport.y        = MaxY;
         Viewport.width    = MaxX - MinX;
@@ -1189,7 +1215,6 @@ namespace Lumina
         Viewport.minDepth = MinZ;
         Viewport.maxDepth = MaxZ;
 #else
-        VkViewport Viewport = {};
         Viewport.x = MinX;
         Viewport.y = MinY;
         Viewport.width = MaxX - MinX;
@@ -1197,23 +1222,19 @@ namespace Lumina
         Viewport.minDepth = MinZ;
         Viewport.maxDepth = MaxZ;
 #endif
-        TracyVkZone(CurrentCommandBuffer->TracyContext, CurrentCommandBuffer->CommandBuffer, "vkCmdSetViewport")        
-        vkCmdSetViewport(CurrentCommandBuffer->CommandBuffer, 0, 1, &Viewport);
+
+        return Viewport;
     }
     
-    void FVulkanCommandList::SetScissorRect(uint32 MinX, uint32 MinY, uint32 MaxX, uint32 MaxY)
+    VkRect2D FVulkanCommandList::ToVkScissorRect(uint32 MinX, uint32 MinY, uint32 MaxX, uint32 MaxY)
     {
-        LUMINA_PROFILE_SCOPE();
-
-
         VkRect2D Scissor = {};
         Scissor.offset.x = (int32)MinX;
         Scissor.offset.y = (int32)MinY;
         Scissor.extent.width = std::abs((int32)(MaxX - MinX));
         Scissor.extent.height = std::abs((int32)(MaxY - MinY));
 
-        TracyVkZone(CurrentCommandBuffer->TracyContext, CurrentCommandBuffer->CommandBuffer, "vkCmdSetScissor")
-        vkCmdSetScissor(CurrentCommandBuffer->CommandBuffer, 0, 1, &Scissor);
+        return Scissor;
     }
 
     void FVulkanCommandList::SetGraphicsState(const FGraphicsState& State)
@@ -1234,7 +1255,7 @@ namespace Lumina
         {
             CommandListStats.NumPipelineSwitches++;
             TracyVkZone(CurrentCommandBuffer->TracyContext, CurrentCommandBuffer->CommandBuffer, "vkCmdBindPipeline")
-            vkCmdBindPipeline(VkCmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, State.Pipeline->GetAPIResource<VkPipeline, EAPIResourceType::Pipeline>());
+            vkCmdBindPipeline(VkCmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, State.Pipeline->GetAPI<VkPipeline, EAPIResourceType::Pipeline>());
             CurrentCommandBuffer->AddReferencedResource(State.Pipeline);
         }
 
@@ -1250,42 +1271,50 @@ namespace Lumina
             BeginRenderPass(State.RenderPass);
         }
 
-        CurrentPipelineLayout = State.Pipeline->GetAPIResource<VkPipelineLayout, EAPIResourceType::PipelineLayout>();
+        CurrentPipelineLayout = State.Pipeline->GetAPI<VkPipelineLayout, EAPIResourceType::PipelineLayout>();
         PushConstantVisibility = ((FVulkanGraphicsPipeline*)State.Pipeline)->PushConstantVisibility;
 
         if ((!VectorsAreEqual(CurrentGraphicsState.Bindings, State.Bindings)) || PendingState.IsInState(EPendingCommandState::DynamicBufferWrites))
         {
             BindBindingSets(VK_PIPELINE_BIND_POINT_GRAPHICS, CurrentPipelineLayout, State.Bindings);
         }
-        
-        
-        const FViewport& Viewport = State.ViewportState.Viewport;
-        const FRect& ScissorRect = State.ViewportState.Scissor;
 
-        bool bCurrentViewportValid = (CurrentGraphicsState.ViewportState.Viewport.Height() && CurrentGraphicsState.ViewportState.Viewport.Width());
-        bool bCurrentScissorValid = (CurrentGraphicsState.ViewportState.Scissor.Height() && CurrentGraphicsState.ViewportState.Scissor.Width());
-
-        if (!bCurrentViewportValid || CurrentGraphicsState.ViewportState.Viewport != Viewport)
+        if (!State.ViewportState.Viewports.empty() && !VectorsAreTriviallyEqual(State.ViewportState.Viewports, CurrentGraphicsState.ViewportState.Viewports))
         {
-            SetViewport(Viewport.MinX, Viewport.MinY, Viewport.MinZ, Viewport.MaxX, Viewport.MaxY, Viewport.MaxZ);
+            TFixedVector<VkViewport, 16> Viewports;
+            for (const FViewport& Viewport : State.ViewportState.Viewports)
+            {
+                Viewports.emplace_back(ToVkViewport(Viewport.MinX, Viewport.MinY, Viewport.MinZ, Viewport.MaxX, Viewport.MaxY, Viewport.MaxZ));
+            }
+            
+            TracyVkZone(CurrentCommandBuffer->TracyContext, CurrentCommandBuffer->CommandBuffer, "vkCmdSetViewport")        
+            vkCmdSetViewport(CurrentCommandBuffer->CommandBuffer, 0, Viewports.size(), Viewports.data());
         }
 
-        if (!bCurrentScissorValid || CurrentGraphicsState.ViewportState.Scissor != ScissorRect)
-        {
-            SetScissorRect(ScissorRect.MinX, ScissorRect.MinY, ScissorRect.MaxX, ScissorRect.MaxY);
-        }
 
+        if (!State.ViewportState.Scissors.empty() && !VectorsAreTriviallyEqual(State.ViewportState.Scissors, CurrentGraphicsState.ViewportState.Scissors))
+        {
+            TFixedVector<VkRect2D, 16> Scissors;
+            for (const FRect& Rect : State.ViewportState.Scissors)
+            {
+                Scissors.emplace_back(ToVkScissorRect(Rect.MinX, Rect.MinY, Rect.MaxX, Rect.MaxY));
+            }
+
+            TracyVkZone(CurrentCommandBuffer->TracyContext, CurrentCommandBuffer->CommandBuffer, "vkCmdSetScissor")
+            vkCmdSetScissor(CurrentCommandBuffer->CommandBuffer, 0, Scissors.size(), Scissors.data());
+        }
+        
         if (State.IndexBuffer.Buffer && CurrentGraphicsState.IndexBuffer != State.IndexBuffer)
         {
             TracyVkZone(CurrentCommandBuffer->TracyContext, CurrentCommandBuffer->CommandBuffer, "vkCmdBindIndexBuffer")
-            vkCmdBindIndexBuffer(VkCmdBuffer, State.IndexBuffer.Buffer->GetAPIResource<VkBuffer>(), State.IndexBuffer.Offset
+            vkCmdBindIndexBuffer(VkCmdBuffer, State.IndexBuffer.Buffer->GetAPI<VkBuffer>(), State.IndexBuffer.Offset
                 , State.IndexBuffer.Format == EFormat::R16_UINT ?
                 VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32);
 
             CurrentCommandBuffer->AddReferencedResource(State.IndexBuffer.Buffer);
         }
         
-        if (!State.VertexBuffers.empty() && (!VectorsAreEqual(State.VertexBuffers, CurrentGraphicsState.VertexBuffers)))
+        if (!State.VertexBuffers.empty() && !VectorsAreTriviallyEqual(State.VertexBuffers, CurrentGraphicsState.VertexBuffers))
         {
             VkBuffer VertexBuffer[16];
             uint64 VertexBufferOffsets[16];
@@ -1293,7 +1322,7 @@ namespace Lumina
             
             for (const FVertexBufferBinding& Binding : State.VertexBuffers)
             {
-                VertexBuffer[Binding.Slot] = Binding.Buffer->GetAPIResource<VkBuffer>();
+                VertexBuffer[Binding.Slot] = Binding.Buffer->GetAPI<VkBuffer>();
                 VertexBufferOffsets[Binding.Slot] = Binding.Offset;
                 BindingIndex = std::max(BindingIndex, Binding.Slot);
                 
@@ -1342,7 +1371,7 @@ namespace Lumina
 
         CommandListStats.NumDrawCalls++;
         TracyVkZone(CurrentCommandBuffer->TracyContext, CurrentCommandBuffer->CommandBuffer, "vkCmdDrawIndirect")
-        vkCmdDrawIndirect(CurrentCommandBuffer->CommandBuffer, CurrentGraphicsState.IndirectParams->GetAPIResource<VkBuffer>(), Offset, DrawCount, sizeof(FDrawIndirectArguments));
+        vkCmdDrawIndirect(CurrentCommandBuffer->CommandBuffer, CurrentGraphicsState.IndirectParams->GetAPI<VkBuffer>(), Offset, DrawCount, sizeof(FDrawIndirectArguments));
     }
 
     void FVulkanCommandList::DrawIndexedIndirect(uint32 DrawCount, uint64 Offset)
@@ -1353,7 +1382,7 @@ namespace Lumina
 
         CommandListStats.NumDrawCalls++;
         TracyVkZone(CurrentCommandBuffer->TracyContext, CurrentCommandBuffer->CommandBuffer, "vkCmdDrawIndexedIndirect")
-        vkCmdDrawIndexedIndirect(CurrentCommandBuffer->CommandBuffer, CurrentGraphicsState.IndirectParams->GetAPIResource<VkBuffer>(), Offset, DrawCount, sizeof(FDrawIndexedIndirectArguments));
+        vkCmdDrawIndexedIndirect(CurrentCommandBuffer->CommandBuffer, CurrentGraphicsState.IndirectParams->GetAPI<VkBuffer>(), Offset, DrawCount, sizeof(FDrawIndexedIndirectArguments));
     }
 
     void FVulkanCommandList::SetComputeState(const FComputeState& State)
@@ -1495,7 +1524,7 @@ namespace Lumina
                 imgBarrier.newLayout            = after.ImageLayout;
                 imgBarrier.srcQueueFamilyIndex  = VK_QUEUE_FAMILY_IGNORED;
                 imgBarrier.dstQueueFamilyIndex  = VK_QUEUE_FAMILY_IGNORED;
-                imgBarrier.image                = texture->GetAPIResource<VkImage, EAPIResourceType::Image>();
+                imgBarrier.image                = texture->GetAPI<VkImage, EAPIResourceType::Image>();
                 imgBarrier.subresourceRange     = subresourceRange;
                 
                 batch->ImageBarriers.push_back(imgBarrier);

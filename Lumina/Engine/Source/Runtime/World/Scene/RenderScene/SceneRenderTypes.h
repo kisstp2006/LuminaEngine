@@ -183,7 +183,7 @@ namespace Lumina
         glm::vec3       Direction;
         float           Radius;
 
-        glm::mat4       ViewProjection;
+        glm::mat4       ViewProjection[6];
         
         glm::vec2       Angles;
         uint32          Flags;
@@ -208,19 +208,11 @@ namespace Lumina
         glm::vec3       SunDirection;
         bool            bHasSun;
 
-        glm::mat4       CascadeViewProjections[4];
         glm::vec4       CascadeSplits;
 
         glm::vec4       AmbientLight;
         
         FLight          Lights[MAX_LIGHTS];
-    };
-
-    struct FShadowMappingPC
-    {
-        glm::mat4 LightMatrix;
-        glm::vec3 LightPos;
-        float LightRadius;
     };
     
     struct FShadowCascade
@@ -249,13 +241,12 @@ namespace Lumina
         FRHIImageRef AlbedoSpec;
     };
 
-    struct FCluster
+    struct alignas(16) FCluster
     {
         glm::vec4 MinPoint;
         glm::vec4 MaxPoint;
-        uint32 Count;
         uint32 LightIndices[LIGHTS_PER_CLUSTER];
-        uint32 Padding0[3];
+        uint32 Count;
     };
     
     VERIFY_SSBO_ALIGNMENT(FCluster)

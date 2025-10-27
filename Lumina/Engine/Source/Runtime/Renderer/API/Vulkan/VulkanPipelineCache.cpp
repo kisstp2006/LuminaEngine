@@ -6,7 +6,7 @@
 namespace Lumina
 {
 
-    FRHIGraphicsPipelineRef FVulkanPipelineCache::GetOrCreateGraphicsPipeline(FVulkanDevice* Device, const FGraphicsPipelineDesc& InDesc)
+    FRHIGraphicsPipelineRef FVulkanPipelineCache::GetOrCreateGraphicsPipeline(FVulkanDevice* Device, const FGraphicsPipelineDesc& InDesc, const FRenderPassDesc& RenderPassDesc)
     {
         LUMINA_PROFILE_SCOPE();
 
@@ -16,7 +16,7 @@ namespace Lumina
             return GraphicsPipelines.at(Hash);
         }
         
-        auto NewPipeline = TRefCountPtr<FVulkanGraphicsPipeline>::Create(Device, InDesc);
+        auto NewPipeline = TRefCountPtr<FVulkanGraphicsPipeline>::Create(Device, InDesc, RenderPassDesc);
         
 
         GraphicsPipelines.emplace(Hash, NewPipeline);
