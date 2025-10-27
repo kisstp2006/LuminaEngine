@@ -165,6 +165,6 @@ namespace Lumina
         
         uint16 NumScalarParams = 0;
         uint16 NumVectorParams = 0;
-        uint32 BindingIndex = 0;
+        uint32 BindingIndex = 1;
     };
 }

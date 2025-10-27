@@ -67,14 +67,12 @@ namespace Lumina
             TBitFlags<ERHIShaderType> Visibility;
             Visibility.SetMultipleFlags(ERHIShaderType::Vertex, ERHIShaderType::Fragment);
             GRenderContext->CreateBindingSetAndLayout(Visibility, 0, SetDesc, BindingLayout, BindingSet);
-
             
             CommandList->Close();
             GRenderContext->ExecuteCommandList(CommandList);
             
             SetReadyForRender(true);
         }
-        
     }
 
     void CMaterial::OnDestroy()

@@ -30,12 +30,12 @@ namespace Lumina
         virtual FRHIVertexShaderRef GetVertexShader() const { LUMINA_NO_ENTRY() }
         virtual FRHIPixelShaderRef GetPixelShader() const { LUMINA_NO_ENTRY() }
 
-        void SetReadyForRender(bool bReady) { bReadyForRender = bReady; }
-        bool IsReadyForRender() const { return bReadyForRender; }
+        void SetReadyForRender(bool bReady) { bReadyForRender.store(bReady, std::memory_order_release); }
+        bool IsReadyForRender() const { return bReadyForRender.load(std::memory_order_acquire); }
 
     protected:
 
-        uint8 bReadyForRender:1 = false;
+        std::atomic_bool        bReadyForRender;
         
     };
 }

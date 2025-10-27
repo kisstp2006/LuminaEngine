@@ -1,7 +1,6 @@
 ﻿#include "MaterialCompiler.h"
 
 #include "Assets/AssetTypes/Textures/Texture.h"
-#include "Core/Object/Cast.h"
 #include "Nodes/MaterialNodeExpression.h"
 #include "Paths/Paths.h"
 #include "Platform/Filesystem/FileHelper.h"
@@ -150,30 +149,16 @@ namespace Lumina
     FMaterialCompiler::FInputValue FMaterialCompiler::GetTypedInputValue(CMaterialInput* Input, const FString& DefaultValueStr)
     {
         FInputValue Result;
-        
+    
         if (Input->HasConnection())
         {
             CMaterialOutput* Conn = Input->GetConnection<CMaterialOutput>(0);
             FString NodeName = Conn->GetOwningNode()->GetNodeFullName();
             FNodeOutputInfo Info = GetNodeOutputInfo(NodeName);
-            
+        
             Result.Type = Info.Type;
             Result.ComponentCount = GetComponentCount(Info.Type);
-            
-            FString Swizzle = GetSwizzleForMask(Conn->GetComponentMask());
-            
-            // If swizzle is applied, determine the resulting type
-            if (!Swizzle.empty())
-            {
-                int32 SwizzleCount = Swizzle.length() - 1; // -1 for the '.' character
-                Result.ComponentCount = SwizzleCount;
-                Result.Type = GetTypeFromComponentCount(SwizzleCount);
-                Result.Value = NodeName + Swizzle;
-            }
-            else
-            {
-                Result.Value = NodeName;
-            }
+            Result.Value = NodeName;
         }
         else
         {
@@ -182,7 +167,7 @@ namespace Lumina
             Result.ComponentCount = 1;
             Result.Value = DefaultValueStr;
         }
-        
+    
         return Result;
     }
 
@@ -346,8 +331,7 @@ namespace Lumina
 
     void FMaterialCompiler::DefineTextureSample(const FString& ID)
     {
-        ShaderChunks.append("layout(set = 1, binding = " + eastl::to_string(BindingIndex) + 
-                           ") uniform sampler2D " + ID + "_sample;\n");
+        ShaderChunks.append("layout(set = 1, binding = " + eastl::to_string(BindingIndex) + ") uniform sampler2D " + ID + "_sample;\n");
         BindingIndex++;
     }
 

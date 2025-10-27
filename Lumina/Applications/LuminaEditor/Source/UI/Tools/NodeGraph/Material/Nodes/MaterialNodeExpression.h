@@ -394,10 +394,11 @@ namespace Lumina
         void BuildNode() override;
 
         FInlineString GetNodeCategory() const override { return "Utility"; }
-        FString GetNodeDisplayName() const override { return "ComponentMask"; }
+        FString GetNodeDisplayName() const override;
         void* GetNodeDefaultValue() override { return nullptr; }
         uint32 GenerateExpression(FMaterialCompiler& Compiler) override { return 0; }
         void GenerateDefinition(FMaterialCompiler& Compiler) override;
+        ImVec2 GetMinNodeTitleBarSize() const override;
 
         FString BuildSwizzleMask() const;
         int32 GetSelectedComponentCount() const;

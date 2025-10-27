@@ -137,21 +137,24 @@ namespace Lumina
     {
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(12, 12));
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8, 8));
-
+    
+        // Error state
         if (CompilationResult.bIsError)
         {
             ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.15f, 0.15f, 0.18f, 1.0f));
-            ImGui::BeginChild("##empty_preview", ImVec2(0, 0), true);
+            ImGui::BeginChild("##error_preview", ImVec2(0, 0), true);
             
-    
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.6f, 0.65f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.4f, 0.4f, 1.0f)); // Red for errors
             ImGui::TextUnformatted(CompilationResult.CompilationLog.c_str());
             ImGui::PopStyleColor();
     
             ImGui::EndChild();
             ImGui::PopStyleColor();
+            ImGui::PopStyleVar(2);
+            return;
         }
     
+        // Empty state
         if (Tree.empty())
         {
             ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.15f, 0.15f, 0.18f, 1.0f));
@@ -170,69 +173,69 @@ namespace Lumina
     
             ImGui::EndChild();
             ImGui::PopStyleColor();
+            ImGui::PopStyleVar(2);
+            return;
         }
-        else
+    
+        // Shader preview
+        ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.12f, 0.12f, 0.15f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.3f, 0.3f, 0.35f, 1.0f));
+    
+        ImGui::BeginChild("##glsl_preview", ImVec2(0, 0), true, ImGuiWindowFlags_HorizontalScrollbar);
+    
+        // Header
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.7f, 0.85f, 1.0f, 1.0f));
+        ImGui::TextUnformatted("GLSL Shader Tree");
+        ImGui::PopStyleColor();
+        ImGui::Separator();
+        ImGui::Spacing();
+    
+        // Monospace font for code
+        ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]);
+        
+        // Render code with highlighting if there's a replacement
+        if (ReplacementStart != std::string::npos && ReplacementEnd != std::string::npos)
         {
-            ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.12f, 0.12f, 0.15f, 1.0f));
-            ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.3f, 0.3f, 0.35f, 1.0f));
+            FString BeforeReplacement = Tree.substr(0, ReplacementStart);
+            FString ReplacedCode = Tree.substr(ReplacementStart, ReplacementEnd - ReplacementStart);
+            FString AfterReplacement = Tree.substr(ReplacementEnd);
     
-            ImGui::BeginChild("##glsl_preview", ImVec2(0, 0), true, ImGuiWindowFlags_HorizontalScrollbar);
-    
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.7f, 0.85f, 1.0f, 1.0f));
-            ImGui::TextUnformatted("GLSL Shader Tree");
-            ImGui::PopStyleColor();
-            ImGui::Separator();
-            ImGui::Spacing();
-    
-            ImGui::PushFont(ImGui::GetIO().Fonts->Fonts[0]);
-            
-            if (ReplacementStart != std::string::npos && ReplacementEnd != std::string::npos)
-            {
-                FString BeforeReplacement = Tree.substr(0, ReplacementStart);
-                FString ReplacedCode = Tree.substr(ReplacementStart, ReplacementEnd - ReplacementStart);
-                FString AfterReplacement = Tree.substr(ReplacementEnd);
-    
-                if (!BeforeReplacement.empty())
-                {
-                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.9f, 0.92f, 1.0f));
-                    ImGui::TextUnformatted(ReplacedCode.c_str());
-                    ImGui::PopStyleColor();
-                }
-    
-                if (!ReplacedCode.empty())
-                {
-                    ImDrawList* drawList = ImGui::GetWindowDrawList();
-                    ImVec2 cursorPos = ImGui::GetCursorScreenPos();
-                    ImVec2 textSize = ImGui::CalcTextSize(ReplacedCode.c_str());
-                    
-                    ImVec2 rectMin = cursorPos;
-                    ImVec2 rectMax = ImVec2(cursorPos.x + textSize.x + 8.0f, cursorPos.y + textSize.y);
-                    drawList->AddRectFilled(rectMin, rectMax, IM_COL32(40, 80, 60, 100));
-    
-                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 1.0f, 0.7f, 1.0f));
-                    ImGui::TextUnformatted(ReplacedCode.c_str());
-                    ImGui::PopStyleColor();
-                }
-    
-                if (!AfterReplacement.empty())
-                {
-                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.9f, 0.92f, 1.0f));
-                    ImGui::TextUnformatted(AfterReplacement.c_str());
-                    ImGui::PopStyleColor();
-                }
-            }
-            else
+            // Before replacement (normal color)
+            if (!BeforeReplacement.empty())
             {
                 ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.9f, 0.92f, 1.0f));
-                ImGui::TextUnformatted(CompilationResult.CompilationLog.c_str());
+                ImGui::TextUnformatted(BeforeReplacement.c_str());
                 ImGui::PopStyleColor();
             }
     
-            ImGui::PopFont();
+            // Replaced code (highlighted in green)
+            if (!ReplacedCode.empty())
+            {
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.4f, 1.0f, 0.5f, 1.0f)); // Bright green
+                ImGui::TextUnformatted(ReplacedCode.c_str());
+                ImGui::PopStyleColor();
+            }
     
-            ImGui::EndChild();
-            ImGui::PopStyleColor(2);
+            // After replacement (normal color)
+            if (!AfterReplacement.empty())
+            {
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.9f, 0.92f, 1.0f));
+                ImGui::TextUnformatted(AfterReplacement.c_str());
+                ImGui::PopStyleColor();
+            }
         }
+        else
+        {
+            // No replacement highlighting - just show the tree normally
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.9f, 0.92f, 1.0f));
+            ImGui::TextUnformatted(Tree.c_str());
+            ImGui::PopStyleColor();
+        }
+    
+        ImGui::PopFont();
+    
+        ImGui::EndChild();
+        ImGui::PopStyleColor(2);
     
         ImGui::PopStyleVar(2);
     }
@@ -259,9 +262,12 @@ namespace Lumina
             CompilationResult.CompilationLog = "Generated GLSL: \n \n \n";
             CompilationResult.bIsError = false;
             bGLSLPreviewDirty = true;
+
+            CMaterial* Material = Cast<CMaterial>(Asset.Get());
+            Material->SetReadyForRender(false);
             
             IShaderCompiler* ShaderCompiler = GRenderContext->GetShaderCompiler();
-            ShaderCompiler->CompilerShaderRaw(Tree, {}, [this, Compiler = std::move(Compiler)](const FShaderHeader& Header) mutable 
+            ShaderCompiler->CompilerShaderRaw(Tree, {}, [this](const FShaderHeader& Header) mutable 
             {
                 CMaterial* Material = Cast<CMaterial>(Asset.Get());
 
@@ -279,18 +285,18 @@ namespace Lumina
                 }
                 
                 GRenderContext->OnShaderCompiled(PixelShader, false, true);
-
-                Compiler.GetBoundTextures(Material->Textures);
                 
-                Memory::Memzero(&Material->MaterialUniforms, sizeof(FMaterialUniforms));
-                Material->Parameters.clear();
-                
-                Material->PostLoad();
-                Material->GetPackage()->MarkDirty();
             });
 
-            // Wait for shader to compile.
-            //ShaderCompiler->Flush();
+            ShaderCompiler->Flush();
+
+            Compiler.GetBoundTextures(Material->Textures);
+                
+            Memory::Memzero(&Material->MaterialUniforms, sizeof(FMaterialUniforms));
+            Material->Parameters.clear();
+                
+            Material->PostLoad();
+            Material->GetPackage()->MarkDirty();
             
         }
     }

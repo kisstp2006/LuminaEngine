@@ -43,8 +43,8 @@ namespace Lumina
         virtual FString GetNodeDisplayName() const { return "Node"; }
         virtual FString GetNodeTooltip() const { return "No Tooltip"; }
         virtual uint32 GetNodeTitleColor() const { return IM_COL32(200, 35, 35, 255); }
-        virtual ImVec2 GetMinNodeBodySize() const { return ImVec2(100, 150); }
-        virtual ImVec2 GetMinNodeTitleBarSize() const { return ImVec2(100, 28); }
+        virtual ImVec2 GetMinNodeBodySize() const { return ImVec2(80, 150); }
+        virtual ImVec2 GetMinNodeTitleBarSize() const;
 
         virtual void DrawNodeBody() { }
 

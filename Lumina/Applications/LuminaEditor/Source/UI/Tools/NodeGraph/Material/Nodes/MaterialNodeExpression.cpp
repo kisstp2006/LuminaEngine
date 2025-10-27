@@ -36,6 +36,34 @@ namespace Lumina
         Output->SetComponentMask(GetOutputMask());
     }
 
+    FString CMaterialExpression_ComponentMask::GetNodeDisplayName() const
+    {
+        FString Builder = "ComponentMask (";
+        if (R)
+        {
+            Builder.append("R");
+        }
+
+        if (G)
+        {
+            Builder.append("G");
+        }
+
+        if (B)
+        {
+            Builder.append("B");
+        }
+
+        if (A)
+        {
+            Builder.append("A");
+        }
+
+        Builder.append(")");
+
+        return Builder;
+    }
+
     void CMaterialExpression_ComponentMask::GenerateDefinition(FMaterialCompiler& Compiler)
     {
         FString NodeName = GetNodeFullName();
@@ -65,7 +93,7 @@ namespace Lumina
         EMaterialValueType OutputType = GetOutputTypeFromMask();
         FString OutputTypeStr = Compiler.GetVectorType(OutputType);
         
-        // Validate that we're not trying to extract more components than input has
+        // Calculate actual output component count
         int32 InputComponentCount = Compiler.GetComponentCount(InputInfo.Type);
         int32 OutputComponentCount = GetSelectedComponentCount();
         
@@ -94,6 +122,8 @@ namespace Lumina
             {
                 // Extracting a single component - result is float
                 Compiler.AddRaw("float " + NodeName + " = " + InputNodeName + Swizzle + ";\n");
+                // IMPORTANT: Register as Float1, not based on input type!
+                Compiler.RegisterNodeOutput(NodeName, EMaterialValueType::Float, EComponentMask::R);
             }
             else
             {
@@ -110,15 +140,23 @@ namespace Lumina
                     // Just pass through
                     Compiler.AddRaw(OutputTypeStr + " " + NodeName + " = " + InputNodeName + ";\n");
                 }
+                
+                // Register with correct output mask based on selected components
+                EComponentMask OutputMask = static_cast<EComponentMask>((1 << OutputComponentCount) - 1);
+                Compiler.RegisterNodeOutput(NodeName, OutputType, OutputMask);
             }
         }
         else
         {
             // No swizzle needed - all components selected, just pass through
             Compiler.AddRaw(OutputTypeStr + " " + NodeName + " = " + InputNodeName + ";\n");
+            Compiler.RegisterNodeOutput(NodeName, OutputType, GetOutputMask());
         }
-        
-        Compiler.RegisterNodeOutput(NodeName, OutputType, GetOutputMask());
+    }
+
+    ImVec2 CMaterialExpression_ComponentMask::GetMinNodeTitleBarSize() const
+    {
+        return ImVec2(24.0f, Super::GetMinNodeTitleBarSize().y);
     }
 
     FString CMaterialExpression_ComponentMask::BuildSwizzleMask() const
@@ -287,20 +325,17 @@ namespace Lumina
         else if (AValue.ComponentCount == 1)
         {
             // float + vecN = vecN+1
-            Compiler.AddRaw(OutputTypeStr + " " + NodeName + " = " + OutputTypeStr + "(" + 
-                           AValue.Value + ", " + BValue.Value + ");\n");
+            Compiler.AddRaw(OutputTypeStr + " " + NodeName + " = " + OutputTypeStr + "(" + AValue.Value + ", " + BValue.Value + ");\n");
         }
         else if (BValue.ComponentCount == 1)
         {
             // vecN + float = vecN+1
-            Compiler.AddRaw(OutputTypeStr + " " + NodeName + " = " + OutputTypeStr + "(" + 
-                           AValue.Value + ", " + BValue.Value + ");\n");
+            Compiler.AddRaw(OutputTypeStr + " " + NodeName + " = " + OutputTypeStr + "(" + AValue.Value + ", " + BValue.Value + ");\n");
         }
         else
         {
             // vecN + vecM = vecN+M
-            Compiler.AddRaw(OutputTypeStr + " " + NodeName + " = " + OutputTypeStr + "(" + 
-                           AValue.Value + ", " + BValue.Value + ");\n");
+            Compiler.AddRaw(OutputTypeStr + " " + NodeName + " = " + OutputTypeStr + "(" + AValue.Value + ", " + BValue.Value + ");\n");
         }
         
         // Register output

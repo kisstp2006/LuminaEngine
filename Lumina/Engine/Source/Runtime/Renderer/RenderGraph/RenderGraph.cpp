@@ -15,7 +15,7 @@ namespace Lumina
     FRenderGraph::FRenderGraph()
         : GraphAllocator(1024)
     {
-        Passes.reserve(12);
+        Passes.reserve(24);
         HighestGroupCount = 0;
     }
 

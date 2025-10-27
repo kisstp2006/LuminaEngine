@@ -31,7 +31,12 @@ namespace Lumina
             }
         }
     }
-    
+
+    ImVec2 CEdGraphNode::GetMinNodeTitleBarSize() const
+    {
+        return ImVec2(ImGui::CalcTextSize(GetNodeDisplayName().c_str()).x, 28);
+    }
+
     void CEdGraphNode::PushNodeStyle()
     {
         using namespace ax;
