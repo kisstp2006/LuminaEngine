@@ -523,11 +523,11 @@ namespace Lumina
             CurrentChunk = nullptr;
         }
 
-        for (TSharedPtr<FBufferChunk> chunk : ChunkPool)
+        for (const TSharedPtr<FBufferChunk>& Chunk : ChunkPool)
         {
-            if (chunk->Version == CurrentVersion)
+            if (Chunk->Version == CurrentVersion)
             {
-                chunk->Version = submittedVersion;
+                Chunk->Version = submittedVersion;
             }
         }
     }

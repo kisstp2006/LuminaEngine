@@ -496,8 +496,7 @@ namespace Lumina
         
         for (size_t i = 0; i < Queues.size(); ++i)
         {
-            Memory::Delete(Queues[i]);
-            Queues[i] = nullptr;
+            Queues[i].reset();
         }
         
         SamplerMap.clear();
@@ -582,13 +581,13 @@ namespace Lumina
     {
         LUMINA_PROFILE_SCOPE();
         
-        FQueue* Queue = Queues[uint32(QueueType)];
+        TUniquePtr<FQueue>& Queue = Queues[uint32(QueueType)];
 
         uint64 SubmissionID = Queue->Submit(CommandLists, NumCommandLists);
 
         for (uint32 i = 0; i < NumCommandLists; ++i)
         {
-            static_cast<FVulkanCommandList*>(CommandLists[i])->Executed(Queue, SubmissionID);
+            static_cast<FVulkanCommandList*>(CommandLists[i])->Executed(Queue.get(), SubmissionID);
         }
 
         return SubmissionID;
@@ -616,14 +615,16 @@ namespace Lumina
 
         VkPhysicalDeviceVulkan11Features Features11 = {};
         Features11.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;
-        Features11.shaderDrawParameters = VK_TRUE;
+        Features11.shaderDrawParameters             = VK_TRUE;
         
         VkPhysicalDeviceVulkan12Features Features12 = {};
         Features12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
-        Features12.timelineSemaphore = VK_TRUE;
-        Features12.bufferDeviceAddress = VK_TRUE;
-        Features12.descriptorIndexing =  VK_TRUE;
-        Features12.descriptorBindingPartiallyBound = VK_TRUE;
+        Features12.timelineSemaphore                = VK_TRUE;
+        Features12.bufferDeviceAddress              = VK_TRUE;
+        Features12.descriptorIndexing               = VK_TRUE;
+        Features12.descriptorBindingPartiallyBound  = VK_TRUE;
+        Features12.shaderOutputViewportIndex        = VK_TRUE; // Should not stay.
+        Features12.shaderOutputLayer                = VK_TRUE; // Should not stay.
 
         VkPhysicalDeviceVulkan13Features Features13 = {};
         Features13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
@@ -673,7 +674,7 @@ namespace Lumina
         {
             VkQueue Queue = vkbDevice.get_queue(vkb::QueueType::graphics).value();
             uint32 Index = vkbDevice.get_queue_index(vkb::QueueType::graphics).value();
-            Queues[uint32(ECommandQueue::Graphics)] = Memory::New<FQueue>(this, Queue, Index, ECommandQueue::Graphics);
+            Queues[uint32(ECommandQueue::Graphics)] = MakeUniquePtr<FQueue>(this, Queue, Index, ECommandQueue::Graphics);
             SetVulkanObjectName("Graphics Queue", VK_OBJECT_TYPE_QUEUE, (uintptr_t)Queue);
         }
 
@@ -681,7 +682,7 @@ namespace Lumina
         {
             VkQueue Queue = vkbDevice.get_queue(vkb::QueueType::compute).value();
             uint32 Index = vkbDevice.get_queue_index(vkb::QueueType::compute).value();
-            Queues[uint32(ECommandQueue::Compute)] = Memory::New<FQueue>(this, Queue, Index, ECommandQueue::Compute);
+            Queues[uint32(ECommandQueue::Compute)] = MakeUniquePtr<FQueue>(this, Queue, Index, ECommandQueue::Compute);
             SetVulkanObjectName("Compute Queue", VK_OBJECT_TYPE_QUEUE, (uintptr_t)Queue);
         }
 
@@ -689,7 +690,7 @@ namespace Lumina
         {
             VkQueue Queue = vkbDevice.get_queue(vkb::QueueType::transfer).value();
             uint32 Index = vkbDevice.get_queue_index(vkb::QueueType::transfer).value();
-            Queues[uint32(ECommandQueue::Transfer)] = Memory::New<FQueue>(this, Queue, Index, ECommandQueue::Transfer);
+            Queues[uint32(ECommandQueue::Transfer)] = MakeUniquePtr<FQueue>(this, Queue, Index, ECommandQueue::Transfer);
             SetVulkanObjectName("Transfer Queue", VK_OBJECT_TYPE_QUEUE, (uintptr_t)Queue);
         }
     }
@@ -1085,7 +1086,7 @@ namespace Lumina
     {
         LUMINA_PROFILE_SCOPE();
         
-        for (FQueue* Queue : Queues)
+        for (auto& Queue : Queues)
         {
             if (Queue != nullptr)
             {

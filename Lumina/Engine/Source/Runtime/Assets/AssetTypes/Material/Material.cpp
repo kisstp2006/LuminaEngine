@@ -24,14 +24,13 @@ namespace Lumina
 
     void CMaterial::PostLoad()
     {
-        FRHICommandListRef CommandList = GRenderContext->GetImmediateCommandList();
-        CommandList->Open();
-        
-        FShaderHeader Header;
-        
         if (!VertexShaderBinaries.empty() && !PixelShaderBinaries.empty())
         {
+            FShaderHeader Header;
 
+            FRHICommandListRef CommandList = GRenderContext->GetImmediateCommandList();
+            CommandList->Open();
+            
             Header.DebugName = GetQualifiedName().ToString() + "_VertexShader";
             Header.Hash = Hash::GetHash64(VertexShaderBinaries.data(), VertexShaderBinaries.size() * sizeof(uint32));
             Header.Binaries = VertexShaderBinaries;
@@ -69,11 +68,13 @@ namespace Lumina
             Visibility.SetMultipleFlags(ERHIShaderType::Vertex, ERHIShaderType::Fragment);
             GRenderContext->CreateBindingSetAndLayout(Visibility, 0, SetDesc, BindingLayout, BindingSet);
 
+            
+            CommandList->Close();
+            GRenderContext->ExecuteCommandList(CommandList);
+            
             SetReadyForRender(true);
         }
-
-        CommandList->Close();
-        GRenderContext->ExecuteCommandList(CommandList);
+        
     }
 
     void CMaterial::OnDestroy()

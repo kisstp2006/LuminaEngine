@@ -204,38 +204,8 @@ namespace Lumina
         FSaveContext SaveContext(Package);
         Package->BuildSaveContext(SaveContext);
 
-        for (CObject* Import : SaveContext.Imports)
-        {
-            Package->ImportTable.emplace_back(Import);
-        }
-        
-        Header.ImportTableOffset = Writer.Tell();
-        Writer << Package->ImportTable;
-        
-        
-        for (CObject* Export : SaveContext.Exports)
-        {
-            Export->LoaderIndex = FObjectPackageIndex::FromExport((int64)Package->ExportTable.size()).GetRaw();
-            Package->ExportTable.emplace_back(Export);
-        }
-        
-        Header.ObjectDataOffset = Writer.Tell();
-
-        for (size_t i = 0; i < Package->ExportTable.size(); ++i)
-        {
-            FObjectExport& Export = Package->ExportTable[i];
-            LUM_ASSERT(Export.Object != nullptr)
-            
-            Export.Offset = Writer.Tell();
-            
-            Export.Object->Serialize(Writer);
-            
-            Export.Size = Writer.Tell() - Export.Offset;
-            
-        }
-        
-        Header.ExportTableOffset = Writer.Tell();
-        Writer << Package->ExportTable;
+        Package->WriteImports(Writer, Header, SaveContext);
+        Package->WriteExports(Writer, Header, SaveContext);
         
         Header.ImportCount = (uint32)Package->ImportTable.size();
         Header.ExportCount = (uint32)Package->ExportTable.size();
@@ -306,6 +276,45 @@ namespace Lumina
     void CPackage::CreateImports()
     {
         
+    }
+
+    void CPackage::WriteImports(FPackageSaver& Ar, FPackageHeader& Header, FSaveContext& SaveContext)
+    {
+        for (CObject* Import : SaveContext.Imports)
+        {
+            ImportTable.emplace_back(Import);
+        }
+        
+        Header.ImportTableOffset = Ar.Tell();
+        Ar << ImportTable;
+        
+    }
+
+    void CPackage::WriteExports(FPackageSaver& Ar, FPackageHeader& Header, FSaveContext& SaveContext)
+    {
+        Header.ObjectDataOffset = Ar.Tell();
+
+        for (CObject* Export : SaveContext.Exports)
+        {
+            Export->LoaderIndex = FObjectPackageIndex::FromExport((int64)ExportTable.size()).GetRaw();
+            ExportTable.emplace_back(Export);
+        }
+
+        for (size_t i = 0; i < ExportTable.size(); ++i)
+        {
+            FObjectExport& Export = ExportTable[i];
+            LUM_ASSERT(Export.Object != nullptr)
+            
+            Export.Offset = Ar.Tell();
+            
+            Export.Object->Serialize(Ar);
+            
+            Export.Size = Ar.Tell() - Export.Offset;
+            
+        }
+        
+        Header.ExportTableOffset = Ar.Tell();
+        Ar << ExportTable;
     }
 
     void CPackage::LoadObject(CObject* Object)

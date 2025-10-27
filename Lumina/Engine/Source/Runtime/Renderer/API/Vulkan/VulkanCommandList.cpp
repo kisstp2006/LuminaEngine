@@ -366,6 +366,7 @@ namespace Lumina
         CommitBarriers();
 
         CurrentCommandBuffer->AddReferencedResource(Dst);
+        CurrentCommandBuffer->AddStagingResource(UploadBuffer);
 
         CommandListStats.NumCopies++;
         vkCmdCopyBufferToImage(

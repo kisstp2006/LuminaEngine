@@ -261,7 +261,7 @@ namespace Lumina
             bGLSLPreviewDirty = true;
             
             IShaderCompiler* ShaderCompiler = GRenderContext->GetShaderCompiler();
-            ShaderCompiler->CompilerShaderRaw(Tree, {}, [this](const FShaderHeader& Header) mutable 
+            ShaderCompiler->CompilerShaderRaw(Tree, {}, [this, Compiler = std::move(Compiler)](const FShaderHeader& Header) mutable 
             {
                 CMaterial* Material = Cast<CMaterial>(Asset.Get());
 
@@ -279,39 +279,19 @@ namespace Lumina
                 }
                 
                 GRenderContext->OnShaderCompiled(PixelShader, false, true);
+
+                Compiler.GetBoundTextures(Material->Textures);
+                
+                Memory::Memzero(&Material->MaterialUniforms, sizeof(FMaterialUniforms));
+                Material->Parameters.clear();
+                
+                Material->PostLoad();
+                Material->GetPackage()->MarkDirty();
             });
 
             // Wait for shader to compile.
-            ShaderCompiler->Flush();
+            //ShaderCompiler->Flush();
             
-            CMaterial* Material = Cast<CMaterial>(Asset.Get());
-            Compiler.GetBoundTextures(Material->Textures);
-            
-            Memory::Memzero(&Material->MaterialUniforms, sizeof(FMaterialUniforms));
-            Material->Parameters.clear();
-            
-            //for (const auto& [Name, Value] : Compiler.GetScalarParameters())
-            //{
-            //    FMaterialParameter NewParam;
-            //    NewParam.ParameterName = Name;
-            //    NewParam.Type = EMaterialParameterType::Scalar;
-            //    NewParam.Index = (uint16)Value.Index;
-            //    Material->Parameters.push_back(NewParam);
-            //    Material->SetScalarValue(Name, Value.Value);
-            //}
-            //
-            //for (const auto& [Name, Value] : Compiler.GetVectorParameters())
-            //{
-            //    FMaterialParameter NewParam;
-            //    NewParam.ParameterName = Name;
-            //    NewParam.Type = EMaterialParameterType::Vector;
-            //    NewParam.Index = (uint16)Value.Index;
-            //    Material->Parameters.push_back(NewParam);
-            //    Material->SetVectorValue(Name, Value.Value);
-            //}
-
-            Material->PostLoad();
-            Material->GetPackage()->MarkDirty();
         }
     }
 

@@ -110,6 +110,7 @@ namespace Lumina
         FRHIBufferRef                               IndirectDrawBuffer;
 
         FRHIInputLayoutRef                  VertexLayoutInput;
+        FRHIInputLayoutRef                  PositionOnlyLayoutInput;
         FRHIInputLayoutRef                  SimpleVertexLayoutInput;
 
         FSceneGlobalData                    SceneGlobalData;

@@ -360,6 +360,9 @@ namespace Lumina
 
         LUMINA_API void CreateExports();
         LUMINA_API void CreateImports();
+
+        void WriteImports(FPackageSaver& Ar, FPackageHeader& Header, FSaveContext& SaveContext);
+        void WriteExports(FPackageSaver& Ar, FPackageHeader& Header, FSaveContext& SaveContext);
         
         
         /**

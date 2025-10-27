@@ -1,18 +1,19 @@
 #pragma once
 
-#include "TrackedCommandBuffer.h"
-#include "VulkanPipelineCache.h"
-#include "Core/Threading/Thread.h"
-#include "VulkanMacros.h"
-#include "VulkanResources.h"
-#include "Types/BitFlags.h"
-#include "src/VkBootstrap.h"
-#include "Renderer/RenderContext.h"
-#include <tracy/TracyVulkan.hpp>
-
-#include "VulkanDescriptorCache.h"
 #include <atomic>
 #include <Containers/Array.h>
+#include <vulkan/vulkan.h>
+#include <tracy/TracyVulkan.hpp>
+#include "TrackedCommandBuffer.h"
+#include "VulkanDescriptorCache.h"
+#include "VulkanMacros.h"
+#include "VulkanPipelineCache.h"
+#include "VulkanResources.h"
+#include "Core/Threading/Thread.h"
+#include "Memory/SmartPtr.h"
+#include "Renderer/RenderContext.h"
+#include "src/VkBootstrap.h"
+#include "Types/BitFlags.h"
 
 namespace Lumina
 {
@@ -143,6 +144,8 @@ namespace Lumina
     class FVulkanRenderContext : public IRenderContext
     {
     public:
+
+        using FQueueArray = TArray<TUniquePtr<FQueue>, (uint32)ECommandQueue::Num>;
         
         FVulkanRenderContext();
         
@@ -162,7 +165,7 @@ namespace Lumina
         uint64 GetAvailableMemory() const override;
 
 
-        NODISCARD FQueue* GetQueue(ECommandQueue Type) const { return Queues[(uint32)Type]; }
+        NODISCARD FQueue* GetQueue(ECommandQueue Type) const { return Queues[(uint32)Type].get(); }
 
         NODISCARD FRHICommandListRef CreateCommandList(const FCommandListInfo& Info) override;
         uint64 ExecuteCommandLists(ICommandList* const* CommandLists, uint32 NumCommandLists, ECommandQueue QueueType) override;
@@ -240,6 +243,7 @@ namespace Lumina
     
     private:
 
+        uint8                                               CurrentFrameIndex;
         TBitFlags<EVulkanExtensions>                        EnabledExtensions;
         
         THashMap<uint64, FRHIInputLayoutRef>                InputLayoutMap;
@@ -247,8 +251,7 @@ namespace Lumina
         
         FVulkanDescriptorCache                              DescriptorCache;
         FVulkanPipelineCache                                PipelineCache;
-        uint8                                               CurrentFrameIndex;
-        TArray<FQueue*, (uint32)ECommandQueue::Num>         Queues;
+        FQueueArray                                         Queues;
         
         FRHICommandListRef                                  ImmediateCommandList;
 

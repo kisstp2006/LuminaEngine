@@ -265,7 +265,7 @@
                         
                 FGraphicsPipelineDesc Desc; Desc
                     .SetRenderState(RenderState)
-                    .SetInputLayout(VertexLayoutInput)
+                    .SetInputLayout(PositionOnlyLayoutInput)
                     .AddBindingLayout(BindingLayout)
                     .SetVertexShader(VertexShader);
                     
@@ -1014,7 +1014,7 @@
                 FGraphicsPipelineDesc Desc; Desc
                     .SetDebugName("Point Light Shadow Pass")
                     .SetRenderState(RenderState)
-                    .SetInputLayout(VertexLayoutInput)
+                    .SetInputLayout(PositionOnlyLayoutInput)
                     .AddBindingLayout(BindingLayout)
                     .AddBindingLayout(ShadowPassLayout)
                     .SetVertexShader(VertexShader)
@@ -1135,7 +1135,7 @@
                 FGraphicsPipelineDesc Desc; Desc
                     .SetDebugName("Spot Shadow Pass")
                     .SetRenderState(RenderState)
-                    .SetInputLayout(VertexLayoutInput)
+                    .SetInputLayout(PositionOnlyLayoutInput)
                     .AddBindingLayout(BindingLayout)
                     .AddBindingLayout(ShadowPassLayout)
                     .SetVertexShader(VertexShader)
@@ -1245,7 +1245,7 @@
                 FGraphicsPipelineDesc Desc; Desc
                     .SetDebugName("Cascaded Shadow Maps")
                     .SetRenderState(RenderState)
-                    .SetInputLayout(VertexLayoutInput)
+                    .SetInputLayout(PositionOnlyLayoutInput)
                     .AddBindingLayout(BindingLayout)
                     .AddBindingLayout(ShadowPassLayout)
                     .SetVertexShader(VertexShader);
@@ -1742,6 +1742,16 @@
 
             
                 VertexLayoutInput = GRenderContext->CreateInputLayout(VertexDesc, std::size(VertexDesc));
+            }
+
+            {
+                FVertexAttributeDesc VertexDesc[1];
+                // Pos
+                VertexDesc[0].SetElementStride(sizeof(FVertex));
+                VertexDesc[0].SetOffset(offsetof(FVertex, Position));
+                VertexDesc[0].Format = EFormat::RGB32_FLOAT;
+                
+                PositionOnlyLayoutInput = GRenderContext->CreateInputLayout(VertexDesc, 1);
             }
 
             {
