@@ -9,6 +9,8 @@ namespace Lumina
 {
     bool FEditorEngine::Init(FApplication* App)
     {
+        InitializeCObjectSystem();
+
         Project = MakeUniquePtr<FProject>();
         
         TOptional<FString> ProjectPath = FApplication::CommandLine.Get("project");

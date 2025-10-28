@@ -23,7 +23,6 @@ project "Editor"
 		"Lumina",
 		"ImGui",
     	"EA",
-    	"EnkiTS",
 		"Tracy",
 		"XXHash",
 		"EnTT",

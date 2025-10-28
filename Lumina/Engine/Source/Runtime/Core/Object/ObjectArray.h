@@ -86,7 +86,7 @@ namespace Lumina
         int32 MaxChunks = 0;
         int32 NumChunks = 0;
     
-        std::mutex AllocationMutex;
+        FMutex AllocationMutex;
     
     public:
         

@@ -37,7 +37,6 @@ namespace Lumina
 
         glm::mat4 GetMatrix() const
         {
-            LUMINA_PROFILE_SCOPE();
             glm::mat4 T = glm::translate(glm::mat4(1.0f), Location);
             glm::mat4 R = glm::mat4_cast(Rotation);
             glm::mat4 S = glm::scale(glm::mat4(1.0f), Scale);

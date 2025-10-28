@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "TaskSystem/TaskSystem.h"
 #include "World/Entity/EntityWorld.h"
 
 namespace Lumina
@@ -29,6 +30,20 @@ namespace Lumina
             return EntityWorld->CreateView<Ts...>(std::forward<TArgs>(Args)...);
         }
 
+        template<typename... Ts, typename Func, typename... TArgs>
+        void CreateParallelView(uint32 Grain, Func&& Function, TArgs&&... Args)
+        {
+            auto View = EntityWorld->CreateView<Ts...>(std::forward<TArgs>(Args)...);
+    
+            std::vector<entt::entity> Entities(View.begin(), View.end());
+    
+            Task::ParallelFor(Entities.size(), Grain, [&, View](uint32 Index)
+            {
+                entt::entity Entity = Entities[Index];
+                std::apply(Function, View.get(Entity));
+            });
+        }
+
         template<typename... Ts, typename ... TArgs>
         auto CreateGroup(TArgs&&... Args)
         {
@@ -54,9 +69,9 @@ namespace Lumina
         }
 
         template<typename T, typename ... TArgs>
-        T& Emplace(TArgs&& ... Args)
+        T& Emplace(entt::entity entity, TArgs&& ... Args)
         {
-            return EntityWorld->Emplace<T>(std::forward<TArgs>(Args)...);
+            return EntityWorld->Emplace<T>(entity, std::forward<TArgs>(Args)...);
         }
 
         template<typename T, typename ... TArgs>

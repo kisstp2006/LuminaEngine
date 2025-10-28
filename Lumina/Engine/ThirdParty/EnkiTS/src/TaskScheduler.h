@@ -30,6 +30,8 @@
     #define ENKITS_TASK_PRIORITIES_NUM 3
 #endif
 
+#define ENKITS_BUILD_DLL LUMINA_ENGINE
+
 #ifndef ENKITS_API
 #if   defined(_WIN32) && defined(ENKITS_BUILD_DLL)
     // Building enkiTS as a DLL

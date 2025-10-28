@@ -31,7 +31,7 @@ namespace Lumina::Reflection
     
         eastl::vector<eastl::string> ProjectFilePaths;
         std::string CurrentLine;
-        CurrentLine.reserve(512); // Reserve space to avoid reallocations
+        CurrentLine.reserve(512);
     
         while (std::getline(slnFile, CurrentLine))
         {
@@ -43,7 +43,6 @@ namespace Lumina::Reflection
                 continue;
             }
 
-            // Parse: Project("{...}") = "ProjectName", "ProjectPath", "{...}"
             size_t NameStart = Line.find(" = \"");
             if (NameStart == eastl::string::npos)
             {
@@ -59,7 +58,6 @@ namespace Lumina::Reflection
 
             eastl::string ProjectName = Line.substr(NameStart, NameEnd - NameStart);
             
-            // Skip the Reflector project itself
             if (ProjectName == "Reflector")
             {
                 continue;
@@ -79,7 +77,6 @@ namespace Lumina::Reflection
             
             eastl::string ProjectPath = Solution.GetParentPath() + "/" + ProjectRelativePath;
             
-            // Verify project file exists before adding
             if (std::filesystem::exists(ProjectPath.c_str()))
             {
                 ProjectFilePaths.push_back(std::move(ProjectPath));
@@ -98,7 +95,6 @@ namespace Lumina::Reflection
             return false;
         }
     
-        // Sort for deterministic ordering
         eastl::sort(ProjectFilePaths.begin(), ProjectFilePaths.end());
     
         // Parse each project

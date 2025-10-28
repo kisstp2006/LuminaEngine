@@ -14,9 +14,10 @@ namespace Lumina
         {
             Assert(World.IsValid())
             
+            int64 NumComponentsPos = Ar.Tell();
+            
             SIZE_T NumComponents = 0;
-            TVector<TPair<FName, TPair<CStruct*, void*>>> Components;
-            Components.reserve(10);
+            Ar << NumComponents;
             
             for (auto [ID, Set] : World->GetEntityRegistry().storage())
             {
@@ -26,35 +27,52 @@ namespace Lumina
                     
                     void* ComponentPointer = Set.value(GetHandle());
                     auto ReturnValue = entt::resolve(Set.type()).invoke("staticstruct"_hs, {});
-                    void** Type = ReturnValue.try_cast<void*>();
-                    if (Type)
+                    
+                    if (void** Type = ReturnValue.try_cast<void*>())
                     {
                         if (CStruct* StructType = *(CStruct**)Type)
                         {
-                            Components.emplace_back(StructType->GetQualifiedName(), eastl::make_pair(StructType, ComponentPointer));
+                            FName Name = StructType->GetQualifiedName();
+                            Ar << Name;
+                            
+                            int64 ComponentStart = Ar.Tell();
+
+                            int64 ComponentSize = 0;
+                            Ar << ComponentSize;
+
+                            int64 StartOfComponentData = Ar.Tell();
+                            
+                            StructType->SerializeTaggedProperties(Ar, ComponentPointer);
+
+                            int64 EndOfComponentData = Ar.Tell();
+
+                            ComponentSize = EndOfComponentData - StartOfComponentData;
+
+                            Ar.Seek(ComponentStart);
+                            Ar << ComponentSize;
+                            Ar.Seek(EndOfComponentData);
+                            
+                            NumComponents++;
                         }
                     }
                 }
             }
-    
-            NumComponents = Components.size();
+
+            int64 SizeBefore = Ar.Tell();
+            Ar.Seek(NumComponentsPos);    
             Ar << NumComponents;
-    
-            for (auto& [TypeName, Type] : Components)
-            {
-                Ar << TypeName;
-                Type.first->SerializeTaggedProperties(Ar, Type.second);
-            }
-    
+            Ar.Seek(SizeBefore);
+            
+
             if (World->GetEntityRegistry().all_of<SRelationshipComponent>(GetHandle()))
             {
-                auto& rel = World->GetEntityRegistry().get<SRelationshipComponent>(GetHandle());
-                SIZE_T NumChildren = rel.NumChildren;
+                auto& RelComp = World->GetEntityRegistry().get<SRelationshipComponent>(GetHandle());
+                SIZE_T NumChildren = RelComp.NumChildren;
                 Ar << NumChildren;
 
                 for (SIZE_T i = 0; i < NumChildren; ++i)
                 {
-                    rel.Children[i].Serialize(Ar);
+                    RelComp.Children[i].Serialize(Ar);
                 }
             }
             else
@@ -72,7 +90,12 @@ namespace Lumina
             {
                 FName TypeName;
                 Ar << TypeName;
-    
+
+                int64 ComponentSize = 0;
+                Ar << ComponentSize;
+
+                int64 ComponentStart = Ar.Tell();
+
                 if (CStruct* Struct = FindObject<CStruct>(nullptr, TypeName))
                 {
                     using namespace entt::literals;
@@ -86,6 +109,10 @@ namespace Lumina
                         Struct->SerializeTaggedProperties(Ar, *Type);
                     }
                 }
+
+                int64 ComponentEnd = ComponentSize + ComponentStart;
+                Ar.Seek(ComponentEnd);
+                
             }
     
             SIZE_T NumChildren = 0;

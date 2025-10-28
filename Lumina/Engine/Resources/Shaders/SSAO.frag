@@ -46,12 +46,14 @@ void main()
         Offset.xy /= Offset.w; // Perspective divide.
         Offset.xy = Offset.xy * 0.5f + 0.5f; // Transform to range 0.0 - 1.0
 
-        float SampleDepth = texture(uDepth, Offset.xy).z;
+        float SampleDepth = texture(uDepth, Offset.xy).r;
+        vec3 SamplePos = ReconstructViewPos(Offset.xy, SampleDepth, GetInverseCameraProjection());
+
         
-        float RangeCheck = smoothstep(0.0f, 1.0f, SceneUBO.SSAOSettings.Radius / abs(FragPos.z - SampleDepth));
+        float RangeCheck = smoothstep(0.0f, 1.0f, SceneUBO.SSAOSettings.Radius / abs(FragPos.z - SamplePos.z));
         
-        // In view-space, greater Z values are closer to the camera.
-        Occlusion += (SampleDepth >= SamplerPos.z - Bias ? 0.0f : 1.0f) * RangeCheck;
+        // Now both are in view-space, so the comparison is valid
+        Occlusion += (SamplePos.z >= SamplerPos.z + Bias ? 0.0f : 1.0f) * RangeCheck;
     }
     
     float Power = SceneUBO.SSAOSettings.Power;

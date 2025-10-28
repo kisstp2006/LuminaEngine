@@ -28,8 +28,6 @@ namespace Lumina
 
         GEngine = this;
         Application = App;
-
-        InitializeCObjectSystem();
         
         FTaskSystem::Initialize();
         Physics::Initialize();

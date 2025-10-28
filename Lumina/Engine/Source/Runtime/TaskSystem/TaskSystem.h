@@ -183,7 +183,7 @@ namespace Lumina
 
         template<typename TIndex, typename TFunc>
         requires (eastl::is_invocable_v<TFunc, uint32> && eastl::is_integral_v<TIndex>)
-        inline void ParallelFor(TIndex Num, uint32 MinRange, TFunc&& Func, ETaskPriority Priority = ETaskPriority::Medium)
+        void ParallelFor(TIndex Num, uint32 MinRange, TFunc&& Func, ETaskPriority Priority = ETaskPriority::Medium)
         {
             GTaskSystem->ParallelFor(static_cast<uint32>(Num), MinRange, std::forward<TFunc>(Func), Priority);
         }

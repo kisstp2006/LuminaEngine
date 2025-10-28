@@ -30,7 +30,9 @@ project "Lumina"
         "%{LuminaEngineDirectory}/Intermediates/Reflection/Lumina/**.h",
         "%{LuminaEngineDirectory}/Intermediates/Reflection/Lumina/**.cpp",
         
-        
+        "Engine/ThirdParty/EnkiTS/src/**.h",
+        "Engine/ThirdParty/EnkiTS/src/**.cpp",
+
         "Engine/ThirdParty/rpmalloc/**.h",
         "Engine/ThirdParty/rpmalloc/**.c",
         "Engine/ThirdParty/RenderDoc/renderdoc_app.h",
@@ -82,7 +84,6 @@ project "Lumina"
         "GLFW",
         "ImGui",
         "EA",
-        "EnkiTS",
         "Tracy",
         "XXHash",
         "EnTT",

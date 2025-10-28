@@ -1225,82 +1225,143 @@
                         {
                             return;
                         }
-                        
+
                         const FMeshResource& Resource = Mesh->GetMeshResource();
-                        
                         const uintptr_t MeshPtr = reinterpret_cast<uintptr_t>(Mesh);
                         const uint64 MeshID = (MeshPtr & 0xFFFFFull) << 24;
-
-                        glm::mat4 TransformMatrix = TransformComponent.GetMatrix();
-                        FAABB BoundingBox = Mesh->GetAABB().ToWorld(TransformMatrix);
-                        glm::vec3 Center = (BoundingBox.Min + BoundingBox.Max) * 0.5f;
-                        glm::vec3 Extents = BoundingBox.Max - Center;
-                        float Radius = glm::length(Extents);
-                        glm::vec4 SphereBounds = glm::vec4(Center, Radius);
-                        glm::vec3 NormalizedCenter = glm::normalize(Center);
-                        uint32 Packed = glm::packF2x11_1x10(NormalizedCenter);
-                        glm::vec3 Unpacked = glm::unpackF2x11_1x10(Packed);
                         
-                        
-                        for (const FGeometrySurface& Surface : Resource.GeometrySurfaces)
+                        if (MeshComponent.Instances.empty())
                         {
-                            CMaterialInterface* Material = MeshComponent.GetMaterialForSlot(Surface.MaterialIndex);
+                            glm::mat4 TransformMatrix = TransformComponent.GetMatrix();
                             
-                            if (!IsValid(Material) || !Material->IsReadyForRender())
+                            FAABB BoundingBox       = Mesh->GetAABB().ToWorld(TransformMatrix);
+                            glm::vec3 Center        = (BoundingBox.Min + BoundingBox.Max) * 0.5f;
+                            glm::vec3 Extents       = BoundingBox.Max - Center;
+                            float Radius            = glm::length(Extents);
+                            glm::vec4 SphereBounds  = glm::vec4(Center, Radius);
+                        
+                            for (const FGeometrySurface& Surface : Resource.GeometrySurfaces)
                             {
-                                continue;
-                            }
+                                CMaterialInterface* Material = MeshComponent.GetMaterialForSlot(Surface.MaterialIndex);
                             
-                            const uintptr_t MaterialPtr = reinterpret_cast<uintptr_t>(Material);
-                            const uint64 MaterialID = (MaterialPtr & 0xFFFFFFFull) << 28;
-                            uint64 SortKey = MaterialID | MeshID;
-                            if (RenderSettings.bUseInstancing == false)
-                            {
-                                SortKey = (uint64)entity;
-                            }
-                            
-
-                            if (BatchedDraws.find(SortKey) == BatchedDraws.end())
-                            {
-                                BatchedDraws[SortKey] = IndirectDrawArguments.size();
-
-                                MeshDrawCommands.emplace_back(FMeshDrawCommand
+                                if (!IsValid(Material) || !Material->IsReadyForRender())
                                 {
-                                    .Material = Material,
-                                    .IndexBuffer =  Mesh->GetIndexBuffer(),
-                                    .VertexBuffer = Mesh->GetVertexBuffer(),
-                                    .IndirectDrawOffset = (uint32)IndirectDrawArguments.size()
-                                });
+                                    continue;
+                                }
+                            
+                                const uintptr_t MaterialPtr = reinterpret_cast<uintptr_t>(Material);
+                                const uint64 MaterialID = (MaterialPtr & 0xFFFFFFFull) << 28;
+                                uint64 SortKey = MaterialID | MeshID;
+                                if (RenderSettings.bUseInstancing == false)
+                                {
+                                    SortKey = (uint64)entity;
+                                }
                                 
-                                IndirectDrawArguments.emplace_back(FDrawIndexedIndirectArguments
+                                if (BatchedDraws.find(SortKey) == BatchedDraws.end())
                                 {
-                                    .IndexCount = Surface.IndexCount,
-                                    .InstanceCount = 1,
-                                    .StartIndexLocation = Surface.StartIndex,
-                                    .BaseVertexLocation = 0,
-                                    .StartInstanceLocation = 0,
-                                });
-                            }
-                            else
-                            {
-                                IndirectDrawArguments[BatchedDraws[SortKey]].InstanceCount++;
-                            }
+                                    BatchedDraws[SortKey] = IndirectDrawArguments.size();
 
-                            glm::uvec4 PackedID;
-                            PackedID.x = (uint32)entity;
-                            PackedID.y = (uint32)BatchedDraws[SortKey]; // Get index of indirect draw batch.
-                            PackedID.z = 0;
-                            if (entity == World->GetSelectedEntity())
-                            {
-                                PackedID.z = true;
-                            }
+                                    MeshDrawCommands.emplace_back(FMeshDrawCommand
+                                    {
+                                        .Material = Material,
+                                        .IndexBuffer =  Mesh->GetIndexBuffer(),
+                                        .VertexBuffer = Mesh->GetVertexBuffer(),
+                                        .IndirectDrawOffset = (uint32)IndirectDrawArguments.size()
+                                    });
+                                
+                                    IndirectDrawArguments.emplace_back(FDrawIndexedIndirectArguments
+                                    {
+                                        .IndexCount = Surface.IndexCount,
+                                        .InstanceCount = 1,
+                                        .StartIndexLocation = Surface.StartIndex,
+                                        .BaseVertexLocation = 0,
+                                        .StartInstanceLocation = 0,
+                                    });
+                                }
+                                else
+                                {
+                                    IndirectDrawArguments[BatchedDraws[SortKey]].InstanceCount++;
+                                }
+
+                                glm::uvec4 PackedID;
+                                PackedID.x = (uint32)entity;
+                                PackedID.y = (uint32)BatchedDraws[SortKey]; // Get index of indirect draw batch.
+                                PackedID.z = 0;
+                                if (entity == World->GetSelectedEntity())
+                                {
+                                    PackedID.z = true;
+                                }
                             
-                            InstanceData.emplace_back(FInstanceData
+                                InstanceData.emplace_back(FInstanceData
+                                {
+                                    .Transform = TransformMatrix,
+                                    .SphereBounds = SphereBounds,
+                                    .PackedID = PackedID,
+                                });   
+                            }
+                        }
+                        else
+                        {
+                            for (const FGeometrySurface& Surface : Resource.GeometrySurfaces)
                             {
-                                .Transform = TransformMatrix,
-                                .SphereBounds = SphereBounds,
-                                .PackedID = PackedID,
-                            });   
+                                CMaterialInterface* Material = MeshComponent.GetMaterialForSlot(Surface.MaterialIndex);
+
+                                if (!IsValid(Material) || !Material->IsReadyForRender())
+                                {
+                                    continue;
+                                }
+                                
+                                const uintptr_t MaterialPtr = reinterpret_cast<uintptr_t>(Material);
+                                const uint64 MaterialID = (MaterialPtr & 0xFFFFFFFull) << 28;
+                                uint64 SortKey = MaterialID | MeshID;
+
+                                if (BatchedDraws.find(SortKey) == BatchedDraws.end())
+                                {
+                                    MeshDrawCommands.emplace_back(FMeshDrawCommand
+                                    {
+                                        .Material           = Material,
+                                        .IndexBuffer        = Mesh->GetIndexBuffer(),
+                                        .VertexBuffer       = Mesh->GetVertexBuffer(),
+                                        .IndirectDrawOffset = (uint32)IndirectDrawArguments.size()
+                                    });
+
+                                    IndirectDrawArguments.emplace_back(FDrawIndexedIndirectArguments
+                                    {
+                                        .IndexCount             = Surface.IndexCount,
+                                        .InstanceCount          = (uint32)MeshComponent.Instances.size(),
+                                        .StartIndexLocation     = Surface.StartIndex,
+                                        .BaseVertexLocation     = 0,
+                                        .StartInstanceLocation  = 0,
+                                    });
+                                    
+                                    for (const FTransform& Transform : MeshComponent.Instances)
+                                    {
+                                        glm::mat4 Matrix        = Transform.GetMatrix();
+                                        FAABB BoundingBox       = Mesh->GetAABB().ToWorld(Matrix);
+                                        glm::vec3 Center        = (BoundingBox.Min + BoundingBox.Max) * 0.5f;
+                                        glm::vec3 Extents       = BoundingBox.Max - Center;
+                                        float Radius            = glm::length(Extents);
+                                        glm::vec4 SphereBounds  = glm::vec4(Center, Radius);
+                                        
+                                        glm::uvec4      PackedID;
+                                        PackedID.x      = (uint32)entity;
+                                        PackedID.y      = (uint32)BatchedDraws[SortKey];
+                                        PackedID.z      = 0;
+                                        
+                                        if (entity == World->GetSelectedEntity())
+                                        {
+                                            PackedID.z = true;
+                                        }
+                                
+                                        InstanceData.emplace_back(FInstanceData
+                                        {
+                                            .Transform      = Matrix,
+                                            .SphereBounds   = SphereBounds,
+                                            .PackedID       = PackedID,
+                                        });
+                                    }
+                                }
+                            }
                         }
                     });
                 }
@@ -1315,9 +1376,9 @@
 
                 // Since this value will be written in the shader, we no longer need it, since we've generated unique StartInstanceIndex per draw.
                 // It must be reset to 0 because the computer shader atomically increments it, assuming 0 as the start.
-                for (FDrawIndexedIndirectArguments& Arg : IndirectDrawArguments)
+                for (FDrawIndexedIndirectArguments& DrawArgs : IndirectDrawArguments)
                 {
-                    Arg.InstanceCount = 0;
+                    DrawArgs.InstanceCount = 0;
                 }
             }
     

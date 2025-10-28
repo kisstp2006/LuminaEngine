@@ -3,9 +3,7 @@
 #include "WorldManager.h"
 #include "Core/Engine/Engine.h"
 #include "Core/Object/Class.h"
-#include "Core/Object/ObjectAllocator.h"
 #include "Core/Object/ObjectIterator.h"
-#include "Core/Object/Package/Package.h"
 #include "Core/Serialization/MemoryArchiver.h"
 #include "Core/Serialization/ObjectArchiver.h"
 #include "EASTL/sort.h"
@@ -37,7 +35,6 @@ namespace Lumina
             GetEntityRegistry().compact<>();
             auto View = GetEntityRegistry().view<entt::entity>(entt::exclude<SEditorComponent>);
 
-            SIZE_T NumEntities = 0;
             TVector<entt::entity> Parents;
             Parents.reserve(View.size_hint());
             
@@ -54,27 +51,47 @@ namespace Lumina
                 }
                 
                 Parents.emplace_back(entity);
-                NumEntities++;
             }
-            
-            Ar << NumEntities;
+
+            uint32 NumParents = (uint32)Parents.size();
+            Ar << NumParents;
 
             for (entt::entity Parent : Parents)
             {
+                int64 EntityStart = Ar.Tell();
+
+                int64 EntitySize = 0;
+                Ar << EntitySize;
+
                 Entity TopLevelEntity(Parent, this);
+                int64 StartOfEntityData = Ar.Tell();
                 TopLevelEntity.Serialize(Ar);
+                int64 EndOfEntityData = Ar.Tell();
+
+                EntitySize = EndOfEntityData - StartOfEntityData;
+
+                Ar.Seek(EntityStart);
+                Ar << EntitySize;
+                Ar.Seek(EndOfEntityData);
             }
         }
         else if (Ar.IsReading())
         {
-            GetEntityRegistry().clear<>();
-            SIZE_T NumEntities = 0;
-            Ar << NumEntities;
-
-            for (SIZE_T i = 0; i < NumEntities; ++i)
+            uint32 NumParents = 0;
+            Ar << NumParents;
+            
+            for (uint32 i = 0; i < NumParents; ++i)
             {
+                int64 EntitySize = 0;
+                Ar << EntitySize;
+
+                int64 EntityStart = Ar.Tell();
+                
                 Entity NewEntity(GetEntityRegistry().create(), this);
                 NewEntity.Serialize(Ar);
+
+                int64 EntityEnd = EntityStart + EntitySize;
+                Ar.Seek(EntityEnd);
             }
         }
     }
@@ -143,11 +160,10 @@ namespace Lumina
         FSystemContext SystemContext(this);
         
         auto& SystemVector = SystemUpdateList[(uint32)Stage];
-        Task::ParallelFor((uint32)SystemVector.size(), SystemVector.size() / 4, [this, SystemVector, &SystemContext](uint32 Index)
+        for(CEntitySystem* System : SystemVector)
         {
-            CEntitySystem* System = SystemVector[Index];
             System->Update(SystemContext);
-        });
+        }
     }
 
     void CWorld::Paused(const FUpdateContext& Context)
@@ -160,11 +176,10 @@ namespace Lumina
         FSystemContext SystemContext(this);
         
         auto& SystemVector = SystemUpdateList[(uint32)EUpdateStage::Paused];
-        Task::ParallelFor((uint32)SystemVector.size(), SystemVector.size() / 4, [this, SystemVector, &SystemContext](uint32 Index)
+        for(CEntitySystem* System : SystemVector)
         {
-            CEntitySystem* System = SystemVector[Index];
             System->Update(SystemContext);
-        });
+        }
     }
 
     void CWorld::Render(FRenderGraph& RenderGraph)

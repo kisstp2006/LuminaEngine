@@ -7,7 +7,7 @@ namespace Lumina
     FSystemContext::FSystemContext(CWorld* InWorld)
     {
         World = InWorld;
-        EntityWorld = &const_cast<CWorld*>(World)->EntityWorld;
+        EntityWorld = &World->EntityWorld;
         EntityWorld->Lock();
         DeltaTime = World->GetWorldDeltaTime();
     }
