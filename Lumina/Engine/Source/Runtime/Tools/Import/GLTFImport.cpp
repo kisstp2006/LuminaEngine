@@ -19,7 +19,7 @@ namespace Lumina::Import::Mesh::GLTF
 {
     namespace
     {
-        void ExtractAsset(fastgltf::Asset* OutAsset, const FString& InPath)
+        bool ExtractAsset(fastgltf::Asset* OutAsset, const FString& InPath)
         {
             std::filesystem::path FSPath = InPath.c_str();
         
@@ -29,7 +29,7 @@ namespace Lumina::Import::Mesh::GLTF
             if (!data_buffer.loadFromFile(FSPath))
             {
                 LOG_ERROR("Failed to load glTF model with path: {0}. Aborting import.", FSPath.string());
-                return;
+                return false;
             }
 
             fastgltf::GltfType SourceType = fastgltf::determineGltfFileType(&data_buffer);
@@ -37,7 +37,7 @@ namespace Lumina::Import::Mesh::GLTF
             if (SourceType == fastgltf::GltfType::Invalid)
             {
                 LOG_ERROR("Failed to determine glTF file type with path: {0}. Aborting import.", FSPath.string());
-                return;
+                return false;
             }
 
             constexpr fastgltf::Options options = fastgltf::Options::DontRequireValidAssetMember |
@@ -56,13 +56,15 @@ namespace Lumina::Import::Mesh::GLTF
             else
             {
                 LOG_ERROR("GLTF Source Type Invalid");
-                return;
+                return false;
             }
 
             if (const auto error = expected_asset.error(); error != fastgltf::Error::None)
             {
                 LOG_ERROR("Failed to load asset source with path: {0}. [{1}]: {2} Aborting import.", FSPath.string(),
                 fastgltf::getErrorName(error), fastgltf::getErrorMessage(error));
+
+                return false;
             }
 
             *OutAsset = std::move(expected_asset.get());
@@ -70,10 +72,15 @@ namespace Lumina::Import::Mesh::GLTF
     }
     
 
-    void ImportGLTF(FGLTFImportData& OutData, const FGLTFImportOptions& ImportOptions, const FString& RawFilePath)
+    bool ImportGLTF(FGLTFImportData& OutData, const FGLTFImportOptions& ImportOptions, const FString& RawFilePath)
     {
         fastgltf::Asset Asset;
-        ExtractAsset(&Asset, RawFilePath);
+        if (!ExtractAsset(&Asset, RawFilePath))
+        {
+            OutData = {};
+            return false;
+        }
+        
         FString Name = Paths::FileName(RawFilePath, true);
         
         OutData.Resources.clear();
@@ -212,5 +219,7 @@ namespace Lumina::Import::Mesh::GLTF
             OutData.OverdrawStatics.push_back(meshopt_analyzeOverdraw(NewResource->Indices.data(), NewResource->Indices.size(), (float*)NewResource->Vertices.data(), NewResource->Vertices.size(), sizeof(FVertex)));
             OutData.Resources.push_back(eastl::move(NewResource));
         }
+
+        return true;
     }
 }

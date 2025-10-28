@@ -12,17 +12,22 @@ namespace Lumina
     {
 
         template<typename T>
-        inline T Max(const T& First, const T& Second)
+        FORCEINLINE T Max(const T& First, const T& Second)
         {
             return (First > Second) ? First : Second;
         }
 
         template<typename T>
-        inline T Min(const T& First, const T& Second)
+        FORCEINLINE T Min(const T& First, const T& Second)
         {
             return (First > Second) ? Second : First;
         }
-        
+
+        template<typename T>
+        FORCEINLINE T Lerp(const T& A, const T& B, float Alpha)
+        {
+            return A + (B - A) * Alpha;
+        }        
         template<typename T>
         requires(eastl::is_integral_v<T> && eastl::is_unsigned_v<T> && (sizeof(T) <= 4))
         FORCEINLINE T RandRange(T First, T Second)

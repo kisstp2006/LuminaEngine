@@ -10,7 +10,10 @@
 #include "Core/Object/ObjectIterator.h"
 #include "Core/Object/ObjectRedirector.h"
 #include "Core/Object/Package/Package.h"
+#include "Core/Object/Package/Thumbnail/PackageThumbnail.h"
+#include "Core/Windows/Window.h"
 #include "EASTL/sort.h"
+#include "Input/Input.h"
 #include "Paths/Paths.h"
 #include "Platform/Process/PlatformProcess.h"
 #include "Project/Project.h"
@@ -21,6 +24,7 @@
 #include "Tools/Import/ImportHelpers.h"
 #include "Tools/UI/UITextureCache.h"
 #include "Tools/UI/ImGui/ImGuiMemoryEditor.h"
+#include "Tools/UI/ImGui/ImGuiRenderer.h"
 #include "Tools/UI/ImGui/ImGuiX.h"
 #include "UI/EditorUI.h"
 
@@ -58,6 +62,9 @@ namespace Lumina
 
     void FContentBrowserEditorTool::OnInitialize()
     {
+        FWindow::OnWindowDropped.AddMember(this, &FContentBrowserEditorTool::OnWindowDropped);
+        
+        
         using namespace Import::Textures;
 
         for (TObjectIterator<CFactory> It; It; ++It)
@@ -101,7 +108,8 @@ namespace Lumina
             const ImGuiPayload* Payload = ImGui::AcceptDragDropPayload(FContentBrowserTileViewItem::DragDropID, ImGuiDragDropFlags_AcceptBeforeDelivery);
             if (Payload && Payload->IsDelivery())
             {
-                auto* SourceItem = reinterpret_cast<FContentBrowserTileViewItem*>(Payload->Data);
+                uintptr_t ValuePtr = *static_cast<uintptr_t*>(Payload->Data);
+                auto* SourceItem = reinterpret_cast<FContentBrowserTileViewItem*>(ValuePtr);
 
                 if (SourceItem == TypedDroppedItem)
                 {
@@ -113,20 +121,28 @@ namespace Lumina
             }
         };
 
-        ContentBrowserTileViewContext.DrawItemOverrideFunction = [this] (FTileViewItem* Item) -> bool
+ContentBrowserTileViewContext.DrawItemOverrideFunction = [this] (FTileViewItem* Item) -> bool
+{
+    FContentBrowserTileViewItem* ContentItem = static_cast<FContentBrowserTileViewItem*>(Item);
+    
+    ImTextureRef ImTexture = FUITextureCache::Get().GetImTexture(Paths::GetEngineResourceDirectory() + "/Textures/Folder.png");
+
+    ImVec4 TintColor = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+    
+    if (!ContentItem->IsDirectory())
+    {
+        if (ContentItem->GetAssetData().IsRedirector())
         {
-            FContentBrowserTileViewItem* ContentItem = static_cast<FContentBrowserTileViewItem*>(Item);
-            
-            ImTextureRef ImTexture = FUITextureCache::Get().GetImTexture(Paths::GetEngineResourceDirectory() + "/Textures/Folder.png");
-        
-            ImVec4 TintColor = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
-            
-            if (!ContentItem->IsDirectory())
+            ImTexture = FUITextureCache::Get().GetImTexture(Paths::GetEngineResourceDirectory() + "/Textures/Redirect.png");
+            TintColor = ImVec4(0.7f, 0.7f, 1.0f, 1.0f);
+        }
+        else
+        {
+            if (CPackage* Package = FindObject<CPackage>(nullptr, ContentItem->GetAssetData().PackageName))
             {
-                if (ContentItem->GetAssetData().IsRedirector())
+                if (Package->GetPackageThumbnail()->LoadedImage)
                 {
-                    ImTexture = FUITextureCache::Get().GetImTexture(Paths::GetEngineResourceDirectory() + "/Textures/Redirect.png");
-                    TintColor = ImVec4(0.7f, 0.7f, 1.0f, 1.0f);
+                    ImTexture = GEngine->GetEngineSubsystem<FRenderManager>()->GetImGuiRenderer()->GetOrCreateImTexture(Package->GetPackageThumbnail()->LoadedImage);
                 }
                 else
                 {
@@ -135,44 +151,59 @@ namespace Lumina
             }
             else
             {
-                TintColor = ImVec4(1.0f, 0.9f, 0.6f, 1.0f);
+                ImTexture = FUITextureCache::Get().GetImTexture(Paths::GetEngineResourceDirectory() + "/Textures/SkeletalMeshIcon.png");
             }
-            
-            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.16f, 0.16f, 0.17f, 1.0f)); 
-            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.22f, 0.22f, 0.24f, 1.0f));
-            ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.26f, 0.26f, 0.28f, 1.0f));
-            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(12, 12));
-            ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 8.0f);
-        
-            ImDrawList* DrawList = ImGui::GetWindowDrawList();
-            ImVec2 Pos = ImGui::GetCursorScreenPos();
-            ImVec2 Size = ImVec2(120.0f, 120.0f);
-            
-            bool clicked = ImGui::ImageButton("##", ImTexture, Size, ImVec2(0, 0), ImVec2(1, 1), ImVec4(0, 0, 0, 0), TintColor);
-        
-            if (ImGui::IsItemHovered())
-            {
-                DrawList->AddRect
-                (
-                    Pos, 
-                    ImVec2(Pos.x + Size.x + 24, Pos.y + Size.y + 24), 
-                    ImGui::ColorConvertFloat4ToU32(ImVec4(0.4f, 0.6f, 0.9f, 0.5f)), 
-                    8.0f, 
-                    0, 
-                    2.0f
-                );
-            }
-        
-            ImGui::PopStyleVar(2);
-            ImGui::PopStyleColor(3);
-        
-            if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
-            {
-                return true;
-            }
-        
-            return clicked;
-        };
+        }
+    }
+    else
+    {
+        TintColor = ImVec4(1.0f, 0.9f, 0.6f, 1.0f);
+    }
+    
+    // Minimal padding for larger image display
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.16f, 0.16f, 0.17f, 1.0f)); 
+    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.22f, 0.22f, 0.24f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.26f, 0.26f, 0.28f, 1.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4, 4));
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 8.0f);
+
+    ImDrawList* DrawList = ImGui::GetWindowDrawList();
+    ImVec2 Pos = ImGui::GetCursorScreenPos();
+    ImVec2 Size = ImVec2(120.0f, 120.0f);
+    
+    // Draw drop shadow
+    DrawList->AddRectFilled(
+        ImVec2(Pos.x + 3, Pos.y + 3),
+        ImVec2(Pos.x + Size.x + 11, Pos.y + Size.y + 11),
+        ImGui::ColorConvertFloat4ToU32(ImVec4(0.0f, 0.0f, 0.0f, 0.3f)),
+        8.0f
+    );
+    
+    bool clicked = ImGui::ImageButton("##", ImTexture, Size, ImVec2(0, 0), ImVec2(1, 1), ImVec4(0, 0, 0, 0), TintColor);
+
+    // Hover highlight
+    if (ImGui::IsItemHovered())
+    {
+        DrawList->AddRect(
+            Pos, 
+            ImVec2(Pos.x + Size.x + 8, Pos.y + Size.y + 8), 
+            ImGui::ColorConvertFloat4ToU32(ImVec4(0.4f, 0.6f, 0.9f, 0.7f)), 
+            8.0f, 
+            0, 
+            2.0f
+        );
+    }
+
+    ImGui::PopStyleVar(2);
+    ImGui::PopStyleColor(3);
+
+    if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+    {
+        return true;
+    }
+
+    return clicked;
+};
         
         ContentBrowserTileViewContext.ItemSelectedFunction = [this] (FTileViewItem* Item)
         {
@@ -288,20 +319,8 @@ namespace Lumina
                             if (bSubmitted && strlen(RenameState->Buffer) > 0)
                             {
                                 FString NewPath = Paths::Parent(ContentItem->GetPath()) + "/" + RenameState->Buffer;
-        
-                                if (HandleRenameEvent(ContentItem->GetPath(), NewPath))
-                                {
-                                    if (ContentItem->IsDirectory())
-                                    {
-                                        RefreshContentBrowser();
-                                    }
-                                    ImGuiX::Notifications::NotifySuccess("Renamed to \"%s\"", RenameState->Buffer);
-                                }
-                                else
-                                {
-                                    ImGuiX::Notifications::NotifyError("Failed to rename asset");
-                                }
-                        
+
+                                PendingRenames.emplace_back(FPendingRename{ContentItem->GetPath(), NewPath});
                                 RenameState->Reset();
                                 return true;
                             }
@@ -325,14 +344,7 @@ namespace Lumina
                                 if (bCanRename)
                                 {
                                     FString NewPath = Paths::Parent(ContentItem->GetPath()) + "/" + RenameState->Buffer;
-                                    if (HandleRenameEvent(ContentItem->GetPath(), NewPath))
-                                    {
-                                        if (ContentItem->IsDirectory())
-                                        {
-                                            RefreshContentBrowser();
-                                        }
-                                        ImGuiX::Notifications::NotifySuccess("Renamed to \"%s\"", RenameState->Buffer);
-                                    }
+                                    PendingRenames.emplace_back(FPendingRename{ContentItem->GetPath(), NewPath});
                                     RenameState->Reset();
                                     return true;
                                 }
@@ -391,9 +403,12 @@ namespace Lumina
         
                             if (std::filesystem::is_directory(PackagePath.c_str()))
                             {
-                                std::filesystem::remove_all(PackagePath.c_str());
-                                bWasSuccessful = true;
-                                RefreshContentBrowser();
+                                if (std::filesystem::is_empty(PackagePath.c_str()))
+                                {
+                                    std::filesystem::remove(PackagePath.c_str());
+                                    bWasSuccessful = true;
+                                    RefreshContentBrowser();   
+                                }
                             }
                             else
                             {
@@ -403,14 +418,10 @@ namespace Lumina
                                 if (CObject* AliveObject = FindObject<CObject>(nullptr, QualifiedName))
                                 {
                                     ToolContext->OnDestroyAsset(AliveObject);
-                                }
-                        
-                                if (CPackage::DestroyPackage(PackagePath))
-                                {
-                                    FString PackagePathWithExt = PackagePath + ".lasset";
-                                    std::filesystem::remove(PackagePathWithExt.c_str());
                                     bWasSuccessful = true;
                                 }
+
+                                PendingDestroy.emplace_back(FPendingDestroy{PackagePath});
                             }
         
                             if (bWasSuccessful)
@@ -456,7 +467,7 @@ namespace Lumina
 
                 FString FullPath = Paths::ConvertToVirtualPath(SelectedPath);
                 TVector<FAssetData*> Assets = GEngine->GetEngineSubsystem<FAssetRegistry>()->GetAssetsForPath(FullPath);
-
+                
                 eastl::sort(Assets.begin(), Assets.end(), [](const FAssetData* A, const FAssetData* B)
                 {
                     return A->AssetName.ToString() > B->AssetName.ToString();
@@ -467,8 +478,10 @@ namespace Lumina
                     FName ShortClassName = Paths::GetExtension(Asset->AssetClass.ToString());
                     if (FilterState.count(ShortClassName) && FilterState.at(ShortClassName))
                     {
+                        FString PackageFullPath = Paths::ResolveVirtualPath(Asset->PackageName.ToString());
+                        CThumbnailManager::Get().GetOrLoadThumbnailsForPackage(PackageFullPath);
                         FullPath = Paths::ResolveVirtualPath(Asset->FullPath.ToString());
-                        ContentBrowserTileView.AddItemToTree<FContentBrowserTileViewItem>(nullptr, FullPath, Asset);
+                        ContentBrowserTileView.AddItemToTree<FContentBrowserTileViewItem>(nullptr, std::move(FullPath), Asset);
                     }
                 }
             }
@@ -543,6 +556,42 @@ namespace Lumina
         
     }
 
+    void FContentBrowserEditorTool::EndFrame()
+    {
+        bool bWroteSomething = false;
+        
+        for (FPendingDestroy& Destroy : PendingDestroy)
+        {
+            if (CPackage::DestroyPackage(Destroy.PendingDestroy))
+            {
+                FString PackagePathWithExt = Destroy.PendingDestroy + ".lasset";
+                std::filesystem::remove(PackagePathWithExt.c_str());
+                bWroteSomething = true;
+            }
+        }
+        
+        for (FPendingRename& Rename : PendingRenames)
+        {
+            if (HandleRenameEvent(Rename.OldName, Rename.NewName))
+            {
+                bWroteSomething = true;
+                ImGuiX::Notifications::NotifySuccess("Renamed to \"%s\"", Rename.NewName.c_str());
+            }
+            else
+            {
+                ImGuiX::Notifications::NotifyError("Failed to rename asset");
+            }
+        }
+
+        if (bWroteSomething)
+        {
+            RefreshContentBrowser();
+        }
+
+        PendingDestroy.clear();
+        PendingRenames.clear();
+    }
+
     void FContentBrowserEditorTool::InitializeDockingLayout(ImGuiID InDockspaceID, const ImVec2& InDockspaceSize) const
     {
         ImGuiID topDockID = 0, bottomLeftDockID = 0, bottomCenterDockID = 0, bottomRightDockID = 0;
@@ -575,10 +624,8 @@ namespace Lumina
 
     void FContentBrowserEditorTool::HandleContentBrowserDragDrop(FContentBrowserTileViewItem* Drop, FContentBrowserTileViewItem* Payload)
     {
-        bool bWroteSomething = false;
-        
         /** If the payload is a folder, and is empty, we don't need to do much besides moving the folder */
-        if (Payload->IsDirectory())
+        if (Payload->IsDirectory() && Paths::Exists(Payload->GetPath()))
         {
             if (std::filesystem::is_empty(Payload->GetPath().c_str()))
             {
@@ -591,7 +638,6 @@ namespace Lumina
                 {
                     std::filesystem::rename(SourcePath, DestPath.c_str());
                     LOG_INFO("[ContentBrowser] Moved folder {0} -> {1}", SourcePath.string(), DestPath);
-                    bWroteSomething = true;
                 }
                 catch (const std::filesystem::filesystem_error& e)
                 {
@@ -609,8 +655,67 @@ namespace Lumina
         {
             FString OldPath = Payload->GetPath();
             FString NewPath = Drop->GetPath() + "/" + Payload->GetAssetData().AssetName.ToString();
+            PendingRenames.emplace_back(FPendingRename{OldPath, NewPath});
+        }
+    }
+
+    void FContentBrowserEditorTool::TryImport(const FString& Path)
+    {
+        TVector<CAssetDefinition*> Definitions;
+        CAssetDefinitionRegistry::Get()->GetAssetDefinitions(Definitions);
+        for (CAssetDefinition* Definition : Definitions)
+        {
+            if (!Definition->CanImport())
+            {
+                continue;
+            }
+        
+            FString Ext = Paths::GetExtension(Path);
+            if (!Definition->IsExtensionSupported(Ext))
+            {
+                continue;
+            }
+        
+            CFactory* Factory = Definition->GetFactory();
+        
+            FString NoExtFileName = Paths::FileName(Path, true);
+            FString PathString = Paths::Combine(SelectedPath.c_str(), NoExtFileName.c_str());
+        
+            Paths::AddPackageExtension(PathString);
+            PathString = CPackage::MakeUniquePackagePath(PathString);
+            PathString = Paths::RemoveExtension(PathString);
+        
+            if (Factory->HasImportDialogue())
+            {
+                ToolContext->PushModal("Import", {700, 800}, [this, Factory, Path, PathString](const FUpdateContext&)
+                {
+                    bool bShouldClose = CFactory::ShowImportDialogue(Factory, Path, PathString);
+                    if (bShouldClose)
+                    {
+                        ImGuiX::Notifications::NotifySuccess("Successfully Imported: \"%s\"", PathString.c_str());
+                    }
             
-            HandleRenameEvent(OldPath, NewPath);
+                    return bShouldClose;
+                });
+            }
+            else
+            {
+                Task::AsyncTask(1, 1, [this, Factory, Path, PathString] (uint32, uint32, uint32)
+                {
+                    Factory->TryImport(Path, PathString);
+                    ImGuiX::Notifications::NotifySuccess("Successfully Imported: \"%s\"", PathString.c_str());
+                });
+            }
+        }
+    }
+
+    void FContentBrowserEditorTool::OnWindowDropped(FWindow*, int NumPaths, const char** Paths)
+    {
+        ImVec2 DropCursor = ImVec2(Input::GetMousePosition().x, Input::GetMousePosition().y);
+        
+        for (int i = 0; i < NumPaths; ++i)
+        {
+            PendingDrops.emplace_back(FPendingOSDrop{ FString(Paths[i]), DropCursor });
         }
     }
 
@@ -763,7 +868,7 @@ namespace Lumina
                         
                             if (Factory->HasImportDialogue())
                             {
-                                ToolContext->PushModal("Import", {500, 800}, [this, Factory, SelectedFile, PathString](const FUpdateContext& DrawContext)
+                                ToolContext->PushModal("Import", {700, 800}, [this, Factory, SelectedFile, PathString](const FUpdateContext& DrawContext)
                                 {
                                     bool bShouldClose = CFactory::ShowImportDialogue(Factory, SelectedFile, PathString);
                                     if (bShouldClose)
@@ -905,6 +1010,21 @@ namespace Lumina
         ImGui::Separator();
         
         ContentBrowserTileView.Draw(ContentBrowserTileViewContext);
+
+        ImVec2 ChildMin = ImGui::GetWindowPos();
+        ImVec2 ChildMax = ImVec2(ChildMin.x + ImGui::GetWindowWidth(), ChildMin.y + ImGui::GetWindowHeight());
+        
+        ImRect Rect(ChildMin, ChildMax);
+
+        for (FPendingOSDrop& Drop : PendingDrops)
+        {
+            if (Rect.Contains(Drop.MousePos))
+            {
+                TryImport(Drop.Path);
+            }
+        }
+
+        PendingDrops.clear();
         
         ImGui::EndChild();
     

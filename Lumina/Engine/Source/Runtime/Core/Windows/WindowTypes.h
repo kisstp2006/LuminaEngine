@@ -11,11 +11,5 @@ namespace Lumina
         FString Title = "Lumina";
         FIntVector2D Extent;
         bool bFullscreen = false;
-
-        struct FContext
-        {
-            TFunction<void(const FIntVector2D&)> ResizeCallback;
-        } Context;
-       
     };
 }

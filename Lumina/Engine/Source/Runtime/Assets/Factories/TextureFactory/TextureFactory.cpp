@@ -6,7 +6,6 @@
 #include "Core/Engine/Engine.h"
 #include "Core/Object/Cast.h"
 #include "Core/Object/Package/Package.h"
-#include "Core/Serialization/MemoryArchiver.h"
 #include "Paths/Paths.h"
 #include "Platform/Filesystem/FileHelper.h"
 #include "Renderer/RenderContext.h"
@@ -39,21 +38,18 @@ namespace Lumina
         Paths::AddPackageExtension(FullPath);
         FString VirtualPath = Paths::ConvertToVirtualPath(DestinationPath);
         FString FileName = Paths::FileName(DestinationPath, true);
-        
-        std::filesystem::path FilePath = RawPath.c_str();
-
 
         CTexture* NewTexture = Cast<CTexture>(TryCreateNew(DestinationPath));
         NewTexture->SetFlag(OF_NeedsPostLoad);
         
         FRHIImageDesc ImageDescription;
-        ImageDescription.Format = EFormat::RGBA8_UNORM;
-        ImageDescription.Extent = Import::Textures::ImportTexture(NewTexture->Pixels, RawPath);
-        ImageDescription.Flags.SetFlag(EImageCreateFlags::ShaderResource);
-        ImageDescription.NumMips = CalculateMipCount(ImageDescription.Extent.X, ImageDescription.Extent.Y);
-        ImageDescription.InitialState = EResourceStates::ShaderResource;
-        ImageDescription.bKeepInitialState = true;
-        NewTexture->ImageDescription = ImageDescription;
+        ImageDescription.Format                 = EFormat::RGBA8_UNORM;
+        ImageDescription.Extent                 = Import::Textures::ImportTexture(NewTexture->Pixels, RawPath);
+        ImageDescription.Flags                  .SetFlag(EImageCreateFlags::ShaderResource);
+        ImageDescription.NumMips                = CalculateMipCount(ImageDescription.Extent.X, ImageDescription.Extent.Y);
+        ImageDescription.InitialState           = EResourceStates::ShaderResource;
+        ImageDescription.bKeepInitialState      = true;
+        NewTexture->ImageDescription            = ImageDescription;
 
         if (ImageDescription.Extent.X == 0 || ImageDescription.Extent.Y == 0)
         {

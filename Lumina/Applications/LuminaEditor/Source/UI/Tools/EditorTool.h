@@ -107,6 +107,9 @@ namespace Lumina
 
         /** Once per-frame update */
         virtual void Update(const FUpdateContext& UpdateContext) { }
+
+        /** Called once at the end of frame */
+        virtual void EndFrame() { }
         
         /** Optionally draw a toolbar at the top of the window */
         void DrawMainToolbar(const FUpdateContext& UpdateContext);

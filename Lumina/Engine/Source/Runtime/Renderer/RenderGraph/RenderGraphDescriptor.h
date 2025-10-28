@@ -15,11 +15,14 @@ namespace Lumina
 namespace Lumina
 {
 
+    
     class FRGPassDescriptor
     {
         friend class FRGPassAnalyzer;
         
     public:
+
+        
 
         void AddBinding(FRHIBindingSet* Binding);
         void AddRawWrite(const IRHIResource* InResource);

@@ -46,9 +46,16 @@ namespace Lumina
         {
             FString VirtualPath = Paths::ConvertToVirtualPath(DestinationPath);
             ImportedData = {};
-            Import::Mesh::GLTF::ImportGLTF(ImportedData, Options, RawPath);
+            if (!Import::Mesh::GLTF::ImportGLTF(ImportedData, Options, RawPath))
+            {
+                ImportedData = {};
+                Options = {};
+                bShouldImport = false;
+                bShouldClose = true;
+            }
             bShouldReimport = false;
         }
+        
     
         // Add some padding and use a child window for better layout control
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(20, 20));
@@ -339,7 +346,9 @@ namespace Lumina
         uint32 Counter = 0;
         for (TUniquePtr<FMeshResource>& MeshResource : ImportedData.Resources)
         {
-            FString QualifiedPath = DestinationPath + eastl::to_string(Counter);
+            size_t Pos = DestinationPath.find_last_of('/');
+
+            FString QualifiedPath = DestinationPath.substr(0, Pos + 1) + MeshResource->Name.ToString() + eastl::to_string(Counter);
             FString FileName = Paths::FileName(QualifiedPath, true);
             
             FString FullPath = QualifiedPath;
@@ -356,18 +365,26 @@ namespace Lumina
                 continue;
             }
 
-            Task::ParallelFor(ImportedData.Textures, ImportedData.Textures.size() / 4, [&](const Import::Mesh::GLTF::FGLTFImage& Texture)
+            TVector<Import::Mesh::GLTF::FGLTFImage> Images(ImportedData.Textures.begin(), ImportedData.Textures.end());
+            uint32 WorkSize = (uint32)Images.size();
+            Task::ParallelFor(WorkSize, WorkSize / 4, [&](uint32 Index)
             {
+                const Import::Mesh::GLTF::FGLTFImage& Texture = Images[Index];
+                
                 CTextureFactory* TextureFactory = CTextureFactory::StaticClass()->GetDefaultObject<CTextureFactory>();
-
+                
                 FString ParentPath = Paths::Parent(RawPath);
                 FString TexturePath = ParentPath + "/" + Texture.RelativePath;
                 FString TextureFileName = Paths::RemoveExtension(Paths::FileName(TexturePath));
                                          
-                FString DestinationParent = Paths::Parent(FullPath);
-                FString TextureDestination = DestinationParent + "/" + TextureFileName;
-                                             
-                TextureFactory->TryImport(TexturePath, TextureDestination);
+                FString DestinationParent = Paths::GetVirtualPathPrefix(FullPath);
+                FString TextureDestination = DestinationParent + TextureFileName;
+
+                if (!FindObject<CPackage>(nullptr, TextureDestination))
+                {
+                    TextureFactory->TryImport(TexturePath, TextureDestination);
+                }
+
             });
 
             if (ImportedData.Materials.empty())

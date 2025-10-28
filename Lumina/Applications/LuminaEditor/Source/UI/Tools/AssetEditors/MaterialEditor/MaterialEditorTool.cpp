@@ -14,12 +14,13 @@
 #include "Renderer/ShaderCompiler.h"
 #include "World/entity/components/lightcomponent.h"
 #include "World/entity/components/staticmeshcomponent.h"
-#include "World/Entity/Systems/EditorEntityMovementSystem.h"
+#include "Core/Object/Package/Thumbnail/PackageThumbnail.h"
 #include "Thumbnails/ThumbnailManager.h"
 #include "Tools/UI/ImGui/ImGuiX.h"
 #include "UI/Tools/NodeGraph/Material/MaterialCompiler.h"
 #include "UI/Tools/NodeGraph/Material/MaterialNodeGraph.h"
 #include "world/entity/components/environmentcomponent.h"
+#include "World/Scene/RenderScene/RenderScene.h"
 
 namespace Lumina
 {
@@ -51,6 +52,8 @@ namespace Lumina
 
     void FMaterialEditorTool::OnInitialize()
     {
+        FAssetEditorTool::OnInitialize();
+        
         CreateToolWindow(MaterialGraphName, [this](const FUpdateContext& Cxt, bool bFocused)
         {
             DrawMaterialGraph(Cxt);
@@ -121,7 +124,7 @@ namespace Lumina
 
     void FMaterialEditorTool::DrawMaterialProperties(const FUpdateContext& UpdateContext)
     {
-        PropertyTable.DrawTree();
+        GetPropertyTable()->DrawTree();
     }
 
     void FMaterialEditorTool::DrawMaterialPreview(const FUpdateContext& UpdateContext)
@@ -243,9 +246,12 @@ namespace Lumina
     void FMaterialEditorTool::Compile()
     {
         CompilationResult = FCompilationResultInfo();
-            
+        CMaterial* Material = Cast<CMaterial>(Asset.Get());
+
         FMaterialCompiler Compiler;
         NodeGraph->CompileGraph(Compiler);
+        Material->SetReadyForRender(false);
+
         if (Compiler.HasErrors())
         {
             for (const FMaterialCompiler::FError& Error : Compiler.GetErrors())
@@ -262,9 +268,6 @@ namespace Lumina
             CompilationResult.CompilationLog = "Generated GLSL: \n \n \n";
             CompilationResult.bIsError = false;
             bGLSLPreviewDirty = true;
-
-            CMaterial* Material = Cast<CMaterial>(Asset.Get());
-            Material->SetReadyForRender(false);
             
             IShaderCompiler* ShaderCompiler = GRenderContext->GetShaderCompiler();
             ShaderCompiler->CompilerShaderRaw(Tree, {}, [this](const FShaderHeader& Header) mutable 
@@ -299,6 +302,11 @@ namespace Lumina
             Material->GetPackage()->MarkDirty();
             
         }
+    }
+
+    void FMaterialEditorTool::OnSave()
+    {
+        FAssetEditorTool::OnSave();
     }
 
 

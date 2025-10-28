@@ -36,6 +36,7 @@ namespace Lumina
 
         void Serialize(FArchive& Ar) override;
         bool IsAsset() const override { return true; }
+        void PostCreateCDO() override;
         void PostLoad() override;
         void OnDestroy() override;
         
@@ -47,6 +48,9 @@ namespace Lumina
         FRHIBindingLayoutRef GetBindingLayout() const override;
         FRHIVertexShaderRef GetVertexShader() const override;
         FRHIPixelShaderRef GetPixelShader() const override;
+        static CMaterial* GetDefaultMaterial();
+
+        void CreateDefaultMaterial();
         
         LUM_PROPERTY(Editable)
         EMaterialType MaterialType;
@@ -76,6 +80,10 @@ namespace Lumina
         FRHIBufferRef                           UniformBuffer;
         FRHIBindingLayoutRef                    BindingLayout;
         FRHIBindingSetRef                       BindingSet;
+
+
+
+        static CMaterial* DefaultMaterial;
     };
     
 }

@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "Renderer/RHIFwd.h"
 
 namespace Lumina
 {
@@ -7,31 +8,34 @@ namespace Lumina
 
 namespace Lumina
 {
-    class FRGResource
+    template<typename TRHIRef>
+    class TRGResource
     {
     public:
 
-        virtual ~FRGResource() = default;
+        virtual ~TRGResource() = default;
 
+        TRHIRef GetRHI() const
+        {
+            return RHIResource;
+        }
+    
     private:
         
-        IRHIResource* RHIResource = nullptr;
+        TRHIRef RHIResource;
     };
 
 
-    class FRGBuffer : public FRGResource
+    class FRGBuffer : public TRGResource<FRHIBufferRef>
     {
     public:
 
-        ~FRGBuffer() override { }
         
     };
 
-    class FRGImage : public FRGResource
+    class FRGImage : public TRGResource<FRHIBufferRef>
     {
     public:
-
-        ~FRGImage() override { }
         
     };
 }

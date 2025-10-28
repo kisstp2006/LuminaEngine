@@ -31,6 +31,7 @@ namespace Lumina
         void OnInitialize() override;
         void OnDeinitialize(const FUpdateContext& UpdateContext) override;
 
+        bool ShouldGenerateThumbnailOnLoad() const override { return true; }
         void OnAssetLoadFinished() override;
         void DrawToolMenu(const FUpdateContext& UpdateContext) override;
         void DrawMaterialGraph(const FUpdateContext& UpdateContext);
@@ -39,6 +40,7 @@ namespace Lumina
         void DrawGLSLPreview(const FUpdateContext& UpdateContext);
 
         void Compile();
+        void OnSave() override;
         void InitializeDockingLayout(ImGuiID InDockspaceID, const ImVec2& InDockspaceSize) const override;
 
     private:

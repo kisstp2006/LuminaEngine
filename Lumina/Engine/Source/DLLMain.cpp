@@ -12,7 +12,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD  ul_reason_for_call, LPVOID lpReser
 {
     switch (ul_reason_for_call)
     {
-    case DLL_PROCESS_ATTACH:
+    case DLL_PROCESS_ATTACH:  // NOLINT(bugprone-branch-clone)
         {
             Lumina::Memory::InitializeThreadHeap();
         }
@@ -24,7 +24,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD  ul_reason_for_call, LPVOID lpReser
         }
         break;
 
-    case DLL_THREAD_DETACH:
+    case DLL_THREAD_DETACH:  // NOLINT(bugprone-branch-clone)
         {
             Lumina::Memory::ShutdownThreadHeap();
         }
@@ -35,6 +35,7 @@ BOOL APIENTRY DllMain(HMODULE hModule, DWORD  ul_reason_for_call, LPVOID lpReser
             Lumina::Memory::ShutdownThreadHeap();
         }
         break;
+    default: ;
     }
 
     return TRUE;

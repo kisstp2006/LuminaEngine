@@ -112,6 +112,17 @@ namespace Lumina::Paths
         return std::filesystem::exists(Filename.data());
     }
 
+    FString GetVirtualPathPrefix(const FString& VirtualPath)
+    {
+        size_t Pos = VirtualPath.find("://");
+        if (Pos != FString::npos)
+        {
+            return VirtualPath.substr(0, Pos + 3);
+        }
+
+        return VirtualPath;
+    }
+
     bool IsUnderDirectory(const FString& ParentDirectory, const FString& Directory)
     {
         if (Directory.length() < ParentDirectory.length())

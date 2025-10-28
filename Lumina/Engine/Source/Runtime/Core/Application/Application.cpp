@@ -61,7 +61,7 @@ namespace Lumina
         {
             LUMINA_PROFILE_FRAME();
 
-            Window->ProcessMessages();
+            MainWindow->ProcessMessages();
             
             GEngine->Update();
             
@@ -82,8 +82,8 @@ namespace Lumina
         GEngine->Shutdown();
         Memory::Delete(GEngine);
         
-        Window->Shutdown();
-        Memory::Delete(Window);
+        MainWindow->Shutdown();
+        Memory::Delete(MainWindow);
         
         return 0;
     }
@@ -93,11 +93,14 @@ namespace Lumina
         return (ApplicationFlags & static_cast<uint32>(Flags)) != 0;
     }
 
-    void FApplication::WindowResized(const FIntVector2D& Extent)
+    void FApplication::WindowResized(FWindow* Window, const FIntVector2D& Extent)
     {
-        GEngine->SetEngineViewportSize(Extent);
+        if (!Window->IsMinimized())
+        {
+            GEngine->SetEngineViewportSize(Extent);
 
-        OnWindowResized(Extent);
+            OnWindowResized(Window, Extent);
+        }
     }
 
     void FApplication::RequestExit()
@@ -115,19 +118,13 @@ namespace Lumina
     {
         FWindowSpecs AppWindowSpecs;
         AppWindowSpecs.Title = ApplicationName.c_str();
-        
-        AppWindowSpecs.Context.ResizeCallback = [this] (const FIntVector2D& Extent)
-        {
-            if (!Window->IsMinimized())
-            {
-                WindowResized(Extent);
-            }
-        };
 
-        Window = FWindow::Create(AppWindowSpecs);
-        Window->Init();
+        FWindow::OnWindowResized.AddMember(this, &FApplication::WindowResized);
         
-        Windowing::SetPrimaryWindowHandle(Window);
+        MainWindow = FWindow::Create(AppWindowSpecs);
+        MainWindow->Init();
+        
+        Windowing::SetPrimaryWindowHandle(MainWindow);
         
         return true;
     }
@@ -140,7 +137,7 @@ namespace Lumina
 
     bool FApplication::ShouldExit()
     {
-        return glfwWindowShouldClose(Window->GetWindow()) || bExitRequested;
+        return glfwWindowShouldClose(MainWindow->GetWindow()) || bExitRequested;
     }
 
 

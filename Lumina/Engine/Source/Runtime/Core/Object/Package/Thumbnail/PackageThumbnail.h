@@ -2,6 +2,7 @@
 #include "Containers/Array.h"
 #include "Core/Serialization/Archiver.h"
 #include "Platform/GenericPlatform.h"
+#include "Renderer/RHIFwd.h"
 
 namespace Lumina
 {
@@ -11,6 +12,11 @@ namespace Lumina
         uint32 ImageHeight = 0;
         TVector<uint8> ImageData;
 
+        FRHIImageRef LoadedImage;
+
+        bool bDirty = true;
+        bool bFlip = true;
+        
         void Serialize(FArchive& Ar)
         {
             Ar << ImageWidth;

@@ -3,12 +3,17 @@
 
 #include "Assets/AssetTypes/Textures/Texture.h"
 #include "Core/Engine/Engine.h"
+#include "Paths/Paths.h"
+#include "Platform/Filesystem/FileHelper.h"
 #include "Renderer/RenderContext.h"
 #include "Renderer/RHIGlobals.h"
 #include "Renderer/RHIIncl.h"
+#include "Renderer/ShaderCompiler.h"
 
 namespace Lumina
 {
+    CMaterial* CMaterial::DefaultMaterial = nullptr;
+    
     CMaterial::CMaterial()
     {
         MaterialType = EMaterialType::PBR;
@@ -20,6 +25,14 @@ namespace Lumina
         CMaterialInterface::Serialize(Ar);
         Ar << VertexShaderBinaries;
         Ar << PixelShaderBinaries;
+    }
+
+    void CMaterial::PostCreateCDO()
+    {
+        if (DefaultMaterial == nullptr)
+        {
+            CreateDefaultMaterial();
+        }
     }
 
     void CMaterial::PostLoad()
@@ -166,5 +179,75 @@ namespace Lumina
     FRHIPixelShaderRef CMaterial::GetPixelShader() const
     {
         return PixelShader;
+    }
+
+    CMaterial* CMaterial::GetDefaultMaterial()
+    {
+        return DefaultMaterial;
+    }
+
+    void CMaterial::CreateDefaultMaterial()
+    {
+        IShaderCompiler* ShaderCompiler = GRenderContext->GetShaderCompiler();
+
+        ShaderCompiler->Flush();
+
+        FString FragmentPath = Paths::GetEngineResourceDirectory() + "/MaterialShader/GeometryPass.frag";
+
+        LUM_ASSERT(DefaultMaterial == nullptr)
+        
+        DefaultMaterial = NewObject<CMaterial>();
+        
+        FString LoadedString;
+        if (!FileHelper::LoadFileIntoString(LoadedString, FragmentPath))
+        {
+            LOG_ERROR("Failed to find GeometryPass.frag!");
+            return;
+        }
+
+        const char* Token = "$MATERIAL_INPUTS";
+        size_t Pos = LoadedString.find(Token);
+
+        FString Replacement;
+        
+        Replacement += "SMaterialInputs GetMaterialInputs()\n{\n";
+        Replacement += "\tSMaterialInputs Input;\n";
+
+        Replacement += "Input.Diffuse = vec3(1.0);\n";
+        Replacement += "Input.Metallic = 0.0;\n";
+        Replacement += "Input.Roughness = 1.0;\n";
+        Replacement += "Input.Specular = 0.5;\n";
+        Replacement += "Input.Emissive = vec3(0.0);\n";
+        Replacement += "Input.AmbientOcclusion = 1.0;\n";
+        Replacement += "Input.Normal = vec3(0.0, 0.0, 1.0);\n";
+        Replacement += "Input.Opacity = 1.0;\n";
+        Replacement += "Input.WorldPositionOffset = vec3(0.0);\n";
+
+        Replacement += "\treturn Input;\n}\n";
+        
+        if (Pos != FString::npos)
+        {
+            LoadedString.replace(Pos, strlen(Token), Replacement);
+        }
+        else
+        {
+            LOG_ERROR("Missing [$MATERIAL_INPUTS] in base shader!");
+        }
+
+        ShaderCompiler->CompilerShaderRaw(LoadedString, {}, [this](const FShaderHeader& Header) mutable 
+        {
+            DefaultMaterial->PixelShader = GRenderContext->CreatePixelShader(Header);
+            DefaultMaterial->VertexShader = GRenderContext->GetShaderLibrary()->GetShader("GeometryPass.vert").As<FRHIVertexShader>();
+                
+            DefaultMaterial->PixelShaderBinaries.assign(Header.Binaries.begin(), Header.Binaries.end());
+            DefaultMaterial->VertexShaderBinaries.assign(DefaultMaterial->VertexShader->GetShaderHeader().Binaries.begin(), DefaultMaterial->VertexShader->GetShaderHeader().Binaries.end());
+            
+            GRenderContext->OnShaderCompiled(PixelShader, false, true);
+        });
+
+        ShaderCompiler->Flush();
+
+        DefaultMaterial->PostLoad();
+        
     }
 }

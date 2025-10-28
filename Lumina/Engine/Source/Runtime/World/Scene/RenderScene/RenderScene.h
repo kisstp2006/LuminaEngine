@@ -39,7 +39,7 @@ namespace Lumina
         FRenderScene(CWorld* InWorld);
         virtual ~FRenderScene();
         
-        void RenderScene(FRenderGraph& RenderGraph);
+        LUMINA_API void RenderScene(FRenderGraph& RenderGraph, const FViewVolume& ViewVolume);
     
         FRHIImageRef GetRenderTarget() const { return SceneViewport->GetRenderTarget(); }
         LUMINA_API FRHIImageRef GetVisualizationImage() const;
@@ -95,7 +95,7 @@ namespace Lumina
         FSceneRenderSettings                RenderSettings;
         FSceneLightData                     LightData;
 
-        FRHIViewportRef                     SceneViewport;
+        FRHIViewportRef                             SceneViewport;
 
         TRenderVector<FSimpleElementVertex>         SimpleVertices;
         FRHIBindingLayoutRef                        SimplePassLayout;

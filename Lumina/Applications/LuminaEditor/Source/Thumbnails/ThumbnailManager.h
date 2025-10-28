@@ -27,7 +27,7 @@ namespace Lumina
         
         static CThumbnailManager& Get();
 
-        void GetOrLoadThumbnailsForPackages(TSpan<FString> Packages);
+        void GetOrLoadThumbnailsForPackage(const FString& PackagePath);
 
 
         LUM_PROPERTY(NotSerialized)

@@ -168,7 +168,7 @@ namespace Lumina
                 AlignedPtr = (CurrentPtr + Alignment - 1) & ~(Alignment - 1); 
                 NextOffset = AlignedPtr - reinterpret_cast<SIZE_T>(CurrentBlock->GetData()) + Size; 
                 
-                LUM_ASSERT(NextOffset <= GetUsableBlockSize());
+                LUM_ASSERT(NextOffset <= GetUsableBlockSize())
             } 
              
             void* Result = CurrentBlock->GetData() + (AlignedPtr - reinterpret_cast<SIZE_T>(CurrentBlock->GetData())); 

@@ -44,7 +44,7 @@ namespace Lumina
         SAmbientLight AmbientLight;
         
         LUM_PROPERTY(Editable, Category = "SSAO")
-        bool bSSAOEnabled = true;
+        bool bSSAOEnabled = false;
 
         LUM_PROPERTY(Editable, Category = "SSAO")
         SSSAOInfo SSAOInfo;

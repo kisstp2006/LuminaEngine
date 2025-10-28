@@ -43,6 +43,9 @@ namespace
 namespace Lumina
 {
 
+	FWindowDropEvent FWindow::OnWindowDropped;
+	FWindowResizeEvent FWindow::OnWindowResized;
+	
 	GLFWmonitor* GetCurrentMonitor(GLFWwindow* window)
 	{
 		int windowX, windowY, windowWidth, windowHeight;
@@ -92,11 +95,9 @@ namespace Lumina
 			//glfwWindowHint(GLFW_MAXIMIZED, GLFW_TRUE);
 
 			
-			// Create the window
 			Window = glfwCreateWindow(800, 400, Specs.Title.c_str(), nullptr, nullptr);
 			if (GLFWmonitor* currentMonitor = GetCurrentMonitor(Window))
 			{
-				// Get monitor dimensions
 				int monitorX, monitorY, monitorWidth, monitorHeight;
 				glfwGetMonitorWorkarea(currentMonitor, &monitorX, &monitorY, &monitorWidth, &monitorHeight);
 
@@ -110,15 +111,14 @@ namespace Lumina
 				}
 				
 
-				// Log the window's initialization details
 				LOG_TRACE("Initializing Window: {0} (Width: {1}p Height: {2}p)", Specs.Title, Specs.Extent.X, Specs.Extent.Y);
 
-				// Update the window size after adjustment
 				glfwSetWindowSize(Window, Specs.Extent.X, Specs.Extent.Y);
 			}
 			
-			glfwSetWindowUserPointer(Window, &Specs);
+			glfwSetWindowUserPointer(Window, this);
 			glfwSetWindowSizeCallback(Window, WindowResizeCallback);
+			glfwSetDropCallback(Window, WindowDropCallback);
 		}
 	}
 	
@@ -145,14 +145,19 @@ namespace Lumina
 
 	void FWindow::WindowResizeCallback(GLFWwindow* window, int width, int height)
 	{
-		FWindowSpecs& data = *(FWindowSpecs*)glfwGetWindowUserPointer(window);
-		data.Extent.X = width;
-		data.Extent.Y = height;
-
-		data.Context.ResizeCallback(data.Extent);
-		
+		auto WindowHandle = (FWindow*)glfwGetWindowUserPointer(window);
+		WindowHandle->Specs.Extent.X = width;
+		WindowHandle->Specs.Extent.Y = height;
+		OnWindowResized.Broadcast(WindowHandle, WindowHandle->Specs.Extent);
 	}
-	
+
+	void FWindow::WindowDropCallback(GLFWwindow* Window, int PathCount, const char* Paths[])
+	{
+		auto WindowHandle = (FWindow*)glfwGetWindowUserPointer(Window);
+
+		OnWindowDropped.Broadcast(WindowHandle, PathCount, Paths);
+	}
+
 	FWindow* FWindow::Create(const FWindowSpecs& InSpecs)
 	{
 		return Memory::New<FWindow>(InSpecs);

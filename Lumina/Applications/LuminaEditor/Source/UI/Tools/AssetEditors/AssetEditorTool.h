@@ -20,15 +20,21 @@ namespace Lumina
             Asset = InAsset;
             PropertyTable.RebuildTree();
         }
-
+        
+        
+        void OnInitialize() override;
         void Deinitialize(const FUpdateContext& UpdateContext) override;
         void Update(const FUpdateContext& UpdateContext) override;
-        FPropertyTable* GetPropertyTable() { return &PropertyTable; }
-        
         FString GetToolName() const override;
         virtual void OnAssetLoadFinished() { }
         void OnSave() override;
+
+        FPropertyTable* GetPropertyTable() { return &PropertyTable; }
         
+    protected:
+
+        virtual bool ShouldGenerateThumbnailOnLoad() const { return false; }
+        virtual void GenerateThumbnailOnLoad();
 
     protected:
 

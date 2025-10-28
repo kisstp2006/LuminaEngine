@@ -8,6 +8,8 @@ namespace Lumina
 
         if (!GIsMemorySystemInitialized)
         {
+#if defined(LUMINA_RPMALLOC)
+
             Memzero(&GrpmallocConfig, sizeof(rpmalloc_config_t));
             GrpmallocConfig.error_callback = CustomAssert;
             GrpmallocConfig.enable_huge_pages = true;
@@ -16,6 +18,7 @@ namespace Lumina
             rpmalloc_initialize_config(&GrpmallocConfig);
 
             GIsMemorySystemInitialized = true;
+#endif
             std::cout << "[Lumina] - Memory System Initialized\n";
         }
     }
@@ -23,20 +26,24 @@ namespace Lumina
     void Memory::Shutdown()
     {
         LUMINA_PROFILE_SCOPE();
+#if defined(LUMINA_RPMALLOC)
 
         rpmalloc_global_statistics_t stats;
         rpmalloc_global_statistics(&stats);
         
         std::cout << "[Lumina] - Memory System Shutdown.\n";
 
-        GIsMemorySystemInitialized = false;
         rpmalloc_finalize();
+#endif
+        GIsMemorySystemInitialized = false;
         GIsMemorySystemShutdown = true;
     }
 
     void Memory::InitializeThreadHeap()
     {
+#if defined(LUMINA_RPMALLOC)
         rpmalloc_thread_initialize();
+#endif
     }
 
     SIZE_T Memory::GetActualAlignment(size_t size, size_t alignment)
@@ -69,7 +76,7 @@ namespace Lumina
 
     void* Memory::Malloc(size_t size, size_t alignment)
     {
-#if LUMINA_RPMALLOC
+#if defined(LUMINA_RPMALLOC)
         if(!GIsMemorySystemInitialized)
         {
             Initialize();
@@ -108,7 +115,7 @@ namespace Lumina
 
     void Memory::Free(void*& Memory)
     {
-#if LUMINA_RPMALLOC
+#if defined(LUMINA_RPMALLOC)
         LUMINA_PROFILE_FREE(Memory);
         rpfree(Memory);
         Memory = nullptr;

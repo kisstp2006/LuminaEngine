@@ -76,27 +76,18 @@
             LOG_TRACE("Shutting down Renderer Scene");
         }
         
-        void FRenderScene::RenderScene(FRenderGraph& RenderGraph)
+        void FRenderScene::RenderScene(FRenderGraph& RenderGraph, const FViewVolume& ViewVolume)
         {
             LUMINA_PROFILE_SCOPE();
             
-            SCameraComponent& CameraComponent = World->GetActiveCamera();
-            STransformComponent& CameraTransform = World->GetActiveCameraEntity().GetComponent<STransformComponent>();
-
-            glm::vec3 UpdatedForward = CameraTransform.Transform.Rotation * glm::vec3(0.0f, 0.0f, -1.0f);
-            glm::vec3 UpdatedUp      = CameraTransform.Transform.Rotation * glm::vec3(0.0f, 1.0f,  0.0f);
-        
-            CameraComponent.SetView(CameraTransform.Transform.Location, UpdatedForward, UpdatedUp);
-
-            SetViewVolume(CameraComponent.GetViewVolume());
+            SetViewVolume(ViewVolume);
 
             // Wait for shader tasks.
             if(GRenderContext->GetShaderCompiler()->HasPendingRequests())
             {
                 return;
             }
-
-
+            
             ResetPass(RenderGraph);
             CompileDrawCommands(RenderGraph);
             CullPass(RenderGraph, SceneViewport->GetViewVolume());
@@ -112,7 +103,6 @@
             DeferredLightingPass(RenderGraph);
             BatchedLineDraw(RenderGraph);
             DebugDrawPass(RenderGraph);
-
         }
 
         FRHIImageRef FRenderScene::GetVisualizationImage() const
@@ -229,7 +219,8 @@
                 
             });
         }
-
+        
+        
         void FRenderScene::DepthPrePass(FRenderGraph& RenderGraph, const FViewVolume& View)
         {
             FRGPassDescriptor* Descriptor = RenderGraph.AllocDescriptor();
@@ -239,7 +230,7 @@
             RenderGraph.AddPass<RG_Raster>(FRGEvent("Pre-Depth Pass"), Descriptor, [&] (ICommandList& CmdList)
             {
                 LUMINA_PROFILE_SECTION_COLORED("Pre-Depth Pass", tracy::Color::Orange);
-
+                
                 if (MeshDrawCommands.empty())
                 {
                     return;
@@ -1246,7 +1237,7 @@
                             
                                 if (!IsValid(Material) || !Material->IsReadyForRender())
                                 {
-                                    continue;
+                                    Material = CMaterial::GetDefaultMaterial();
                                 }
                             
                                 const uintptr_t MaterialPtr = reinterpret_cast<uintptr_t>(Material);
@@ -1308,7 +1299,7 @@
 
                                 if (!IsValid(Material) || !Material->IsReadyForRender())
                                 {
-                                    continue;
+                                    Material = CMaterial::GetDefaultMaterial();
                                 }
                                 
                                 const uintptr_t MaterialPtr = reinterpret_cast<uintptr_t>(Material);

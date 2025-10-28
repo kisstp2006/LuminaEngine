@@ -25,7 +25,7 @@ namespace Lumina
 
         virtual FName GetName() const { return {}; }
         
-        virtual void DrawTooltip() const { };
+        virtual void DrawTooltip() const { }
 
         virtual bool HasContextMenu() { return false; }
 

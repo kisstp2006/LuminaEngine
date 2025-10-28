@@ -36,7 +36,8 @@ namespace Lumina
         
         LUMINA_API FRHIImageRef GetImage(const FName& Path);
         LUMINA_API ImTextureRef GetImTexture(const FName& Path);
-
+        
+        
         void StartFrame();
         void EndFrame();
 
@@ -49,11 +50,11 @@ namespace Lumina
         
     private:
 
-        mutable FMutex              Mutex;
+        mutable FMutex                  Mutex;
 
-        THashMap<FName, FEntry*>    Images;
+        THashMap<FName, FEntry*>        Images;
         
-        TPair<FName, FEntry*>       SquareWhiteTexture;
+        TPair<FName, FEntry*>           SquareWhiteTexture;
     };
     
 }

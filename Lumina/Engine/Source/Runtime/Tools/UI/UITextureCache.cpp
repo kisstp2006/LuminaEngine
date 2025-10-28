@@ -167,13 +167,13 @@ namespace Lumina
         // Start async load (captures Entry pointer which is now stable in the map)
         Task::AsyncTask(1, 1, [this, NewEntry, PathName](uint32, uint32, uint32)
         {
+            FScopeLock Lock(Mutex);
+
             FString PathString = PathName.ToString();
             FRHIImageRef NewImage = Import::Textures::CreateTextureFromImport(GRenderContext, PathString, false);
             ImTextureRef NewImTexture = ImGuiX::ToImTextureRef(NewImage);
             
             {
-                FScopeLock Lock(Mutex);
-                
                 auto Iter = Images.find(PathName);
                 if (Iter != Images.end() && Iter->second == NewEntry)
                 {

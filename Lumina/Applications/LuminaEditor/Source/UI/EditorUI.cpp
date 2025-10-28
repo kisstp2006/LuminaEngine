@@ -20,7 +20,6 @@
 #include "Tools/UI/ImGui/imfilebrowser.h"
 #include <Assets/AssetHeader.h>
 #include <client/TracyProfiler.hpp>
-
 #include "implot.h"
 #include "LuminaEditor.h"
 #include "assets/assettypes/archetype/archetype.h"
@@ -80,6 +79,9 @@ namespace Lumina
         {
             return FTransformPropertyCustomization::MakeInstance();
         });
+
+
+
         
         EditorWindowClass.ClassId = ImHashStr("EditorWindowClass");
         EditorWindowClass.DockingAllowUnclassed = false;
@@ -87,10 +89,6 @@ namespace Lumina
         EditorWindowClass.ViewportFlagsOverrideClear = ImGuiViewportFlags_NoTaskBarIcon;
         EditorWindowClass.ParentViewportId = 0; // Top level window
         EditorWindowClass.DockingAlwaysTabBar = true;
-
-
-        SubsystemManager = UpdateContext.GetSubsystemManager();
-        AssetRegistry = UpdateContext.GetSubsystem<FAssetRegistry>();
 
         CWorld* NewWorld = NewObject<CWorld>();
         WorldEditorTool = CreateTool<FWorldEditorTool>(this, NewWorld);
@@ -144,7 +142,7 @@ namespace Lumina
         };
 
         TitleBar.Draw(TitleBarLeftContents, 400, TitleBarRightContents, 230);
-
+        
         const ImGuiID DockspaceID = ImGui::GetID("EditorDockSpace");
 
         const ImGuiViewport* viewport = ImGui::GetMainViewport();
@@ -862,6 +860,22 @@ namespace Lumina
     void FEditorUI::OnEndFrame(const FUpdateContext& UpdateContext)
     {
         LUMINA_PROFILE_SCOPE();
+
+        for (FEditorTool* Tool : EditorTools)
+        {
+            Tool->EndFrame();
+        }
+
+        if (ImGui::IsKeyPressed(ImGuiKey_LeftCtrl) && ImGui::IsKeyPressed(ImGuiKey_LeftShift) && ImGui::IsKeyPressed(ImGuiKey_Z))
+        {
+            TransactionManager.Redo();
+        }
+        
+        if (ImGui::IsKeyPressed(ImGuiKey_LeftCtrl) && ImGui::IsKeyPressed(ImGuiKey_Z))
+        {
+            TransactionManager.Undo();
+        }
+
     }
     
     void FEditorUI::DestroyTool(const FUpdateContext& UpdateContext, FEditorTool* Tool)
@@ -1868,7 +1882,6 @@ namespace Lumina
         
         ImGui::Spacing();
         
-        // ImGui Tools
         ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.62f, 1.0f), "ImGui Tools");
         ImGui::Separator();
         
@@ -1877,7 +1890,6 @@ namespace Lumina
         
         ImGui::Spacing();
         
-        // External Tools
         ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.62f, 1.0f), "External Tools");
         ImGui::Separator();
         

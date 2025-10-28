@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "RenderGraphEvent.h"
 #include "RenderGraphTypes.h"
+#include "Renderer/RenderTypes.h"
 #include "Renderer/RHIFwd.h"
 
 

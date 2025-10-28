@@ -4,6 +4,8 @@
 
 namespace Lumina
 {
+    class IRHIResource;
+
     class FRGPassAnalyzer
     {
     public:

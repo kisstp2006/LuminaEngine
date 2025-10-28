@@ -29,6 +29,8 @@ namespace Lumina
             {
                 DestroyCObject(Pin);
             }
+
+            PinVector.clear();
         }
     }
 

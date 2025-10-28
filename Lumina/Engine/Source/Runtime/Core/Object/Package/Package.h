@@ -379,14 +379,14 @@ namespace Lumina
          * Load all the objects in this package (serialize).
          * @return If all object loads were successful.
          */
-        LUMINA_API bool LoadObjects();
+        LUMINA_API NODISCARD bool LoadObjects();
         
 
         
-        LUMINA_API CObject* IndexToObject(const FObjectPackageIndex& Index);
+        LUMINA_API NODISCARD CObject* IndexToObject(const FObjectPackageIndex& Index);
 
         /** Returns the thumbnail data for this package */
-        LUMINA_API TSharedPtr<FPackageThumbnail> GetPackageThumbnail() const { return PackageThumbnail; }
+        LUMINA_API NODISCARD TSharedPtr<FPackageThumbnail> GetPackageThumbnail() const { return PackageThumbnail; }
 
         LUMINA_API NODISCARD FString GetPackageFilename() const;
         LUMINA_API NODISCARD FString GetFullPackageFilePath() const;
@@ -396,7 +396,7 @@ namespace Lumina
         
         LUMINA_API void MarkDirty() { bDirty = true; }
         LUMINA_API void ClearDirty() { bDirty = false; }
-        LUMINA_API bool IsDirty() const { return bDirty; }
+        LUMINA_API NODISCARD bool IsDirty() const { return bDirty; }
         
     public:
 

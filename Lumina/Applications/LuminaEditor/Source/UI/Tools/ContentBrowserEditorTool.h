@@ -11,18 +11,32 @@
 namespace Lumina
 {
     class CObjectRedirector;
-}
-
-namespace Lumina
-{
     struct FAssetData;
 }
+
 
 namespace Lumina
 {
     class FContentBrowserEditorTool : public FEditorTool
     {
     public:
+
+        struct FPendingOSDrop
+        {
+            FString Path;
+            ImVec2 MousePos;
+        };
+
+        struct FPendingRename
+        {
+            FString OldName;
+            FString NewName;
+        };
+
+        struct FPendingDestroy
+        {
+            FString PendingDestroy;
+        };
 
         class FContentBrowserListViewItem : public FTreeListViewItem
         {
@@ -82,7 +96,7 @@ namespace Lumina
             
             void SetDragDropPayloadData() const override
             {
-                uintptr_t IntPtr = (uintptr_t)this;
+                uintptr_t IntPtr = reinterpret_cast<uintptr_t>(this);
                 ImGui::SetDragDropPayload(DragDropID, &IntPtr, sizeof(uintptr_t));
             }
 
@@ -149,7 +163,7 @@ namespace Lumina
             const FAssetData& GetAssetData() const { return AssetData; }
             
         private:
-
+            
             FAssetData              AssetData;
             FString                 Path;
             FString                 VirtualPath;
@@ -172,6 +186,7 @@ namespace Lumina
         void OnDeinitialize(const FUpdateContext& UpdateContext) override { }
 
         void Update(const FUpdateContext& UpdateContext) override;
+        void EndFrame() override;
 
         void InitializeDockingLayout(ImGuiID InDockspaceID, const ImVec2& InDockspaceSize) const override;
 
@@ -181,11 +196,18 @@ namespace Lumina
         
     private:
 
+        void TryImport(const FString& Path);
+
+        void OnWindowDropped(FWindow* Window, int NumPaths, const char** Paths);
+
         bool HandleRenameEvent(const FString& OldPath, FString NewPath);
         
         void DrawDirectoryBrowser(const FUpdateContext& Contxt, bool bIsFocused, ImVec2 Size);
         void DrawContentBrowser(const FUpdateContext& Contxt, bool bIsFocused, ImVec2 Size);
 
+        TVector<FPendingDestroy>    PendingDestroy;
+        TVector<FPendingRename>     PendingRenames;
+        TVector<FPendingOSDrop>     PendingDrops;
         FTreeListView               OutlinerListView;
         FTreeListViewContext        OutlinerContext;
 

@@ -87,7 +87,7 @@ namespace Lumina::Import
             THashSet<FGLTFImage, FGLTFImageHasher, FGLTFImageEqual> Textures;
             
         };
-        LUMINA_API void ImportGLTF(FGLTFImportData& OutData, const FGLTFImportOptions& ImportOptions, const FString& RawFilePath);
+        LUMINA_API bool ImportGLTF(FGLTFImportData& OutData, const FGLTFImportOptions& ImportOptions, const FString& RawFilePath);
     }
 
 }

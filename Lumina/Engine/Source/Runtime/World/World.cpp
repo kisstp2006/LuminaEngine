@@ -140,9 +140,16 @@ namespace Lumina
         EditorEntity.Emplace<SEditorComponent>();
         EditorEntity.Emplace<SVelocityComponent>().Speed = 50.0f;
         EditorEntity.Emplace<SHiddenComponent>();
-        EditorEntity.GetComponent<STransformComponent>().SetLocation(glm::vec3(0.0f, 0.0f, 2.0f));
+        EditorEntity.GetComponent<STransformComponent>().SetLocation(glm::vec3(0.0f, 0.0f, 1.5f));
 
         SetActiveCamera(EditorEntity);
+
+        Entity ThumbnailEntity = ConstructEntity("Thumbnail Entity");
+        ThumbnailEntity.Emplace<SCameraComponent>().SetAspectRatio(1.0f);
+        ThumbnailEntity.Emplace<SEditorComponent>();
+        ThumbnailEntity.Emplace<SVelocityComponent>().Speed = 50.0f;
+        ThumbnailEntity.Emplace<SHiddenComponent>();
+        ThumbnailEntity.GetComponent<STransformComponent>().SetLocation(glm::vec3(0.0f, 0.0f, 1.5f));
 
         return EditorEntity;
     }
@@ -188,7 +195,15 @@ namespace Lumina
     {
         LUMINA_PROFILE_SCOPE();
 
-        RenderScene->RenderScene(RenderGraph);
+        SCameraComponent& CameraComponent = GetActiveCamera();
+        STransformComponent& CameraTransform = GetActiveCameraEntity().GetComponent<STransformComponent>();
+
+        glm::vec3 UpdatedForward = CameraTransform.Transform.Rotation * glm::vec3(0.0f, 0.0f, -1.0f);
+        glm::vec3 UpdatedUp      = CameraTransform.Transform.Rotation * glm::vec3(0.0f, 1.0f,  0.0f);
+        
+        CameraComponent.SetView(CameraTransform.Transform.Location, UpdatedForward, UpdatedUp);
+        
+        RenderScene->RenderScene(RenderGraph, CameraComponent.GetViewVolume());
     }
 
     void CWorld::ShutdownWorld()

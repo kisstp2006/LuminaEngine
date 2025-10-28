@@ -1,21 +1,18 @@
 ﻿#pragma once
 
-#include "Memory/RefCounted.h"
+#include <ThirdParty/imgui/imgui.h>
 #include "Tools/EditorToolContext.h"
 #include "Tools/EditorToolModal.h"
-#include <ThirdParty/imgui/imgui.h>
+#include "Tools/Transactions/CoreTransactionTypes.h"
+#include "Tools/Transactions/Transaction.h"
 #include "Tools/UI/DevelopmentToolUI.h"
-#include "Tools/UI/ImGui/imfilebrowser.h"
 #include "Tools/UI/ImGui/ImGuiX.h"
+
 
 
 namespace Lumina
 {
     class FGamePreviewTool;
-}
-
-namespace Lumina
-{
     class FEditorToolModal;
     class FContentBrowserEditorTool;
     class FRendererInfoEditorTool;
@@ -31,6 +28,8 @@ namespace Lumina
     class FEditorUI : public IDevelopmentToolUI, public IEditorToolContext
     {
     public:
+
+        using FUITransactionManager = TTransactionManager<FDeleteAssetTransaction>;
         
         FEditorUI();
         ~FEditorUI() override;
@@ -52,7 +51,8 @@ namespace Lumina
         template<typename T, typename... Args>
         requires std::is_base_of_v<FEditorTool, T> && std::constructible_from<T, Args...>
         T* CreateTool(Args&&... args);
-        
+
+
     private:
 
         void EditorToolLayoutCopy(FEditorTool* SourceTool);
@@ -79,10 +79,11 @@ namespace Lumina
         void LaunchTracyProfiler();
         
         void HandleUserInput(const FUpdateContext& UpdateContext);
-
-
+    
     private:
 
+        FUITransactionManager                           TransactionManager;
+            
         ImGuiX::ApplicationTitleBar                     TitleBar;
         ImGuiWindowClass                                EditorWindowClass;
 

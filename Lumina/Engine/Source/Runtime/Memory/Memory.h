@@ -8,7 +8,6 @@
 #include "Platform/Platform.h"
 #include "tracy/TracyC.h"
 
-#define LUMINA_RPMALLOC 1
 
 #define LUMINA_PROFILE_ALLOC(p, size) TracyCAllocS(p, size, 12)
 #define LUMINA_PROFILE_FREE(p) TracyCFreeS(p, 12)
@@ -51,16 +50,12 @@ namespace Lumina::Memory
 
     LUMINA_API inline void CustomAssert(const char* pMessage)
     {
-#if 0
-        if (Logging::IsInitialized())
+        if (pMessage && strstr(pMessage, "Memory leak detected"))
         {
-            LOG_CRITICAL("[Memory] - ", pMessage);
+            return;
         }
-        else
-        {
-            std::cout << "[Memory Error] - " << pMessage << "\n";
-        }
-#endif
+
+        std::cout << "[Memory Error] - " << pMessage << "\n";
     }
 
     LUMINA_API void Initialize();

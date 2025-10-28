@@ -38,6 +38,9 @@ namespace Lumina::Paths
     /** Checks whether the given file or directory exists. */
     LUMINA_API bool Exists(FStringView Filename);
 
+    /** Returns the virtual path prefix from a virtual path (Assuming the path given is already a virtual path) */
+    LUMINA_API FString GetVirtualPathPrefix(const FString& VirtualPath);
+    
     /** 
      * Checks if the given directory is under a specific parent directory.
      * This does a path-based comparison, not a file system query.

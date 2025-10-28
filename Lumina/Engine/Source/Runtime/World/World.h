@@ -138,6 +138,7 @@ namespace Lumina
         uint32                                          bActive:1=1;
         uint32                                          bIsPlayWorld:1=0;
         entt::entity                                    SelectedEntity;
+        entt::entity                                    ThumbnailCaptureEntity;
         
     };
 }

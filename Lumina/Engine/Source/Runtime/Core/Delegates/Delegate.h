@@ -9,6 +9,8 @@ namespace Lumina
     class TMulticastDelegate
     {
     public:
+
+        using FFunctorType = TFunction<void(TArgs...)>;
         
         template<typename TFunc>
         requires(eastl::is_invocable_v<TFunc, TArgs...>)
@@ -18,16 +20,16 @@ namespace Lumina
         }
 
         template<typename TObject, typename TMemFunc>
-        void AddMember(TObject* Object, TMemFunc&& MemberFunc)
+        void AddMember(TObject* Object, TMemFunc MemberFunc)
         {
-            Add([Object, MemberFunc = std::forward<TMemFunc>(MemberFunc)](TArgs... Args)
+            Add([Object, MemberFunc](TArgs... Args)
             {
                 (Object->*MemberFunc)(std::forward<TArgs>(Args)...);
             });
         }
 
         template<typename TFunc>
-        requires(eastl::is_invocable_v<TFunc, TArgs...>)
+        requires(eastl::is_invocable_v<TFunc, std::decay_t<TArgs>...>)
         void AddLambda(TFunc&& Func)
         {
             Add<TFunc>(std::forward<TFunc>(Func));
@@ -35,7 +37,8 @@ namespace Lumina
         
 
         template<typename... TCallArgs>
-        void Broadcast(TCallArgs... Args)
+        //requires(eastl::is_invocable_v<FFunctorType, std::decay_t<TCallArgs>...>) Causes a failure if delegate is an empty type.
+        void Broadcast(TCallArgs&&... Args)
         {
             LUMINA_PROFILE_SCOPE();
             
@@ -63,7 +66,7 @@ namespace Lumina
     private:
         
         template<typename TCallable>
-        requires(eastl::is_invocable_v<TCallable, TArgs...>)
+        requires(eastl::is_invocable_v<TCallable, std::decay_t<TArgs>...>)
         void Add(TCallable&& Callable)
         {
             InvocationList.emplace_back(std::forward<TCallable>(Callable));
@@ -71,7 +74,7 @@ namespace Lumina
     
     private:
 
-        TVector<TFunction<void(TArgs...)>> InvocationList;
+        TVector<FFunctorType> InvocationList;
 
     };
 }

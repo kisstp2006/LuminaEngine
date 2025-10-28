@@ -40,8 +40,8 @@ namespace Lumina
 
 		bool HasAnyFlags(EApplicationFlags Flags);
 
-		void WindowResized(const FIntVector2D& Extent);
-		virtual void OnWindowResized(const FIntVector2D& Extent) { }
+		void WindowResized(FWindow* Window, const FIntVector2D& Extent);
+		virtual void OnWindowResized(FWindow* Window, const FIntVector2D& Extent) { }
 
 		static void RequestExit();
 
@@ -62,7 +62,7 @@ namespace Lumina
 		bool bExitRequested			= false;
 
 
-		FWindow*					Window = nullptr;
+		FWindow*					MainWindow = nullptr;
 		
 		FString ApplicationName =	"Unnamed Application";
 		

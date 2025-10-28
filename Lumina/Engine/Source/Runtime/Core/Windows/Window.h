@@ -4,11 +4,16 @@
 #include <GLFW/glfw3.h>
 
 #include "WindowTypes.h"
+#include "Core/Delegates/Delegate.h"
 #include "Core/Math/Math.h"
 
 
 namespace Lumina
 {
+	class FWindow;
+
+	LUMINA_API DECLARE_MULTICAST_DELEGATE(FWindowDropEvent, FWindow*, int, const char**);
+	LUMINA_API DECLARE_MULTICAST_DELEGATE(FWindowResizeEvent, FWindow*, const FIntVector2D&);
 	
 	class FWindow
 	{
@@ -35,12 +40,15 @@ namespace Lumina
 		uint32 GetHeight() const { return Specs.Extent.Y; }
 
 		static void WindowResizeCallback(GLFWwindow* window, int width, int height);
+		static void WindowDropCallback(GLFWwindow* Window, int PathCount, const char* Paths[]);
+		
+		LUMINA_API static FWindowDropEvent OnWindowDropped;
+		LUMINA_API static FWindowResizeEvent OnWindowResized;
 
-	
 	private:
 
-		GLFWwindow* Window = nullptr;
 		bool bInitialized = false;
+		GLFWwindow* Window = nullptr;
 		FWindowSpecs Specs;
 	};
 

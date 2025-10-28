@@ -57,6 +57,7 @@ namespace Lumina
         }
         
         Package = NewObject<CPackage>(nullptr, FileNameName);
+        Package->PackageThumbnail = MakeSharedPtr<FPackageThumbnail>();
 
         LOG_INFO("Created Package: \"{}\"", VirtualPath);
         
@@ -165,6 +166,16 @@ namespace Lumina
             Export.Object = Object;
         }
 
+        int64 SizeBefore = Reader.Tell();
+        Reader.Seek(PackageHeader.ThumbnailDataOffset);
+        
+        Package->PackageThumbnail = MakeSharedPtr<FPackageThumbnail>();
+        Package->PackageThumbnail->Serialize(Reader);
+
+        Reader.Seek(SizeBefore);
+        
+        
+
         LOG_INFO("Loaded Package: \"{}\" - ( [{}] Exports | [{}] Imports | [{}] Bytes)", Package->GetName(), Package->ExportTable.size(), Package->ImportTable.size(), Package->Loader->TotalSize());
 
         return Package;
@@ -211,10 +222,12 @@ namespace Lumina
         Header.ExportCount = (uint32)Package->ExportTable.size();
 
         Header.ThumbnailDataOffset = Writer.Tell();
-        if (Package->PackageThumbnail)
+        if (!Package->PackageThumbnail)
         {
-            Package->PackageThumbnail->Serialize(Writer);
+            Package->PackageThumbnail = MakeSharedPtr<FPackageThumbnail>();
         }
+        
+        Package->PackageThumbnail->Serialize(Writer);
         
         Writer.Seek(0);
         Writer << Header;
