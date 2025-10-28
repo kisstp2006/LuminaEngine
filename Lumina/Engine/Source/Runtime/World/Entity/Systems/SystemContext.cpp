@@ -1,6 +1,7 @@
 ﻿#include "SystemContext.h"
 
 #include "World/World.h"
+#include "World/Entity/Entity.h"
 
 namespace Lumina
 {
@@ -15,6 +16,11 @@ namespace Lumina
     FSystemContext::~FSystemContext()
     {
         EntityWorld->Unlock();
+    }
+
+    void FSystemContext::SetActiveCamera(entt::entity New) const
+    {
+        World->SetActiveCamera(Entity(New, World));
     }
 
     void FSystemContext::DrawDebugLine(const glm::vec3& Start, const glm::vec3& End, const glm::vec4& Color, float Thickness, float Duration) const

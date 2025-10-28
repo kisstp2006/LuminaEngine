@@ -10,7 +10,7 @@ namespace Lumina
     class LUMINA_API CEditorEntityMovementSystem : public CEntitySystem
     {
         GENERATED_BODY()
-        ENTITY_SYSTEM(CEditorEntityMovementSystem, RequiresUpdate(EUpdateStage::FrameStart, EUpdatePriority::Highest), RequiresUpdate(EUpdateStage::Paused))
+        ENTITY_SYSTEM(CEditorEntityMovementSystem, RequiresUpdate(EUpdateStage::Paused))
     public:
         
         void Initialize(FSystemContext& SystemContext) override;

@@ -1272,7 +1272,7 @@ namespace Lumina
             }
         }
 
-        if (Tool->HasWorld())
+        if (Tool->HasWorld() && !Tool->World->IsPlayWorld())
         {
             Tool->SetEditorCameraEnabled(Tool->bViewportFocused);
         }

@@ -17,7 +17,7 @@ namespace Lumina
         GLFWwindow* Window = PrimaryWindow->GetWindow();
 
         int Mode = glfwGetInputMode(Window, GLFW_CURSOR);
-        int DesiredMode = Snapshot.CursorMode.load(std::memory_order::memory_order_relaxed);
+        int DesiredMode = Snapshot.CursorMode;
         if (Mode != DesiredMode)
         {
             glfwSetInputMode(Window, GLFW_CURSOR, DesiredMode);
@@ -40,18 +40,18 @@ namespace Lumina
         // Keys
         for (int k = Key::Space; k < Key::Num; ++k)
         {
-            Snapshot.Keys[k].store(glfwGetKey(Window, k) == GLFW_PRESS, std::memory_order_relaxed);
+            Snapshot.Keys[k] = glfwGetKey(Window, k) == GLFW_PRESS;
         }
 
         // Mouse
         for (int b = 0; b < Mouse::Num; ++b)
         {
-            Snapshot.MouseButtons[b].store(glfwGetMouseButton(Window, b) == GLFW_PRESS, std::memory_order_relaxed);
+            Snapshot.MouseButtons[b] = glfwGetMouseButton(Window, b) == GLFW_PRESS;
         }
 
         // Cursor
-        Snapshot.MouseX.store(static_cast<float>(xpos), std::memory_order_relaxed);
-        Snapshot.MouseY.store(static_cast<float>(ypos), std::memory_order_relaxed);
+        Snapshot.MouseX = static_cast<float>(xpos);
+        Snapshot.MouseY = static_cast<float>(ypos);
         
         MousePosLastFrame = MousePos;
     }
@@ -63,22 +63,22 @@ namespace Lumina
 
     void FInputSubsystem::SetCursorMode(int NewMode)
     {
-        Snapshot.CursorMode.store(NewMode, std::memory_order_relaxed);
+        Snapshot.CursorMode = NewMode;;
     }
 
     bool FInputSubsystem::IsKeyPressed(KeyCode Key)
     {
-        return Snapshot.Keys[Key].load(std::memory_order_relaxed);
+        return Snapshot.Keys[Key];
     }
 
     bool FInputSubsystem::IsMouseButtonPressed(MouseCode Button)
     {
-        return Snapshot.MouseButtons[Button].load(std::memory_order_relaxed);
+        return Snapshot.MouseButtons[Button];
     }
 
     glm::vec2 FInputSubsystem::GetMousePosition() const
     {
-        return { Snapshot.MouseX.load(std::memory_order_relaxed), Snapshot.MouseY.load(std::memory_order_relaxed) };
+        return glm::vec2(Snapshot.MouseX, Snapshot.MouseY);
     }
 
 }

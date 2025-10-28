@@ -36,7 +36,7 @@ namespace Lumina
 
         Entity DirectionalLightEntity = World->ConstructEntity("Directional Light");
         DirectionalLightEntity.Emplace<SDirectionalLightComponent>();
-        DirectionalLightEntity.Emplace<SEnvironmentComponent>();
+        DirectionalLightEntity.Emplace<SEnvironmentComponent>().bSSAOEnabled = false;
 
         MeshEntity = World->ConstructEntity("MeshEntity");
         

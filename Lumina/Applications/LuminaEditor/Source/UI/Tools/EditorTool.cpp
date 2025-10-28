@@ -35,7 +35,10 @@ namespace Lumina
         {
             GEngine->GetEngineSubsystem<FWorldManager>()->AddWorld(World);
             World->InitializeWorld();
-            EditorEntity = World->SetupEditorWorld();
+            if (!World->IsPlayWorld())
+            {
+                EditorEntity = World->SetupEditorWorld();
+            }
 
             Internal_CreateViewportTool();
         }
@@ -117,8 +120,8 @@ namespace Lumina
         float t = (ViewportSize.x - 500) / (1200 - 500);
         t = glm::clamp(t, 0.0f, 1.0f);
         float NewFOV = glm::mix(120.0f, 50.0f, t);
-
-        SCameraComponent& CameraComponent = EditorEntity.GetComponent<SCameraComponent>();
+        
+        SCameraComponent& CameraComponent =  World->GetActiveCamera();
         CameraComponent.SetAspectRatio(AspectRatio);
         CameraComponent.SetFOV(NewFOV);
         

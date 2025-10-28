@@ -114,6 +114,8 @@ namespace Lumina
         }
         
         CameraManager = Memory::New<FCameraManager>();
+        SetupEditorWorld();
+        
         RenderScene = Memory::New<FRenderScene>(this);
 
         TVector<TObjectHandle<CEntitySystem>> Systems;

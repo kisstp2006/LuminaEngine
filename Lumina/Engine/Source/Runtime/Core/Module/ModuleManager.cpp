@@ -37,6 +37,9 @@ namespace Lumina
         ModuleInfo->ModuleInterface.reset(ModuleInterface);
 
         ModuleInterface->StartupModule();
+        
+        LOG_INFO("[Module Manager] - Successfully loaded module {}", ModuleName);
+        
         return ModuleInterface;
     }
 
@@ -71,6 +74,8 @@ namespace Lumina
             LOG_ERROR("Failed to free DLL handle for module: {}", ModuleName);
             return false;
         }
+
+        LOG_INFO("[Module Manager] - Successfully un-loaded module {}", ModuleName);
         
         return true;
     }
@@ -83,9 +88,10 @@ namespace Lumina
             Keys.push_back(Pair.first);
         }
 
+        //@TODO This causes a crash with the heap.
         for (const FName& Key : Keys)
         {
-            UnloadModule(Key.ToString());
+            //UnloadModule(Key.ToString());
         }
     }
 

@@ -465,7 +465,7 @@ namespace Lumina
                 for (FAssetData* Asset : Assets)
                 {
                     FName ShortClassName = Paths::GetExtension(Asset->AssetClass.ToString());
-                    if (FilterState.at(ShortClassName))
+                    if (FilterState.count(ShortClassName) && FilterState.at(ShortClassName))
                     {
                         FullPath = Paths::ResolveVirtualPath(Asset->FullPath.ToString());
                         ContentBrowserTileView.AddItemToTree<FContentBrowserTileViewItem>(nullptr, FullPath, Asset);

@@ -1,12 +1,9 @@
 ﻿#pragma once
 #include "Core/UpdateStage.h"
-#include "Core/Math/Hash/Hash.h"
-#include <entt/entt.hpp>
 #include "Core/Object/Object.h"
 #include "Core/Object/ObjectHandleTyped.h"
-#include "Core/UpdateContext.h"
-#include "EntitySystem.generated.h"
 #include "SystemContext.h"
+#include "EntitySystem.generated.h"
 
 
 namespace Lumina

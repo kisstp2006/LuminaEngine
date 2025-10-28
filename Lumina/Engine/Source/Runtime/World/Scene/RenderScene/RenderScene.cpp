@@ -1400,20 +1400,7 @@
                     LineBatcherComponent.Flush();
                 });
             }
-        
-            //========================================================================================================================
-        
-            {
-                auto Group = World->GetEntityRegistry().group<>(entt::get<SCameraComponent>, entt::exclude<SEditorComponent>);
-                for (uint64 i = 0; i < Group.size(); ++i)
-                {
-                    entt::entity entity = Group[i];
-                    SCameraComponent& CameraComponent = Group.get<SCameraComponent>(entity);
-                    World->DrawArrow(CameraComponent.GetPosition(), CameraComponent.GetForwardVector(), 1.0f, FColor::Blue);
-                    //World->DrawFrustum(CameraComponent.GetViewVolume().GetViewProjectionMatrix(), FColor::Green);
-                }
-            }
-        
+            
             //========================================================================================================================
 
             {

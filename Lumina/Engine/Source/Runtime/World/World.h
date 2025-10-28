@@ -109,6 +109,7 @@ namespace Lumina
         //~ End Debug Drawing
 
         void SetIsPlayWorld(bool bValue) { bIsPlayWorld = bValue; }
+        FORCEINLINE bool IsPlayWorld() const { return bIsPlayWorld; }
 
         void SetEntityTransform(Entity Entt, const FTransform& NewTransform);
 

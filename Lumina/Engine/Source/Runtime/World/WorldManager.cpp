@@ -37,9 +37,8 @@ namespace Lumina
             if (UpdateContext.GetUpdateStage() == EUpdateStage::Paused && World.World->IsPaused())
             {
                 World.World->Paused(UpdateContext);
-                continue;
             }
-            else if (!World.World->IsPaused())
+            else if (!World.World->IsPaused() && UpdateContext.GetUpdateStage() != EUpdateStage::Paused)
             {
                 World.World->Update(UpdateContext);
             }

@@ -22,6 +22,9 @@ namespace Lumina
 namespace Lumina
 {
 
+    template<typename T>
+    concept IsACObject = std::is_base_of_v<CObject, T>;
+
     LUMINA_API FName MakeUniqueObjectName(CClass* Class, CPackage* Package, const FName& InBaseName = NAME_None);
     LUMINA_API CObject* StaticAllocateObject(FConstructCObjectParams& Params);
 
@@ -39,30 +42,34 @@ namespace Lumina
     LUMINA_API bool IsValid(CObjectBase* Obj);
 
     
-    template<typename T>
-    requires(std::is_base_of_v<CObject, T>)
+    template<IsACObject T>
     T* FindObject(CPackage* Package, const FName& Name, bool bExactClass = false)
     {
         return (T*)FindObjectFast(T::StaticClass(), Package, Name, bExactClass);
     }
     
-    template<typename T>
-    requires(std::is_base_of_v<CObject, T>)
+    template<IsACObject T>
     T* LoadObject(CPackage* Package, const FName& Name, const FName& Filename = NAME_None)
     {
         return (T*)StaticLoadObject(T::StaticClass(), Package, Name, Filename);
+    }
+
+    template<IsACObject T>
+    T* LoadObject(const FName& Name, const FName& Filename = NAME_None)
+    {
+        return (T*)StaticLoadObject(T::StaticClass(), nullptr, Name, Filename);
     }
     
     LUMINA_API CObject* NewObject(CClass* InClass, const CPackage* Package = nullptr, const FName& Name = NAME_None, EObjectFlags Flags = OF_None);
     LUMINA_API void GetObjectsWithPackage(CPackage* Package, TVector<CObject*>& OutObjects);
     
-    template<typename T>
+    template<IsACObject T>
     T* NewObject(CPackage* Package = nullptr, FName Name = NAME_None, EObjectFlags Flags = OF_None)
     {
         return static_cast<T*>(NewObject(T::StaticClass(), Package, Name, Flags));
     }
 
-    template<typename T>
+    template<IsACObject T>
     T* NewObject(CClass* InClass, CPackage* Package = nullptr, FName Name = NAME_None, EObjectFlags Flags = OF_None)
     {
         return static_cast<T*>(NewObject(InClass, Package, Name, Flags));
@@ -72,13 +79,13 @@ namespace Lumina
 
     
 
-    template<typename T>
+    template<IsACObject T>
     T* GetMutableDefault()
     {
         return T::StaticClass()->template GetDefaultObject<T>();
     }
 
-    template<typename T>
+    template<IsACObject T>
     const T* GetDefault()
     {
         return T::StaticClass()->template GetDefaultObject<T>();

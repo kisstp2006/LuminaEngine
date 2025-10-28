@@ -16,14 +16,14 @@ namespace Lumina
         void Update(const FUpdateContext& UpdateContext);
         void Deinitialize() override;
 
-        float GetMouseDeltaYaw() const { return MouseDeltaYaw; }
-        float GetMouseDeltaPitch() const { return MouseDeltaPitch; }
+        LUMINA_API float GetMouseDeltaYaw() const { return MouseDeltaYaw; }
+        LUMINA_API float GetMouseDeltaPitch() const { return MouseDeltaPitch; }
 
-        void SetCursorMode(int NewMode);
+        LUMINA_API void SetCursorMode(int NewMode);
 
-        bool IsKeyPressed(KeyCode Key);
-        bool IsMouseButtonPressed(MouseCode Button);
-        glm::vec2 GetMousePosition() const;
+        LUMINA_API bool IsKeyPressed(KeyCode Key);
+        LUMINA_API bool IsMouseButtonPressed(MouseCode Button);
+        LUMINA_API glm::vec2 GetMousePosition() const;
         
     private:
 
@@ -34,11 +34,11 @@ namespace Lumina
         
         struct FInputSnapshot
         {
-            TArray<std::atomic<bool>, (uint32)Key::Num> Keys;
-            TArray<std::atomic<bool>, (uint32)Mouse::Num> MouseButtons;
-            std::atomic<float> MouseX;
-            std::atomic<float> MouseY;
-            std::atomic_int    CursorMode = GLFW_CURSOR_NORMAL;
+            TArray<bool, (uint32)Key::Num> Keys;
+            TArray<bool, (uint32)Mouse::Num> MouseButtons;
+            float MouseX;
+            float MouseY;
+            uint32 CursorMode = GLFW_CURSOR_NORMAL;
         } Snapshot;
     };
 }
