@@ -130,10 +130,11 @@ namespace Lumina
         
         TVector<CEntitySystem*>                         SystemUpdateList[(int32)EUpdateStage::Max];
         
+        std::atomic_bool                                bInitialized{false};
+        
         int64                                           WorldIndex = -1;
         double                                          DeltaTime = 0.0;
         double                                          TimeSinceCreation = 0.0;
-        uint32                                          bInitialized:1=0;
         uint32                                          bPaused:1=1;
         uint32                                          bActive:1=1;
         uint32                                          bIsPlayWorld:1=0;

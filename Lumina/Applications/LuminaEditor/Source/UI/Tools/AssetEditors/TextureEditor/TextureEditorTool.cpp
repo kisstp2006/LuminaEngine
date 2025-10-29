@@ -416,12 +416,10 @@ namespace Lumina
 
         ImGui::DockBuilderDockWindow(GetToolWindowName(TexturePreviewName).c_str(), leftDockID);
         ImGui::DockBuilderDockWindow(GetToolWindowName(TexturePropertiesName).c_str(), rightDockID);
-
     }
 
     void FTextureEditorTool::GenerateThumbnailOnLoad()
     {
-
         CTexture* Texture = Cast<CTexture>(Asset.Get());
         
         FRHICommandListRef CommandList = GRenderContext->CreateCommandList(FCommandListInfo::Graphics());
@@ -451,7 +449,6 @@ namespace Lumina
         
         AssetPackage->PackageThumbnail->ImageWidth = ThumbWidth;
         AssetPackage->PackageThumbnail->ImageHeight = ThumbHeight;
-        AssetPackage->PackageThumbnail->bFlip = false;
 
         constexpr size_t BytesPerPixel = 4;
         constexpr size_t TotalBytes = ThumbWidth * ThumbHeight * BytesPerPixel;
@@ -470,35 +467,36 @@ namespace Lumina
         {
             for (uint32 DestX = 0; DestX < ThumbWidth; ++DestX)
             {
-                // Calculate source position with flipped Y
+                // Calculate source position (NO flip here)
                 const float SrcX = DestX * ScaleX;
-                const float SrcY = (ThumbHeight - 1 - DestY) * ScaleY;
-        
+                const float SrcY = DestY * ScaleY;  // Normal source coordinates
+
                 // Get integer coordinates
                 const uint32 X0 = static_cast<uint32>(SrcX);
                 const uint32 Y0 = static_cast<uint32>(SrcY);
                 const uint32 X1 = Math::Min(X0 + 1, SourceWidth - 1);
                 const uint32 Y1 = Math::Min(Y0 + 1, SourceHeight - 1);
-        
+
                 // Get fractional parts for interpolation
                 const float FracX = SrcX - X0;
                 const float FracY = SrcY - Y0;
-        
+
                 // Sample 4 pixels
                 const uint8* P00 = SourceData + (Y0 * RowPitch) + (X0 * BytesPerPixel);
                 const uint8* P10 = SourceData + (Y0 * RowPitch) + (X1 * BytesPerPixel);
                 const uint8* P01 = SourceData + (Y1 * RowPitch) + (X0 * BytesPerPixel);
                 const uint8* P11 = SourceData + (Y1 * RowPitch) + (X1 * BytesPerPixel);
-        
-                // Write to destination
-                uint8* DestPixel = DestData + (DestY * ThumbWidth + DestX) * BytesPerPixel;
-        
+
+                // Write to FLIPPED destination
+                const uint32 FlippedDestY = ThumbHeight - 1 - DestY;  // Flip the destination
+                uint8* DestPixel = DestData + (FlippedDestY * ThumbWidth + DestX) * BytesPerPixel;
+
                 for (uint32 Channel = 0; Channel < BytesPerPixel; ++Channel)
                 {
                     const float Top     = Math::Lerp(static_cast<float>(P00[Channel]), static_cast<float>(P10[Channel]), FracX);
                     const float Bottom  = Math::Lerp(static_cast<float>(P01[Channel]), static_cast<float>(P11[Channel]), FracX);
                     const float Result  = Math::Lerp(Top, Bottom, FracY);
-            
+    
                     DestPixel[Channel] = static_cast<uint8>(Result + 0.5f);
                 }
             }

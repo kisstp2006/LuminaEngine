@@ -11,8 +11,8 @@
 #include "Renderer/RHIIncl.h"
 #include "TaskSystem/TaskSystem.h"
 #include "Tools/Import/ImportHelpers.h"
-#include "Tools/UI/UITextureCache.h"
 #include "Tools/UI/ImGui/ImGuiDesignIcons.h"
+#include "Tools/UI/ImGui/ImGuiX.h"
 
 
 namespace Lumina
@@ -266,7 +266,7 @@ namespace Lumina
                             
                             ImGui::SetCursorScreenPos(ImVec2(cursorPos.x + 2, cursorPos.y + 2));
 
-                            ImGui::Image(FUITextureCache::Get().GetImTexture(ImagePath), imageSize);
+                            ImGui::Image(ImGuiX::ToImTextureRef(ImagePath), imageSize);
 
                             ImGui::TableSetColumnIndex(1);
                             ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.9f, 0.9f, 1.0f));

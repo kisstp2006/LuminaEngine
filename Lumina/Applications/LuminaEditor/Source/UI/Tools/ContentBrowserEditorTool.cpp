@@ -22,7 +22,6 @@
 #include "thumbnails/thumbnailmanager.h"
 #include "Tools/Dialogs/Dialogs.h"
 #include "Tools/Import/ImportHelpers.h"
-#include "Tools/UI/UITextureCache.h"
 #include "Tools/UI/ImGui/ImGuiMemoryEditor.h"
 #include "Tools/UI/ImGui/ImGuiRenderer.h"
 #include "Tools/UI/ImGui/ImGuiX.h"
@@ -125,7 +124,7 @@ ContentBrowserTileViewContext.DrawItemOverrideFunction = [this] (FTileViewItem* 
 {
     FContentBrowserTileViewItem* ContentItem = static_cast<FContentBrowserTileViewItem*>(Item);
     
-    ImTextureRef ImTexture = FUITextureCache::Get().GetImTexture(Paths::GetEngineResourceDirectory() + "/Textures/Folder.png");
+    ImTextureRef ImTexture = ImGuiX::ToImTextureRef(Paths::GetEngineResourceDirectory() + "/Textures/Folder.png");
 
     ImVec4 TintColor = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
     
@@ -133,7 +132,7 @@ ContentBrowserTileViewContext.DrawItemOverrideFunction = [this] (FTileViewItem* 
     {
         if (ContentItem->GetAssetData().IsRedirector())
         {
-            ImTexture = FUITextureCache::Get().GetImTexture(Paths::GetEngineResourceDirectory() + "/Textures/Redirect.png");
+            ImTexture = ImGuiX::ToImTextureRef(Paths::GetEngineResourceDirectory() + "/Textures/Redirect.png");
             TintColor = ImVec4(0.7f, 0.7f, 1.0f, 1.0f);
         }
         else
@@ -146,12 +145,12 @@ ContentBrowserTileViewContext.DrawItemOverrideFunction = [this] (FTileViewItem* 
                 }
                 else
                 {
-                    ImTexture = FUITextureCache::Get().GetImTexture(Paths::GetEngineResourceDirectory() + "/Textures/SkeletalMeshIcon.png");
+                    ImTexture = ImGuiX::ToImTextureRef(Paths::GetEngineResourceDirectory() + "/Textures/SkeletalMeshIcon.png");
                 }
             }
             else
             {
-                ImTexture = FUITextureCache::Get().GetImTexture(Paths::GetEngineResourceDirectory() + "/Textures/SkeletalMeshIcon.png");
+                ImTexture = ImGuiX::ToImTextureRef(Paths::GetEngineResourceDirectory() + "/Textures/SkeletalMeshIcon.png");
             }
         }
     }

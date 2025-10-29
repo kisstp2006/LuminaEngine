@@ -255,6 +255,11 @@ namespace Lumina::ImGuiX
         return GEngine->GetEngineSubsystem<FRenderManager>()->GetImGuiRenderer()->GetOrCreateImTexture(Image);
     }
 
+    ImTextureRef ToImTextureRef(const FString& Path)
+    {
+        return GEngine->GetEngineSubsystem<FRenderManager>()->GetImGuiRenderer()->GetOrCreateImTexture(Path);
+    }
+
     FString FormatSize(size_t bytes)
     {
         const char* suffixes[] = { "B", "KB", "MB", "GB" };

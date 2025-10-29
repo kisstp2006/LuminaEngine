@@ -44,7 +44,7 @@ namespace Lumina
         
         FRHIImageDesc ImageDescription;
         ImageDescription.Format                 = EFormat::RGBA8_UNORM;
-        ImageDescription.Extent                 = Import::Textures::ImportTexture(NewTexture->Pixels, RawPath);
+        ImageDescription.Extent                 = Import::Textures::ImportTexture(NewTexture->Pixels, RawPath, false);
         ImageDescription.Flags                  .SetFlag(EImageCreateFlags::ShaderResource);
         ImageDescription.NumMips                = CalculateMipCount(ImageDescription.Extent.X, ImageDescription.Extent.Y);
         ImageDescription.InitialState           = EResourceStates::ShaderResource;

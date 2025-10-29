@@ -9,6 +9,7 @@
 #include "Core/Profiler/Profile.h"
 #include "Core/Windows/Window.h"
 #include "EASTL/bonus/ring_buffer.h"
+#include "Paths/Paths.h"
 #include "Renderer/RenderManager.h"
 #include "Renderer/RHIStaticStates.h"
 #include "Renderer/API/Vulkan/VulkanMacros.h"
@@ -16,6 +17,7 @@
 #include "Renderer/API/Vulkan/VulkanSwapchain.h"
 #include "Renderer/RenderGraph/RenderGraph.h"
 #include "Renderer/RenderGraph/RenderGraphDescriptor.h"
+#include "Tools/Import/ImportHelpers.h"
 
 namespace Lumina
 {
@@ -131,7 +133,7 @@ namespace Lumina
     	
         Assert(ImGui_ImplGlfw_InitForVulkan(Windowing::GetPrimaryWindowHandle()->GetWindow(), true))
 
-		VkFormat Format = VulkanRenderContext->GetSwapchain()->GetSwapchainFormat();
+		VkFormat Format = VK_FORMAT_R8G8B8A8_UNORM;
 		
         VkPipelineRenderingCreateInfo RenderPipeline	= {};
         RenderPipeline.sType							= VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR;
@@ -154,18 +156,38 @@ namespace Lumina
         InitInfo.MSAASamples					= VK_SAMPLE_COUNT_1_BIT;
 		
         Assert(ImGui_ImplVulkan_Init(&InitInfo))
+
+
+		FName SquareTexturePath		= Paths::GetEngineResourceDirectory() + "/Textures/WhiteSquareTexture.png";
+		FRHIImageRef RHI			= Import::Textures::CreateTextureFromImport(GRenderContext, SquareTexturePath.ToString(), false);
+		ImTextureRef ImTex			= ImGuiX::ToImTextureRef(RHI);
+    
+		SquareWhiteTexture.first				= SquareTexturePath;
+		SquareWhiteTexture.second				= Memory::New<FEntry>();
+		SquareWhiteTexture.second->Name			= SquareTexturePath; 
+		SquareWhiteTexture.second->RHIImage		= RHI;
+		SquareWhiteTexture.second->ImTexture	= ImTex;
+		SquareWhiteTexture.second->State		= ETextureState::Ready;
+        
+		Images.emplace(SquareTexturePath, SquareWhiteTexture.second);
+		
     }
 
     void FVulkanImGuiRender::Deinitialize()
     {
 		VulkanRenderContext->WaitIdle();
 		
-    	for (auto& KVP : ImageCache)
+		Memory::Delete(SquareWhiteTexture.second);
+		SquareWhiteTexture.second = nullptr;
+		Images.erase(SquareWhiteTexture.first);
+		
+    	for (auto& KVP : Images)
     	{
-    		ImGui_ImplVulkan_RemoveTexture(KVP.second);
+    		ImGui_ImplVulkan_RemoveTexture((VkDescriptorSet)KVP.second->ImTexture.GetTexID());
+    		Memory::Delete(KVP.second);
     	}
 
-		ImageCache.clear();
+		Images.clear();
 		
     	ImGui_ImplVulkan_Shutdown();
     	
@@ -180,6 +202,10 @@ namespace Lumina
     void FVulkanImGuiRender::OnStartFrame(const FUpdateContext& UpdateContext)
     {
     	LUMINA_PROFILE_SCOPE();
+
+		FScopeLock Lock(Mutex);
+		SquareWhiteTexture.second->LastUseFrame = GEngine->GetUpdateContext().GetFrame();
+		
 		ReferencedImages.clear();
 		
         ImGui_ImplVulkan_NewFrame();
@@ -191,6 +217,43 @@ namespace Lumina
     void FVulkanImGuiRender::OnEndFrame(const FUpdateContext& UpdateContext, FRenderGraph& RenderGraph)
     {
     	LUMINA_PROFILE_SCOPE();
+
+		FScopeLock Lock(Mutex);
+        
+		uint64 CurrentFrame = GEngine->GetUpdateContext().GetFrame();
+    
+		TFixedVector<FEntry*, 10> ToDelete;
+
+	    for (auto& KVP : Images)
+	    {
+	    	FEntry* Entry = KVP.second;
+
+	    	if (Entry == SquareWhiteTexture.second)
+	    	{
+	    		continue;
+	    	}
+
+	    	if (Entry->State == ETextureState::Ready)
+	    	{
+	    		uint64 LastUse = Entry->LastUseFrame;
+	    		if (CurrentFrame - LastUse > 10000)
+	    		{
+	    			ToDelete.push_back(Entry);
+	    		}
+	    	}
+	    }
+
+		if (!ToDelete.empty())
+		{
+			LOG_INFO("Garbage Collecting UI Textures: {}", ToDelete.size());
+		}
+		
+	    for (FEntry* Delete : ToDelete)
+	    {
+	    	DestroyImTexture(Delete->ImTexture);
+	    }
+		
+		ToDelete.clear();
 
 		FRGPassDescriptor* Descriptor = RenderGraph.AllocDescriptor();
 		Descriptor->AddRawWrite(GEngine->GetEngineViewport()->GetRenderTarget());
@@ -296,8 +359,45 @@ namespace Lumina
 		ImGui::End();
 	}
 
+	ImTextureID FVulkanImGuiRender::GetOrCreateImTexture(const FString& Path)
+	{
+		LUMINA_PROFILE_SCOPE();
+		FScopeLock Lock(TextureMutex);
 
-    ImTextureID FVulkanImGuiRender::GetOrCreateImTexture(FRHIImageRef Image)
+		FName NamePath = Path;
+		auto It = Images.find(NamePath);
+		
+		if (It != Images.end())
+		{
+			It->second->LastUseFrame = GEngine->GetUpdateContext().GetFrame();
+			ReferencedImages.push_back(It->second->RHIImage);
+			return It->second->ImTexture.GetTexID();
+		}
+
+		FRHIImageRef Image = Import::Textures::CreateTextureFromImport(GRenderContext, Path, false);
+		ReferencedImages.push_back(Image);
+		
+		const FTextureSubresourceSet Subresource = AllSubresources;
+		FVulkanImage::ESubresourceViewType ViewType = GetTextureViewType(EFormat::UNKNOWN, Image->GetDescription().Format);
+		VkImageView View = Image.As<FVulkanImage>()->GetSubresourceView(Subresource, Image->GetDescription().Dimension, Image->GetDescription().Format, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, ViewType).View;
+		
+		FRHISamplerRef Sampler = TStaticRHISampler<>::GetRHI();
+		VkSampler VulkanSampler = Sampler->GetAPI<VkSampler>();
+
+		FEntry* NewEntry			= Memory::New<FEntry>();
+		NewEntry->State				= ETextureState::Ready;
+		NewEntry->RHIImage			= Image;
+		NewEntry->ImTexture._TexID	= (ImTextureID)ImGui_ImplVulkan_AddTexture(VulkanSampler, View, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		NewEntry->LastUseFrame		= GEngine->GetUpdateContext().GetFrame();
+    	
+		Images.insert_or_assign(NamePath, NewEntry);
+
+		NewEntry->LastUseFrame = GEngine->GetUpdateContext().GetFrame();
+		return NewEntry->ImTexture.GetTexID();
+	}
+
+
+	ImTextureID FVulkanImGuiRender::GetOrCreateImTexture(FRHIImageRef Image)
     {
     	LUMINA_PROFILE_SCOPE();
 		FScopeLock Lock(TextureMutex);
@@ -307,7 +407,6 @@ namespace Lumina
     		return 0;
     	}
 		
-    	
 		ReferencedImages.push_back(Image);
 	    VkImage VulkanImage = Image->GetAPI<VkImage>();
 		
@@ -315,35 +414,39 @@ namespace Lumina
 		FVulkanImage::ESubresourceViewType ViewType = GetTextureViewType(EFormat::UNKNOWN, Image->GetDescription().Format);
 		VkImageView View = Image.As<FVulkanImage>()->GetSubresourceView(Subresource, Image->GetDescription().Dimension, Image->GetDescription().Format, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, ViewType).View;
 		
-    	auto It = ImageCache.find(VulkanImage);
+    	auto It = Images.find((uintptr_t)VulkanImage);
 		
-    	if (It != ImageCache.end())
+    	if (It != Images.end())
     	{
-    		return (intptr_t)It->second;
+    		It->second->LastUseFrame = GEngine->GetUpdateContext().GetFrame();
+    		return It->second->ImTexture.GetTexID();
     	}
 
     	FRHISamplerRef Sampler = TStaticRHISampler<>::GetRHI();
-		
     	VkSampler VulkanSampler = Sampler->GetAPI<VkSampler>();
-    	
-    	VkDescriptorSet DescriptorSet = ImGui_ImplVulkan_AddTexture(VulkanSampler, View, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-    	ImageCache.insert_or_assign(VulkanImage, DescriptorSet);
 
-    	return (intptr_t)DescriptorSet;
+		FEntry* NewEntry			= Memory::New<FEntry>();
+		NewEntry->State				= ETextureState::Ready;
+		NewEntry->RHIImage			= Image;
+		NewEntry->ImTexture._TexID	= (ImTextureID)ImGui_ImplVulkan_AddTexture(VulkanSampler, View, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+		NewEntry->LastUseFrame		= GEngine->GetUpdateContext().GetFrame();
     	
+    	Images.insert_or_assign((uintptr_t)VulkanImage, NewEntry);
+
+		NewEntry->LastUseFrame = GEngine->GetUpdateContext().GetFrame();
+    	return NewEntry->ImTexture.GetTexID();
     }
 
     void FVulkanImGuiRender::DestroyImTexture(ImTextureRef Image)
     {
 		FScopeLock Lock(TextureMutex);
-		VkDescriptorSet TargetDescriptor = (VkDescriptorSet)Image.GetTexID();
 
 		ImGui_ImplVulkan_RemoveTexture((VkDescriptorSet)Image.GetTexID());
-		for (auto it = ImageCache.begin(); it != ImageCache.end(); )
+		for (auto it = Images.begin(); it != Images.end(); )
 		{
-			if (it->second == TargetDescriptor)
+			if (it->second->ImTexture.GetTexID() == Image.GetTexID())
 			{
-				it = ImageCache.erase(it);
+				it = Images.erase(it);
 				break;
 			}
 			

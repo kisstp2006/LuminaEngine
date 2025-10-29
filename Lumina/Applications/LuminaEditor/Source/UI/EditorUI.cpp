@@ -45,7 +45,6 @@
 #include "Tools/AssetEditors/MeshEditor/MeshEditorTool.h"
 #include "Tools/AssetEditors/TextureEditor/TextureEditorTool.h"
 #include "Tools/Import/ImportHelpers.h"
-#include "Tools/UI/UITextureCache.h"
 #include "Tools/UI/ImGui/ImGuiRenderer.h"
 #include "World/WorldManager.h"
 #include "World/Scene/RenderScene/RenderScene.h"
@@ -1665,7 +1664,7 @@ namespace Lumina
     void FEditorUI::DrawTitleBarMenu(const FUpdateContext& UpdateContext)
     {
         ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 2.0f);
-        ImGui::Image(FUITextureCache::Get().GetImTexture(Paths::GetEngineResourceDirectory() + "/Textures/Lumina.png"), ImVec2(24.0f, 24.0f));
+        ImGui::Image(ImGuiX::ToImTextureRef(Paths::GetEngineResourceDirectory() + "/Textures/Lumina.png"), ImVec2(24.0f, 24.0f));
         ImGui::SetCursorPosY(ImGui::GetCursorPosY() - 2.0f);
     
         // Styled menu bar

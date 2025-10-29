@@ -108,14 +108,14 @@ namespace Lumina
 
     void CWorld::InitializeWorld()
     {
-        if (bInitialized)
+        if (bInitialized.load(std::memory_order_relaxed))
         {
             return;
         }
         
         CameraManager = Memory::New<FCameraManager>();
         SetupEditorWorld();
-        
+
         RenderScene = Memory::New<FRenderScene>(this);
 
         TVector<TObjectHandle<CEntitySystem>> Systems;
@@ -130,7 +130,7 @@ namespace Lumina
             }
         }
 
-        bInitialized = true;
+        bInitialized.store(true, std::memory_order_acquire);
     }
     
     Entity CWorld::SetupEditorWorld()

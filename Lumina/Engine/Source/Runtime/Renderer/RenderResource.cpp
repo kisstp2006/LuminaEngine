@@ -165,7 +165,7 @@ namespace Lumina
     void FRHIViewport::CreateRenderTarget(const FIntVector2D& InSize)
     {
         FRHIImageDesc Desc;
-        Desc.Format = EFormat::BGRA8_UNORM;
+        Desc.Format = EFormat::RGBA8_UNORM;
         Desc.Flags.SetMultipleFlags(EImageCreateFlags::RenderTarget, EImageCreateFlags::ShaderResource);
         Desc.Extent = InSize;
         //Desc.InitialState = EResourceStates::RenderTarget;

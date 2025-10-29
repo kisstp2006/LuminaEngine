@@ -30,6 +30,22 @@ namespace Lumina
         
         if (!RelationshipGroup.empty())
         {
+            TVector<entt::entity> RootEntities;
+            for (auto entity : RelationshipGroup)
+            {
+                bool IsRoot = true;
+                if (SystemContext.Has<true, SRelationshipComponent>(entity))
+                {
+                    auto& RelationshipComponent = SystemContext.Get<SRelationshipComponent>(entity);
+                    IsRoot = !RelationshipComponent.Parent.IsValid();
+                }
+        
+                if (IsRoot)
+                {
+                    RootEntities.push_back(entity);
+                }
+            }
+            
             auto WorkCallable = [&](uint32 Index)
             {
                 TFunction<void(entt::entity)> UpdateTransformRecursive;
@@ -75,18 +91,18 @@ namespace Lumina
                 };
             
                 
-                entt::entity entity = RelationshipGroup[Index];
+                entt::entity entity = RootEntities[Index];
                 UpdateTransformRecursive(entity);
             };
             
             // Only schedule tasks if there is a significant amount of transform updates required.
-            if (RelationshipGroup.size() > 1000)
+            if (RootEntities.size() > 100)
             {
-                Task::ParallelFor((uint32)RelationshipGroup.size(), RelationshipGroup.size() / 8, WorkCallable);
+                Task::ParallelFor((uint32)RootEntities.size(), RootEntities.size() / 8, WorkCallable);
             }
             else
             {
-                for (uint32 i = 0; i < (uint32)RelationshipGroup.size(); ++i)
+                for (uint32 i = 0; i < (uint32)RootEntities.size(); ++i)
                 {
                     WorkCallable(i);
                 }

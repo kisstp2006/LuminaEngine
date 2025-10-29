@@ -101,7 +101,7 @@ namespace Lumina
             FRHIImageDesc ImageDesc;
             ImageDesc.Dimension = EImageDimension::Texture2D;
             ImageDesc.Extent = {256, 256};
-            ImageDesc.Format = EFormat::BGRA8_UNORM;
+            ImageDesc.Format = EFormat::RGBA8_UNORM;
             ImageDesc.Flags.SetFlag(EImageCreateFlags::ShaderResource);
             ImageDesc.InitialState = EResourceStates::ShaderResource;
             ImageDesc.bKeepInitialState = true;
@@ -112,28 +112,18 @@ namespace Lumina
         
             constexpr SIZE_T BytesPerPixel = 4;
             constexpr SIZE_T RowBytes = 256 * BytesPerPixel;
-
-            if (Thumbnail->bFlip)
+            
+            TVector<uint8> FlippedData(Thumbnail->ImageData.size());
+            for (uint32 Y = 0; Y < 256; ++Y)
             {
-                TVector<uint8> FlippedData(Thumbnail->ImageData.size());
-                for (uint32 Y = 0; Y < 256; ++Y)
-                {
-                    const uint32 FlippedY = 255 - Y;
-                    memcpy(FlippedData.data() + (FlippedY * RowBytes), Thumbnail->ImageData.data() + (Y * RowBytes), RowBytes);
-                }
-        
-                constexpr SIZE_T RowPitch = RowBytes;
-                constexpr SIZE_T DepthPitch = 0;
-        
-                CommandList->WriteImage(Image, 0, 0, FlippedData.data(), RowPitch, DepthPitch);
+                const uint32 FlippedY = 255 - Y;
+                memcpy(FlippedData.data() + (FlippedY * RowBytes), Thumbnail->ImageData.data() + (Y * RowBytes), RowBytes);
             }
-            else
-            {
-                constexpr SIZE_T RowPitch = RowBytes;
-                constexpr SIZE_T DepthPitch = 0;
         
-                CommandList->WriteImage(Image, 0, 0, Thumbnail->ImageData.data(), RowPitch, DepthPitch);
-            }
+            constexpr SIZE_T RowPitch = RowBytes;
+            constexpr SIZE_T DepthPitch = 0;
+        
+            CommandList->WriteImage(Image, 0, 0, FlippedData.data(), RowPitch, DepthPitch);
 
             
             CommandList->Close();

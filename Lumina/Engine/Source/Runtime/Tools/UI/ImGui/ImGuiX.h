@@ -52,6 +52,7 @@ namespace Lumina::ImGuiX
     LUMINA_API void SameLineSeparator( float width = 0, const ImColor& color = ImColor(0));
 
     LUMINA_API ImTextureRef ToImTextureRef(FRHIImage* Image);
+    LUMINA_API ImTextureRef ToImTextureRef(const FString& Path);
 
     LUMINA_API FString FormatSize(size_t bytes);
     

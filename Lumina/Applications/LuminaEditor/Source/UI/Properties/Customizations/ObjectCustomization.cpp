@@ -7,7 +7,6 @@
 #include "Core/Reflection/Type/Properties/ObjectProperty.h"
 #include "Paths/Paths.h"
 #include "Renderer/RenderManager.h"
-#include "Tools/UI/UITextureCache.h"
 #include "Tools/UI/ImGui/ImGuiDesignIcons.h"
 #include "Tools/UI/ImGui/ImGuiRenderer.h"
 #include "Tools/UI/ImGui/ImGuiX.h"
@@ -35,7 +34,7 @@ namespace Lumina
             ImGui::BeginDisabled(Obj == nullptr);
 
             // Temporary stuff.
-            ImTextureRef ButtonTexture = GetEngineSystem<FRenderManager>().GetTextureCache()->GetImTexture(Paths::GetEngineResourceDirectory() + "/Textures/SkeletalMeshIcon.png");
+            ImTextureRef ButtonTexture = ImGuiX::ToImTextureRef(Paths::GetEngineResourceDirectory() + "/Textures/SkeletalMeshIcon.png");
             
             ImGui::ImageButton(Label, ButtonTexture, ImVec2(64, 64));
             ImGui::EndDisabled();

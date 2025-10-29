@@ -12,6 +12,23 @@ namespace Lumina
     {
     public:
         
+        enum class ETextureState : uint8
+        {
+            Empty,
+            Loading,
+            Ready,
+        };
+        
+        struct FEntry
+        {
+            FName Name;
+            uint64 Index;
+            std::atomic_uint64_t LastUseFrame{0};
+            std::atomic<ETextureState> State = ETextureState::Empty;
+            FRHIImageRef RHIImage;
+            ImTextureRef ImTexture;
+        };
+        
         void Initialize() override;
         void Deinitialize() override;
         
@@ -21,7 +38,8 @@ namespace Lumina
         void DrawRenderDebugInformationWindow(bool* bOpen, const FUpdateContext& Context) override;
 
         /** An ImTextureID in this context is castable to a VkDescriptorSet. */
-        ImTextureID GetOrCreateImTexture(FRHIImageRef Image) override;
+        LUMINA_API ImTextureID GetOrCreateImTexture(const FString& Path) override;
+        LUMINA_API ImTextureID GetOrCreateImTexture(FRHIImageRef Image) override;
         void DestroyImTexture(ImTextureRef Image) override;
         
     private:
@@ -38,16 +56,21 @@ namespace Lumina
         void DrawComputeLimits(const VkPhysicalDeviceLimits& limits);
         void DrawDescriptorLimits(const VkPhysicalDeviceLimits& limits);
         void DrawRenderingLimits(const VkPhysicalDeviceLimits& limits);
-
-    private:
         
-        TFixedVector<float, 300> VRAMHistory;
-        FMutex TextureMutex;
+    
+    private:
+
+        mutable FMutex                  Mutex;
+        FMutex                          TextureMutex;
+
+        THashMap<uint64, FEntry*>       Images;
+        
+        TPair<FName, FEntry*>           SquareWhiteTexture;
+        
         VkDescriptorPool DescriptorPool = VK_NULL_HANDLE;
         FVulkanRenderContext* VulkanRenderContext = nullptr;
 
-        THashMap<VkImage, VkDescriptorSet> ImageCache;
-        
+        TFixedVector<float, 300> VRAMHistory;
         TFixedVector<FRHIImageRef, 10> ReferencedImages;
     };
 }

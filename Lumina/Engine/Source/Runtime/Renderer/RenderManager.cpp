@@ -8,7 +8,6 @@
 #include "RHIGlobals.h"
 #include "Core/Profiler/Profile.h"
 #include "RenderGraph/RenderGraph.h"
-#include "Tools/UI/UITextureCache.h"
 #include "Tools/UI/ImGui/ImGuiRenderer.h"
 
 namespace Lumina
@@ -21,16 +20,13 @@ namespace Lumina
         #if WITH_DEVELOPMENT_TOOLS
         ImGuiRenderer = Memory::New<FVulkanImGuiRender>();
         ImGuiRenderer->Initialize();
-        TextureCache = Memory::New<FUITextureCache>();
         #endif
     }
 
     void FRenderManager::Deinitialize()
     {
         #if WITH_DEVELOPMENT_TOOLS
-        Memory::Delete(TextureCache);
-        TextureCache = nullptr;
-        
+
         ImGuiRenderer->Deinitialize();
         Memory::Delete(ImGuiRenderer);
         ImGuiRenderer = nullptr;
@@ -49,7 +45,6 @@ namespace Lumina
         GRenderContext->FrameStart(UpdateContext, CurrentFrameIndex);
 
         #if WITH_DEVELOPMENT_TOOLS
-        TextureCache->StartFrame();
         ImGuiRenderer->StartFrame(UpdateContext);
         #endif
     }
@@ -60,7 +55,6 @@ namespace Lumina
         
         #if WITH_DEVELOPMENT_TOOLS
         ImGuiRenderer->EndFrame(UpdateContext, RenderGraph);
-        TextureCache->EndFrame();
         #endif
 
         RenderGraph.Execute();

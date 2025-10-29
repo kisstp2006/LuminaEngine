@@ -28,6 +28,7 @@ namespace Lumina
         virtual void OnStartFrame(const FUpdateContext& UpdateContext) = 0;
         virtual void OnEndFrame(const FUpdateContext& UpdateContext, FRenderGraph& RenderGraph) = 0;
 
+        virtual ImTextureID GetOrCreateImTexture(const FString& Path) = 0;
         virtual ImTextureID GetOrCreateImTexture(FRHIImageRef Image) = 0;
         virtual void DestroyImTexture(ImTextureRef Image) = 0;
 

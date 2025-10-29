@@ -3,18 +3,10 @@
 #include "Lumina.h"
 #include "RHIFwd.h"
 
+
 namespace Lumina
 {
     class FRenderGraph;
-}
-
-namespace Lumina
-{
-    class FUITextureCache;
-}
-
-namespace Lumina
-{
     class IImGuiRenderer;
     class IRenderContext;
 }
@@ -34,7 +26,6 @@ namespace Lumina
 
         #if WITH_DEVELOPMENT_TOOLS
         IImGuiRenderer* GetImGuiRenderer() const { return ImGuiRenderer; }
-        FUITextureCache* GetTextureCache() const { return TextureCache; }
         #endif
 
         uint32 GetCurrentFrameIndex() const { return CurrentFrameIndex; }
@@ -43,7 +34,6 @@ namespace Lumina
 
         #if WITH_DEVELOPMENT_TOOLS
         IImGuiRenderer*     ImGuiRenderer = nullptr;
-        FUITextureCache*    TextureCache = nullptr;
         #endif
         
         uint8               CurrentFrameIndex = 0;

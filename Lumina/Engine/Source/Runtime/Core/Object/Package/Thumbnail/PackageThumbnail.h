@@ -15,7 +15,6 @@ namespace Lumina
         FRHIImageRef LoadedImage;
 
         bool bDirty = true;
-        bool bFlip = true;
         
         void Serialize(FArchive& Ar)
         {
