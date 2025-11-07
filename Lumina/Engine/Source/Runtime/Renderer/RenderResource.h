@@ -1762,7 +1762,7 @@ namespace Lumina
         FVariableRateShadingState				ShadingRateState;
         TFixedVector<FRHIBindingLayoutRef, 1>	BindingLayouts;
         
-		FORCEINLINE FGraphicsPipelineDesc& SetDebugName(FString InDebugName) { DebugName = Memory::Move(DebugName); return *this; }
+		FORCEINLINE FGraphicsPipelineDesc& SetDebugName(FString InDebugName) { DebugName = Move(DebugName); return *this; }
         FORCEINLINE FGraphicsPipelineDesc& SetPrimType(EPrimitiveType value) { PrimType = value; return *this; }
         FORCEINLINE FGraphicsPipelineDesc& SetPatchControlPoints(uint32 value) { PatchControlPoints = value; return *this; }
         FORCEINLINE FGraphicsPipelineDesc& SetInputLayout(IRHIInputLayout* value) { InputLayout = value; return *this; }

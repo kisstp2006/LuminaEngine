@@ -1,12 +1,10 @@
 #pragma once
 
-#include "Core/Templates/Forward.h"
 #include "Memory.h"
-#include "Allocators/Allocator.h"
 #include "Core/Assertions/Assert.h"
+#include "Core/Templates/LuminaTemplate.h"
 PRAGMA_DISABLE_ALL_WARNINGS
-#include "EASTL/internal/atomic/atomic.h"
-#include "EASTL/internal/atomic/atomic_standalone.h"
+#include "EASTL/atomic.h"
 PRAGMA_ENABLE_ALL_WARNINGS
 #include "Log/Log.h"
 
@@ -57,7 +55,6 @@ namespace Lumina
 
 	private:
 
-		/** Atomic for safety across threads */
 		mutable eastl::atomic<int> RefCount = 0;
 
 	};
@@ -151,7 +148,7 @@ namespace Lumina
 		template<typename... Args>
 		static TRefCountPtr<ReferencedType> Create(Args&&... args)
 		{
-			return TRefCountPtr<ReferencedType>(Memory::New<ReferencedType>(std::forward<Args>(args)...));
+			return TRefCountPtr<ReferencedType>(Memory::New<ReferencedType>(Forward<Args>(args)...));
 		}
 		
 		template<typename T>

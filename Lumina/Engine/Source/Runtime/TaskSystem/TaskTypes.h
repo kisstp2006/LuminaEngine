@@ -2,6 +2,7 @@
 
 #include "TaskScheduler.h"
 #include "Containers/Function.h"
+#include "Core/Templates/LuminaTemplate.h"
 #include "Memory/Memory.h"
 #include "Platform/GenericPlatform.h"
 
@@ -48,7 +49,7 @@ namespace Lumina
             m_Priority = (enki::TaskPriority)Priority;
             m_SetSize = SetSize;
             m_MinRange = MinRange;
-            Function = Memory::Move(TaskFunctor);
+            Function = Move(TaskFunctor);
             TaskRecycle.SetDependency(TaskRecycle.Dependency, this);
         }
         
@@ -67,7 +68,7 @@ namespace Lumina
             m_Priority = (enki::TaskPriority)Priority;
             m_SetSize = SetSize;
             m_MinRange = MinRange;
-            Function = Memory::Move(TaskFunctor);
+            Function = Move(TaskFunctor);
         }
 
         TaskSetFunction             Function;

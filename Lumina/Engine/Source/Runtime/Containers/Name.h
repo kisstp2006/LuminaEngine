@@ -121,14 +121,14 @@ namespace Lumina
     public:
         FName() = default;
         
-        FName(EName) : ID(0) {}
+        FName(EName) {}
         
         FName(const char* Str)
         {
             ID = GNameTable->GetOrCreateID(Str);
         }
         
-        FName(const TCHAR* Str) : FName(WIDE_TO_UTF8(Str)) {}
+        FName(const TCHAR* Str) : FName(StringUtils::FromWideString(Str)) {}
         FName(const FString& Str) : FName(Str.c_str()) {}
         FName(const FInlineString& Str) : FName(Str.c_str()) {}
         

@@ -50,7 +50,7 @@ namespace Lumina
         }  
     }
 
-    void CMesh::SetMeshResource(TUniquePtr<FMeshResource> NewResource)
+    void CMesh::SetMeshResource(TUniquePtr<FMeshResource>&& NewResource)
     {
         MeshResources = eastl::move(NewResource);
         GenerateBoundingBox();

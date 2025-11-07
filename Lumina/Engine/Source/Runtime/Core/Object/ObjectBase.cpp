@@ -72,7 +72,7 @@ namespace Lumina
     CObjectBase::CObjectBase(CClass* InClass, EObjectFlags InFlags, CPackage* Package, FName InName)
         : ObjectFlags(InFlags)
         , ClassPrivate(InClass)
-        , NamePrivate(Memory::Move(InName))
+        , NamePrivate(Move(InName))
         , PackagePrivate(Package)
         , InternalIndex(0)
         , LoaderIndex(0)

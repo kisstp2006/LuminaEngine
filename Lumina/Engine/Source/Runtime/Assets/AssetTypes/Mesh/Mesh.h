@@ -41,7 +41,7 @@ namespace Lumina
         FORCEINLINE const FGeometrySurface& GetSurface(SIZE_T Slot) const { return MeshResources->GeometrySurfaces[Slot]; }
         FORCEINLINE const FMeshResource& GetMeshResource() const { return *MeshResources.get(); }
 
-        void SetMeshResource(TUniquePtr<FMeshResource> NewResource);
+        void SetMeshResource(TUniquePtr<FMeshResource>&& NewResource);
         
         FORCEINLINE SIZE_T GetNumVertices() const { return MeshResources->Vertices.size(); }
         FORCEINLINE SIZE_T GetNumIndices() const { return MeshResources->Indices.size(); }

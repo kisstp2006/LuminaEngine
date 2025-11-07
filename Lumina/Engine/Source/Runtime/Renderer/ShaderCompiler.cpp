@@ -144,10 +144,10 @@ namespace Lumina
     
     bool FSpirVShaderCompiler::CompileShaderPath(FString ShaderPath, const FShaderCompileOptions& CompileOptions, CompletedFunc OnCompleted)
     {
-        TVector ShaderPaths = { Memory::Move(ShaderPath) };
+        TVector ShaderPaths = { Move(ShaderPath) };
         TVector Options = { CompileOptions };
 
-        return CompileShaderPaths(TSpan(ShaderPaths), TSpan(Options), Memory::Move(OnCompleted));
+        return CompileShaderPaths(TSpan(ShaderPaths), TSpan(Options), Move(OnCompleted));
     }
 
     bool FSpirVShaderCompiler::CompileShaderPaths(TSpan<FString> ShaderPaths, TSpan<FShaderCompileOptions> CompileOptions, CompletedFunc OnCompleted)
@@ -172,9 +172,9 @@ namespace Lumina
 
         
         Task::AsyncTask(NumShaders, 4, [this,
-            Paths = Memory::Move(Paths),
-            Options = Memory::Move(Options),
-            Callback = Memory::Move(OnCompleted)] (uint32 Start, uint32 End, uint32 Thread) mutable
+            Paths = Move(Paths),
+            Options = Move(Options),
+            Callback = Move(OnCompleted)] (uint32 Start, uint32 End, uint32 Thread) mutable
         {
             shaderc::CompileOptions CompileOpts;
             CompileOpts.SetIncluder(std::make_unique<FShaderCIncluder>());
@@ -248,7 +248,7 @@ namespace Lumina
                 FShaderHeader Shader;
                 Shader.DebugName = Filename;
                 Shader.Hash = Hash::GetHash64(Binaries);
-                Shader.Binaries = Memory::Move(Binaries);
+                Shader.Binaries = Move(Binaries);
 
                 ReflectSpirv(Shader.Binaries, Shader.Reflection, Options[i].bGenerateReflectionData);
 
@@ -257,7 +257,7 @@ namespace Lumina
                 
                 LOG_TRACE("Compiled shader {0} in {1:.2f} ms (Thread {2})", Filename, DurationMs.count(), Thread);
                 
-                Callback(Memory::Move(Shader));
+                Callback(Move(Shader));
 
                 PendingTasks.fetch_sub(1, std::memory_order_acq_rel);
             }
@@ -285,9 +285,9 @@ namespace Lumina
         PendingTasks.fetch_add(1, std::memory_order_relaxed);
 
         Task::AsyncTask(1, 1, [this,
-            ShaderString = Memory::Move(ShaderString),
-            CompileOptions = Memory::Move(CompileOptions),
-            Callback = Memory::Move(OnCompleted)]
+            ShaderString = Move(ShaderString),
+            CompileOptions = Move(CompileOptions),
+            Callback = Move(OnCompleted)]
             (uint32 Start, uint32 End, uint32 ThreadNum_)
         {
             LOG_TRACE("Compiling Raw Shader - Thread: {0}", Threading::GetThreadID());
@@ -346,11 +346,11 @@ namespace Lumina
             FShaderHeader Shader;
             Shader.DebugName = "RawShader";
             Shader.Hash = Hash::GetHash64(Binaries);
-            Shader.Binaries = Memory::Move(Binaries);
+            Shader.Binaries = Move(Binaries);
 
             ReflectSpirv(Shader.Binaries, Shader.Reflection, true);
             
-            Callback(Memory::Move(Shader));
+            Callback(Move(Shader));
 
             PendingTasks.fetch_sub(1, std::memory_order_acq_rel);
             

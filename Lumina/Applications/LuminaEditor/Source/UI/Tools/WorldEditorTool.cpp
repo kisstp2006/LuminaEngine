@@ -1667,7 +1667,7 @@ namespace Lumina
                         {
                             void* ComponentPtr = Set.value(SelectedEntity.GetHandle());
                             TUniquePtr<FPropertyTable> NewTable = MakeUniquePtr<FPropertyTable>(ComponentPtr, *(CStruct**)Type);
-                            PropertyTables.emplace_back(Memory::Move(NewTable))->RebuildTree();
+                            PropertyTables.emplace_back(Move(NewTable))->RebuildTree();
                         }
                     }
                 }
@@ -1676,7 +1676,7 @@ namespace Lumina
         else if (SelectedSystem)
         {
             TUniquePtr<FPropertyTable> NewTable = MakeUniquePtr<FPropertyTable>(SelectedSystem, SelectedSystem->GetClass());
-            PropertyTables.emplace_back(Memory::Move(NewTable))->RebuildTree();
+            PropertyTables.emplace_back(Move(NewTable))->RebuildTree();
         }
     }
 

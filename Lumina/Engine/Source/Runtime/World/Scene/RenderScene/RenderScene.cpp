@@ -1498,7 +1498,7 @@
                     LightData.SunDirection = Light.Direction;
                     LightData.NumLights++;
                     
-                    LightData.Lights[0] = Memory::Move(Light);
+                    LightData.Lights[0] = Move(Light);
                 });
             }
 
@@ -1565,7 +1565,7 @@
                         Light.Shadow.ShadowMapIndex = INDEX_NONE;
                     }
                     
-                    LightData.Lights[LightData.NumLights++] = Memory::Move(Light);
+                    LightData.Lights[LightData.NumLights++] = Move(Light);
         
                     //Scene->DrawDebugSphere(Transform.Location, 0.25f, Light.Color);
                 }
@@ -1620,7 +1620,7 @@
                         Light.Shadow.ShadowMapIndex = INDEX_NONE;
                     }
 
-                    LightData.Lights[LightData.NumLights++] = Memory::Move(Light);
+                    LightData.Lights[LightData.NumLights++] = Move(Light);
                     
                    //World->DrawViewVolume(ViewVolume, FColor::Red);
         

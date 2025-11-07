@@ -239,7 +239,7 @@ namespace Lumina
     {
         LUMINA_PROFILE_SCOPE();
         
-        auto Submissions = Memory::Move(CommandBuffersInFlight);
+        auto Submissions = Move(CommandBuffersInFlight);
         CommandBuffersInFlight.clear();
 
         uint64 LastFinish = UpdateLastFinishID();

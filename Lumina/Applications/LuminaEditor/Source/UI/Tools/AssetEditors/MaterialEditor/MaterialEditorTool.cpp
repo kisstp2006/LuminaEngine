@@ -105,6 +105,59 @@ namespace Lumina
         }
     }
 
+    bool FMaterialEditorTool::DrawViewport(const FUpdateContext& UpdateContext, ImTextureRef ViewportTexture)
+    {
+        const ImVec2 ViewportSize(eastl::max(ImGui::GetContentRegionAvail().x, 64.0f), eastl::max(ImGui::GetContentRegionAvail().y, 64.0f));
+        const ImVec2 WindowPosition = ImGui::GetWindowPos();
+        const ImVec2 WindowBottomRight = { WindowPosition.x + ViewportSize.x, WindowPosition.y + ViewportSize.y };
+        float AspectRatio = (ViewportSize.x / ViewportSize.y);
+        
+        SCameraComponent& CameraComponent =  World->GetActiveCamera();
+        CameraComponent.SetAspectRatio(AspectRatio);
+        CameraComponent.SetFOV(60.0f);
+        
+        /** Mostly for debug, so we can easily see if there's some transparency issue */
+        ImGui::GetWindowDrawList()->AddRectFilled(WindowPosition, WindowBottomRight, IM_COL32(0, 0, 0, 255));
+        
+        if (bViewportHovered)
+        {
+            if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) || ImGui::IsMouseClicked(ImGuiMouseButton_Right) || ImGui::IsMouseClicked(ImGuiMouseButton_Middle))
+            {
+                ImGui::SetWindowFocus();
+                bViewportFocused = true;
+            }
+        }
+
+        ImVec2 CursorScreenPos = ImGui::GetCursorScreenPos();
+        
+        ImGui::GetWindowDrawList()->AddImage(
+            ViewportTexture,
+            CursorScreenPos,
+            ImVec2(CursorScreenPos.x + ViewportSize.x, CursorScreenPos.y + ViewportSize.y),
+            ImVec2(0, 0), ImVec2(1, 1),
+            IM_COL32_WHITE
+        );
+
+        const ImGuiStyle& ImStyle = ImGui::GetStyle();
+
+        ImGui::Dummy(ImStyle.ItemSpacing);
+        ImGui::SetCursorPos(ImStyle.ItemSpacing);
+        DrawViewportOverlayElements(UpdateContext, ViewportTexture, ViewportSize);
+
+        ImGui::Dummy(ImStyle.ItemSpacing);
+        ImGui::SetCursorPos(ImStyle.ItemSpacing);
+        DrawViewportToolbar(UpdateContext);
+        
+        if (ImGuiDockNode* pDockNode = ImGui::GetWindowDockNode())
+        {
+           pDockNode->LocalFlags = 0;
+           pDockNode->LocalFlags |= ImGuiDockNodeFlags_NoDockingOverMe;
+           pDockNode->LocalFlags |= ImGuiDockNodeFlags_NoTabBar;
+        }
+
+        return false;
+    }
+
     void FMaterialEditorTool::OnAssetLoadFinished()
     {
     }
@@ -126,15 +179,7 @@ namespace Lumina
     {
         GetPropertyTable()->DrawTree();
     }
-
-    void FMaterialEditorTool::DrawMaterialPreview(const FUpdateContext& UpdateContext)
-    {
-        if (Asset == nullptr)
-        {
-            return;
-        }
-        
-    }
+    
 
     void FMaterialEditorTool::DrawGLSLPreview(const FUpdateContext& UpdateContext)
     {

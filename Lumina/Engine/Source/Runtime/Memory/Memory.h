@@ -1,6 +1,7 @@
 #pragma once
 #define ENABLE_VALIDATE_ARGS
 #include <rpmalloc.h>
+#include <utility>
 #include <EASTL/type_traits.h>
 #include "Core/Assertions/Assert.h"
 #include "Core/Math/Math.h"
@@ -20,12 +21,6 @@ constexpr SIZE_T DEFAULT_ALIGNMENT = 0;
 
 namespace Lumina::Memory
 {
-    template <typename T>
-    constexpr eastl::remove_reference<T>::type&& Move(T&& x) noexcept
-    {
-        return static_cast<eastl::remove_reference<T>::type&&>(std::forward<T>(x));
-    }
-    
     LUMINA_API inline void Memzero(void* ptr, size_t size)
     {
         memset(ptr, 0, size);
@@ -147,8 +142,8 @@ namespace Lumina::Memory
     template<typename T, typename ... TArgs>
     NODISCARD FORCEINLINE T* NewArray(const size_t NumElements, TArgs&&... Args)
     {
-        const size_t RequiredAlignment = std::max(alignof(T), size_t(16));
-        const size_t RequiredExtraMemory = std::max(RequiredAlignment, size_t(4));
+        const size_t RequiredAlignment = Math::Max(alignof(T), size_t(16));
+        const size_t RequiredExtraMemory = Math::Max(RequiredAlignment, size_t(4));
         const size_t RequiredMemory = sizeof(T) * NumElements + RequiredExtraMemory;
 
         uint8* pOriginalAddress = pOriginalAddress = (uint8*) Malloc(RequiredMemory, RequiredAlignment);
@@ -168,8 +163,8 @@ namespace Lumina::Memory
     template<typename T>
     NODISCARD FORCEINLINE T* NewArray(const size_t NumElements, const T& Value)
     {
-        const size_t RequiredAlignment = std::max(alignof(T), size_t(16));
-        const size_t RequiredExtraMemory = std::max(RequiredAlignment, size_t(4));
+        const size_t RequiredAlignment = Math::Max(alignof(T), size_t(16));
+        const size_t RequiredExtraMemory = Math::Max(RequiredAlignment, size_t(4));
         const size_t RequiredMemory = sizeof(T) * NumElements + RequiredExtraMemory;
 
         uint8* pOriginalAddress = pOriginalAddress = (uint8*) Malloc(RequiredMemory, RequiredAlignment);

@@ -1,5 +1,4 @@
 #pragma once
-#include "Platform/GenericPlatform.h"
 
 
 namespace Lumina

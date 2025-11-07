@@ -31,12 +31,12 @@ namespace Lumina
         void OnInitialize() override;
         void OnDeinitialize(const FUpdateContext& UpdateContext) override;
 
+        bool DrawViewport(const FUpdateContext& UpdateContext, ImTextureRef ViewportTexture) override;
         bool ShouldGenerateThumbnailOnLoad() const override { return true; }
         void OnAssetLoadFinished() override;
         void DrawToolMenu(const FUpdateContext& UpdateContext) override;
         void DrawMaterialGraph(const FUpdateContext& UpdateContext);
         void DrawMaterialProperties(const FUpdateContext& UpdateContext);
-        void DrawMaterialPreview(const FUpdateContext& UpdateContext);
         void DrawGLSLPreview(const FUpdateContext& UpdateContext);
 
         void Compile();

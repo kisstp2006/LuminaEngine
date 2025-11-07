@@ -1,5 +1,7 @@
 ﻿#include "EditorToolModal.h"
 
+#include "Core/Templates/LuminaTemplate.h"
+
 namespace Lumina
 {
     FEditorModalManager::~FEditorModalManager()
@@ -15,8 +17,8 @@ namespace Lumina
         }
         
         ActiveModal = MakeUniquePtr<FEditorToolModal>(Title, Size);
-        ActiveModal->DrawFunction = Memory::Move(DrawFunction);
-        ActiveModal->bBlocking = bBlocking;;
+        ActiveModal->DrawFunction = Move(DrawFunction);
+        ActiveModal->bBlocking = bBlocking;
         
     }
 

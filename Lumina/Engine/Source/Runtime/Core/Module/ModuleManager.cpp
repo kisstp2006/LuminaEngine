@@ -1,6 +1,8 @@
 ﻿#include "ModuleManager.h"
 #include "Platform/Platform.h"
 #include "ModuleInterface.h"
+#include "Core/Delegates/CoreDelegates.h"
+#include "Core/Templates/LuminaTemplate.h"
 #include "Paths/Paths.h"
 #include "Platform/Process/PlatformProcess.h"
 
@@ -39,6 +41,8 @@ namespace Lumina
         ModuleInterface->StartupModule();
         
         LOG_INFO("[Module Manager] - Successfully loaded module {}", ModuleName);
+
+        FCoreDelegates::OnModuleLoaded.Broadcast(ModuleInfo);
         
         return ModuleInterface;
     }
@@ -108,7 +112,7 @@ namespace Lumina
         FModuleInfo NewInfo;
         NewInfo.ModuleName = ModuleFName;
 
-        ModuleHashMap.emplace(ModuleFName, Memory::Move(NewInfo));
+        ModuleHashMap.emplace(ModuleFName, Move(NewInfo));
 
         return &ModuleHashMap[ModuleFName];
     }

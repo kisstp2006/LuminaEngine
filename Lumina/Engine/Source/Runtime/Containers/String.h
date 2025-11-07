@@ -270,12 +270,6 @@ namespace Lumina
     }
 }
 
-#define WIDE_TO_UTF8(Str) \
-    StringUtils::FromWideString(Str)
-
-#define UTF8_TO_WIDE(Str) \
-    StringUtils::ToWideString(Str)
-
 namespace fmt
 {
     template <>

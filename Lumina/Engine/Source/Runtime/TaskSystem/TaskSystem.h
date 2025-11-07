@@ -3,6 +3,7 @@
 #include "TaskScheduler.h"
 #include "TaskTypes.h"
 #include "Core/Singleton/Singleton.h"
+#include "Core/Templates/LuminaTemplate.h"
 #include "Core/Threading/Thread.h"
 #include "Memory/Memory.h"
 #include "Platform/GenericPlatform.h"
@@ -70,11 +71,10 @@ namespace Lumina
                 Task = Memory::New<FLambdaTask>();
             }
 
-            Task->Reset(Priority, Num, std::max(1u, MinRange), Memory::Move(Function));
+            Task->Reset(Priority, Num, std::max(1u, MinRange), Move(Function));
             ScheduleTask(Task);
             return Task;
         }
-
         
         template<typename TFunc>
         void ParallelFor(uint32 Num, uint32 MinRange, TFunc&& Func, ETaskPriority Priority = ETaskPriority::Medium)
@@ -87,11 +87,20 @@ namespace Lumina
                 {
                 }
 
-                void ExecuteRange(TaskSetPartition range_, uint32_t threadnum_) override
+                void ExecuteRange(TaskSetPartition range_, uint32_t ThreadNum) override
                 {
+                    LUMINA_PROFILE_SCOPE();
+
                     for (uint32 i = range_.start; i < range_.end; ++i)
                     {
-                        Func(i);
+                        if constexpr (eastl::is_invocable_v<TFunc, uint32>)
+                        {
+                            Func(i);
+                        }
+                        else if constexpr (eastl::is_invocable_v<TFunc, uint32, uint32>)
+                        {
+                            Func(i, ThreadNum);
+                        }
                     }
                 }
 
@@ -120,6 +129,8 @@ namespace Lumina
 
                 void ExecuteRange(TaskSetPartition range_, uint32) override
                 {
+                    LUMINA_PROFILE_SCOPE();
+                    
                     IteratorType it = Begin;
                     eastl::advance(it, range_.start);
 
@@ -153,11 +164,15 @@ namespace Lumina
 
         LUMINA_API void WaitForTask(const ITaskSet* pTask, ETaskPriority Priority = ETaskPriority::Low)
         {
+            LUMINA_PROFILE_SCOPE();
+            
             Scheduler.WaitforTask(pTask, (enki::TaskPriority)Priority);
         }
 
         LUMINA_API void WaitForTask(const IPinnedTask* pTask)
         {
+            LUMINA_PROFILE_SCOPE();
+
             Scheduler.WaitforTask(pTask);
         }
 
@@ -188,7 +203,7 @@ namespace Lumina
             GTaskSystem->ParallelFor(static_cast<uint32>(Num), MinRange, std::forward<TFunc>(Func), Priority);
         }
 
-        template<typename TBegin, typename TEnd, typename TFunc>
+        template<std::contiguous_iterator TBegin, std::contiguous_iterator TEnd, typename TFunc>
         requires (!eastl::is_integral_v<eastl::decay_t<TBegin>>)
         void ParallelFor(TBegin&& Begin, TEnd&& End, uint32 MinRange, TFunc&& Func, ETaskPriority Priority = ETaskPriority::Medium)
         {
@@ -196,13 +211,13 @@ namespace Lumina
         }
 
         template<typename T>
-        concept CTHasBeginEnd = requires(T t)
+        concept CTContiguousContainer = requires(T t)
         {
-            { t.begin() } -> std::input_or_output_iterator;
-            { t.end() }   -> std::input_or_output_iterator;
+            { t.begin() } -> std::contiguous_iterator;
+            { t.end() }   -> std::contiguous_iterator;
         };
 
-        template<CTHasBeginEnd TContainer, typename TFunc>
+        template<CTContiguousContainer TContainer, typename TFunc>
         void ParallelFor(TContainer&& Container, uint32 MinRange, TFunc&& Func, ETaskPriority Priority = ETaskPriority::Medium)
         {
             GTaskSystem->ParallelFor(std::forward<TContainer>(Container).begin(), std::forward<TContainer>(Container).end(), MinRange, std::forward<TFunc>(Func), Priority);

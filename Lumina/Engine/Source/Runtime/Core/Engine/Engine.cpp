@@ -2,6 +2,7 @@
 #include "Assets/AssetManager/AssetManager.h"
 #include "Assets/AssetRegistry/AssetRegistry.h"
 #include "Core/Application/Application.h"
+#include "Core/Delegates/CoreDelegates.h"
 #include "Core/Module/ModuleManager.h"
 #include "Core/Profiler/Profile.h"
 #include "Core/Windows/Window.h"
@@ -24,8 +25,11 @@ namespace Lumina
         //-------------------------------------------------------------------------
         // Initialize core engine state.
         //-------------------------------------------------------------------------
+        
         LUMINA_PROFILE_SCOPE();
+        FCoreDelegates::OnPreEngineInit.BroadcastAndClear();
 
+        
         GEngine = this;
         Application = App;
         
@@ -51,12 +55,16 @@ namespace Lumina
         DeveloperToolUI->Initialize(UpdateContext);
         #endif
         
+        FCoreDelegates::OnPostEngineInit.BroadcastAndClear();
+        
         return true;
     }
 
     bool FEngine::Shutdown()
     {
         LUMINA_PROFILE_SCOPE();
+
+        FCoreDelegates::OnPreEngineShutdown.BroadcastAndClear();
 
         //-------------------------------------------------------------------------
         // Shutdown core engine state.

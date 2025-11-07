@@ -1,8 +1,8 @@
 #pragma once
 
+#include <random>
 #include <EASTL/algorithm.h>
 #include "Core/Serialization/Archiver.h"
-#include <random>
 
 #include "glm/glm.hpp"
 
@@ -14,13 +14,13 @@ namespace Lumina
         template<typename T>
         FORCEINLINE T Max(const T& First, const T& Second)
         {
-            return (First > Second) ? First : Second;
+            return glm::max(First, Second);
         }
 
         template<typename T>
         FORCEINLINE T Min(const T& First, const T& Second)
         {
-            return (First > Second) ? Second : First;
+            return glm::min(First, Second);
         }
 
         template<typename T>
@@ -37,7 +37,7 @@ namespace Lumina
                 eastl::swap(First, Second);
             }
 
-            static thread_local std::mt19937_64 rng(std::random_device{}());
+            thread_local std::mt19937_64 rng(std::random_device{}());
             eastl::uniform_int_distribution<T> dist(First, Second);
     
             return dist(rng);

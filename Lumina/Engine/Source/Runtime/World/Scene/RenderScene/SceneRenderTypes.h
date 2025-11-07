@@ -258,26 +258,6 @@ namespace Lumina
         glm::uvec2 ScreenSize;
         glm::uvec4 GridSize;
     };
-
-    struct FInstanceDataGPU
-    {
-        glm::vec3 Translation;
-        uint32 Padding0;
-
-        uint16 Rotation[4];
-        
-        uint32 Padding1;
-
-        uint32 Scale;
-        uint32 Padding2;
-
-        uint32 PackedBounds;
-        uint32 EntityID;
-        uint16 DrawID;
-    };
-
-    VERIFY_SSBO_ALIGNMENT(FInstanceDataGPU)
-
     
     struct FInstanceData
     {
@@ -321,37 +301,4 @@ namespace Lumina
         uint8 bDrawAABB:1 = false;
         uint8 bSSAO:1 = false;
     };
-
-
-    struct FStaticMeshRender
-    {
-        uint64 SortKey;
-        CMaterialInterface* Material;
-        CStaticMesh* StaticMesh;
-        uint32 FirstIndex;
-        uint16 SurfaceIndexCount;
-
-        auto operator <=> (const FStaticMeshRender& Other) const
-        {
-            return SortKey <=> Other.SortKey;
-        }
-    };
-    
-    struct FThreadLocalCollectionData
-    {
-        TRenderVector<glm::mat4> LocalTransforms;
-        TRenderVector<FStaticMeshRender> LocalStaticMeshRenders;
-    };
-
-    struct FStaticMeshRenderExtractKey
-    {
-        typedef uint64 radix_type;
-    
-        uint64 operator()(const FStaticMeshRender& render) const
-        {
-            return render.SortKey;
-        }
-    };
-
-    
 }

@@ -24,8 +24,8 @@ namespace Lumina
         Super::Initialize();
         
         bool bHasOutputNode = false;
-        auto NewNodes = Memory::Move(Nodes);
-        auto NewConnections = Memory::Move(Connections);
+        auto NewNodes = Move(Nodes);
+        auto NewConnections = Move(Connections);
         Nodes.clear();
         Connections.clear();
         

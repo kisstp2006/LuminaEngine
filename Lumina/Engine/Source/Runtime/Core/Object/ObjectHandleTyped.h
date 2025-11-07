@@ -23,11 +23,11 @@ namespace Lumina
         TObjectHandle() = default;
 
         NODISCARD TObjectHandle(FObjectHandle InHandle)
-            :Handle(Memory::Move(InHandle))
+            :Handle(Move(InHandle))
         {}
 
         NODISCARD TObjectHandle(TObjectHandle&& Other) noexcept
-            :Handle(Memory::Move(Other.Handle))
+            :Handle(Move(Other.Handle))
         {}
 
         NODISCARD TObjectHandle(const TObjectHandle& Other) noexcept
@@ -81,7 +81,7 @@ namespace Lumina
 
         TObjectHandle& operator = (TObjectHandle&& Other) noexcept
         {
-            Handle = Memory::Move(Other.Handle);
+            Handle = Move(Other.Handle);
             return *this;
         }
 
@@ -103,7 +103,7 @@ namespace Lumina
         requires (std::is_convertible_v<U, ReferencedType*>)
         TObjectHandle& operator=(U&& Other)
         {
-            Handle = const_cast<std::remove_const_t<ReferencedType>*>(ImplicitConv<ReferencedType*>(Other));
+            Handle = const_cast<std::remove_const_t<ReferencedType>*>(ImplicitConv<ReferencedType*>(Forward<U>(Other)));
             return *this;
         }
 

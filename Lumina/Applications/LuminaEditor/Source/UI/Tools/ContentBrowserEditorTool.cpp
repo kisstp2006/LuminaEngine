@@ -372,7 +372,7 @@ ContentBrowserTileViewContext.DrawItemOverrideFunction = [this] (FTileViewItem* 
                 {
                     FString PackagePath = ContentItem->GetPath();
                     PackagePath = Paths::Parent(PackagePath);
-                    Platform::LaunchURL(UTF8_TO_WIDE(PackagePath).c_str());
+                    Platform::LaunchURL(StringUtils::ToWideString(PackagePath).c_str());
                 }
                 
                 if (ImGui::MenuItem(LE_ICON_CONTENT_COPY " Copy Path", nullptr, false, !bMultipleItems))

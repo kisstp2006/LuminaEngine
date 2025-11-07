@@ -3,6 +3,7 @@
 #include <spdlog/sinks/base_sink.h>
 #include "Containers/Array.h"
 #include "Core/Profiler/Profile.h"
+#include "Core/Templates/LuminaTemplate.h"
 #include "Log/LogMessage.h"
 #include "Memory/Memory.h"
 
@@ -34,7 +35,7 @@ namespace Lumina
             Message.Level = msg.level;
             Message.Message.assign(msg.payload.begin(), msg.payload.end());
 
-            OutputMessages->push_back(Memory::Move(Message));
+            OutputMessages->push_back(Move(Message));
         }
 
         void flush_() override

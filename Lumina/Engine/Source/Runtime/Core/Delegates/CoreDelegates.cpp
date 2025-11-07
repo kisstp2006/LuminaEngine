@@ -1,0 +1,10 @@
+#include "CoreDelegates.h"
+
+namespace Lumina
+{
+    TMulticastDelegate<void>                    FCoreDelegates::OnPreEngineInit;
+    TMulticastDelegate<void>		            FCoreDelegates::OnPostEngineInit;
+    TMulticastDelegate<void>		            FCoreDelegates::OnPreEngineShutdown;
+    TMulticastDelegate<void, FModuleInfo*>      FCoreDelegates::OnModuleLoaded;
+    TMulticastDelegate<void>                    FCoreDelegates::OnModuleUnloaded;
+}

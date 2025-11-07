@@ -26,14 +26,6 @@ namespace Lumina
 
 namespace Lumina
 {
-
-    struct FCoreDelegates
-    {
-        static TMulticastDelegate<void>		OnEngineInit;
-        static TMulticastDelegate<double>	OnEngineUpdate;
-        static TMulticastDelegate<void>		PreEngineShutdown;
-    };
-    
     class FEngine
     {
     public:

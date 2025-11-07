@@ -13,11 +13,6 @@
 
 namespace Lumina
 {
-
-    TMulticastDelegate<void> FCoreDelegates::OnEngineInit;
-    TMulticastDelegate<void> FCoreDelegates::PreEngineShutdown;
-    TMulticastDelegate<double> FCoreDelegates::OnEngineUpdate;
-    
     FApplication* FApplication::Instance = nullptr;
     FCommandLineParser FApplication::CommandLine;
 
@@ -49,8 +44,6 @@ namespace Lumina
             Shutdown();
             return 1;
         }
-
-        FCoreDelegates::OnEngineInit.Broadcast();
         
         //---------------------------------------------------------------
         // Core application loop.
@@ -74,8 +67,6 @@ namespace Lumina
         //--------------------------------------------------------------
 
         LOG_TRACE("Shutting down application: {0}", ApplicationName.c_str());
-
-        FCoreDelegates::PreEngineShutdown.Broadcast();
         
         Shutdown();
         

@@ -1,6 +1,5 @@
 #pragma once
 #include "Platform/GenericPlatform.h"
-#include "Platform/WindowsPlatform.h"
 
 namespace Lumina::Math
 {

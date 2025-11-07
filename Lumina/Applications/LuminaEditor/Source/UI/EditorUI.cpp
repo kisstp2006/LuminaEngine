@@ -1755,7 +1755,7 @@ namespace Lumina
 
             if (ImGui::MenuItem(LE_ICON_FOLDER " Open Shaders Directory", "F6"))
             {
-                Platform::LaunchURL(UTF8_TO_WIDE(Paths::GetEngineShadersDirectory()).c_str());
+                Platform::LaunchURL(StringUtils::ToWideString(Paths::GetEngineShadersDirectory()).c_str());
             }
 
             ImGui::Separator();
