@@ -290,7 +290,7 @@ namespace Lumina
         return StaticAllocateObject(Params);
     }
 
-    void GetObjectsWithPackage(CPackage* Package, TVector<CObject*>& OutObjects)
+    void GetObjectsWithPackage(CPackage* Package, TVector<TObjectPtr<CObject>>& OutObjects)
     {
         Assert(Package != nullptr)
         

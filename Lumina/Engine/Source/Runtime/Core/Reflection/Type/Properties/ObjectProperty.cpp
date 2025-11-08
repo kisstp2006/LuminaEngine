@@ -9,12 +9,13 @@ namespace Lumina
     
     void FObjectProperty::Serialize(FArchive& Ar, void* Value)
     {
-        TObjectPtr<CObject>* Ptr = reinterpret_cast<TObjectPtr<CObject>*>(Value);
+        TObjectPtr<CObject>* Ptr = static_cast<TObjectPtr<CObject>*>(Value);
 
         if (Ar.IsWriting())
         {
             CObject* Raw = Ptr->Get();
             Ar << Raw;
+            *Ptr = Raw;
         }
         else if (Ar.IsReading())
         {

@@ -3,6 +3,7 @@
 #include "ConstructObjectParams.h"
 #include "Lumina.h"
 #include "ObjectFlags.h"
+#include "ObjectHandleTyped.h"
 #include "Containers/Array.h"
 #include "Core/LuminaMacros.h"
 #include "Module/API.h"
@@ -60,7 +61,7 @@ namespace Lumina
     }
     
     LUMINA_API CObject* NewObject(CClass* InClass, const CPackage* Package = nullptr, const FName& Name = NAME_None, EObjectFlags Flags = OF_None);
-    LUMINA_API void GetObjectsWithPackage(CPackage* Package, TVector<CObject*>& OutObjects);
+    LUMINA_API void GetObjectsWithPackage(CPackage* Package, TVector<TObjectPtr<CObject>>& OutObjects);
     
     template<IsACObject T>
     T* NewObject(CPackage* Package = nullptr, FName Name = NAME_None, EObjectFlags Flags = OF_None)

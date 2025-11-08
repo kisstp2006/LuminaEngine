@@ -5,7 +5,9 @@
 #include "Core/Object/Cast.h"
 #include "Core/Object/Class.h"
 #include "Core/Object/ObjectAllocator.h"
+#include "Core/Object/ObjectIterator.h"
 #include "Core/Object/ObjectRedirector.h"
+#include "Core/Object/Archive/ObjectReferenceReplacerArchive.h"
 #include "Core/Profiler/Profile.h"
 #include "Paths/Paths.h"
 #include "Platform/Filesystem/FileHelper.h"
@@ -79,13 +81,22 @@ namespace Lumina
 
         LUM_ASSERT(Package->FullyLoad())
 
-        TVector<CObject*> ExportObjects;
+        TVector<TObjectPtr<CObject>> ExportObjects;
         ExportObjects.reserve(20);
         GetObjectsWithPackage(Package, ExportObjects);
         
-
         for (CObject* ExportObject : ExportObjects)
         {
+            if (ExportObject->IsAsset())
+            {
+                FObjectReferenceReplacerArchive Ar(ExportObject, nullptr);
+                for (TObjectIterator<CObject> Itr; Itr; ++Itr)
+                {
+                    CObject* Object = *Itr;
+                    Object->Serialize(Ar);
+                }
+            }
+            
             if (ExportObject != Package)
             {
                 ExportObject->ConditionalBeginDestroy();
@@ -247,7 +258,7 @@ namespace Lumina
 
     void CPackage::BuildSaveContext(FSaveContext& Context)
     {
-        TVector<CObject*> ExportObjects;
+        TVector<TObjectPtr<CObject>> ExportObjects;
         ExportObjects.reserve(20);
         GetObjectsWithPackage(this, ExportObjects);
 

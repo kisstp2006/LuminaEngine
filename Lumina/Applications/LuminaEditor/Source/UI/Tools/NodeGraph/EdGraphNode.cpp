@@ -21,19 +21,6 @@ namespace Lumina
         CObject::PostCreateCDO();
     }
 
-    CEdGraphNode::~CEdGraphNode()
-    {
-        for (auto& PinVector : NodePins)
-        {
-            for (CEdNodeGraphPin* Pin : PinVector)
-            {
-                Pin->ConditionalBeginDestroy();
-            }
-
-            PinVector.clear();
-        }
-    }
-
     ImVec2 CEdGraphNode::GetMinNodeTitleBarSize() const
     {
         return ImVec2(ImGui::CalcTextSize(GetNodeDisplayName().c_str()).x, 28);

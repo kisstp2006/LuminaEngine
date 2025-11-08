@@ -7,6 +7,38 @@ namespace Lumina
 {
     FArchive& FObjectProxyArchiver::operator<<(CObject*& Obj)
     {
+        if (IsWriting())
+        {
+            if (Obj)
+            {
+                FString SavedString(Obj->GetQualifiedName().c_str());
+                InnerArchive << SavedString;
+            }
+            else
+            {
+                FString EmptyString;
+                InnerArchive << EmptyString;
+            }
+        }
+        else if (IsReading())
+        {
+            FString LoadedString;
+            InnerArchive << LoadedString;
+
+            if (LoadedString.empty())
+            {
+                Obj = nullptr;
+                return *this;
+            }
+
+            Obj = FindObject<CObject>(nullptr, LoadedString);
+
+            if (!Obj && bLoadIfFindFails)
+            {
+                Obj = LoadObject<CObject>(nullptr, LoadedString);
+            }   
+        }
+
         return *this;
     }
 

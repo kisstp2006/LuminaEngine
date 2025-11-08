@@ -216,7 +216,6 @@ namespace Lumina
                 // Always seek past this property's data to read the next tag
                 Ar.Seek(DataStartPos + Tag.Size);
             }
-            
         }
     }
 

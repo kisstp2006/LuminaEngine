@@ -35,7 +35,7 @@ namespace Lumina::ObjectRename
                     GEngine->GetEngineSubsystem<FAssetManager>()->FlushAsyncLoading();
                     
                     /** We need all objects to be loaded to rename a package */
-                    LUM_ASSERT(OldPackage->LoadObjects())
+                    LUM_ASSERT(OldPackage->FullyLoad())
 
                     bool bCreateRedirectors = true;
                     
@@ -52,7 +52,7 @@ namespace Lumina::ObjectRename
 
                     CPackage* NewPackage = CPackage::CreatePackage(NewPath);
                     
-                    TVector<CObject*> Objects;
+                    TVector<TObjectPtr<CObject>> Objects;
                     GetObjectsWithPackage(OldPackage, Objects);
 
                     for (CObject* Object : Objects)

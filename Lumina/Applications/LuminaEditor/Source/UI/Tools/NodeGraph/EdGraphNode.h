@@ -7,6 +7,7 @@
 #include "Core/Math/Math.h"
 #include "Core/Object/Object.h"
 #include "EdGraphNode.generated.h"
+#include "Core/Object/ObjectHandleTyped.h"
 
 namespace Lumina
 {
@@ -32,8 +33,6 @@ namespace Lumina
 
         void PostCreateCDO() override;
         
-        ~CEdGraphNode() override;
-
         virtual void BuildNode() { }
         
         virtual FInlineString GetNodeCategory() const { return "General"; }
@@ -73,8 +72,8 @@ namespace Lumina
         float GetNodeX() const { return GridX; }
         float GetNodeY() const { return GridY; }
 
-        const TVector<CEdNodeGraphPin*>& GetInputPins() const { return NodePins[uint32(ENodePinDirection::Input)]; }
-        const TVector<CEdNodeGraphPin*>& GetOutputPins() const { return NodePins[uint32(ENodePinDirection::Output)]; }
+        const TVector<TObjectPtr<CEdNodeGraphPin>>& GetInputPins() const { return NodePins[uint32(ENodePinDirection::Input)]; }
+        const TVector<TObjectPtr<CEdNodeGraphPin>>& GetOutputPins() const { return NodePins[uint32(ENodePinDirection::Output)]; }
 
         CEdNodeGraphPin* CreatePin(CClass* InClass, const FString& Name, ENodePinDirection Direction, EMaterialInputType Type);
 
@@ -86,7 +85,7 @@ namespace Lumina
 
     protected:
 
-        TArray<TVector<CEdNodeGraphPin*>, uint32(ENodePinDirection::Count)> NodePins;
+        TArray<TVector<TObjectPtr<CEdNodeGraphPin>>, uint32(ENodePinDirection::Count)> NodePins;
 
         uint32 DebugExecutionOrder;
 
