@@ -15,7 +15,7 @@ namespace Lumina
     {
         EFormat Format = (BindingFormat == EFormat::UNKNOWN) ? TextureFormat : BindingFormat;
 
-        const FFormatInfo& FormatInfo = GetFormatInfo(Format);
+        const FFormatInfo& FormatInfo = RHI::Format::Info(Format);
 
         if (FormatInfo.bHasDepth)
         {
@@ -305,7 +305,7 @@ namespace Lumina
         }
     }
 
-    void FVulkanCommandList::WriteImage(FRHIImage* Dst, uint32 ArraySlice, uint32 MipLevel, const void* Data, SIZE_T RowPitch, SIZE_T DepthPitch)
+    void FVulkanCommandList::WriteImage(FRHIImage* Dst, uint32 ArraySlice, uint32 MipLevel, const void* Data, uint32 RowPitch, uint32 DepthPitch)
     {
         LUMINA_PROFILE_SCOPE();
         Assert(Dst != nullptr && Data != nullptr)
@@ -318,7 +318,7 @@ namespace Lumina
         uint32 MipWidth, MipHeight, MipDepth;
         ComputeMipLevelInformation(Dst->GetDescription(), MipLevel, &MipWidth, &MipHeight, &MipDepth);
 
-        const FFormatInfo& FormatInfo = GetFormatInfo(Dst->GetDescription().Format);
+        const FFormatInfo& FormatInfo = RHI::Format::Info(Dst->GetDescription().Format);
         uint32 DeviceNumCols = (MipWidth + FormatInfo.BlockSize - 1) / FormatInfo.BlockSize;
         uint32 DeviceNumRows = (MipHeight + FormatInfo.BlockSize - 1) / FormatInfo.BlockSize;
         uint32 DeviceRowPitch = DeviceNumCols * FormatInfo.BytesPerBlock;
@@ -333,7 +333,7 @@ namespace Lumina
             return;
         }
 
-        SIZE_T MinRowPitch = std::min(SIZE_T(DeviceRowPitch), RowPitch);
+        uint32 MinRowPitch = std::min(DeviceRowPitch, RowPitch);
         uint8* MappedPtr = (uint8*)UploadCPUVA;
         for (uint32 Slice = 0; Slice < MipDepth; ++Slice)
         {
@@ -1493,7 +1493,7 @@ namespace Lumina
                 Assert(after.ImageLayout != VK_IMAGE_LAYOUT_UNDEFINED);
                 
                 FVulkanImage* texture = static_cast<FVulkanImage*>(barrier.Texture);
-                const FFormatInfo& formatInfo = GetFormatInfo(texture->GetDescription().Format);
+                const FFormatInfo& formatInfo = RHI::Format::Info(texture->GetDescription().Format);
                 
                 VkImageAspectFlags aspectMask = 0;
                 if (formatInfo.bHasDepth)

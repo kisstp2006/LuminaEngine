@@ -36,9 +36,9 @@ namespace Lumina
         
     private:
 
-        static CEdGraphNode* TopologicalSort(const TVector<TObjectHandle<CEdGraphNode>>& Nodes, TVector<CEdGraphNode*>& SortedNodes);
+        static CEdGraphNode* TopologicalSort(const TVector<TObjectPtr<CEdGraphNode>>& Nodes, TVector<CEdGraphNode*>& SortedNodes);
 
         
-        TObjectHandle<CMaterial> Material;
+        TObjectPtr<CMaterial> Material;
     };
 }

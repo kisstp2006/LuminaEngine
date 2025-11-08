@@ -211,7 +211,7 @@ namespace Lumina
         
         TFixedVector<FToolWindow*, 4>   ToolWindows;
         
-        TObjectHandle<CWorld>           World;
+        TObjectPtr<CWorld>              World;
         Entity                          EditorEntity;
         ImTextureID                     SceneViewportTexture = 0;
 

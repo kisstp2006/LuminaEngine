@@ -18,6 +18,9 @@ namespace Lumina
 {
     LUMINA_API FCObjectArray GObjectArray;
 
+    /** Objects that will not be destroyed */
+    static THashSet<TObjectPtr<CObjectBase>> GRootedObjects;
+
     struct FPendingRegistrantInfo
     {
         static TVector<CObjectBase*>& Get()
@@ -75,23 +78,7 @@ namespace Lumina
         , NamePrivate(Move(InName))
         , PackagePrivate(Package)
         , InternalIndex(0)
-        , LoaderIndex(0)
     {
-    }
-
-    uint32 CObjectBase::AddRef() const
-    {
-        return ++RefCount;
-    }
-
-    uint32 CObjectBase::Release()
-    {
-        if (--RefCount == 0)
-        {
-            
-        }
-
-        return RefCount;
     }
 
     void CObjectBase::BeginRegister()
@@ -119,8 +106,30 @@ namespace Lumina
 
         uint32 Index = GObjectArray.AllocateObject(this).Index;
         AddObject(NamePrivate, Index);
+        AddToRoot();
     }
-    
+
+
+    void CObjectBase::ConditionalBeginDestroy()
+    {
+        if (HasAnyFlag(OF_MarkedDestroy))
+        {
+            return;
+        }
+        
+        if (!GObjectArray.IsReferencedByIndex(InternalIndex))
+        {
+            SetFlag(OF_MarkedDestroy);
+
+            OnDestroy();
+            Memory::Delete(this);
+        }
+    }
+
+    int32 CObjectBase::GetStrongRefCount() const
+    {
+        return GObjectArray.GetStrongRefCountByIndex(InternalIndex);
+    }
 
     void CObjectBase::HandleNameChange(FName NewName, CPackage* NewPackage) noexcept
     {
@@ -133,6 +142,16 @@ namespace Lumina
         }
 
         FObjectHashTables::Get().AddObject(this);
+    }
+
+    void CObjectBase::AddToRoot()
+    {
+        GRootedObjects.emplace(this);
+    }
+
+    void CObjectBase::RemoveFromRoot()
+    {
+        GRootedObjects.erase(this);
     }
 
     void CObjectBase::AddObject(const FName& Name, uint32 InInternalIndex)
@@ -284,10 +303,7 @@ namespace Lumina
 
     void ShutdownCObjectSystem()
     {
-        GObjectArray.ForEachObject([](CObjectBase* Object, int32)
-        {
-            DestroyCObject(Object);
-        });
+        GRootedObjects.clear();
         
         GObjectArray.Shutdown();
         

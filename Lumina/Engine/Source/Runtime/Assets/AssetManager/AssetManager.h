@@ -35,7 +35,7 @@ namespace Lumina
 		
 		TVector<FAssetRequest*>									ActiveRequests;
 		
-		std::atomic<int32> OutstandingTasks =					0;
+		eastl::atomic<int32> OutstandingTasks{0};
 		
 	};
 	

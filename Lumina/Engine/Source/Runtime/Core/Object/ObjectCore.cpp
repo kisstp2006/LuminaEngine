@@ -303,13 +303,6 @@ namespace Lumina
             }
         }
     }
-    
-    void DestroyCObject(CObjectBase* Object)
-    {
-        Object->OnDestroy();
-        GCObjectAllocator.FreeCObject(Object);
-    }
-
 
     static void ConstructPropertyMetadata(FProperty* NewProperty, uint16 NumMetadata, const FMetaDataPairParam* ParamArray)
     {

@@ -16,7 +16,7 @@ namespace Lumina
         GENERATED_BODY()
         
         LUM_PROPERTY(Editable, Category = "Materials")
-        TVector<TObjectHandle<CMaterialInterface>> MaterialOverrides;
+        TVector<TObjectPtr<CMaterialInterface>> MaterialOverrides;
 
     };
     

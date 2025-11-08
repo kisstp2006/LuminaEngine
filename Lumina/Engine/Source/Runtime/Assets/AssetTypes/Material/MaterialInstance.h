@@ -33,7 +33,7 @@ namespace Lumina
         void PostLoad() override;
 
         LUM_PROPERTY(ReadOnly, Category = "Material")
-        TObjectHandle<CMaterial> Material;
+        TObjectPtr<CMaterial> Material;
 
 
         TVector<FMaterialParameter>             Parameters;

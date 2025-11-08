@@ -6,7 +6,6 @@
 #include "RenderGraphTypes.h"
 #include "Containers/Array.h"
 #include "Memory/Allocators/Allocator.h"
-#include "Renderer/RHIFwd.h"
 
 
 namespace Lumina

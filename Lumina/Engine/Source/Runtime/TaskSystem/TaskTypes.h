@@ -60,6 +60,8 @@ namespace Lumina
         
         void ExecuteRange(TaskSetPartition range_, uint32_t threadnum_) override
         {
+            LUMINA_PROFILE_SCOPE();
+
             Function(range_.start, range_.end, threadnum_);
         }
 

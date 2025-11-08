@@ -29,6 +29,9 @@ namespace Lumina
 
         /** Object is public outside of it's package (assets and such) */
         OF_Public               = 1 << 5,
+
+        /** Object has already been marked to be destroyed */
+        OF_MarkedDestroy        = 1 << 6,
         
     };
 

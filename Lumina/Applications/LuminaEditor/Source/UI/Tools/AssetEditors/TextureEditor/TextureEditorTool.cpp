@@ -186,90 +186,105 @@ namespace Lumina
             
             ImGui::Spacing();
     
-            if (ImGui::BeginTable("##TextureInfo", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp))
+        if (ImGui::BeginTable("##TextureInfo", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp))
+        {
+            ImGui::TableSetupColumn("Property", ImGuiTableColumnFlags_WidthFixed, 150.0f);
+            ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
+            ImGui::TableHeadersRow();
+
+            auto PropertyRow = [](const char* label, const FString& value, const ImVec4* color = nullptr)
             {
-                ImGui::TableSetupColumn("Property", ImGuiTableColumnFlags_WidthFixed, 150.0f);
-                ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
-                ImGui::TableHeadersRow();
-    
-                auto PropertyRow = [](const char* label, const FString& value, const ImVec4* color = nullptr)
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::TextUnformatted(label);
+                ImGui::TableSetColumnIndex(1);
+                if (color)
                 {
-                    ImGui::TableNextRow();
-                    ImGui::TableSetColumnIndex(0);
-                    ImGui::TextUnformatted(label);
-                    ImGui::TableSetColumnIndex(1);
-                    if (color) ImGui::PushStyleColor(ImGuiCol_Text, *color);
-                    ImGui::TextUnformatted(value.c_str());
-                    if (color) ImGui::PopStyleColor();
-                };
-    
-                // Dimensions
-                FString dimensionStr;
-                switch (ImageDesc.Dimension)
-                {
-                    case EImageDimension::Texture2D: dimensionStr = "2D Texture"; break;
-                    case EImageDimension::Texture3D: dimensionStr = "3D Volume"; break;
-                    case EImageDimension::TextureCube: dimensionStr = "Cubemap"; break;
-                    default: dimensionStr = "Unknown"; break;
+                    ImGui::PushStyleColor(ImGuiCol_Text, *color);
                 }
-                
-                ImVec4 dimensionColor(0.5f, 0.9f, 0.5f, 1.0f);
-                PropertyRow("Type", dimensionStr, &dimensionColor);
-                PropertyRow("Resolution", eastl::to_string(ImageDesc.Extent.X) + " x " + eastl::to_string(ImageDesc.Extent.Y));
-                
-                if (ImageDesc.Depth > 1)
+                ImGui::TextUnformatted(value.c_str());
+                if (color)
                 {
-                    PropertyRow("Depth", eastl::to_string(ImageDesc.Depth));
+                    ImGui::PopStyleColor();
                 }
-                
-                if (ImageDesc.ArraySize > 1)
-                {
-                    ImVec4 arrayColor(0.9f, 0.7f, 0.4f, 1.0f);
-                    PropertyRow("Array Size", eastl::to_string(ImageDesc.ArraySize), &arrayColor);
-                }
+            };
 
-
-    
-                // Format information
-				const FFormatInfo& FormatInfo = GetFormatInfo(ImageDesc.Format);
-                PropertyRow("Pixel Format", FString(FormatInfo.Name));
-                PropertyRow("Mip Levels", eastl::to_string(ImageDesc.NumMips));
-                
-                if (ImageDesc.NumSamples > 1)
-                {
-                    ImVec4 msaaColor(0.9f, 0.5f, 0.9f, 1.0f);
-                    PropertyRow("MSAA Samples", eastl::to_string(ImageDesc.NumSamples) + "x", &msaaColor);
-                }
-    
-                // Memory calculation
-                size_t pixelCount = Texture->Pixels.size();
-                size_t memorySizeKB = pixelCount / 1024;
-                size_t memorySizeMB = memorySizeKB / 1024;
-                
-                FString memoryStr;
-                ImVec4 memoryColor(0.7f, 1.0f, 0.7f, 1.0f);
-                
-                if (memorySizeMB > 0)
-                {
-                    memoryStr = eastl::to_string(memorySizeMB) + " MB";
-                    if (memorySizeMB > 10) memoryColor = ImVec4(1.0f, 0.7f, 0.3f, 1.0f);
-                    if (memorySizeMB > 50) memoryColor = ImVec4(1.0f, 0.4f, 0.4f, 1.0f);
-                }
-                else
-                {
-                    memoryStr = eastl::to_string(memorySizeKB) + " KB";
-                }
-                
-                PropertyRow("Memory Size", memoryStr, &memoryColor);
-                PropertyRow("Pixel Count", eastl::to_string(pixelCount));
-    
-                ImGui::EndTable();
+            // Dimensions
+            FString dimensionStr;
+            switch (ImageDesc.Dimension)
+            {
+                case EImageDimension::Texture2D: dimensionStr = "2D Texture"; break;
+                case EImageDimension::Texture3D: dimensionStr = "3D Volume"; break;
+                case EImageDimension::TextureCube: dimensionStr = "Cubemap"; break;
+                default: dimensionStr = "Unknown"; break;
             }
+            
+            ImVec4 dimensionColor(0.5f, 0.9f, 0.5f, 1.0f);
+            PropertyRow("Type", dimensionStr, &dimensionColor);
+            PropertyRow("Resolution", eastl::to_string(ImageDesc.Extent.X) + " x " + eastl::to_string(ImageDesc.Extent.Y));
+            
+            if (ImageDesc.Depth > 1)
+            {
+                PropertyRow("Depth", eastl::to_string(ImageDesc.Depth));
+            }
+            
+            if (ImageDesc.ArraySize > 1)
+            {
+                ImVec4 arrayColor(0.9f, 0.7f, 0.4f, 1.0f);
+                PropertyRow("Array Size", eastl::to_string(ImageDesc.ArraySize), &arrayColor);
+            }
+
+            // Format information
+            const FFormatInfo& FormatInfo = RHI::Format::Info(ImageDesc.Format);
+            PropertyRow("Pixel Format", FString(FormatInfo.Name));
+            PropertyRow("Mip Levels", eastl::to_string(ImageDesc.NumMips));
+            
+            if (ImageDesc.NumSamples > 1)
+            {
+                ImVec4 msaaColor(0.9f, 0.5f, 0.9f, 1.0f);
+                PropertyRow("MSAA Samples", eastl::to_string(ImageDesc.NumSamples) + "x", &msaaColor);
+            }
+
+            // Row pitch and depth pitch calculations
+            size_t bytesPerPixel = FormatInfo.BytesPerBlock;
+            size_t bytesPerRow = ImageDesc.Extent.X * bytesPerPixel;
+            
+            PropertyRow("Bytes per Row", eastl::to_string(bytesPerRow) + " bytes");
+
+            // Memory calculation
+            size_t pixelCount = Texture->Pixels.size();
+            size_t memorySizeKB = pixelCount / 1024;
+            size_t memorySizeMB = memorySizeKB / 1024;
+            
+            FString memoryStr;
+            ImVec4 memoryColor(0.7f, 1.0f, 0.7f, 1.0f);
+            
+            if (memorySizeMB > 0)
+            {
+                memoryStr = eastl::to_string(memorySizeMB) + " MB";
+                if (memorySizeMB > 10)
+                {
+                    memoryColor = ImVec4(1.0f, 0.7f, 0.3f, 1.0f);
+                }
+                if (memorySizeMB > 50)
+                {
+                    memoryColor = ImVec4(1.0f, 0.4f, 0.4f, 1.0f);
+                }
+            }
+            else
+            {
+                memoryStr = eastl::to_string(memorySizeKB) + " KB";
+            }
+            
+            PropertyRow("Memory Size", memoryStr, &memoryColor);
+            PropertyRow("Pixel Count", eastl::to_string(pixelCount));
+
+            ImGui::EndTable();
+        }
     
             ImGui::Spacing();
             ImGui::Spacing();
     
-            // === Image Flags ===
             ImGuiX::Font::PushFont(ImGuiX::Font::EFont::Large);
             ImGui::SeparatorText("Image Capabilities");
             ImGuiX::Font::PopFont();

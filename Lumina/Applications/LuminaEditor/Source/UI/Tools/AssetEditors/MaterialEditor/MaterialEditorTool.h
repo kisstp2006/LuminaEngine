@@ -52,7 +52,7 @@ namespace Lumina
         CEdGraphNode*           SelectedNode = nullptr;
         FCompilationResultInfo  CompilationResult;
         
-        TObjectHandle<CMaterialNodeGraph> NodeGraph;
+        TObjectPtr<CMaterialNodeGraph> NodeGraph;
         bool bGLSLPreviewDirty = false;
 
     };

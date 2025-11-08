@@ -40,7 +40,6 @@ namespace Lumina
 
     LUMINA_API bool IsValid(const CObjectBase* Obj);
     LUMINA_API bool IsValid(CObjectBase* Obj);
-
     
     template<IsACObject T>
     T* FindObject(CPackage* Package, const FName& Name, bool bExactClass = false)
@@ -74,10 +73,6 @@ namespace Lumina
     {
         return static_cast<T*>(NewObject(InClass, Package, Name, Flags));
     }
-    
-    LUMINA_API void DestroyCObject(CObjectBase* Object);
-
-    
 
     template<IsACObject T>
     T* GetMutableDefault()

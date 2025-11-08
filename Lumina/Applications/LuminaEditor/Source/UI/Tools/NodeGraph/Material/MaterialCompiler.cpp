@@ -768,7 +768,7 @@ namespace Lumina
         RegisterNodeOutput(OwningNode, AValue.Type, EComponentMask::RGBA);
     }
 
-    void FMaterialCompiler::GetBoundTextures(TVector<TObjectHandle<CTexture>>& Images)
+    void FMaterialCompiler::GetBoundTextures(TVector<TObjectPtr<CTexture>>& Images)
     {
         Images = BoundImages;
     }

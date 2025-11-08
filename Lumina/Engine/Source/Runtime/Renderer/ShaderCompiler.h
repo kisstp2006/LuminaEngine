@@ -7,6 +7,7 @@
 #include "Containers/String.h"
 #include "Containers/Function.h"
 #include "Core/Threading/Thread.h"
+#include "EASTL/internal/atomic/atomic.h"
 
 namespace Lumina
 {
@@ -60,13 +61,10 @@ namespace Lumina
         bool CompileShaderPaths(TSpan<FString> ShaderPaths, TSpan<FShaderCompileOptions> CompileOptions, CompletedFunc OnCompleted) override;
         void ReflectSpirv(TSpan<uint32> SpirV, FShaderReflection& Reflection, bool bReflectFull);
 
-        bool HasPendingRequests() const override
-        {
-            return PendingTasks.load(std::memory_order_acquire) != 0;
-        }
+        bool HasPendingRequests() const override;
         
         FMutex                      RequestMutex;
 
-        std::atomic_uint32_t        PendingTasks;
+        eastl::atomic<uint32>       PendingTasks;
     };
 }

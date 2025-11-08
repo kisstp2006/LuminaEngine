@@ -3,6 +3,7 @@
 #include "Lumina.h"
 #include "Core/Object/Class.h"
 #include "Core/Object/Object.h"
+#include "Core/Object/ObjectHandleTyped.h"
 #include "Core/Serialization/Package/PackageSaver.h"
 #include "Memory/SmartPtr.h"
 
@@ -143,7 +144,7 @@ namespace Lumina
         int64 Size;
 
         /** The object which may have been loaded into the package */
-        CObject* Object = nullptr;
+        TWeakObjectPtr<CObject> Object = nullptr;
 
         FORCEINLINE friend FArchive& operator << (FArchive& Ar, FObjectExport& Data)
         {
@@ -171,7 +172,7 @@ namespace Lumina
         FName ClassName;
 
         /** Runtime-resolved pointer after import is loaded */
-        CObject* Object = nullptr;
+        TWeakObjectPtr<CObject> Object = nullptr;
 
         FORCEINLINE friend FArchive& operator << (FArchive& Ar, FObjectImport& Data)
         {
@@ -374,12 +375,13 @@ namespace Lumina
          * @return If load was successful.
          */
         LUMINA_API void LoadObject(CObject* Object);
+        LUMINA_API CObject* LoadObject(FName ObjectName);
 
         /**
          * Load all the objects in this package (serialize).
          * @return If all object loads were successful.
          */
-        LUMINA_API NODISCARD bool LoadObjects();
+        LUMINA_API NODISCARD bool FullyLoad();
         
 
         

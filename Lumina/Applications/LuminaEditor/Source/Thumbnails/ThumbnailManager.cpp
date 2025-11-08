@@ -110,18 +110,18 @@ namespace Lumina
             FRHICommandListRef CommandList = GRenderContext->CreateCommandList(FCommandListInfo::Graphics());
             CommandList->Open();
         
-            constexpr SIZE_T BytesPerPixel = 4;
-            constexpr SIZE_T RowBytes = 256 * BytesPerPixel;
+            const uint8 BytesPerPixel = RHI::Format::BytesPerBlock(ImageDesc.Format);
+            const uint32 RowBytes = 256 * BytesPerPixel;
             
             TVector<uint8> FlippedData(Thumbnail->ImageData.size());
             for (uint32 Y = 0; Y < 256; ++Y)
             {
                 const uint32 FlippedY = 255 - Y;
-                memcpy(FlippedData.data() + (FlippedY * RowBytes), Thumbnail->ImageData.data() + (Y * RowBytes), RowBytes);
+                Memory::Memcpy(FlippedData.data() + (FlippedY * RowBytes), Thumbnail->ImageData.data() + (Y * RowBytes), RowBytes);
             }
         
-            constexpr SIZE_T RowPitch = RowBytes;
-            constexpr SIZE_T DepthPitch = 0;
+            const uint32 RowPitch = RowBytes;
+            constexpr uint32 DepthPitch = 0;
         
             CommandList->WriteImage(Image, 0, 0, FlippedData.data(), RowPitch, DepthPitch);
 

@@ -27,7 +27,7 @@ namespace Lumina
         {
             for (CEdNodeGraphPin* Pin : PinVector)
             {
-                DestroyCObject(Pin);
+                Pin->ConditionalBeginDestroy();
             }
 
             PinVector.clear();

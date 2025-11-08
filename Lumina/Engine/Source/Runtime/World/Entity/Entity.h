@@ -80,7 +80,7 @@ namespace Lumina
     private:
 
         entt::entity EntityHandle;
-        TObjectHandle<CWorld> World;
+        TObjectPtr<CWorld> World;
     };
 
     

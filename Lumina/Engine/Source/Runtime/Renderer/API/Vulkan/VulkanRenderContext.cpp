@@ -42,7 +42,7 @@ namespace Lumina
     {
         EFormat Format = (BindingFormat == EFormat::UNKNOWN) ? TextureFormat : BindingFormat;
 
-        const FFormatInfo& FormatInfo = GetFormatInfo(Format);
+        const FFormatInfo& FormatInfo = RHI::Format::Info(Format);
 
         if (FormatInfo.bHasDepth)
         {
@@ -754,7 +754,7 @@ namespace Lumina
 
         auto Region = VulkanStagingImage->GetSliceRegion(ResolvedSlice.MipLevel, ResolvedSlice.ArraySlice, ResolvedSlice.Z);
         
-        const FFormatInfo& formatInfo = GetFormatInfo(VulkanStagingImage->Desc.Format);
+        const FFormatInfo& formatInfo = RHI::Format::Info(VulkanStagingImage->Desc.Format);
 
         auto wInBlocks = ResolvedSlice.X / formatInfo.BlockSize;
 

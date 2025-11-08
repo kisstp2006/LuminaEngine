@@ -13,16 +13,14 @@ namespace Lumina
 
 namespace Lumina
 {
-
     struct FCObjectItem
     {
         FCObjectItem() = default;
         
-        CObjectBase*        Object = nullptr;
-
-        std::atomic_int32_t Generation{0};
-        std::atomic_int32_t RefCount{0};
-
+        CObjectBase* Object = nullptr;
+        eastl::atomic<uint32> Generation{0};
+        eastl::atomic<uint32> StrongRefCount{0};
+        eastl::atomic<uint32> WeakRefCount{0};
         
         // Non-copyable
         FCObjectItem(FCObjectItem&&) = delete;
@@ -40,29 +38,50 @@ namespace Lumina
             Object = InObject;
         }
 
-        void AddRef()
+        void AddStrongRef()
         {
-            RefCount.fetch_add(1, std::memory_order_relaxed);
+            StrongRefCount.fetch_add(1, eastl::memory_order_relaxed);
         }
 
-        void ReleaseRef()
+        uint32 ReleaseStrongRef()
         {
-            RefCount.fetch_sub(1, std::memory_order_relaxed);
+            uint32 PrevCount = StrongRefCount.fetch_sub(1, eastl::memory_order_acq_rel);
+            return PrevCount - 1;
         }
 
-        int32 GetRefCount() const
+        void AddWeakRef()
         {
-            return RefCount.load(std::memory_order_relaxed);
+            WeakRefCount.fetch_add(1, eastl::memory_order_relaxed);
+        }
+
+        void ReleaseWeakRef()
+        {
+            WeakRefCount.fetch_sub(1, eastl::memory_order_relaxed);
+        }
+
+        int32 GetStrongRefCount() const
+        {
+            return StrongRefCount.load(eastl::memory_order_relaxed);
+        }
+
+        int32 GetWeakRefCount() const
+        {
+            return WeakRefCount.load(eastl::memory_order_relaxed);
         }
 
         int32 GetGeneration() const
         {
-            return Generation.load(std::memory_order_acquire);
+            return Generation.load(eastl::memory_order_acquire);
         }
 
         void IncrementGeneration()
         {
-            Generation.fetch_add(1, std::memory_order_release);
+            Generation.fetch_add(1, eastl::memory_order_release);
+        }
+
+        bool IsReferenced() const
+        {
+            return StrongRefCount.load(eastl::memory_order_relaxed) > 0;
         }
     };
 
@@ -251,11 +270,12 @@ namespace Lumina
         FChunkedFixedCObjectArray ChunkedArray;
         
         TVector<int32> FreeIndices;
-        std::atomic_int32_t NumAliveObjects{0};
+        eastl::atomic<uint32> NumAliveObjects{0};
         
         mutable FMutex Mutex;
     
         bool bInitialized = false;
+        bool bShuttingDown = false;
     
     public:
         FCObjectArray() = default;
@@ -275,9 +295,17 @@ namespace Lumina
     
         void Shutdown()
         {
+            bShuttingDown = true;
+            
+            ForEachObject([](CObjectBase* Object, int32)
+            {
+                Object->OnDestroy();
+                Memory::Delete(Object);
+            });
+            
             ChunkedArray.Shutdown();
             FreeIndices.clear();
-            NumAliveObjects.store(0, std::memory_order_relaxed);
+            NumAliveObjects.store(0, eastl::memory_order_relaxed);
             bInitialized = false;
         }
     
@@ -323,13 +351,13 @@ namespace Lumina
                 assert(Item != nullptr);
     
                 Generation = 1;
-                Item->Generation.store(Generation, std::memory_order_release);
+                Item->Generation.store(Generation, eastl::memory_order_release);
                 Item->SetObj(Object);
     
                 ChunkedArray.IncrementElementCount();
             }
     
-            NumAliveObjects.fetch_add(1, std::memory_order_relaxed);
+            NumAliveObjects.fetch_add(1, eastl::memory_order_relaxed);
 
             return FObjectHandle(Index, Generation);
         }
@@ -351,7 +379,7 @@ namespace Lumina
     
             FreeIndices.push_back(Index);
     
-            NumAliveObjects.fetch_sub(1, std::memory_order_relaxed);
+            NumAliveObjects.fetch_sub(1, eastl::memory_order_relaxed);
         }
     
         // Resolve a handle to an object pointer
@@ -413,30 +441,99 @@ namespace Lumina
     
             return FObjectHandle(Index, Item->GetGeneration());
         }
+
+        // Add a strong reference to an object by pointer
+        void AddStrongRef(CObjectBase* Object)
+        {
+            if (Object)
+            {
+                FCObjectItem* Item = ChunkedArray.GetItem(Object->GetInternalIndex());
+                if (Item)
+                {
+                    Item->AddStrongRef();
+                }
+            }
+        }
+
+        // Release a strong reference by pointer
+        // Returns true if object was deleted.
+        bool ReleaseStrongRef(CObjectBase* Object)
+        {
+            // Shutting down means we're manually destroying every object, so we don't want to do anything else.
+            if (bShuttingDown)
+            {
+                return false;
+            }
+            
+            if (Object)
+            {
+                FCObjectItem* Item = ChunkedArray.GetItem(Object->GetInternalIndex());
+                if (Item)
+                {
+                    uint32 NewCount = Item->ReleaseStrongRef();
+                    if (NewCount == 0)
+                    {
+                        Object->ConditionalBeginDestroy();
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
     
-        // Add a reference to an object at index
-        void AddRefByIndex(int32 Index)
+        void AddStrongRefByIndex(int32 Index)
         {
             FCObjectItem* Item = ChunkedArray.GetItem(Index);
             if (Item)
             {
-                Item->AddRef();
+                Item->AddStrongRef();
             }
         }
     
-        // Release a reference to an object at index
-        void ReleaseRefByIndex(int32 Index)
+        bool ReleaseStrongRefByIndex(int32 Index)
         {
             FCObjectItem* Item = ChunkedArray.GetItem(Index);
             if (Item)
             {
-                Item->ReleaseRef();
+                uint32 NewCount = Item->ReleaseStrongRef();
+                return NewCount == 0 && Item->GetObj() != nullptr;
             }
+            return false;
+        }
+
+        void AddWeakRefByIndex(int32 Index)
+        {
+            FCObjectItem* Item = ChunkedArray.GetItem(Index);
+            if (Item)
+            {
+                Item->AddWeakRef();
+            }
+        }
+
+        void ReleaseWeakRefByIndex(int32 Index)
+        {
+            FCObjectItem* Item = ChunkedArray.GetItem(Index);
+            if (Item)
+            {
+                Item->ReleaseWeakRef();
+            }
+        }
+
+        bool IsReferencedByIndex(int32 Index) const
+        {
+            const FCObjectItem* Item = ChunkedArray.GetItem(Index);
+            return Item && Item->IsReferenced();
+        }
+
+        int32 GetStrongRefCountByIndex(int32 Index) const
+        {
+            const FCObjectItem* Item = ChunkedArray.GetItem(Index);
+            return Item ? Item->GetStrongRefCount() : 0;
         }
     
         int32 GetNumAliveObjects() const
         {
-            return NumAliveObjects.load(std::memory_order_relaxed);
+            return NumAliveObjects.load(eastl::memory_order_relaxed);
         }
     
         int32 GetMaxObjects() const

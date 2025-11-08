@@ -130,7 +130,7 @@ namespace Lumina
         
         TVector<CEntitySystem*>                         SystemUpdateList[(int32)EUpdateStage::Max];
         
-        std::atomic_bool                                bInitialized{false};
+        eastl::atomic<bool>                             bInitialized{false};
         
         int64                                           WorldIndex = -1;
         double                                          DeltaTime = 0.0;

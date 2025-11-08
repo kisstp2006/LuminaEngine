@@ -13,140 +13,315 @@ namespace Lumina
     template <typename T>
     char (&ResolveTypeIsComplete(...))[1];
     
-    template<typename ReferencedType>
-    class TObjectHandle
+    //=============================================================================
+    // TObjectPtr - Strong Reference (just a raw pointer wrapper)
+    //=============================================================================
+    template<typename T>
+    class TObjectPtr
     {
-    public:
+    private:
+        T* Object = nullptr;
 
-        static_assert(std::disjunction_v<std::bool_constant<sizeof(ResolveTypeIsComplete<ReferencedType>(1)) != 2>, std::is_base_of<CObject, ReferencedType>>, "TObjectHandle<T> can only be used with types derived from UObject");
-        
-        TObjectHandle() = default;
-
-        NODISCARD TObjectHandle(FObjectHandle InHandle)
-            :Handle(Move(InHandle))
-        {}
-
-        NODISCARD TObjectHandle(TObjectHandle&& Other) noexcept
-            :Handle(Move(Other.Handle))
-        {}
-
-        NODISCARD TObjectHandle(const TObjectHandle& Other) noexcept
-            :Handle(Other.Handle)
-        {}
-
-        template<typename U>
-        requires std::is_base_of_v<ReferencedType, U>
-        NODISCARD TObjectHandle(const TObjectHandle<U>& Other)
-            : Handle(Other.GetRawHandle())
-        {}
-
-        template<typename U>
-        requires std::is_base_of_v<ReferencedType, U>
-        NODISCARD TObjectHandle& operator=(const TObjectHandle<U>& Other)
-        {
-            Handle = Other.GetRawHandle();
-            return *this;
-        }
-
-        template<typename U>
-        requires std::is_base_of_v<ReferencedType, std::remove_cv_t<U>>
-        NODISCARD TObjectHandle(U* Object)
+        void AddRefInternal()
         {
             if (Object)
             {
-                Handle = GObjectArray.GetHandleByObject(Object);
+                GObjectArray.AddStrongRef((CObjectBase*)Object);
             }
         }
 
-        NODISCARD TObjectHandle(nullptr_t)
-            :Handle(FObjectHandle())
+        void ReleaseInternal()
         {
+            if (Object)
+            {
+                GObjectArray.ReleaseStrongRef((CObjectBase*)Object);
+                Object = nullptr;
+            }
         }
 
-        NODISCARD operator ReferencedType*() const
+    public:
+        TObjectPtr() = default;
+
+        TObjectPtr(T* InObject) : Object(InObject)
         {
-            return Get();
+            AddRefInternal();
         }
 
-        NODISCARD ReferencedType& operator*() const
+        TObjectPtr(const TObjectPtr& Other) : Object(Other.Object)
         {
-            return *Get();
+            AddRefInternal();
         }
 
-        TObjectHandle& operator = (nullptr_t)
+        TObjectPtr(TObjectPtr&& Other) noexcept : Object(Other.Object)
         {
-            Handle = FObjectHandle();
-            return *this;
-        }
-
-        TObjectHandle& operator = (TObjectHandle&& Other) noexcept
-        {
-            Handle = Move(Other.Handle);
-            return *this;
-        }
-
-        TObjectHandle& operator = (const TObjectHandle& Other) noexcept
-        {
-            Handle = Other.Handle;
-            return *this;
-        }
-        
-        template<typename U>
-        requires std::is_convertible_v<U*, ReferencedType*>
-        TObjectHandle& operator = (const TObjectHandle<U>& Other)
-        {
-            Handle = Other.Handle;
-            return *this;
+            Other.Object = nullptr;
         }
 
         template<typename U>
-        requires (std::is_convertible_v<U, ReferencedType*>)
-        TObjectHandle& operator=(U&& Other)
+        requires std::is_base_of_v<T, U>
+        TObjectPtr(const TObjectPtr<U>& Other) : Object(Other.Get())
         {
-            Handle = const_cast<std::remove_const_t<ReferencedType>*>(ImplicitConv<ReferencedType*>(Forward<U>(Other)));
+            AddRefInternal();
+        }
+
+        ~TObjectPtr()
+        {
+            ReleaseInternal();
+        }
+
+        TObjectPtr& operator=(const TObjectPtr& Other)
+        {
+            if (this != &Other)
+            {
+                ReleaseInternal();
+                Object = Other.Object;
+                AddRefInternal();
+            }
             return *this;
         }
 
-        
-        friend bool operator==(const TObjectHandle& InHandle, nullptr_t)
+        TObjectPtr& operator=(TObjectPtr&& Other) noexcept
         {
-            return !InHandle.IsValid();
+            if (this != &Other)
+            {
+                ReleaseInternal();
+                Object = Other.Object;
+                Other.Object = nullptr;
+            }
+            return *this;
         }
 
-        friend bool operator!=(const TObjectHandle& InHandle, nullptr_t)
+        TObjectPtr& operator=(T* InObject)
         {
-            return InHandle.IsValid();
+            if (Object != InObject)
+            {
+                ReleaseInternal();
+                Object = InObject;
+                AddRefInternal();
+            }
+            return *this;
         }
 
-        bool operator==(ReferencedType* Other) const { return Get() == Other; }
-        bool operator==(const TObjectHandle& Other) const { return Handle == Other.Handle; }
-        bool operator!=(const TObjectHandle& Other) const { return !(*this == Other); }
-
-        ReferencedType* operator->() { return Get(); }
-        const ReferencedType* operator->() const { return Get(); }
-        ReferencedType& operator*() { return *Get(); }
-
-        explicit operator bool() const noexcept { return IsValid(); }
-        
-        ReferencedType* Get() const
+        TObjectPtr& operator=(nullptr_t)
         {
-            return (ReferencedType*)(GObjectArray.ResolveHandle(Handle));
+            ReleaseInternal();
+            return *this;
+        }
+
+        T* Get() const { return Object; }
+        T* operator->() const { return Object; }
+        T& operator*() const { return *Object; }
+        
+        explicit operator bool() const { return Object != nullptr; }
+        operator T*() const { return Object; }
+
+        bool IsValid() const { return Object != nullptr; }
+
+        FObjectHandle GetHandle() const
+        {
+            return Object ? GObjectArray.GetHandleByObject(Object) : FObjectHandle();
+        }
+
+        // Release ownership without decrementing ref count
+        T* Detach()
+        {
+            T* Temp = Object;
+            Object = nullptr;
+            return Temp;
+        }
+
+        void Reset()
+        {
+            ReleaseInternal();
+        }
+
+        bool operator==(const TObjectPtr& Other) const { return Object == Other.Object; }
+        bool operator!=(const TObjectPtr& Other) const { return Object != Other.Object; }
+        bool operator==(T* Other) const { return Object == Other; }
+        bool operator!=(T* Other) const { return Object != Other; }
+        bool operator==(nullptr_t) const { return Object == nullptr; }
+        bool operator!=(nullptr_t) const { return Object != nullptr; }
+
+        template<typename U> friend class TObjectPtr;
+        template<typename U> friend class TWeakObjectPtr;
+    };
+
+
+    
+    template<typename T>
+    class TWeakObjectPtr
+    {
+    private:
+        FObjectHandle Handle;
+
+        void AddWeakRefInternal()
+        {
+            if (Handle.IsValid())
+            {
+                GObjectArray.AddWeakRefByIndex(Handle.Index);
+            }
+        }
+
+        void ReleaseWeakRefInternal()
+        {
+            if (Handle.IsValid())
+            {
+                GObjectArray.ReleaseWeakRefByIndex(Handle.Index);
+                Handle = FObjectHandle();
+            }
+        }
+
+    public:
+        TWeakObjectPtr() = default;
+
+        TWeakObjectPtr(T* InObject)
+        {
+            if (InObject)
+            {
+                Handle = GObjectArray.GetHandleByObject(InObject);
+                AddWeakRefInternal();
+            }
+        }
+
+        TWeakObjectPtr(const FObjectHandle& InHandle) : Handle(InHandle)
+        {
+            AddWeakRefInternal();
+        }
+
+        TWeakObjectPtr(const TObjectPtr<T>& Strong)
+        {
+            Handle = Strong.GetHandle();
+            AddWeakRefInternal();
+        }
+
+        TWeakObjectPtr(const TWeakObjectPtr& Other) : Handle(Other.Handle)
+        {
+            AddWeakRefInternal();
+        }
+
+        TWeakObjectPtr(TWeakObjectPtr&& Other) noexcept : Handle(Other.Handle)
+        {
+            Other.Handle = FObjectHandle();
+        }
+
+        template<typename U>
+        requires std::is_base_of_v<T, U>
+        TWeakObjectPtr(const TWeakObjectPtr<U>& Other) : Handle(Other.Handle)
+        {
+            AddWeakRefInternal();
+        }
+
+        ~TWeakObjectPtr()
+        {
+            ReleaseWeakRefInternal();
+        }
+
+        TWeakObjectPtr& operator=(const TWeakObjectPtr& Other)
+        {
+            if (this != &Other)
+            {
+                ReleaseWeakRefInternal();
+                Handle = Other.Handle;
+                AddWeakRefInternal();
+            }
+            return *this;
+        }
+
+        TWeakObjectPtr& operator=(TWeakObjectPtr&& Other) noexcept
+        {
+            if (this != &Other)
+            {
+                ReleaseWeakRefInternal();
+                Handle = Other.Handle;
+                Other.Handle = FObjectHandle();
+            }
+            return *this;
+        }
+
+        TWeakObjectPtr& operator=(T* InObject)
+        {
+            ReleaseWeakRefInternal();
+            if (InObject)
+            {
+                Handle = GObjectArray.GetHandleByObject(InObject);
+                AddWeakRefInternal();
+            }
+            return *this;
+        }
+
+        TWeakObjectPtr& operator=(const TObjectPtr<T>& Strong)
+        {
+            ReleaseWeakRefInternal();
+            Handle = Strong.GetHandle();
+            AddWeakRefInternal();
+            return *this;
+        }
+
+        TWeakObjectPtr& operator=(nullptr_t)
+        {
+            ReleaseWeakRefInternal();
+            return *this;
+        }
+
+        // Try to get a strong reference, returns null if object was deleted
+        TObjectPtr<T> Lock() const
+        {
+            T* Obj = Get();
+            return Obj ? TObjectPtr<T>(Obj) : TObjectPtr<T>();
+        }
+
+        // Get raw pointer (checks generation)
+        T* Get() const
+        {
+            return (T*)GObjectArray.ResolveHandle(Handle);
         }
 
         bool IsValid() const
         {
-            if (*this == FObjectHandle())
-            {
-                return false;
-            }
-            return Get() != nullptr;
+            return Handle.IsValid() && Get() != nullptr;
+        }
+
+        bool IsStale() const
+        {
+            return Handle.IsValid() && Get() == nullptr;
         }
 
         FObjectHandle GetHandle() const { return Handle; }
-    
-    private:
-		
-        FObjectHandle Handle;
-    };
 
+        void Reset()
+        {
+            ReleaseWeakRefInternal();
+        }
+
+        bool operator==(const TWeakObjectPtr& Other) const { return Handle == Other.Handle; }
+        bool operator!=(const TWeakObjectPtr& Other) const { return Handle != Other.Handle; }
+        bool operator==(nullptr_t) const { return !IsValid(); }
+        bool operator!=(nullptr_t) const { return IsValid(); }
+
+        template<typename U> friend class TWeakObjectPtr;
+    };
+}
+
+namespace eastl
+{
+    template <typename T>
+    struct hash<Lumina::TObjectPtr<T>>
+    {
+        size_t operator()(const Lumina::TObjectPtr<T>& Object) const noexcept
+        {
+            return eastl::hash<T*>{}(Object.Get());
+        }
+    };
+}
+
+namespace eastl
+{
+    template <typename T>
+    struct hash<Lumina::TWeakObjectPtr<T>>
+    {
+        size_t operator()(const Lumina::TWeakObjectPtr<T>& Object) const noexcept
+        {
+            return eastl::hash<Lumina::FObjectHandle>{}(Object.Handle);
+        }
+    };
 }

@@ -7,28 +7,21 @@
 
 namespace Lumina
 {
-    class CPackage;
     class CObjectBase;
     class CClass;
     
     /** Low level implementation of a CObject */
-    class CObjectBase : public IRefCountedObject
+    class CObjectBase
     {
     public:
         friend class FCObjectArray;
         friend class CPackage;
         
         LUMINA_API CObjectBase();
-        LUMINA_API virtual ~CObjectBase() override;
+        LUMINA_API virtual ~CObjectBase();
         
         LUMINA_API CObjectBase(EObjectFlags InFlags);
         LUMINA_API CObjectBase(CClass* InClass, EObjectFlags InFlags, CPackage* Package, FName InName);
-
-        // Begin IRefCountedObject
-        LUMINA_API uint32 AddRef() const override;
-        LUMINA_API uint32 Release() override;
-        LUMINA_API uint32 GetRefCount() const override { return RefCount; }
-        //~ End IRefCountedObject
         
         LUMINA_API void BeginRegister();
         LUMINA_API void FinishRegister(CClass* InClass, const TCHAR* InName);
@@ -39,7 +32,9 @@ namespace Lumina
         LUMINA_API void SetFlag(EObjectFlags Flags) const { EnumAddFlags(ObjectFlags, Flags); }
         LUMINA_API bool HasAnyFlag(EObjectFlags Flag) const { return EnumHasAnyFlags(ObjectFlags, Flag); }
         LUMINA_API bool HasAllFlags(EObjectFlags Flags) const { return EnumHasAllFlags(ObjectFlags, Flags); }
-        
+
+        LUMINA_API void ConditionalBeginDestroy();
+        LUMINA_API int32 GetStrongRefCount() const;
 
         /** Low level object rename, will remove and reload into hash buckets. Only call this if you've verified it's safe */
         LUMINA_API void HandleNameChange(FName NewName, CPackage* NewPackage = nullptr) noexcept;
@@ -48,6 +43,12 @@ namespace Lumina
         LUMINA_API virtual void OnDestroy() { }
 
         LUMINA_API int32 GetInternalIndex() const { return InternalIndex; }
+
+        /** Adds the object the root set, rooting an object will ensure it will not be destroyed */
+        LUMINA_API void AddToRoot();
+
+        /** Removes the object from the root set. */
+        LUMINA_API void RemoveFromRoot();
         
     private:
 
@@ -142,9 +143,6 @@ namespace Lumina
 
         /** Index into this object's package export map */
         int64                   LoaderIndex = 0;
-
-        /** Internal reference count to this object */
-        mutable int32           RefCount = 0;
     };
 
 //---------------------------------------------------------------------------------------------------

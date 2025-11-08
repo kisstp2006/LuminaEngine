@@ -12,7 +12,7 @@ namespace Lumina
             :FProperty(InOwner, Params)
         {
             ObjectClass = Params->ClassFunc();
-            SetElementSize(sizeof(FObjectHandle));
+            SetElementSize(sizeof(void*));
         }
 
         void Serialize(FArchive& Ar, void* Value) override;

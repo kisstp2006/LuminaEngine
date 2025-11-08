@@ -286,7 +286,7 @@ namespace Lumina
                 // Unfortunately the way we do this now is a bit gross, it's too much of a pain to keep these nodes and the internal NodeEditor nodes in sync.
                 // This is the way it's done in the examples, and even though it's essentially O(n^2), it seems to be working correctly.
                 // Realistically it shouldn't matter too much, and should be fine.
-                auto NodeItr = eastl::find_if(Nodes.begin(), Nodes.end(), [NodeId] (const TObjectHandle<CEdGraphNode>& A)
+                auto NodeItr = eastl::find_if(Nodes.begin(), Nodes.end(), [NodeId] (const TObjectPtr<CEdGraphNode>& A)
                 {
                     return A->GetNodeID() == NodeId.Get();
                 });
@@ -327,7 +327,7 @@ namespace Lumina
                     
                     Nodes.erase(NodeItr);
 
-                    DestroyCObject(Node);
+                    Node->ConditionalBeginDestroy();
                     Node = nullptr;
                     
                     ValidateGraph();

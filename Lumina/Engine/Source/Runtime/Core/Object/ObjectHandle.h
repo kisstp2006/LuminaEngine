@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Core/Math/Hash/Hash.h"
 #include "Module/API.h"
 #include "Platform/GenericPlatform.h"
 
@@ -40,6 +41,21 @@ namespace Lumina
         bool operator!=(const FObjectHandle& Other) const
         {
             return !(*this == Other);
+        }
+    };
+}
+
+namespace eastl
+{
+    template<>
+    struct hash<Lumina::FObjectHandle>
+    {
+        size_t operator()(const Lumina::FObjectHandle& Object) const noexcept
+        {
+            size_t Seed;
+            Lumina::Hash::HashCombine(Seed, Object.Index);
+            Lumina::Hash::HashCombine(Seed, Object.Generation);
+            return Seed;
         }
     };
 }

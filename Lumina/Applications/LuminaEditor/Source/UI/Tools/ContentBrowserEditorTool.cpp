@@ -9,6 +9,7 @@
 #include "Core/Engine/Engine.h"
 #include "Core/Object/ObjectIterator.h"
 #include "Core/Object/ObjectRedirector.h"
+#include "Core/Object/ObjectRename.h"
 #include "Core/Object/Package/Package.h"
 #include "Core/Object/Package/Thumbnail/PackageThumbnail.h"
 #include "Core/Windows/Window.h"
@@ -571,7 +572,7 @@ ContentBrowserTileViewContext.DrawItemOverrideFunction = [this] (FTileViewItem* 
         
         for (FPendingRename& Rename : PendingRenames)
         {
-            if (HandleRenameEvent(Rename.OldName, Rename.NewName))
+            if (HandleRenameEvent(Rename.OldName, Rename.NewName) == ObjectRename::EObjectRenameResult::Success)
             {
                 bWroteSomething = true;
                 ImGuiX::Notifications::NotifySuccess("Renamed to \"%s\"", Rename.NewName.c_str());
@@ -718,77 +719,9 @@ ContentBrowserTileViewContext.DrawItemOverrideFunction = [this] (FTileViewItem* 
         }
     }
 
-    bool FContentBrowserEditorTool::HandleRenameEvent(const FString& OldPath, FString NewPath)
+    ObjectRename::EObjectRenameResult FContentBrowserEditorTool::HandleRenameEvent(const FString& OldPath, const FString& NewPath)
     {
-        try
-        {
-            bool bDirectory = std::filesystem::is_directory(OldPath.c_str());
-            
-            if (!bDirectory)
-            {
-                NewPath += ".lasset";
-            }
-        
-            if (std::filesystem::exists(NewPath.c_str()))
-            {
-                LOG_ERROR("Destination path already exists: {0}", NewPath);
-                return false;
-            }
-            
-            if (!bDirectory)
-            {
-                if (CPackage* OldPackage = CPackage::LoadPackage(OldPath.c_str()))
-                {
-                    // Make sure nothing is currently loading before executing this rename.
-                    GEngine->GetEngineSubsystem<FAssetManager>()->FlushAsyncLoading();
-                    
-                    /** We need all objects to be loaded to rename a package */
-                    OldPackage->LoadObjects();
-
-                    bool bCreateRedirectors = true;
-                    
-                    FAssetRegistry* AssetRegistry = GEngine->GetEngineSubsystem<FAssetRegistry>();
-                    const THashSet<FName>& References = AssetRegistry->GetReferences(OldPackage->GetName());
-
-                    //@TODO bCreateRedirectors = References.empty();
-                    
-                    FString OldAssetName = Paths::FileName(OldPath, true);
-                    FString NewAssetName = Paths::FileName(NewPath, true);
-
-                    CPackage* NewPackage = CPackage::CreatePackage(NewPath);
-                    
-                    TVector<CObject*> Objects;
-                    GetObjectsWithPackage(OldPackage, Objects);
-
-                    for (CObject* Object : Objects)
-                    {
-                        if (Object->IsAsset())
-                        {
-                            Object->Rename(NewAssetName, NewPackage, bCreateRedirectors);
-                            AssetRegistry->AssetRenamed(Object, OldPath);
-                        }
-                        else
-                        {
-                            Object->Rename(Object->GetName(), NewPackage);
-                        }
-                    }
-
-                    CPackage::SavePackage(OldPackage, OldPath);
-                    CPackage::SavePackage(NewPackage, NewPath);
-                }
-            }
-            else
-            {
-                std::filesystem::rename(OldPath.c_str(), NewPath.c_str());
-            }
-            
-            return true;
-        }
-        catch (const std::filesystem::filesystem_error& e)
-        {
-            LOG_ERROR("Failed to rename file: {0}", e.what());
-            return false;
-        }
+        return ObjectRename::RenameObject(OldPath, NewPath);
     }
     
     void FContentBrowserEditorTool::DrawDirectoryBrowser(const FUpdateContext& Contxt, bool bIsFocused, ImVec2 Size)

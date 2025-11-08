@@ -108,7 +108,7 @@ namespace Lumina
 
     void CWorld::InitializeWorld()
     {
-        if (bInitialized.load(std::memory_order_relaxed))
+        if (bInitialized.load(eastl::memory_order_acquire))
         {
             return;
         }
@@ -118,7 +118,7 @@ namespace Lumina
 
         RenderScene = Memory::New<FRenderScene>(this);
 
-        TVector<TObjectHandle<CEntitySystem>> Systems;
+        TVector<TObjectPtr<CEntitySystem>> Systems;
         CEntitySystemRegistry::Get().GetRegisteredSystems(Systems);
         
         for (CEntitySystem* System : Systems)
@@ -130,7 +130,7 @@ namespace Lumina
             }
         }
 
-        bInitialized.store(true, std::memory_order_acquire);
+        bInitialized.store(true, eastl::memory_order_relaxed);
     }
     
     Entity CWorld::SetupEditorWorld()
@@ -229,7 +229,7 @@ namespace Lumina
         for (CEntitySystem* System : UniqueSystems)
         {
             System->Shutdown(SystemContext);
-            DestroyCObject(System);
+            System->ConditionalBeginDestroy();
         }
 
         Memory::Delete(RenderScene);

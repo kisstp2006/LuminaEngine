@@ -249,7 +249,7 @@ namespace Lumina
         return NewNode;
     }
     
-    CEdGraphNode* CMaterialNodeGraph::TopologicalSort(const TVector<TObjectHandle<CEdGraphNode>>& NodesToSort, TVector<CEdGraphNode*>& SortedNodes)
+    CEdGraphNode* CMaterialNodeGraph::TopologicalSort(const TVector<TObjectPtr<CEdGraphNode>>& NodesToSort, TVector<CEdGraphNode*>& SortedNodes)
     {
         THashMap<CEdGraphNode*, uint32> InDegree;
         TQueue<CEdGraphNode*> ReadyQueue;

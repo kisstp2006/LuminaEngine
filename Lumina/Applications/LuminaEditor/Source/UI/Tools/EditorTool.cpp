@@ -59,7 +59,7 @@ namespace Lumina
         {
             World->ShutdownWorld();
             UpdateContext.GetSubsystem<FWorldManager>()->RemoveWorld(World);
-            DestroyCObject(World.Get());
+            World.Get()->ConditionalBeginDestroy();
             World = nullptr;
         }
         

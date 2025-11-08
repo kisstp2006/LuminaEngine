@@ -821,6 +821,53 @@
             }
         }
 
+        void FRenderScene::CheckLightBufferResize(uint32 NumLights)
+        {
+            constexpr SIZE_T LightDataHeaderSize = offsetof(FSceneLightData, Lights);
+            const SIZE_T ActiveLightsSize = NumLights * sizeof(FLight);
+            const SIZE_T LightUploadSize = LightDataHeaderSize + ActiveLightsSize;
+            
+            if (LightDataBuffer->GetDescription().Size < LightUploadSize)
+            {
+                {
+                    FRHIBufferDesc BufferDesc;
+                    BufferDesc.Size = LightUploadSize * 2;
+                    BufferDesc.Usage.SetMultipleFlags(BUF_StorageBuffer);
+                    BufferDesc.bKeepInitialState = true;
+                    BufferDesc.InitialState = EResourceStates::ShaderResource;
+                    BufferDesc.DebugName = "Light Data Buffer";
+                    LightDataBuffer = GRenderContext->CreateBuffer(BufferDesc);
+                }
+
+                
+                {
+
+                    FBindingSetDesc BindingSetDesc;
+                    BindingSetDesc.AddItem(FBindingSetItem::BufferCBV(0, SceneDataBuffer));
+                    BindingSetDesc.AddItem(FBindingSetItem::BufferSRV(1, InstanceDataBuffer));
+                    BindingSetDesc.AddItem(FBindingSetItem::BufferSRV(2, InstanceMappingBuffer));
+                    BindingSetDesc.AddItem(FBindingSetItem::BufferSRV(3, LightDataBuffer));
+
+                    TBitFlags<ERHIShaderType> Visibility;
+                    Visibility.SetMultipleFlags(ERHIShaderType::Vertex, ERHIShaderType::Fragment);
+                    GRenderContext->CreateBindingSetAndLayout(Visibility, 0, BindingSetDesc, BindingLayout, BindingSet);
+                }
+
+                
+                {
+                    FBindingSetDesc SetDesc;
+                    SetDesc.AddItem(FBindingSetItem::BufferUAV(0, ClusterBuffer));
+                    SetDesc.AddItem(FBindingSetItem::BufferUAV(1, LightDataBuffer));
+                    SetDesc.AddItem(FBindingSetItem::PushConstants(0, sizeof(glm::mat4)));
+
+                    TBitFlags<ERHIShaderType> Visibility;
+                    Visibility.SetMultipleFlags(ERHIShaderType::Compute);
+                    GRenderContext->CreateBindingSetAndLayout(Visibility, 0, SetDesc, LightCullLayout, LightCullSet);
+                }
+                
+            }
+        }
+
         void FRenderScene::SetViewVolume(const FViewVolume& ViewVolume)
         {
             SceneViewport->SetViewVolume(ViewVolume);
@@ -847,14 +894,7 @@
             InstanceData.clear();
             LightData.NumLights = 0;
             ShadowAtlas.FreeTiles();
-
-            FRGPassDescriptor* Descriptor = RenderGraph.AllocDescriptor();
-            Descriptor->AddRawWrite(OverdrawImage);
             
-            RenderGraph.AddPass<RG_Raster>(FRGEvent("Clear Overdraw"), Descriptor, [&](ICommandList& CmdList)
-            {
-               CmdList.ClearImageUInt(OverdrawImage, AllSubresources, 0); 
-            });
         }
 
         void FRenderScene::ClusterBuildPass(FRenderGraph& RenderGraph, const FViewVolume& View)
@@ -1506,21 +1546,16 @@
 
             {
                 int32 CurrentShadowMapIndex = 0;
-                auto Group = World->GetEntityRegistry().group<SPointLightComponent>(entt::get<STransformComponent>);
-                for (uint64 i = 0; i < Group.size(); ++i)
+                auto View = World->GetEntityRegistry().view<SPointLightComponent, STransformComponent>();
+                View.each([&] (SPointLightComponent& PointLightComponent, STransformComponent& TransformComponent)
                 {
-                    entt::entity entity = Group[i];
-                    const SPointLightComponent& PointLightComponent = Group.get<SPointLightComponent>(entity);
-                    const STransformComponent& TransformComponent = Group.get<STransformComponent>(entity);
-        
                     FLight Light;
                     Light.Flags                 = LIGHT_TYPE_POINT;
                     Light.Falloff               = PointLightComponent.Falloff;
                     Light.Color                 = PackColor(PointLightComponent.LightColor, PointLightComponent.Intensity);
                     Light.Radius                = PointLightComponent.Attenuation;
                     Light.Position              = TransformComponent.WorldTransform.Location;
-
-                                        
+                    
                     FViewVolume LightView(90.0f, 1.0f, 0.01f, Light.Radius);
                     
                     auto SetView = [&Light](FViewVolume& View, uint32 Index)
@@ -1568,19 +1603,17 @@
                     LightData.Lights[LightData.NumLights++] = Move(Light);
         
                     //Scene->DrawDebugSphere(Transform.Location, 0.25f, Light.Color);
-                }
+                });
             }
         
             //========================================================================================================================
             
             {
                 int32 CurrentShadowMapIndex = 0;
-                auto Group = World->GetEntityRegistry().group<SSpotLightComponent>(entt::get<STransformComponent>);
-                for (uint64 i = 0; i < Group.size(); ++i)
+                auto View = World->GetEntityRegistry().view<SSpotLightComponent, STransformComponent>();
+                View.each([&] (SSpotLightComponent& SpotLightComponent, STransformComponent& TransformComponent)
                 {
-                    entt::entity entity = Group[i];
-                    const SSpotLightComponent& SpotLightComponent = Group.get<SSpotLightComponent>(entity);
-                    const FTransform& Transform = Group.get<STransformComponent>(entity).WorldTransform;
+                    const FTransform& Transform = TransformComponent.WorldTransform;
 
                     glm::vec3 UpdatedForward    = Transform.Rotation * FViewVolume::ForwardAxis;
                     glm::vec3 UpdatedUp         = Transform.Rotation * FViewVolume::UpAxis;
@@ -1627,7 +1660,7 @@
                    //World->DrawDebugCone(SpotLight.Position, Forward, glm::radians(OuterDegrees), SpotLightComponent.Attenuation, glm::vec4(SpotLightComponent.LightColor, 1.0f));
                    //World->DrawDebugCone(SpotLight.Position, Forward, glm::radians(InnerDegrees), SpotLightComponent.Attenuation, glm::vec4(SpotLightComponent.LightColor, 1.0f));
         
-                }
+                });
             }
         
             
@@ -1663,6 +1696,7 @@
                     LUMINA_PROFILE_SECTION_COLORED("Write Scene Buffers", tracy::Color::OrangeRed3);
 
                     CheckInstanceBufferResize(InstanceData.size());
+                    CheckLightBufferResize(LightData.NumLights);
                     
                     const SIZE_T SimpleVertexSize = SimpleVertices.size() * sizeof(FSimpleElementVertex);
                     const SIZE_T InstanceDataSize = InstanceData.size() * sizeof(FInstanceData);
@@ -1765,7 +1799,6 @@
                 BindingSetDesc.AddItem(FBindingSetItem::BufferSRV(1, InstanceDataBuffer));
                 BindingSetDesc.AddItem(FBindingSetItem::BufferSRV(2, InstanceMappingBuffer));
                 BindingSetDesc.AddItem(FBindingSetItem::BufferSRV(3, LightDataBuffer));
-                //BindingSetDesc.AddItem(FBindingSetItem::TextureUAV(5, OverdrawImage));
 
                 TBitFlags<ERHIShaderType> Visibility;
                 Visibility.SetMultipleFlags(ERHIShaderType::Vertex, ERHIShaderType::Fragment);
@@ -1834,7 +1867,6 @@
                 TBitFlags<ERHIShaderType> Visibility;
                 Visibility.SetMultipleFlags(ERHIShaderType::Compute);
                 GRenderContext->CreateBindingSetAndLayout(Visibility, 0, SetDesc, LightCullLayout, LightCullSet);
-
             }
 
             {
@@ -1890,7 +1922,7 @@
 
             {
                 FRHIBufferDesc BufferDesc;
-                BufferDesc.Size = sizeof(FInstanceData) * 5'000;
+                BufferDesc.Size = sizeof(FInstanceData) * 1'000;
                 BufferDesc.Usage.SetMultipleFlags(BUF_StorageBuffer);
                 BufferDesc.bKeepInitialState = true;
                 BufferDesc.InitialState = EResourceStates::ShaderResource;
@@ -1900,7 +1932,7 @@
 
             {
                 FRHIBufferDesc BufferDesc;
-                BufferDesc.Size = sizeof(uint32) * 5'000;
+                BufferDesc.Size = sizeof(uint32) * 1'000;
                 BufferDesc.Usage.SetMultipleFlags(BUF_StorageBuffer);
                 BufferDesc.bKeepInitialState = true;
                 BufferDesc.InitialState = EResourceStates::UnorderedAccess;
@@ -1910,8 +1942,7 @@
 
             {
                 FRHIBufferDesc BufferDesc;
-                BufferDesc.Size = sizeof(FSceneLightData);
-                BufferDesc.Stride = sizeof(FSceneLightData);
+                BufferDesc.Size = offsetof(FSceneLightData, Lights);
                 BufferDesc.Usage.SetMultipleFlags(BUF_StorageBuffer);
                 BufferDesc.bKeepInitialState = true;
                 BufferDesc.InitialState = EResourceStates::ShaderResource;
@@ -1977,12 +2008,12 @@
             
 
             {
-                SimpleVertexBuffer = FRHITypedVertexBuffer<FSimpleElementVertex>::CreateEmpty(100'000);
+                SimpleVertexBuffer = FRHITypedVertexBuffer<FSimpleElementVertex>::CreateEmpty(10'000);
             }
 
             {
                 FRHIBufferDesc BufferDesc;
-                BufferDesc.Size = sizeof(FDrawIndexedIndirectArguments) * (10'000);
+                BufferDesc.Size = sizeof(FDrawIndexedIndirectArguments) * (500);
                 BufferDesc.Stride = sizeof(FDrawIndexedIndirectArguments);
                 BufferDesc.Usage.SetMultipleFlags(BUF_Indirect, BUF_StorageBuffer);
                 BufferDesc.InitialState = EResourceStates::IndirectArgument;
@@ -2087,19 +2118,6 @@
                 ImageDesc.DebugName = "SSAO Blur";
             
                 SSAOBlur = GRenderContext->CreateImage(ImageDesc);
-            }
-
-            {
-                FRHIImageDesc ImageDesc = {};
-                ImageDesc.Extent = Extent;
-                ImageDesc.Format = EFormat::R32_UINT;
-                ImageDesc.Dimension = EImageDimension::Texture2D;
-                ImageDesc.bKeepInitialState = true;
-                ImageDesc.InitialState = EResourceStates::UnorderedAccess;
-                ImageDesc.Flags.SetMultipleFlags(EImageCreateFlags::ShaderResource, EImageCreateFlags::UnorderedAccess);
-                ImageDesc.DebugName = "Overdraw Visualization";
-            
-                OverdrawImage = GRenderContext->CreateImage(ImageDesc);
             }
 
             {

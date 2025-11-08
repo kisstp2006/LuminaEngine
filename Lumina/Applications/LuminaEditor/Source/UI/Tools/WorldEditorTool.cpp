@@ -810,7 +810,7 @@ namespace Lumina
         {
             World->ShutdownWorld();
             GEngine->GetEngineSubsystem<FWorldManager>()->RemoveWorld(World);
-            DestroyCObject(World);
+            World->ConditionalBeginDestroy();
             World = nullptr;
         }
         

@@ -71,24 +71,25 @@ namespace Lumina::Reflection
 
         switch (Hash(Name))
         {
-        case Hash("bool"):                      return EPropertyTypeFlags::Bool;
-        case Hash("uint8"):                     return EPropertyTypeFlags::UInt8;
-        case Hash("uint16"):                    return EPropertyTypeFlags::UInt16;
-        case Hash("uint32"):                    return EPropertyTypeFlags::UInt32;
-        case Hash("uint64"):                    return EPropertyTypeFlags::UInt64;
-        case Hash("int8"):                      return EPropertyTypeFlags::Int8;
-        case Hash("int16"):                     return EPropertyTypeFlags::Int16;
-        case Hash("int32"):                     return EPropertyTypeFlags::Int32;
-        case Hash("int64"):                     return EPropertyTypeFlags::Int64;
-        case Hash("float"):                     return EPropertyTypeFlags::Float;
-        case Hash("double"):                    return EPropertyTypeFlags::Double;
-        case Hash("Lumina::CClass"):            return EPropertyTypeFlags::Class;
-        case Hash("Lumina::FName"):             return EPropertyTypeFlags::Name;
-        case Hash("Lumina::FString"):           return EPropertyTypeFlags::String;
-        case Hash("Lumina::TVector"):           return EPropertyTypeFlags::Vector;
-        case Hash("Lumina::TObjectHandle"):     return EPropertyTypeFlags::Object;
-        case Hash("Lumina::CObject"):           return EPropertyTypeFlags::Object;
-        default:                                   return EPropertyTypeFlags::None;
+            case Hash("bool"):                      return EPropertyTypeFlags::Bool;
+            case Hash("uint8"):                     return EPropertyTypeFlags::UInt8;
+            case Hash("uint16"):                    return EPropertyTypeFlags::UInt16;
+            case Hash("uint32"):                    return EPropertyTypeFlags::UInt32;
+            case Hash("uint64"):                    return EPropertyTypeFlags::UInt64;
+            case Hash("int8"):                      return EPropertyTypeFlags::Int8;
+            case Hash("int16"):                     return EPropertyTypeFlags::Int16;
+            case Hash("int32"):                     return EPropertyTypeFlags::Int32;
+            case Hash("int64"):                     return EPropertyTypeFlags::Int64;
+            case Hash("float"):                     return EPropertyTypeFlags::Float;
+            case Hash("double"):                    return EPropertyTypeFlags::Double;
+            case Hash("Lumina::CClass"):            return EPropertyTypeFlags::Class;
+            case Hash("Lumina::FName"):             return EPropertyTypeFlags::Name;
+            case Hash("Lumina::FString"):           return EPropertyTypeFlags::String;
+            case Hash("Lumina::TVector"):           return EPropertyTypeFlags::Vector;
+            case Hash("Lumina::TObjectPtr"):        return EPropertyTypeFlags::Object;
+            case Hash("Lumina::TWeakObjectPtr"):    return EPropertyTypeFlags::Object;
+            case Hash("Lumina::CObject"):           return EPropertyTypeFlags::Object;
+            default:                                   return EPropertyTypeFlags::None;
         }
     }
     

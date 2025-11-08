@@ -28,7 +28,7 @@ namespace Lumina
         void DrawNodeBody() override;
 
         LUM_PROPERTY(Editable, Category = "Texture")
-        TObjectHandle<CTexture> Texture;
+        TObjectPtr<CTexture> Texture;
 
         CMaterialInput* UV = nullptr;
     };

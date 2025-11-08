@@ -31,13 +31,11 @@ namespace Lumina
         RHIImage = GRenderContext->CreateImage(ImageDescription);
 
         const uint32 Width = ImageDescription.Extent.X;
-        const uint32 Height = ImageDescription.Extent.Y;
-        const SIZE_T RowPitch = Width * 4;
-        const SIZE_T DepthPitch = RowPitch * Height;
+        const uint32 RowPitch = Width * RHI::Format::BytesPerBlock(ImageDescription.Format);
 
         FRHICommandListRef TransferCommandList = GRenderContext->CreateCommandList(FCommandListInfo::Transfer());
         TransferCommandList->Open();
-        TransferCommandList->WriteImage(RHIImage, 0, 0, Pixels.data(), RowPitch, DepthPitch);
+        TransferCommandList->WriteImage(RHIImage, 0, 0, Pixels.data(), RowPitch, 1);
         TransferCommandList->Close();
         GRenderContext->ExecuteCommandList(TransferCommandList, ECommandQueue::Transfer);
     }

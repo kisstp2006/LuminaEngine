@@ -12,7 +12,6 @@ namespace Lumina
         Ar << Index;
         
         Value = Package->IndexToObject(Index);
-        Package->LoadObject(Value);
         
         return Ar;
     }

@@ -31,13 +31,13 @@ namespace Lumina
 
 
         LUM_PROPERTY(NotSerialized)
-        TObjectHandle<CStaticMesh> CubeMesh;
+        TObjectPtr<CStaticMesh> CubeMesh;
 
         LUM_PROPERTY(NotSerialized)
-        TObjectHandle<CStaticMesh> SphereMesh;
+        TObjectPtr<CStaticMesh> SphereMesh;
 
         LUM_PROPERTY(NotSerialized)
-        TObjectHandle<CStaticMesh> PlaneMesh;
+        TObjectPtr<CStaticMesh> PlaneMesh;
         
         static CThumbnailManager* ThumbnailManagerSingleton;
         

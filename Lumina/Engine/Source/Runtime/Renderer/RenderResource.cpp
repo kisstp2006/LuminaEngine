@@ -27,7 +27,7 @@ namespace Lumina
     template class LUMINA_API TRefCountPtr<FShaderLibrary>;
     template class LUMINA_API TRefCountPtr<FRHIDescriptorTable>;
 
-    LUMINA_API std::atomic_int64_t GTotalRenderResourcesAllocated {0};
+    LUMINA_API eastl::atomic<uint64> GTotalRenderResourcesAllocated {0};
 
     	
     class LUMINA_API FRHIResourceList
@@ -100,13 +100,13 @@ namespace Lumina
     
     IRHIResource::IRHIResource()
     {
-        GTotalRenderResourcesAllocated.fetch_add(1);
+        GTotalRenderResourcesAllocated.fetch_add(1, eastl::memory_order_relaxed);
         ListIndex = FRHIResourceList::Get().Allocate(this);
     }
 
     IRHIResource::~IRHIResource()
     {
-        GTotalRenderResourcesAllocated.fetch_sub(1);
+        GTotalRenderResourcesAllocated.fetch_sub(1, eastl::memory_order_relaxed);
         FRHIResourceList::Get().Deallocate(ListIndex);
         ListIndex = INDEX_NONE;
     }
@@ -270,9 +270,9 @@ namespace Lumina
     
 }
 
- // Format mapping table. The rows must be in the exactly same order as Format enum members are defined.
-    static const FFormatInfo c_FormatInfo[] = {
-    //        format                   name             bytes blk         kind               red   green   blue  alpha  depth  stencl signed  srgb
+    // Format mapping table. The rows must be in the exactly same order as Format enum members are defined.
+    static const FFormatInfo GFormatInfo[] =
+    {
         { EFormat::UNKNOWN,           "UNKNOWN",           0,   0, EFormatKind::Integer,      false, false, false, false, false, false, false, false },
         { EFormat::R8_UINT,           "R8_UINT",           1,   1, EFormatKind::Integer,      true,  false, false, false, false, false, false, false },
         { EFormat::R8_SINT,           "R8_SINT",           1,   1, EFormatKind::Integer,      true,  false, false, false, false, false, true,  false },
@@ -344,17 +344,24 @@ namespace Lumina
     };
 
 
-const FFormatInfo& GetFormatInfo(EFormat format)
+namespace RHI::Format
 {
-    static_assert(sizeof(c_FormatInfo) / sizeof(FFormatInfo) == size_t(EFormat::COUNT), 
-        "The format info table doesn't have the right number of elements");
-
-    if (uint32(format) >= uint32(EFormat::COUNT))
+    const FFormatInfo& Info(EFormat format)
     {
-        return c_FormatInfo[0];
+        static_assert(sizeof(GFormatInfo) / sizeof(FFormatInfo) == static_cast<size_t>(EFormat::COUNT), "The format info table doesn't have the right number of elements");
+
+        if (static_cast<uint32>(format) >= static_cast<uint32>(EFormat::COUNT))
+        {
+            return GFormatInfo[0];
+        }
+
+        const FFormatInfo& info = GFormatInfo[static_cast<uint32>(format)];
+        Assert(info.Format == format)
+        return info;
     }
 
-    const FFormatInfo& info = c_FormatInfo[uint32(format)];
-    Assert(info.Format == format)
-    return info;
+    uint8 BytesPerBlock(EFormat Format)
+    {
+        return Info(Format).BytesPerBlock;
+    }
 }

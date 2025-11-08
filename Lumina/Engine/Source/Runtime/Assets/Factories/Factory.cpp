@@ -14,6 +14,8 @@ namespace Lumina
         FString FileName = Paths::FileName(Path);
 
         CObject* New = CreateNew(FileName.c_str(), Package);
+        Package->ExportTable.emplace_back(New);
+        
         New->SetFlag(OF_Public);
         GEngine->GetEngineSubsystem<FAssetRegistry>()->AssetCreated(New);
 

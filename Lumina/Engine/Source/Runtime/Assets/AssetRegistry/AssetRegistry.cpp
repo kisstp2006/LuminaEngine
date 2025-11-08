@@ -141,6 +141,7 @@ namespace Lumina
         CPackage* OldPackage = FindObject<CPackage>(nullptr, Paths::ConvertToVirtualPath(OldPackagePath));
         if (OldPackage)
         {
+            FName OldPackageName = OldPackage->GetName();
             FName NewPackagePathName = Package->GetName();
         
             LUM_ASSERT(AssetPackageMap.find(Package->GetName()) == AssetPackageMap.end())
@@ -170,6 +171,31 @@ namespace Lumina
             AssetsByPath[NewParentPath].push_back(Data);
             AssetPackageMap[Package->GetName()] = Data;
             Assets.emplace(Data);
+
+            // Update dependency tracking for rename
+            if (DependencyMap.find(OldPackageName) != DependencyMap.end())
+            {
+                DependencyMap[NewPackagePathName] = std::move(DependencyMap[OldPackageName]);
+                DependencyMap.erase(OldPackageName);
+            }
+
+            // Update all references to the old name to point to the new name
+            if (ReferenceMap.find(OldPackageName) != ReferenceMap.end())
+            {
+                ReferenceMap[NewPackagePathName] = std::move(ReferenceMap[OldPackageName]);
+                ReferenceMap.erase(OldPackageName);
+            }
+
+            // Update references in other assets that pointed to this asset
+            for (auto& [PackageName, References] : ReferenceMap)
+            {
+                if (References.find(OldPackageName) != References.end())
+                {
+                    References.erase(OldPackageName);
+                    References.insert(NewPackagePathName);
+                }
+            }
+
         }
 
         GetOnAssetRegistryUpdated().Broadcast();
@@ -183,7 +209,7 @@ namespace Lumina
 
         FString FullPathName = Paths::ResolveVirtualPath(Package->GetName().ToString());
         Paths::AddPackageExtension(FullPathName);
-        
+    
         TVector<uint8> FileBinary;
         if (!FileHelper::LoadFileToArray(FileBinary, FullPathName) || FileBinary.empty())
         {
@@ -200,13 +226,17 @@ namespace Lumina
         TVector<FObjectImport> Imports;
         Reader << Imports;
 
+        THashSet<FName> OldReferences = ReferenceMap[Package->GetName()];
+    
         auto& Set = ReferenceMap[Package->GetName()];
         Set.clear();
-        
+    
         for (const FObjectImport& Import : Imports)
         {
             Set.insert(Import.Package);
         }
+
+        UpdateDependencyTracking(Package->GetName(), Set);
 
         GetOnAssetRegistryUpdated().Broadcast();
     }
@@ -235,7 +265,45 @@ namespace Lumina
 
     const THashSet<FName>& FAssetRegistry::GetReferences(const FName& Asset)
     {
-        return ReferenceMap[Asset];
+        static THashSet<FName> EmptySet;
+        auto It = ReferenceMap.find(Asset);
+        if (It != ReferenceMap.end())
+        {
+            return It->second;
+        }
+        return EmptySet;
+    }
+
+    const THashSet<FName>& FAssetRegistry::GetDependencies(const FName& Asset)
+    {
+        static THashSet<FName> EmptySet;
+        auto It = DependencyMap.find(Asset);
+        if (It != DependencyMap.end())
+        {
+            return It->second;
+        }
+        return EmptySet;
+    }
+
+    void FAssetRegistry::UpdateDependencyTracking(const FName& Asset, const THashSet<FName>& NewReferences)
+    {
+        // Remove this asset from old dependencies
+        if (ReferenceMap.find(Asset) != ReferenceMap.end())
+        {
+            for (const FName& OldRef : ReferenceMap[Asset])
+            {
+                if (DependencyMap.find(OldRef) != DependencyMap.end())
+                {
+                    DependencyMap[OldRef].erase(Asset);
+                }
+            }
+        }
+    
+        // Add this asset to new dependencies
+        for (const FName& NewRef : NewReferences)
+        {
+            DependencyMap[NewRef].insert(Asset);
+        }
     }
 
     void FAssetRegistry::ProcessPackagePath(FStringView Path)
@@ -285,10 +353,17 @@ namespace Lumina
         TVector<FObjectImport> Imports;
         Reader << Imports;
 
-        ReferenceMap.insert(VirtualPackagePath);
+        THashSet<FName> References;
         for (const FObjectImport& Import : Imports)
         {
-            ReferenceMap[VirtualPackagePath].insert(Import.Package);
+            References.insert(Import.Package);
+        }
+        ReferenceMap[VirtualPackagePath] = References;
+
+        // Build dependency map (what assets depend on the imports)
+        for (const FName& ImportedPackage : References)
+        {
+            DependencyMap[ImportedPackage].insert(VirtualPackagePath);
         }
 
         Assets.emplace(AssetData);
@@ -316,6 +391,7 @@ namespace Lumina
         AssetPackageMap.clear();
         AssetsByPath.clear();
         ReferenceMap.clear();
+        DependencyMap.clear();
 
         BroadcastRegistryUpdate();
     }

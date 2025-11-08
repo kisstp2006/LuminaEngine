@@ -81,6 +81,7 @@ namespace Lumina
         static FViewportState MakeViewportStateFromImage(const FRHIImage* Image);
 
         void CheckInstanceBufferResize(uint32 NumInstances);
+        void CheckLightBufferResize(uint32 NumLights);
         
         void InitResources();
         void InitBuffers();
@@ -96,19 +97,7 @@ namespace Lumina
         FSceneLightData                     LightData;
 
         FRHIViewportRef                             SceneViewport;
-
-        TRenderVector<FSimpleElementVertex>         SimpleVertices;
-        FRHIBindingLayoutRef                        SimplePassLayout;
         
-
-        FRHITypedVertexBuffer<FSimpleElementVertex> SimpleVertexBuffer;
-        FRHIBufferRef                               ClusterBuffer;
-        FRHIBufferRef                               SceneDataBuffer;
-        FRHIBufferRef                               InstanceDataBuffer;
-        FRHIBufferRef                               InstanceMappingBuffer;
-        FRHIBufferRef                               LightDataBuffer;
-        FRHIBufferRef                               IndirectDrawBuffer;
-
         FRHIInputLayoutRef                  VertexLayoutInput;
         FRHIInputLayoutRef                  PositionOnlyLayoutInput;
         FRHIInputLayoutRef                  SimpleVertexLayoutInput;
@@ -141,6 +130,17 @@ namespace Lumina
 
         FRHIBindingSetRef                   LightCullSet;
         FRHIBindingLayoutRef                LightCullLayout;
+
+        FRHITypedVertexBuffer<FSimpleElementVertex> SimpleVertexBuffer;
+        TRenderVector<FSimpleElementVertex>         SimpleVertices;
+        FRHIBindingLayoutRef                        SimplePassLayout;
+        
+        FRHIBufferRef                               ClusterBuffer;
+        FRHIBufferRef                               SceneDataBuffer;
+        FRHIBufferRef                               InstanceDataBuffer;
+        FRHIBufferRef                               InstanceMappingBuffer;
+        FRHIBufferRef                               LightDataBuffer;
+        FRHIBufferRef                               IndirectDrawBuffer;
         
         FGBuffer                            GBuffer;
         FShadowAtlas                        ShadowAtlas;
@@ -153,12 +153,13 @@ namespace Lumina
         FRHIImageRef                        SSAOImage;
         FRHIImageRef                        SSAOBlur;
         FRHIImageRef                        PickerImage;
-        FRHIImageRef                        OverdrawImage;
         FRHIImageRef                        DebugVisualizationImage;
 
         ERenderSceneDebugFlags              DebugVisualizationMode;
 
         TArray<FShadowCascade, NumCascades>           ShadowCascades;
+
+        
         
         /** Packed array of per-instance data */
         TRenderVector<FInstanceData>                  InstanceData;

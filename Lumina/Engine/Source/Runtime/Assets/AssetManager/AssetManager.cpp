@@ -48,9 +48,9 @@ namespace Lumina
 
     void FAssetManager::FlushAsyncLoading()
     {
-        while (OutstandingTasks.load(std::memory_order_acquire) != 0)
+        while (OutstandingTasks.load(eastl::memory_order_acquire) != 0)
         {
-            std::this_thread::yield();
+            Threading::ThreadYield();
         }
     }
 
@@ -101,7 +101,7 @@ namespace Lumina
                     Manager->NotifyAssetRequestCompleted(Request);
                 }
 
-                Manager->OutstandingTasks.fetch_sub(1, std::memory_order_release);
+                Manager->OutstandingTasks.fetch_sub(1, eastl::memory_order_release);
             }
         };
 

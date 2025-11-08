@@ -90,10 +90,17 @@ namespace Lumina::Paths
     {
         size_t Dot = Path.find_last_of('.');
         if (Dot == FString::npos || Dot + 1 >= Path.length())
+        {
             return false;
+        }
 
         FString ActualExt = Path.substr(Dot + 1);
         return StringUtils::ToLower(ActualExt) == StringUtils::ToLower(Ext);
+    }
+
+    bool IsDirectory(const FString& Path)
+    {
+        return std::filesystem::is_directory(Path.c_str());
     }
 
     FString RemoveExtension(const FString& InPath)

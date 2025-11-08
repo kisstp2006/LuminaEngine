@@ -126,7 +126,7 @@ namespace Lumina
         void NewLine();
         void AddRaw(const FString& Raw);
 
-        void GetBoundTextures(TVector<TObjectHandle<CTexture>>& Images);
+        void GetBoundTextures(TVector<TObjectPtr<CTexture>>& Images);
 
         // Node output tracking
         void RegisterNodeOutput(const FString& NodeName, EMaterialValueType Type, EComponentMask Mask);
@@ -156,7 +156,7 @@ namespace Lumina
 
     private:
         FString ShaderChunks;
-        TVector<TObjectHandle<CTexture>> BoundImages;
+        TVector<TObjectPtr<CTexture>> BoundImages;
         TVector<FError> Errors;
         
         THashMap<FName, FScalarParam> ScalarParameters;

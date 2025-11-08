@@ -10,7 +10,7 @@
 #include "Renderer/RHIFwd.h"
 #include "Renderer/RHIGlobals.h"
 
-#define MAX_LIGHTS 3456
+#define MAX_LIGHTS 1728
 #define MAX_SHADOWS 100
 #define SSAO_KERNEL_SIZE 32
 #define LIGHT_INDEX_MASK 0x1FFFu

@@ -56,7 +56,7 @@ namespace Lumina
 	{
 		EFormat Format = (BindingFormat == EFormat::UNKNOWN) ? TextureFormat : BindingFormat;
 
-		const FFormatInfo& FormatInfo = GetFormatInfo(Format);
+		const FFormatInfo& FormatInfo = RHI::Format::Info(Format);
 
 		if (FormatInfo.bHasDepth)
 		{
@@ -216,45 +216,8 @@ namespace Lumina
 	
     void FVulkanImGuiRender::OnEndFrame(const FUpdateContext& UpdateContext, FRenderGraph& RenderGraph)
     {
+		
     	LUMINA_PROFILE_SCOPE();
-
-		FScopeLock Lock(Mutex);
-        
-		uint64 CurrentFrame = GEngine->GetUpdateContext().GetFrame();
-    
-		TFixedVector<FEntry*, 10> ToDelete;
-
-	    for (auto& KVP : Images)
-	    {
-	    	FEntry* Entry = KVP.second;
-
-	    	if (Entry == SquareWhiteTexture.second)
-	    	{
-	    		continue;
-	    	}
-
-	    	if (Entry->State == ETextureState::Ready)
-	    	{
-	    		uint64 LastUse = Entry->LastUseFrame;
-	    		if (CurrentFrame - LastUse > 10000)
-	    		{
-	    			ToDelete.push_back(Entry);
-	    		}
-	    	}
-	    }
-
-		if (!ToDelete.empty())
-		{
-			LOG_INFO("Garbage Collecting UI Textures: {}", ToDelete.size());
-		}
-		
-	    for (FEntry* Delete : ToDelete)
-	    {
-	    	DestroyImTexture(Delete->ImTexture);
-	    }
-		
-		ToDelete.clear();
-
 		FRGPassDescriptor* Descriptor = RenderGraph.AllocDescriptor();
 		Descriptor->AddRawWrite(GEngine->GetEngineViewport()->GetRenderTarget());
 		for (FRHIImage* Image : ReferencedImages)
@@ -290,6 +253,38 @@ namespace Lumina
 				CmdList.EndRenderPass();
 			}
 		});
+
+        
+		uint64 CurrentFrame = GEngine->GetUpdateContext().GetFrame();
+		TFixedVector<FEntry*, 10> ToDelete;
+
+		FScopeLock Lock(Mutex);
+		for (auto& KVP : Images)
+		{
+			FEntry* Entry = KVP.second;
+
+			if (Entry == SquareWhiteTexture.second)
+			{
+				continue;
+			}
+
+			if (Entry->State == ETextureState::Ready)
+			{
+				uint64 LastUse = Entry->LastUseFrame;
+				if (CurrentFrame - LastUse > 3)
+				{
+					ToDelete.push_back(Entry);
+				}
+			}
+		}
+		
+		for (FEntry* Delete : ToDelete)
+		{
+			DestroyImTexture(Delete->ImTexture);
+			Memory::Delete(Delete);
+		}
+		
+		ToDelete.clear();
     }
 
 	void FVulkanImGuiRender::DrawRenderDebugInformationWindow(bool* bOpen, const FUpdateContext& Context)
@@ -576,7 +571,7 @@ namespace Lumina
 			}
 		}
 	
-		ImGui::Text("Total Resources: %lli", GTotalRenderResourcesAllocated.load(std::memory_order_relaxed));
+		ImGui::Text("Total Resources: %lli", GTotalRenderResourcesAllocated.load(eastl::memory_order_relaxed));
 		ImGui::Spacing();
 	
 		// Resource pie chart data
@@ -849,7 +844,7 @@ namespace Lumina
 			ImGui::TableSetColumnIndex(0);
 			ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.3f, 1.0f), "Total Resources");
 			ImGui::TableSetColumnIndex(1);
-			ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.3f, 1.0f), "%lli", GTotalRenderResourcesAllocated.load(std::memory_order_relaxed));
+			ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.3f, 1.0f), "%lli", GTotalRenderResourcesAllocated.load(eastl::memory_order_relaxed));
 		
 			for (int type = (int)RRT_None + 1; type < (int)RRT_Num; ++type)
 			{

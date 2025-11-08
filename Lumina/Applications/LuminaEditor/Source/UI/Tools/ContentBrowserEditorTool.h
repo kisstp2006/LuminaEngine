@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include "EditorTool.h"
 #include "Assets/AssetRegistry/AssetData.h"
+#include "Core/Object/ObjectRename.h"
 #include "Core/Object/Package/Package.h"
 #include "Paths/Paths.h"
 #include "Renderer/RHIFwd.h"
@@ -200,7 +201,7 @@ namespace Lumina
 
         void OnWindowDropped(FWindow* Window, int NumPaths, const char** Paths);
 
-        bool HandleRenameEvent(const FString& OldPath, FString NewPath);
+        ObjectRename::EObjectRenameResult HandleRenameEvent(const FString& OldPath, const FString& NewPath);
         
         void DrawDirectoryBrowser(const FUpdateContext& Contxt, bool bIsFocused, ImVec2 Size);
         void DrawContentBrowser(const FUpdateContext& Contxt, bool bIsFocused, ImVec2 Size);

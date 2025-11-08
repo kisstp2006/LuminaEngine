@@ -17,7 +17,7 @@ namespace Lumina
         CMaterialInterface* GetMaterialForSlot(SIZE_T Slot) const;
         
         LUM_PROPERTY(Editable, Category = "Mesh")
-        TObjectHandle<CStaticMesh> StaticMesh;
+        TObjectPtr<CStaticMesh> StaticMesh;
 
         TVector<FTransform>        Instances;
     };

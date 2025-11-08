@@ -796,7 +796,7 @@ namespace Lumina
             Format = GetDescription().Format;
         }
 
-        const FFormatInfo& FormatInfo = GetFormatInfo(Format);
+        const FFormatInfo& FormatInfo = RHI::Format::Info(Format);
 
         ESubresourceViewType ViewType = ESubresourceViewType::AllAspects;
         if (FormatInfo.bHasDepth && !FormatInfo.bHasStencil)
@@ -906,7 +906,7 @@ namespace Lumina
 
     size_t FVulkanStagingImage::ComputeSliceSize(uint32 MipLevel)
     {
-        const FFormatInfo& formatInfo = GetFormatInfo(Desc.Format);
+        const FFormatInfo& formatInfo = RHI::Format::Info(Desc.Format);
 
         uint32 wInBlocks = eastl::max<uint32>(((Desc.Extent.X >> MipLevel) + formatInfo.BlockSize - 1) / formatInfo.BlockSize, 1u);
         uint32 hInBlocks = eastl::max<uint32>(((Desc.Extent.Y >> MipLevel) + formatInfo.BlockSize - 1) / formatInfo.BlockSize, 1u);
@@ -1039,7 +1039,7 @@ namespace Lumina
             const FVertexAttributeDesc& VertexAttribute = InAttributeDesc[i];
             InputDesc[i] = VertexAttribute;
 
-            uint32 ElementSizeBytes = GetFormatInfo(VertexAttribute.Format).BytesPerBlock;
+            uint32 ElementSizeBytes = RHI::Format::BytesPerBlock(VertexAttribute.Format);
             uint32 BufferOffset = 0;
 
             for (uint32 j = 0; j < VertexAttribute.ArraySize; ++j)
@@ -1235,7 +1235,7 @@ namespace Lumina
     {
         EFormat Format = (BindingFormat == EFormat::UNKNOWN) ? TextureFormat : BindingFormat;
 
-        const FFormatInfo& FormatInfo = GetFormatInfo(Format);
+        const FFormatInfo& FormatInfo = RHI::Format::Info(Format);
 
         if (FormatInfo.bHasDepth)
         {

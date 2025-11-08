@@ -58,7 +58,7 @@ namespace Lumina
         
         
         LUM_PROPERTY(Editable, Category = "Materials")
-        TVector<TObjectHandle<CMaterialInterface>> Materials;
+        TVector<TObjectPtr<CMaterialInterface>> Materials;
 
         FAABB BoundingBox;
         

@@ -70,7 +70,7 @@ namespace Lumina
         bool bIsScratchBuffer = false;
 
         TFixedList<TSharedPtr<FBufferChunk>, 4>    ChunkPool;
-        TSharedPtr<FBufferChunk>                   CurrentChunk = nullptr;
+        TSharedPtr<FBufferChunk>                   CurrentChunk;
     };
     
     class FVulkanEventQuery : public IEventQuery

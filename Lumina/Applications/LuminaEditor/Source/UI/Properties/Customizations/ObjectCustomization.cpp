@@ -1,14 +1,10 @@
 #include "CoreTypeCustomization.h"
 #include "imgui.h"
-#include "Assets/AssetTypes/Material/Material.h"
-#include "Assets/AssetTypes/Material/MaterialInstance.h"
-#include "assets/assettypes/mesh/staticmesh/staticmesh.h"
 #include "Assets/AssetTypes/Textures/Texture.h"
 #include "Core/Reflection/Type/Properties/ObjectProperty.h"
 #include "Paths/Paths.h"
 #include "Renderer/RenderManager.h"
 #include "Tools/UI/ImGui/ImGuiDesignIcons.h"
-#include "Tools/UI/ImGui/ImGuiRenderer.h"
 #include "Tools/UI/ImGui/ImGuiX.h"
 #include "UI/EditorUI.h"
 
@@ -20,7 +16,6 @@ namespace Lumina
     {
         FObjectProperty* ObjectProperty = static_cast<FObjectProperty*>(Property->Property);
         
-        CObject* Obj = ObjectHandle.Resolve();
         bool bWasChanged = false;
 
         ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x);
@@ -30,8 +25,8 @@ namespace Lumina
         {
             const auto& Style = ImGui::GetStyle();
 
-            const char* Label = Obj ? Obj->GetName().c_str() : "<None>";
-            ImGui::BeginDisabled(Obj == nullptr);
+            const char* Label = Object ? Object->GetName().c_str() : "<None>";
+            ImGui::BeginDisabled(Object == nullptr);
 
             // Temporary stuff.
             ImTextureRef ButtonTexture = ImGuiX::ToImTextureRef(Paths::GetEngineResourceDirectory() + "/Textures/SkeletalMeshIcon.png");
@@ -54,9 +49,9 @@ namespace Lumina
 
             ImGui::SetNextItemWidth(TextWidgetWidth);
             
-            const bool bHasObject = Obj != nullptr;
+            const bool bHasObject = Object != nullptr;
 
-            FString PathString = bHasObject ? Obj->GetPathName() : FString("<None>");
+            FString PathString = bHasObject ? Object->GetPathName() : FString("<None>");
             char PathBuffer[512];
             strncpy(PathBuffer, PathString.c_str(), sizeof(PathBuffer) - 1);
             PathBuffer[sizeof(PathBuffer) - 1] = '\0';
@@ -105,8 +100,7 @@ namespace Lumina
                         
                         if (ImGui::Selectable(Asset.FullPath.c_str()))
                         {
-                            Obj = LoadObject<CObject>(nullptr, Asset.FullPath);
-                            ObjectHandle = FObjectHandle(Obj);
+                            Object = LoadObject<CObject>(nullptr, Asset.FullPath);
                             ImGui::CloseCurrentPopup();
                     
                             bWasChanged = true;
@@ -118,10 +112,10 @@ namespace Lumina
                 ImGui::EndCombo();
             }
         
-            ImGui::BeginDisabled(Obj == nullptr);
+            ImGui::BeginDisabled(Object == nullptr);
             if (ImGui::Button(LE_ICON_CONTENT_COPY "##Copy", GButtonSize))
             {
-                ImGui::SetClipboardText(Obj->GetPathName().c_str());
+                ImGui::SetClipboardText(Object->GetPathName().c_str());
             }
 
             ImGui::SameLine();
@@ -140,7 +134,7 @@ namespace Lumina
 
             if (ImGui::Button(LE_ICON_CLOSE_CIRCLE "##Clear", GButtonSize))
             {
-                ObjectHandle = FObjectHandle();
+                Object.Reset();
                 bWasChanged = true;
             }
         
@@ -161,11 +155,11 @@ namespace Lumina
 
     void FCObjectPropertyCustomization::UpdatePropertyValue(TSharedPtr<FPropertyHandle> Property)
     {
-        Property->Property->SetValue(Property->ContainerPtr, ObjectHandle, Property->Index);
+        Property->Property->SetValue(Property->ContainerPtr, Object, Property->Index);
     }
 
     void FCObjectPropertyCustomization::HandleExternalUpdate(TSharedPtr<FPropertyHandle> Property)
     {
-        Property->Property->GetValue(Property->ContainerPtr, &ObjectHandle, Property->Index);
+        Property->Property->GetValue(Property->ContainerPtr, &Object, Property->Index);
     }
 }

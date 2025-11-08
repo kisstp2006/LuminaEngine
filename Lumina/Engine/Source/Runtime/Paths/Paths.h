@@ -10,6 +10,7 @@ namespace Lumina::Paths
 {
     void InitializePaths();
 
+
     /** Mounts a virtual file system to a specified path */
     LUMINA_API void Mount(const FName& VirtualPrefix, const FString& PhysicalPath);
 
@@ -31,6 +32,8 @@ namespace Lumina::Paths
     LUMINA_API FString GetExtension(const FString& InPath);
 
     LUMINA_API bool HasExtension(const FString& Path, const FString& Ext);
+
+    LUMINA_API bool IsDirectory(const FString& Path);
     
     /** Removes and returns the path without its file extension. */
     LUMINA_API FString RemoveExtension(const FString& InPath);

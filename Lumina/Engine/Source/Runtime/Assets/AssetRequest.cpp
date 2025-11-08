@@ -29,15 +29,10 @@ namespace Lumina
             LOG_INFO("Failed to load package at path: {}", FullPath);
             return false;
         }
-    
-        PendingObject = FindObject<CObject>(Package, Name);
+        
+        PendingObject = Package->LoadObject(Name);
         if (PendingObject != nullptr)
         {
-            if (PendingObject->HasAnyFlag(OF_NeedsLoad))
-            {
-                Package->LoadObject(PendingObject);
-            }
-    
             if (PendingObject->HasAnyFlag(OF_NeedsPostLoad))
             {
                 PendingObject->PostLoad();

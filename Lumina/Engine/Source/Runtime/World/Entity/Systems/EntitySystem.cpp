@@ -19,7 +19,7 @@ namespace Lumina
         return *Singleton;
     }
 
-    void CEntitySystemRegistry::GetRegisteredSystems(TVector<TObjectHandle<CEntitySystem>>& Systems)
+    void CEntitySystemRegistry::GetRegisteredSystems(TVector<TObjectPtr<CEntitySystem>>& Systems)
     {
         Systems = RegisteredSystems;
     }

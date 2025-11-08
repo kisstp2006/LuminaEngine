@@ -66,7 +66,7 @@ namespace Lumina
 
         
         LUM_PROPERTY()
-        TVector<TObjectHandle<CTexture>>        Textures;
+        TVector<TObjectPtr<CTexture>>        Textures;
         
         TVector<uint32>                         VertexShaderBinaries;
         TVector<uint32>                         PixelShaderBinaries;

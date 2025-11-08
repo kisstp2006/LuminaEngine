@@ -9,8 +9,19 @@ namespace Lumina
     
     void FObjectProperty::Serialize(FArchive& Ar, void* Value)
     {
-        FObjectHandle& Ptr = *(FObjectHandle*)Value;
-        Ar << Ptr;
+        TObjectPtr<CObject>* Ptr = reinterpret_cast<TObjectPtr<CObject>*>(Value);
+
+        if (Ar.IsWriting())
+        {
+            CObject* Raw = Ptr->Get();
+            Ar << Raw;
+        }
+        else if (Ar.IsReading())
+        {
+            CObject* Raw = nullptr;
+            Ar << Raw;
+            *Ptr = Raw;
+        }
     }
 
     void FObjectProperty::SerializeItem(IStructuredArchive::FSlot Slot, void* Value, void const* Defaults)

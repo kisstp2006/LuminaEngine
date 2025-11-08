@@ -140,8 +140,13 @@ namespace Lumina
         
         spvReflectDestroyShaderModule(&Module);
     }
-    
-    
+
+    bool FSpirVShaderCompiler::HasPendingRequests() const
+    {
+        return PendingTasks.load(eastl::memory_order_acquire) != 0;
+    }
+
+
     bool FSpirVShaderCompiler::CompileShaderPath(FString ShaderPath, const FShaderCompileOptions& CompileOptions, CompletedFunc OnCompleted)
     {
         TVector ShaderPaths = { Move(ShaderPath) };
@@ -162,16 +167,15 @@ namespace Lumina
             return false;
         }
         
-        PendingTasks.fetch_add(NumShaders, std::memory_order_relaxed);
+        PendingTasks.fetch_add(NumShaders, eastl::memory_order_relaxed);
 
         LOG_INFO("Starting Shader Task Swarm - Num: {}", NumShaders);
         
-        // Capture copies for thread safety
         TVector<FString> Paths(ShaderPaths.begin(), ShaderPaths.end());
         TVector<FShaderCompileOptions> Options(CompileOptions.begin(), CompileOptions.end());
 
         
-        Task::AsyncTask(NumShaders, 4, [this,
+        Task::AsyncTask(NumShaders, NumShaders / 4, [this,
             Paths = Move(Paths),
             Options = Move(Options),
             Callback = Move(OnCompleted)] (uint32 Start, uint32 End, uint32 Thread) mutable
@@ -203,7 +207,7 @@ namespace Lumina
                     if (!FileHelper::LoadFileIntoString(RawShaderString, Path))
                     {
                         LOG_ERROR("Failed to load shader: {0}", Path);
-                        PendingTasks.fetch_sub(1, std::memory_order_acq_rel);
+                        PendingTasks.fetch_sub(1, eastl::memory_order_acq_rel);
                         continue;
                     }
                 }
@@ -217,7 +221,7 @@ namespace Lumina
                 if (Preprocessed.GetCompilationStatus() != shaderc_compilation_status_success)
                 {
                     LOG_ERROR("Preprocessing failed: {0} - {1}", Path, Preprocessed.GetErrorMessage());
-                    PendingTasks.fetch_sub(1, std::memory_order_acq_rel);
+                    PendingTasks.fetch_sub(1, eastl::memory_order_acq_rel);
                     continue;
                 }
     
@@ -232,7 +236,7 @@ namespace Lumina
                 if (CompileResult.GetCompilationStatus() != shaderc_compilation_status_success)
                 {
                     LOG_ERROR("Compilation failed: {0} - {1}", Path, CompileResult.GetErrorMessage());
-                    PendingTasks.fetch_sub(1, std::memory_order_acq_rel);
+                    PendingTasks.fetch_sub(1, eastl::memory_order_acq_rel);
                     continue;
                 }
     
@@ -240,7 +244,7 @@ namespace Lumina
                 if (Binaries.empty())
                 {
                     LOG_ERROR("Shader compiled to empty SPIR-V: {0}", Path);
-                    PendingTasks.fetch_sub(1, std::memory_order_acq_rel);
+                    PendingTasks.fetch_sub(1, eastl::memory_order_acq_rel);
                     continue;
                 }
 
@@ -259,7 +263,7 @@ namespace Lumina
                 
                 Callback(Move(Shader));
 
-                PendingTasks.fetch_sub(1, std::memory_order_acq_rel);
+                PendingTasks.fetch_sub(1, eastl::memory_order_acq_rel);
             }
         }, ETaskPriority::High);
     
@@ -282,13 +286,13 @@ namespace Lumina
 
     bool FSpirVShaderCompiler::CompilerShaderRaw(FString ShaderString, const FShaderCompileOptions& CompileOptions, CompletedFunc OnCompleted)
     {
-        PendingTasks.fetch_add(1, std::memory_order_relaxed);
+        PendingTasks.fetch_add(1, eastl::memory_order_relaxed);
 
         Task::AsyncTask(1, 1, [this,
             ShaderString = Move(ShaderString),
             CompileOptions = Move(CompileOptions),
             Callback = Move(OnCompleted)]
-            (uint32 Start, uint32 End, uint32 ThreadNum_)
+            (uint32, uint32, uint32)
         {
             LOG_TRACE("Compiling Raw Shader - Thread: {0}", Threading::GetThreadID());
 
@@ -314,7 +318,7 @@ namespace Lumina
     
             if (Preprocessed.GetCompilationStatus() != shaderc_compilation_status_success)
             {
-                PendingTasks.fetch_sub(1, std::memory_order_acq_rel);
+                PendingTasks.fetch_sub(1, eastl::memory_order_acq_rel);
                 LOG_ERROR("Preprocessing failed: - {}", Preprocessed.GetErrorMessage());
                 return;
             }
@@ -328,7 +332,7 @@ namespace Lumina
     
             if (CompileResult.GetCompilationStatus() != shaderc_compilation_status_success)
             {
-                PendingTasks.fetch_sub(1, std::memory_order_acq_rel);
+                PendingTasks.fetch_sub(1, eastl::memory_order_acq_rel);
                 LOG_ERROR("Compilation failed: - {}", CompileResult.GetErrorMessage());
                 return;
             }
@@ -337,7 +341,7 @@ namespace Lumina
             
             if (Binaries.empty())
             {
-                PendingTasks.fetch_sub(1, std::memory_order_acq_rel);
+                PendingTasks.fetch_sub(1, eastl::memory_order_acq_rel);
                 LOG_ERROR("Shader compiled to empty SPIR-V");
                 return;
             }
@@ -352,7 +356,7 @@ namespace Lumina
             
             Callback(Move(Shader));
 
-            PendingTasks.fetch_sub(1, std::memory_order_acq_rel);
+            PendingTasks.fetch_sub(1, eastl::memory_order_acq_rel);
             
         });
         

@@ -17,7 +17,7 @@ namespace Lumina
         for (FManagedWorld& World : Worlds)
         {
             World.World->ShutdownWorld();
-            DestroyCObject(World.World);
+            World.World->ConditionalBeginDestroy();
         }
         
         Worlds.clear();

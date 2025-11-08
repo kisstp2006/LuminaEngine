@@ -52,8 +52,11 @@ LUMINA_API struct FFormatInfo
 	uint8 bIsSRGB : 1;
 };
 
-LUMINA_API const FFormatInfo& GetFormatInfo(EFormat format);
-
+namespace RHI::Format
+{
+	LUMINA_API const FFormatInfo& Info(EFormat format);
+	LUMINA_API uint8 BytesPerBlock(EFormat Format);
+}
 
 /** An enumeration of the different RHI reference types. */
 enum ERHIResourceType : uint8
@@ -183,7 +186,7 @@ virtual ERHIResourceType GetResourceType() const override { return ERHIResourceT
 namespace Lumina
 {
 
-	LUMINA_API extern std::atomic_int64_t GTotalRenderResourcesAllocated;
+	LUMINA_API extern eastl::atomic<uint64> GTotalRenderResourcesAllocated;
 	LUMINA_API extern TFixedHashMap<EAPIResourceType, uint64, 64> AllocatedRHIResourcesMap;
 	
 	constexpr uint64 GVersionSubmittedFlag = 0x8000000000000000;

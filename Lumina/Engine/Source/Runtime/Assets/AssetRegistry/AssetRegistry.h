@@ -79,7 +79,10 @@ namespace Lumina
 		void GetAssetsByClass(const CClass* Class, TVector<FAssetData>& OutAssets);
 
 		const THashSet<FName>& GetReferences(const FName& Asset);
-		
+		const THashSet<FName>& GetDependencies(const FName& Asset);
+
+		void UpdateDependencyTracking(const FName& Asset, const THashSet<FName>& NewReferences);
+
 	private:
 
 		void ProcessPackagePath(FStringView Path);
@@ -104,5 +107,9 @@ namespace Lumina
 
 		/** Asset to it's dependencies */
 		THashMap<FName, THashSet<FName>> ReferenceMap;
+
+		// Maps asset package name to set of assets that depend on it (reverse dependencies)
+		THashMap<FName, THashSet<FName>> DependencyMap;
+
 	};
 }

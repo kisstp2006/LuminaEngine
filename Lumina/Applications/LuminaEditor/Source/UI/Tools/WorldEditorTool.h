@@ -84,7 +84,7 @@ namespace Lumina
 
             uint64 Hash;
             FName Name;
-            TObjectHandle<CEntitySystem> System;
+            TObjectPtr<CEntitySystem> System;
         };
 
         struct FEntityListFilterState

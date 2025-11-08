@@ -52,7 +52,7 @@ namespace Lumina::Reflection::Visitor
             }
             else if (FieldQualType->isPointerType())
             {
-                Context->LogError("[%s] Object properties as pointers are *NOT* supported, use TObjectHandle instead", CursorName.c_str());
+                Context->LogError("[%s] Object properties as pointers are *NOT* supported, use TObjectPtr instead", CursorName.c_str());
                 Context->FlushLogs();
                 return FFieldInfo();
             }
@@ -103,7 +103,7 @@ namespace Lumina::Reflection::Visitor
             }
             else if (FieldQualType->isPointerType())
             {
-                Context->LogError("[%s] Object properties as pointers are *NOT* supported, use TObjectHandle instead", FieldName.c_str());
+                Context->LogError("[%s] Object properties as pointers are *NOT* supported, use TObjectPtr instead", FieldName.c_str());
                 Context->FlushLogs();
             }
         }

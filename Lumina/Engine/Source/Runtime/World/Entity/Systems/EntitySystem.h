@@ -26,9 +26,9 @@ namespace Lumina
 
         static CEntitySystemRegistry& Get();
 
-        void GetRegisteredSystems(TVector<TObjectHandle<CEntitySystem>>& Systems);
+        void GetRegisteredSystems(TVector<TObjectPtr<CEntitySystem>>& Systems);
 
-        TVector<TObjectHandle<class CEntitySystem>> RegisteredSystems;
+        TVector<TObjectPtr<class CEntitySystem>> RegisteredSystems;
 
         static CEntitySystemRegistry* Singleton;
 

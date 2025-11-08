@@ -1,12 +1,13 @@
 #pragma once
 #include <type_traits>
 #include "Core/Utils/NonCopyable.h"
+#include "EASTL/internal/atomic/atomic.h"
 #include "Platform/Platform.h"
 
 
 namespace Lumina
 {
-
+	/** Forces a value to return to its original value when this goes out of scope */
     template <typename RefType, typename AssignedType = RefType>
 	struct TGuardValue : private INonCopyable
 	{
@@ -36,6 +37,52 @@ namespace Lumina
 		RefType& RefValue;
 		AssignedType OriginalValue;
 	};
+
+	template <typename AtomicType>
+	requires(eastl::atomic<AtomicType>::is_always_lock_free)
+	struct TGuardAtomicValue : private INonCopyable
+	{
+	    NODISCARD TGuardAtomicValue(eastl::atomic<AtomicType>& InAtomic, AtomicType NewValue)
+	        : AtomicRef(InAtomic)
+	        , OriginalValue(InAtomic.load(eastl::memory_order_relaxed)) // capture original value
+	    {
+	        AtomicRef.store(NewValue, eastl::memory_order_relaxed); // set new value
+	    }
+	
+	    ~TGuardAtomicValue()
+	    {
+	        AtomicRef.store(OriginalValue, eastl::memory_order_relaxed); // reset to original
+	    }
+	
+	    FORCEINLINE const AtomicType& GetOriginalValue() const
+	    {
+	        return OriginalValue;
+	    }
+	
+	private:
+	    eastl::atomic<AtomicType>& AtomicRef;
+	    AtomicType OriginalValue;
+	};
+
+	template<typename T>
+	requires(eastl::is_integral_v<T>)
+	struct TAtomicScopeGuard : private INonCopyable
+	{
+	    eastl::atomic<T>& Ref;
+	    T Delta;
+	
+	    explicit TAtomicScopeGuard(eastl::atomic<T>& InRef, T InDelta)
+	        : Ref(InRef), Delta(InDelta)
+	    {
+	        Ref.fetch_add(Delta, std::memory_order_relaxed);
+	    }
+	
+	    ~TAtomicScopeGuard()
+	    {
+	        Ref.fetch_sub(Delta, std::memory_order_acq_rel);
+	    }
+	};
+	
     
 
     template <typename T>

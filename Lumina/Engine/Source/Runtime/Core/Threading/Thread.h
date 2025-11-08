@@ -25,6 +25,7 @@ namespace Lumina
         };
         
 
+        LUMINA_API void ThreadYield();
         LUMINA_API uint64 GetThreadID();
         LUMINA_API bool IsMainThread();
         LUMINA_API bool IsRenderThread();

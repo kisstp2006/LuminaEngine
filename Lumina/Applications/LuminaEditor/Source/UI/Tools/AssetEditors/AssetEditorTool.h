@@ -38,7 +38,7 @@ namespace Lumina
 
     protected:
 
-        TObjectHandle<CObject>      Asset;
+        TObjectPtr<CObject>      Asset;
         FPropertyTable              PropertyTable;
         uint8                       bAssetLoadBroadcasted:1;
     };
