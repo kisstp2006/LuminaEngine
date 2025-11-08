@@ -14,7 +14,7 @@ namespace Lumina
     
         float PaneWidth = ImGui::GetContentRegionAvail().x;
         constexpr float ThumbnailSize = 120.0f;
-        constexpr float TileSpacing = 20.0f;
+        constexpr float TileSpacing = 5.0f;
         constexpr float TextHeight = 36.0f;
         float CellSize = ThumbnailSize + TileSpacing;
         int ItemsPerRow = std::max(1, int(PaneWidth / CellSize));

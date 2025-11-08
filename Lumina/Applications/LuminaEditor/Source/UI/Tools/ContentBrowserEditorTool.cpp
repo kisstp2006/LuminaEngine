@@ -121,89 +121,86 @@ namespace Lumina
             }
         };
 
-ContentBrowserTileViewContext.DrawItemOverrideFunction = [this] (FTileViewItem* Item) -> bool
-{
-    FContentBrowserTileViewItem* ContentItem = static_cast<FContentBrowserTileViewItem*>(Item);
-    
-    ImTextureRef ImTexture = ImGuiX::ToImTextureRef(Paths::GetEngineResourceDirectory() + "/Textures/Folder.png");
-
-    ImVec4 TintColor = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
-    
-    if (!ContentItem->IsDirectory())
-    {
-        if (ContentItem->GetAssetData().IsRedirector())
+        ContentBrowserTileViewContext.DrawItemOverrideFunction = [this] (FTileViewItem* Item) -> bool
         {
-            ImTexture = ImGuiX::ToImTextureRef(Paths::GetEngineResourceDirectory() + "/Textures/Redirect.png");
-            TintColor = ImVec4(0.7f, 0.7f, 1.0f, 1.0f);
-        }
-        else
-        {
-            if (CPackage* Package = FindObject<CPackage>(nullptr, ContentItem->GetAssetData().PackageName))
+            FContentBrowserTileViewItem* ContentItem = static_cast<FContentBrowserTileViewItem*>(Item);
+            
+            ImTextureRef ImTexture = ImGuiX::ToImTextureRef(Paths::GetEngineResourceDirectory() + "/Textures/Folder.png");
+        
+            ImVec4 TintColor = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+            
+            if (!ContentItem->IsDirectory())
             {
-                if (Package->GetPackageThumbnail()->LoadedImage)
+                if (ContentItem->GetAssetData().IsRedirector())
                 {
-                    ImTexture = GEngine->GetEngineSubsystem<FRenderManager>()->GetImGuiRenderer()->GetOrCreateImTexture(Package->GetPackageThumbnail()->LoadedImage);
+                    ImTexture = ImGuiX::ToImTextureRef(Paths::GetEngineResourceDirectory() + "/Textures/Redirect.png");
+                    TintColor = ImVec4(0.7f, 0.7f, 1.0f, 1.0f);
                 }
                 else
                 {
-                    ImTexture = ImGuiX::ToImTextureRef(Paths::GetEngineResourceDirectory() + "/Textures/SkeletalMeshIcon.png");
+                    if (CPackage* Package = FindObject<CPackage>(nullptr, ContentItem->GetAssetData().PackageName))
+                    {
+                        if (Package->GetPackageThumbnail()->LoadedImage)
+                        {
+                            ImTexture = GEngine->GetEngineSubsystem<FRenderManager>()->GetImGuiRenderer()->GetOrCreateImTexture(Package->GetPackageThumbnail()->LoadedImage);
+                        }
+                        else
+                        {
+                            ImTexture = ImGuiX::ToImTextureRef(Paths::GetEngineResourceDirectory() + "/Textures/SkeletalMeshIcon.png");
+                        }
+                    }
+                    else
+                    {
+                        ImTexture = ImGuiX::ToImTextureRef(Paths::GetEngineResourceDirectory() + "/Textures/SkeletalMeshIcon.png");
+                    }
                 }
             }
             else
             {
-                ImTexture = ImGuiX::ToImTextureRef(Paths::GetEngineResourceDirectory() + "/Textures/SkeletalMeshIcon.png");
+                TintColor = ImVec4(1.0f, 0.9f, 0.6f, 1.0f);
             }
-        }
-    }
-    else
-    {
-        TintColor = ImVec4(1.0f, 0.9f, 0.6f, 1.0f);
-    }
-    
-    // Minimal padding for larger image display
-    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.16f, 0.16f, 0.17f, 1.0f)); 
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.22f, 0.22f, 0.24f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.26f, 0.26f, 0.28f, 1.0f));
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4, 4));
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 8.0f);
-
-    ImDrawList* DrawList = ImGui::GetWindowDrawList();
-    ImVec2 Pos = ImGui::GetCursorScreenPos();
-    ImVec2 Size = ImVec2(120.0f, 120.0f);
-    
-    // Draw drop shadow
-    DrawList->AddRectFilled(
-        ImVec2(Pos.x + 3, Pos.y + 3),
-        ImVec2(Pos.x + Size.x + 11, Pos.y + Size.y + 11),
-        ImGui::ColorConvertFloat4ToU32(ImVec4(0.0f, 0.0f, 0.0f, 0.3f)),
-        8.0f
-    );
-    
-    bool clicked = ImGui::ImageButton("##", ImTexture, Size, ImVec2(0, 0), ImVec2(1, 1), ImVec4(0, 0, 0, 0), TintColor);
-
-    // Hover highlight
-    if (ImGui::IsItemHovered())
-    {
-        DrawList->AddRect(
-            Pos, 
-            ImVec2(Pos.x + Size.x + 8, Pos.y + Size.y + 8), 
-            ImGui::ColorConvertFloat4ToU32(ImVec4(0.4f, 0.6f, 0.9f, 0.7f)), 
-            8.0f, 
-            0, 
-            2.0f
-        );
-    }
-
-    ImGui::PopStyleVar(2);
-    ImGui::PopStyleColor(3);
-
-    if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
-    {
-        return true;
-    }
-
-    return clicked;
-};
+            
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.16f, 0.16f, 0.17f, 1.0f)); 
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.22f, 0.22f, 0.24f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.26f, 0.26f, 0.28f, 1.0f));
+            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4, 4));
+            ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 8.0f);
+        
+            ImDrawList* DrawList = ImGui::GetWindowDrawList();
+            ImVec2 Pos = ImGui::GetCursorScreenPos();
+            ImVec2 Size = ImVec2(120.0f, 120.0f);
+            
+            DrawList->AddRectFilled(
+                ImVec2(Pos.x + 3, Pos.y + 3),
+                ImVec2(Pos.x + Size.x + 11, Pos.y + Size.y + 11),
+                ImGui::ColorConvertFloat4ToU32(ImVec4(0.0f, 0.0f, 0.0f, 0.3f)),
+                8.0f
+            );
+            
+            bool clicked = ImGui::ImageButton("##", ImTexture, Size, ImVec2(0, 0), ImVec2(1, 1), ImVec4(0, 0, 0, 0), TintColor);
+        
+            if (ImGui::IsItemHovered())
+            {
+                DrawList->AddRect(
+                    Pos, 
+                    ImVec2(Pos.x + Size.x + 8, Pos.y + Size.y + 8), 
+                    ImGui::ColorConvertFloat4ToU32(ImVec4(0.4f, 0.6f, 0.9f, 0.7f)), 
+                    8.0f, 
+                    0, 
+                    2.0f
+                );
+            }
+        
+            ImGui::PopStyleVar(2);
+            ImGui::PopStyleColor(3);
+        
+            if (ImGui::IsItemHovered() && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left))
+            {
+                return true;
+            }
+        
+            return clicked;
+        };
         
         ContentBrowserTileViewContext.ItemSelectedFunction = [this] (FTileViewItem* Item)
         {

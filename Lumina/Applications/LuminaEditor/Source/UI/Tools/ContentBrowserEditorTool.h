@@ -129,7 +129,8 @@ namespace Lumina
                     if (std::filesystem::exists(FullPath.c_str()))
                     {
                         uint64 Size = std::filesystem::file_size(FullPath.c_str());
-                        ImGui::Text(LE_ICON_FILE_CODE " Size: %llu", Size);
+                        double SizeKiB = static_cast<double>(Size) / 1024.0;
+                        ImGui::Text(LE_ICON_FILE_CODE " Size: %.2f KiB", SizeKiB);
                     }
                 }
             }
