@@ -455,6 +455,12 @@ namespace Lumina
             FObjectImport& Import = ImportTable[ArrayIndex];
             FString FullPath = Paths::ResolveVirtualPath(Import.Package.ToString());
             CPackage* Package = LoadPackage(FName(FullPath));
+
+            if (Package == nullptr)
+            {
+                return nullptr;
+            }
+            
             Import.Object = Package->LoadObject(Import.ObjectName);
 
             if (CObjectRedirector* Redirector = Cast<CObjectRedirector>(Import.Object.Get()))

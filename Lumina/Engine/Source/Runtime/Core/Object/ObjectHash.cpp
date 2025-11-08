@@ -15,7 +15,7 @@ namespace Lumina
         {
             FScopeLock Lock(Mutex);
             
-            THashSet<CObjectBase*>& NameHashSet = ObjectNameHash[Name];
+            FObjectHashBucket& NameHashSet = ObjectNameHash[Name];
             if (NameHashSet.find(Object) != NameHashSet.end())
             {
                 LOG_CRITICAL("Object {} already exists in hash! [Double Add]", Name);
@@ -31,7 +31,7 @@ namespace Lumina
 
             if (CPackage* Package = Object->GetPackage())
             {
-                THashSet<CObjectBase*>& PackageHashSet = ObjectPackageHash[Package];
+                FObjectHashBucket& PackageHashSet = ObjectPackageHash[Package];
                 if (PackageHashSet.find(Object) != PackageHashSet.end())
                 {
                     LOG_CRITICAL("Object {} already exists in package hash! [Double Add]", Name);
@@ -41,7 +41,7 @@ namespace Lumina
                 PackageHashSet.emplace(Object);
             }
 
-            THashSet<CObjectBase*>& ClassHashSet = ObjectClassHash[Object->GetClass()];
+            FObjectHashBucket& ClassHashSet = ObjectClassHash[Object->GetClass()];
             if (ClassHashSet.find(Object) != ClassHashSet.end())
             {
                 LOG_CRITICAL("Object {} already exists in class hash! [Double Add]", Name);

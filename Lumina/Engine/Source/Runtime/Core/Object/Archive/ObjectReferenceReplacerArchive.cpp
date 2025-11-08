@@ -7,12 +7,6 @@ namespace Lumina
     {
         if (Obj && Obj == ToReplace)
         {
-            if (ToReplace)
-            {
-                GObjectArray.AddStrongRef(ToReplace);
-            }
-            
-            GObjectArray.ReleaseStrongRef(Obj);
             Obj = Replacement;
         }
 

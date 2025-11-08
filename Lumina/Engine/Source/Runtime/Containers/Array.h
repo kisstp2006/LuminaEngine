@@ -3,6 +3,7 @@
 
 #include "Core/DisableAllWarnings.h"
 #include "EASTL/fixed_hash_map.h"
+#include "EASTL/fixed_hash_set.h"
 #include "EASTL/fixed_list.h"
 #include "EASTL/vector_map.h"
 #include "EASTL/bonus/fixed_ring_buffer.h"
@@ -102,6 +103,9 @@ namespace Lumina
     
     template <typename T, typename H = eastl::hash<T>, typename E = eastl::equal_to<T>>
     using THashSet = eastl::hash_set<T, H>;
+
+    template <typename T, size_t NodeCount, size_t BucketCount = NodeCount + 1, bool bEnableOverflow = true, typename H = eastl::hash<T>, typename E = eastl::equal_to<T>>
+    using TFixedHashSet = eastl::fixed_hash_set<T, NodeCount, BucketCount, bEnableOverflow, H>;
     
     template <typename T>
     using TUnorderedSet = eastl::unordered_set<T>;
