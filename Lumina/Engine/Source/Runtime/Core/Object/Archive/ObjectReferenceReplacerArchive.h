@@ -3,7 +3,7 @@
 
 namespace Lumina
 {
-    class FObjectReferenceReplacerArchive : public FArchive
+    class FObjectReferenceReplacerArchive : public FArchive, public INonCopyable
     {
     public:
         
@@ -22,7 +22,7 @@ namespace Lumina
             InToReplace->AddToRoot();
         }
 
-        ~FObjectReferenceReplacerArchive()
+        ~FObjectReferenceReplacerArchive() override
         {
             if (Replacement)
             {
