@@ -16,13 +16,4 @@ namespace Lumina
         // This class can have dependencies.
         Memory::Delete(Dependency.GetDependencyTask()); // also deletes this as member
     }
-
-    void AsyncActionRecycle::OnDependenciesComplete(enki::TaskScheduler* pTaskScheduler_, uint32_t threadNum_)
-    {
-        // Call base class OnDependenciesComplete BEFORE deleting dependent task or self
-        enki::ICompletable::OnDependenciesComplete( pTaskScheduler_, threadNum_ );
-
-        GTaskSystem->PushLambdaTaskToPool((FLambdaTask*)Dependency.GetDependencyTask());
-            
-    }
 }

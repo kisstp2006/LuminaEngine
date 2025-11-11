@@ -62,9 +62,9 @@ namespace Lumina::Reflection
     
             const eastl::string ProjectReflectionDirectory = ParsingContext.Solution.GetParentPath() + "/Intermediates/Reflection/" + Project.Name;
 
-            if (!std::filesystem::exists(ProjectReflectionDirectory.c_str()))
+            if (!fs::exists(ProjectReflectionDirectory.c_str()))
             {
-                std::filesystem::create_directories(ProjectReflectionDirectory.c_str());
+                fs::create_directories(ProjectReflectionDirectory.c_str());
             }
 
 #if 0
@@ -210,7 +210,7 @@ namespace Lumina::Reflection
             clangArgs.emplace_back("-Wno-gnu-folding-constant");
             clangArgs.emplace_back("-Wno-vla-extension-static-assert");
             
-            // REMOVED: Don't use these - they will break your parsing!
+            // REMOVED: Don't use these, they will break parsing!
             // clangArgs.emplace_back("-nostdinc");
             // clangArgs.emplace_back("-nostdinc++"); 
             // clangArgs.emplace_back("-nobuiltininc");

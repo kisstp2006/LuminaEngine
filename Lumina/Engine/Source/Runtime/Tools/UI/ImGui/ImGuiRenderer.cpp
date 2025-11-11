@@ -207,8 +207,8 @@ namespace Lumina
         LUMINA_PROFILE_SCOPE();
 		
     	ImGuiIO& Io = ImGui::GetIO();
-    	Io.DisplaySize.x = (float)GEngine->GetEngineViewport()->GetSize().X;
-    	Io.DisplaySize.y = (float)GEngine->GetEngineViewport()->GetSize().Y;
+    	Io.DisplaySize.x = (float)GEngine->GetEngineViewport()->GetSize().x;
+    	Io.DisplaySize.y = (float)GEngine->GetEngineViewport()->GetSize().y;
 
     	ImGuiX::Notifications::Render();
 		ImGui::Render();

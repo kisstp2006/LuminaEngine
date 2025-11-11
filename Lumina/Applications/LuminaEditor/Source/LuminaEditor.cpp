@@ -1,6 +1,7 @@
 #include "LuminaEditor.h"
 #include "EntryPoint.h"
 #include "Core/Module/ModuleManager.h"
+#include "Core/Windows/Window.h"
 #include "Project/Project.h"
 #include "Renderer/RenderResource.h"
 #include "UI/EditorUI.h"
@@ -70,9 +71,9 @@ namespace Lumina
         return GEngine;
     }
 
-    bool LuminaEditor::ApplicationLoop()
+    bool LuminaEditor::ShouldExit() const
     {
-        return true;
+        return MainWindow->ShouldClose() || bExitRequested;
     }
 
     void LuminaEditor::CreateProject()

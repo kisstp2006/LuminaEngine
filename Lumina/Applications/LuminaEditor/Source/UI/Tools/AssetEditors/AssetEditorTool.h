@@ -3,6 +3,7 @@
 #include "Core/Object/Class.h"
 #include "Core/Object/Object.h"
 #include "Core/Object/ObjectHandleTyped.h"
+#include "Core/Object/Package/Package.h"
 #include "UI/Properties/PropertyTable.h"
 #include "UI/Tools/EditorTool.h"
 
@@ -19,6 +20,10 @@ namespace Lumina
         {
             Asset = InAsset;
             PropertyTable.RebuildTree();
+            PropertyTable.SetPostEditCallback([&](const FPropertyChangedEvent&)
+            {
+               Asset->GetPackage()->MarkDirty();
+            });
         }
         
         
@@ -38,7 +43,7 @@ namespace Lumina
 
     protected:
 
-        TObjectPtr<CObject>      Asset;
+        TObjectPtr<CObject>         Asset;
         FPropertyTable              PropertyTable;
         uint8                       bAssetLoadBroadcasted:1;
     };

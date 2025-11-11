@@ -1,6 +1,7 @@
 #pragma once
 
 
+#include "concurrentqueue.h"
 #include "Core/DisableAllWarnings.h"
 #include "EASTL/fixed_hash_map.h"
 #include "EASTL/fixed_hash_set.h"
@@ -112,6 +113,9 @@ namespace Lumina
 
     template <typename T>
     using TQueue = eastl::queue<T>;
+
+    template<typename T, typename Traits = moodycamel::ConcurrentQueueDefaultTraits>
+    using TConcurrentQueue = moodycamel::ConcurrentQueue<T, Traits>;
     
     template <typename T>
     using TDeque = eastl::deque<T>;
@@ -304,7 +308,7 @@ namespace Lumina
     NODISCARD constexpr bool VectorsAreEqual(const T& A, const T& B)
     {
         if (A.size() != B.size())
-            {
+        {
             return false;
         }
         

@@ -12,16 +12,13 @@ namespace Lumina
     class CTexture;
     class FMaterialNodePin;
     class CMaterialGraphNode;
+    class CMaterialInput;
+    class CMaterialOutput;
 }
 
 
 namespace Lumina
 {
-    class CMaterialGraphNode;
-    class CMaterialInput;
-    class CMaterialOutput;
-    class CTexture;
-    class FMaterialNodePin;
 
     enum class EMaterialValueType : uint8
     {

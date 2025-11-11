@@ -1,10 +1,9 @@
 ﻿#pragma once
 
-#include "Module/API.h"
 #include "Lumina.h"
 #include "Core/UpdateContext.h"
-#include "Core/Delegates/Delegate.h"
 #include "entt/entt.hpp"
+#include "Module/API.h"
 #include "Renderer/RHIFwd.h"
 #include "Renderer/RHIIncl.h"
 #include "Subsystems/Subsystem.h"
@@ -21,7 +20,7 @@ namespace Lumina
     class FInputSubsystem;
     class FApplication;
     class FWindow;
-    class FRenderScene;
+    class FDeferredRenderScene;
 }
 
 namespace Lumina
@@ -35,12 +34,12 @@ namespace Lumina
 
         LUMINA_API virtual bool Init(FApplication* App);
         LUMINA_API virtual bool Shutdown();
-        LUMINA_API bool Update();
-        LUMINA_API virtual void OnUpdateStage(const FUpdateContext& Context) { }; 
+        LUMINA_API bool Update(bool bApplicationWantsExit);
+        LUMINA_API virtual void OnUpdateStage(const FUpdateContext& Context) { }
 
         LUMINA_API const FRHIViewportRef& GetEngineViewport() const { return EngineViewport; }
         
-        LUMINA_API void SetEngineViewportSize(const FIntVector2D& InSize);
+        LUMINA_API void SetEngineViewportSize(const glm::uvec2& InSize);
 
         #if WITH_DEVELOPMENT_TOOLS
         LUMINA_API virtual IDevelopmentToolUI* CreateDevelopmentTools() = 0;
@@ -51,6 +50,7 @@ namespace Lumina
         LUMINA_API entt::meta_ctx& GetEngineMetaContext() const;
         LUMINA_API entt::locator<entt::meta_ctx>::node_type GetEngineMetaService() const;
 
+        LUMINA_API void SetReadyToClose(bool bReadyToClose) { bEngineReadyToClose = bReadyToClose; }
         
         template<typename T>
         T* GetEngineSubsystem()
@@ -59,6 +59,11 @@ namespace Lumina
         }
 
         FORCEINLINE const FUpdateContext& GetUpdateContext() const { return UpdateContext; }
+
+        LUMINA_API void SetEngineReadyToClose(bool bReady) { bEngineReadyToClose = bReady; }
+        LUMINA_API FORCEINLINE bool IsCloseRequested() const { return bCloseRequested; }
+        
+    private:
     
     protected:
         
@@ -76,8 +81,11 @@ namespace Lumina
         FWorldManager*          WorldManager =          nullptr;
         FRenderManager*         RenderManager =         nullptr;
         
-        
         FRHIViewportRef         EngineViewport;
+
+
+        bool                    bCloseRequested = false;
+        bool                    bEngineReadyToClose = false;
     };
     
     LUMINA_API extern FEngine* GEngine;

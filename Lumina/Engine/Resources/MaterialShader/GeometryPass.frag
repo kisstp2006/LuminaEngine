@@ -40,22 +40,6 @@ vec4 GetMaterialVec4(uint Index)
     return MaterialUniforms.Vectors[Index];
 }
 
-vec3 GetWorldNormal(vec3 FragNormal, vec2 UV, vec3 FragPos, vec3 TangentSpaceNormal)
-{
-    vec3 N = normalize(FragNormal);
-
-    vec3 Q1 = dFdx(FragPos);
-    vec3 Q2 = dFdy(FragPos);
-    vec2 st1 = dFdx(UV);
-    vec2 st2 = dFdy(UV);
-
-    vec3 T = normalize(Q1 * st2.t - Q2 * st1.t);
-    vec3 B = normalize(cross(N, T));
-    mat3 TBN = mat3(T, B, N);
-
-    return normalize(TBN * TangentSpaceNormal);
-}
-
 
 uint EntityID       = inEntityID;
 vec3 ViewNormal     = normalize(inNormalVS.xyz);

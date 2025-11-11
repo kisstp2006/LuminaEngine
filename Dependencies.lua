@@ -26,6 +26,7 @@ IncludeDir["xxhash"] =                  "%{LuminaEngineDirectory}/Lumina/Engine/
 IncludeDir["tracy"] =                  	"%{LuminaEngineDirectory}/Lumina/Engine/ThirdParty/tracy/public"
 IncludeDir["physx"] =                  	"%{LuminaEngineDirectory}/External/Physx/physx/include"
 IncludeDir["RenderDoc"] =               "%{LuminaEngineDirectory}/Lumina/Engine/ThirdParty/RenderDoc"
+IncludeDir["ConcurrentQueue"] =         "%{LuminaEngineDirectory}/Lumina/Engine/ThirdParty/concurrentqueue/"
 
 outputdir = "%{cfg.buildcfg}-%{cfg.system}-%{cfg.architecture}"
 

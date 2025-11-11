@@ -7,7 +7,7 @@ namespace Lumina
 {
     class FRHIBuffer;
     class CMaterialInterface;
-    class FRenderScene;
+    class FDeferredRenderScene;
 
     /** A batch of mesh elements that contain the same material and vertex buffer. */
     struct FMeshBatch
@@ -20,7 +20,7 @@ namespace Lumina
         
         TFixedVector<FElement, 1>   Elements;
         
-        FRenderScene*               Scene;
+        FDeferredRenderScene*               Scene;
         CMaterialInterface*         Material;
         
         FRHIBuffer*                 VertexBuffer;

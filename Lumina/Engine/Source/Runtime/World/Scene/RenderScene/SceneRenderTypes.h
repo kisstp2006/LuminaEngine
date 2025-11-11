@@ -28,10 +28,20 @@
 #define VERIFY_SSBO_ALIGNMENT(Type) \
 static_assert(sizeof(Type) % 16 == 0, #Type " must be 16-byte aligned");
 
+constexpr unsigned int ClusterGridSizeX = 16;
+constexpr unsigned int ClusterGridSizeY = 9;
+constexpr unsigned int ClusterGridSizeZ = 24;
+
+constexpr unsigned int NumClusters = ClusterGridSizeX * ClusterGridSizeY * ClusterGridSizeZ;
+
+constexpr int GShadowMapResolution      = 4096;
+constexpr int GShadowAtlasResolution    = 8192;
+constexpr int GShadowCubemapResolution  = 512;
+constexpr int GMaxPointLightShadows     = 100;
 
 namespace Lumina
 {
-    class FRenderScene;
+    class FDeferredRenderScene;
     class CMaterialInterface;
     struct FVertex;
     class CMaterial;
@@ -100,7 +110,7 @@ namespace Lumina
             : Config(InConfig)
         {
             FRHIImageDesc ImageDesc;
-            ImageDesc.Extent = FIntVector2D(InConfig.AtlasResolution);
+            ImageDesc.Extent = glm::uvec2(InConfig.AtlasResolution);
             ImageDesc.Flags.SetMultipleFlags(EImageCreateFlags::DepthAttachment, EImageCreateFlags::ShaderResource);
             ImageDesc.Format = EFormat::D32;
             ImageDesc.bKeepInitialState = true;
@@ -180,6 +190,9 @@ namespace Lumina
         glm::vec3       Position;
         uint32          Color;
         
+        float           Intensity;
+        uint32          Padding0[3];
+        
         glm::vec3       Direction;
         float           Radius;
 
@@ -191,6 +204,8 @@ namespace Lumina
 
         FLightShadow    Shadow;
     };
+
+    static_assert(eastl::is_trivially_copyable_v<FLight>);
 
     VERIFY_SSBO_ALIGNMENT(FLight)
     
@@ -214,7 +229,7 @@ namespace Lumina
         
         FLight          Lights[MAX_LIGHTS];
     };
-    
+
     struct FShadowCascade
     {
         FLight          DirectionalLight;
@@ -222,7 +237,7 @@ namespace Lumina
         float           SplitDepth;
         glm::ivec2      ShadowMapSize;
     };
-
+    
     struct FSSAOSettings
     {
         float Radius = 1.0f;
@@ -258,7 +273,7 @@ namespace Lumina
         glm::uvec2 ScreenSize;
         glm::uvec4 GridSize;
     };
-    
+
     struct FInstanceData
     {
         glm::mat4   Transform;
@@ -290,6 +305,13 @@ namespace Lumina
         float           FarPlane;
         
         FSSAOSettings   SSAOSettings;
+    };
+
+    struct FMeshPass
+    {
+        uint32 MeshDrawOffset;
+        uint32 MeshDrawSize;
+        uint32 IndirectDrawOffset;
     };
 
 

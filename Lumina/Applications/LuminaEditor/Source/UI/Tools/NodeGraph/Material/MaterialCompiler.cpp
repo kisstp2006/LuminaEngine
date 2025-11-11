@@ -15,12 +15,12 @@ namespace Lumina
 
     FString FMaterialCompiler::BuildTree(SIZE_T& StartReplacement, SIZE_T& EndReplacement)
     {
-        FString FragmentPath = Paths::GetEngineResourceDirectory() + "/MaterialShader/GeometryPass.frag";
+        FString FragmentPath = Paths::GetEngineResourceDirectory() + "/MaterialShader/ForwardBasePass.frag";
 
         FString LoadedString;
         if (!FileHelper::LoadFileIntoString(LoadedString, FragmentPath))
         {
-            LOG_ERROR("Failed to find GeometryPass.frag!");
+            LOG_ERROR("Failed to find ForwardBasePass.frag!");
             return FString();
         }
 
@@ -331,7 +331,7 @@ namespace Lumina
 
     void FMaterialCompiler::DefineTextureSample(const FString& ID)
     {
-        ShaderChunks.append("layout(set = 1, binding = " + eastl::to_string(BindingIndex) + ") uniform sampler2D " + ID + "_sample;\n");
+        ShaderChunks.append("layout(set = 2, binding = " + eastl::to_string(BindingIndex) + ") uniform sampler2D " + ID + "_sample;\n");
         BindingIndex++;
     }
 

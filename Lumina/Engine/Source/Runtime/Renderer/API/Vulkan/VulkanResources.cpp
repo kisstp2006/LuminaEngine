@@ -743,7 +743,7 @@ namespace Lumina
         ImageCreateInfo.flags = ImageFlags;
         ImageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
         ImageCreateInfo.format = VulkanFormat;
-        ImageCreateInfo.extent = { (uint32)GetExtent().X, (uint32)GetExtent().Y, 1 };
+        ImageCreateInfo.extent = { (uint32)GetExtent().x, (uint32)GetExtent().y, 1 };
         ImageCreateInfo.mipLevels = GetDescription().NumMips;
         ImageCreateInfo.arrayLayers = GetDescription().ArraySize;
         ImageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -813,7 +813,6 @@ namespace Lumina
 
     FTextureSubresourceView& FVulkanImage::GetSubresourceView(const FTextureSubresourceSet& Subresource, EImageDimension Dimension, EFormat Format, VkImageUsageFlags Usage, ESubresourceViewType ViewType)
     {
-        FScopeLock Lock(SubresourceMutex);
         if (Dimension == EImageDimension::Unknown)
         {
             Dimension = DescRef.Dimension;
@@ -823,6 +822,8 @@ namespace Lumina
         {
             Format = DescRef.Format;
         }
+
+        FScopeLock Lock(SubresourceMutex);
 
         auto CacheKey = eastl::make_tuple(Subresource, ViewType, Dimension, Format, Usage);
         auto Iter = SubresourceViews.find(CacheKey);
@@ -908,8 +909,8 @@ namespace Lumina
     {
         const FFormatInfo& formatInfo = RHI::Format::Info(Desc.Format);
 
-        uint32 wInBlocks = eastl::max<uint32>(((Desc.Extent.X >> MipLevel) + formatInfo.BlockSize - 1) / formatInfo.BlockSize, 1u);
-        uint32 hInBlocks = eastl::max<uint32>(((Desc.Extent.Y >> MipLevel) + formatInfo.BlockSize - 1) / formatInfo.BlockSize, 1u);
+        uint32 wInBlocks = eastl::max<uint32>(((Desc.Extent.x >> MipLevel) + formatInfo.BlockSize - 1) / formatInfo.BlockSize, 1u);
+        uint32 hInBlocks = eastl::max<uint32>(((Desc.Extent.y >> MipLevel) + formatInfo.BlockSize - 1) / formatInfo.BlockSize, 1u);
 
         size_t blockPitchBytes = wInBlocks * formatInfo.BytesPerBlock;
         return blockPitchBytes * hInBlocks;
@@ -1534,6 +1535,8 @@ namespace Lumina
         
         for (const FRHIBindingLayoutRef& Binding : BindingLayouts)
         {
+            LUM_ASSERT(Binding.IsValid())
+            
             FVulkanBindingLayout* VkBindingLayout = Binding.As<FVulkanBindingLayout>();
             if (!VkBindingLayout->bBindless)
             {
@@ -1574,7 +1577,6 @@ namespace Lumina
     {
         Desc = InDesc;
         
-
         CreatePipelineLayout(InDesc.DebugName, InDesc.BindingLayouts, PushConstantVisibility);
         
         VkDynamicState DynamicStates[] =
@@ -1734,7 +1736,6 @@ namespace Lumina
         RenderingCreateInfo.depthAttachmentFormat           = DepthAttachmentFormat;
         RenderingCreateInfo.stencilAttachmentFormat         = VK_FORMAT_UNDEFINED;
         RenderingCreateInfo.viewMask = (NumArraySlices > 1) ? ((1u << NumArraySlices) - 1u) : 0u;
-
         
         VkGraphicsPipelineCreateInfo CreateInfo = {};
         CreateInfo.sType                        = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;

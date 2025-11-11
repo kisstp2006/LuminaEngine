@@ -1,6 +1,8 @@
 ﻿#pragma once
+
 #include <meshoptimizer.h>
 #include "Containers/Array.h"
+#include "Containers/Name.h"
 #include "Containers/String.h"
 #include "Core/Math/Math.h"
 #include "Memory/SmartPtr.h"
@@ -20,7 +22,7 @@ namespace Lumina::Import
     namespace Textures
     {
         /** Gets an image's raw pixel data */
-        LUMINA_API FIntVector2D ImportTexture(TVector<uint8>& OutPixels, const FString& RawFilePath, bool bFlipVertical = true);
+        LUMINA_API glm::uvec2 ImportTexture(TVector<uint8>& OutPixels, const FString& RawFilePath, bool bFlipVertical = true);
     
         /** Creates a raw RHI Image */
         NODISCARD LUMINA_API FRHIImageRef CreateTextureFromImport(IRenderContext* RenderContext, const FString& RawFilePath, bool bFlipVerticalOnLoad = true);
@@ -63,8 +65,8 @@ namespace Lumina::Import
             size_t operator()(const FGLTFImage& Asset) const noexcept
             {
                 size_t Seed = 0;
-                Lumina::Hash::HashCombine(Seed, Asset.RelativePath);
-                Lumina::Hash::HashCombine(Seed, Asset.ByteOffset);
+                Hash::HashCombine(Seed, Asset.RelativePath);
+                Hash::HashCombine(Seed, Asset.ByteOffset);
                 return Seed;
             }
         };

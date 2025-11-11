@@ -164,7 +164,6 @@ int main(int argc, char* argv[])
 
         SolutionToReflect = LuminaDirectory;
         SolutionToReflect += "\\Lumina.sln";
-        //SolutionToReflect = "H:/LuminaTestProject/Test.sln";
 
         if (!std::filesystem::exists(SolutionToReflect.c_str()))
         {

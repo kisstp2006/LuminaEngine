@@ -12,6 +12,8 @@
 #include <glm/gtc/quaternion.hpp>
 
 #include "Log/Log.h"
+#include "Memory/Memcpy.h"
+#include "Memory/Memory.h"
 #include "Types/BitFlags.h"
 
 namespace Lumina
@@ -138,9 +140,9 @@ namespace Lumina
         {
             static_assert(sizeof(float) == sizeof(uint32), "Unexpected float size");
             uint32 Temp;
-            std::memcpy(&Temp, &Value, sizeof(Temp));
+            Memory::Memcpy(&Temp, &Value, sizeof(Temp));
             ByteOrderSerialize(Temp);
-            std::memcpy(&Value, &Temp, sizeof(Value));
+            Memory::Memcpy(&Value, &Temp, sizeof(Value));
             return *this;
         }
 
@@ -148,9 +150,9 @@ namespace Lumina
         {
             static_assert(sizeof(double) == sizeof(uint64), "Unexpected double size");
             uint64 Temp;
-            std::memcpy(&Temp, &Value, sizeof(Temp));
+            Memory::Memcpy(&Temp, &Value, sizeof(Temp));
             ByteOrderSerialize(Temp);
-            std::memcpy(&Value, &Temp, sizeof(Value));
+            Memory::Memcpy(&Value, &Temp, sizeof(Value));
             return *this;
         }
 

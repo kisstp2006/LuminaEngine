@@ -3,6 +3,7 @@
 #include "Archiver.h"
 #include "Containers/Array.h"
 #include "Core/Assertions/Assert.h"
+#include "Memory/Memcpy.h"
 #include "Memory/Memory.h"
 
 namespace Lumina
@@ -66,7 +67,7 @@ namespace Lumina
                 // Only serialize if we have the requested amount of data
                 if (Offset + Length <= TotalSize())
                 {
-                    memcpy(V, &Bytes[(int32)Offset], Length);
+                    Memory::Memcpy(V, &Bytes[(int32)Offset], Length);
                     Offset += Length;
                 }
                 else

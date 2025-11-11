@@ -790,6 +790,21 @@ namespace Lumina
             ImGui::PopStyleColor(3);
             ImGui::PopStyleVar(3);
         }
+
+        if (GEngine->IsCloseRequested())
+        {
+            static bool IsVerifyingPackages = false;
+            if (IsVerifyingPackages == false)
+            {
+                IsVerifyingPackages = true;
+                VerifyDirtyPackages();
+            }
+
+            if (ModalManager.HasModal())
+            {
+                GEngine->SetEngineReadyToClose(false);
+            }
+        }
         
         FEditorTool* ToolToClose = nullptr;
         
@@ -1250,7 +1265,7 @@ namespace Lumina
                 
                     if (DrawViewportWindow)
                     {
-                        FRenderScene* SceneRenderer = Tool->GetWorld()->GetRenderer();
+                        IRenderScene* SceneRenderer = Tool->GetWorld()->GetRenderer();
                         ImTextureRef ViewportTexture = ImGuiX::ToImTextureRef(SceneRenderer->GetVisualizationImage());
                         
                         Tool->bViewportFocused = ImGui::IsWindowFocused();
@@ -1660,7 +1675,217 @@ namespace Lumina
         
     }
 
+    void FEditorUI::VerifyDirtyPackages()
+    {
+        TVector<CPackage*> DirtyPackages;
+        DirtyPackages.reserve(4);
+        for (TObjectIterator<CPackage> Itr; Itr; ++Itr)
+        {
+            CPackage* Package = *Itr;
 
+            if (Package->IsDirty())
+            {
+                DirtyPackages.push_back(Package);
+            }
+        }
+
+        if (DirtyPackages.empty())
+        {
+            return;
+        }
+        
+        TVector<bool> PackageSelection;
+        PackageSelection.resize(DirtyPackages.size(), true);
+        
+        enum class ESaveState { Idle, Saving, Success, Failed };
+        TVector<ESaveState> SaveStates;
+        SaveStates.resize(DirtyPackages.size(), ESaveState::Idle);
+        
+        ModalManager.CreateDialogue("Save Modified Packages", ImVec2(450, 600), [&, Packages = Move(DirtyPackages), PackageSelection, SaveStates](const FUpdateContext&) mutable
+        {
+            bool bShouldClose = false;
+            
+            ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8, 12));
+            
+            ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.3f, 1.0f), LE_ICON_EXCLAMATION_THICK " Unsaved Changes Detected");
+            
+            ImGui::Spacing();
+            ImGui::TextWrapped("The following packages have unsaved changes. Select which packages you would like to save before continuing.");
+            ImGui::Spacing();
+            ImGui::Separator();
+            ImGui::Spacing();
+            
+            ImGui::BeginGroup();
+            {
+                if (ImGui::Button(LE_ICON_SELECT_ALL " Select All", ImVec2(140, 0)))
+                {
+                    for (bool& Selected : PackageSelection)
+                    {
+                        Selected = true;
+                    }
+                }
+                ImGui::SameLine();
+                if (ImGui::Button(LE_ICON_SQUARE_OUTLINE " Deselect All", ImVec2(140, 0)))
+                {
+                    for (bool& Selected : PackageSelection)
+                    {
+                        Selected = false;
+                    }
+                }
+                
+                ImGui::SameLine();
+                ImGui::TextDisabled("|");
+                ImGui::SameLine();
+                
+                int32 SelectedCount = 0;
+                for (bool Selected : PackageSelection)
+                {
+                    if (Selected)
+                    {
+                        SelectedCount++;
+                    }
+                }
+
+                ImGui::Text("%d of %d selected", SelectedCount, (int32)Packages.size());
+            }
+            ImGui::EndGroup();
+            
+            ImGui::Spacing();
+            ImGui::Separator();
+            ImGui::Spacing();
+            
+            ImVec2 ListSize = ImVec2(-1, -80);
+            if (ImGui::BeginChild("PackageList", ListSize, true, ImGuiWindowFlags_AlwaysVerticalScrollbar))
+            {
+                ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8, 8));
+                
+                for (size_t i = 0; i < Packages.size(); ++i)
+                {
+                    CPackage* Package = Packages[i];
+                    
+                    ImGui::PushID((int)i);
+                    
+                    // Create a subtle background for each item
+                    ImVec2 ItemStart = ImGui::GetCursorScreenPos();
+                    ImVec2 ItemSize = ImVec2(ImGui::GetContentRegionAvail().x, 64);
+                    
+                    bool bIsHovered = ImGui::IsMouseHoveringRect(ItemStart, ImVec2(ItemStart.x + ItemSize.x, ItemStart.y + ItemSize.y));
+                    
+                    ImU32 BgColor = bIsHovered ? 
+                        IM_COL32(50, 50, 55, 180) : 
+                        IM_COL32(35, 35, 40, 180);
+                    
+                    ImGui::GetWindowDrawList()->AddRectFilled(
+                        ItemStart, 
+                        ImVec2(ItemStart.x + ItemSize.x, ItemStart.y + ItemSize.y),
+                        BgColor,
+                        4.0f
+                    );
+                    
+                    ImGui::BeginGroup();
+                    {
+                        ImGui::Dummy(ImVec2(0, 4));
+                        
+                        ImGui::Checkbox("##select", &PackageSelection[i]);
+                        ImGui::SameLine();
+                        
+                        ImGui::BeginGroup();
+                        {
+                            ImGui::Text(LE_ICON_FILE " %s", Package->GetName().c_str());
+                            
+                            ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "%s", Package->GetFullPackageFilePath().c_str());
+                            
+                            // Show save state
+                            switch (SaveStates[i])
+                            {
+                                case ESaveState::Saving:
+                                    ImGui::TextColored(ImVec4(0.5f, 0.8f, 1.0f, 1.0f), LE_ICON_WATCH_VIBRATE " Saving...");
+                                    break;
+                                case ESaveState::Success:
+                                    ImGui::TextColored(ImVec4(0.3f, 1.0f, 0.3f, 1.0f), LE_ICON_CHECK " Saved");
+                                    break;
+                                case ESaveState::Failed:
+                                    ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), LE_ICON_EXCLAMATION_THICK " Failed to save");
+                                    break;
+                            }
+                        }
+                        ImGui::EndGroup();
+                        
+                        ImGui::Dummy(ImVec2(0, 4));
+                    }
+                    ImGui::EndGroup();
+                    
+                    ImGui::PopID();
+                    
+                    ImGui::Spacing();
+                }
+                
+                ImGui::PopStyleVar();
+            }
+            ImGui::EndChild();
+            
+            ImGui::Spacing();
+            ImGui::Separator();
+            ImGui::Spacing();
+            
+            ImGui::BeginGroup();
+            {
+                float ButtonWidth = 150.0f;
+                float Spacing = 8.0f;
+                float TotalWidth = (ButtonWidth * 2) + (Spacing * 2);
+                float OffsetX = (ImGui::GetContentRegionAvail().x - TotalWidth) * 0.5f;
+                
+                ImGui::SetCursorPosX(ImGui::GetCursorPosX() + OffsetX);
+                
+                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.6f, 0.2f, 1.0f));
+                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.7f, 0.3f, 1.0f));
+                ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.15f, 0.5f, 0.15f, 1.0f));
+                
+                if (ImGui::Button(LE_ICON_CONTENT_SAVE " Save Selected", ImVec2(ButtonWidth, 35)))
+                {
+                    for (size_t i = 0; i < Packages.size(); ++i)
+                    {
+                        if (PackageSelection[i])
+                        {
+                            SaveStates[i] = ESaveState::Saving;
+                            
+                            bool bSaveSuccess = CPackage::SavePackage(Packages[i], Packages[i]->GetFullPackageFilePath());
+                            SaveStates[i] = bSaveSuccess ? ESaveState::Success : ESaveState::Failed;
+                        }
+                    }
+                    
+                    bShouldClose = true;
+                }
+                ImGui::PopStyleColor(3);
+                
+                ImGui::SameLine();
+                
+                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.6f, 0.4f, 0.2f, 1.0f));
+                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.7f, 0.5f, 0.3f, 1.0f));
+                ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.5f, 0.3f, 0.15f, 1.0f));
+                
+                if (ImGui::Button(LE_ICON_SQUARE " Don't Save", ImVec2(ButtonWidth, 35)))
+                {
+                    bShouldClose = true;
+                }
+                ImGui::PopStyleColor(3);
+                
+                //ImGui::SameLine();
+                //
+                //if (ImGui::Button(LE_ICON_CANCEL " Cancel", ImVec2(ButtonWidth, 35)))
+                //{
+                //    
+                //    bShouldClose = true;
+                //}
+            }
+            ImGui::EndGroup();
+            
+            ImGui::PopStyleVar();
+            
+            return bShouldClose;
+        });
+    }
+    
     void FEditorUI::DrawTitleBarMenu(const FUpdateContext& UpdateContext)
     {
         ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 2.0f);
@@ -1753,6 +1978,11 @@ namespace Lumina
                 GRenderContext->CompileEngineShaders();
             }
 
+            if (ImGui::MenuItem(LE_ICON_MATERIAL_DESIGN " Recompile Default Material"))
+            {
+                CMaterial::CreateDefaultMaterial();
+            }
+
             if (ImGui::MenuItem(LE_ICON_FOLDER " Open Shaders Directory", "F6"))
             {
                 Platform::LaunchURL(StringUtils::ToWideString(Paths::GetEngineShadersDirectory()).c_str());
@@ -1794,6 +2024,7 @@ namespace Lumina
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.4f, 0.4f, 1.0f));
         if (ImGui::MenuItem(LE_ICON_DOOR_OPEN " Exit", "Alt+F4"))
         {
+            // ...
 			FApplication::RequestExit();
         }
         ImGui::PopStyleColor();
@@ -2549,7 +2780,7 @@ namespace Lumina
 
                     ImGui::BeginChild("References", ImVec2(0, 0), false);
                     {
-                        if (references.size() > 0)
+                        if (!references.empty())
                         {
                             for (const FName& refName : references)
                             {

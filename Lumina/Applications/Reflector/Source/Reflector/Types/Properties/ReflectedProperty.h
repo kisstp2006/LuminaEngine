@@ -1,6 +1,5 @@
 ﻿#pragma once
 
-#include <string>
 #include <EASTL/string.h>
 #include "EASTL/vector.h"
 #include "Reflector/Utils/MetadataUtils.h"
@@ -25,6 +24,7 @@ namespace Lumina
         eastl::string GetDisplayName() const { return Name; }
         void GenerateMetadata(const eastl::string& InMetadata);
 
+        virtual bool CanDeclareCrossModuleReferences() const { return false; }
         virtual void DeclareCrossModuleReference(const eastl::string& API, eastl::string& Stream) { }
 
         virtual bool HasAccessors();

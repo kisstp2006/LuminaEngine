@@ -166,7 +166,6 @@ namespace Lumina
     FQueue::FQueue(FVulkanRenderContext* InRenderContext, VkQueue InQueue, uint32 InQueueFamilyIndex, ECommandQueue InType)
         : IDeviceChild(InRenderContext->GetDevice())
         , Type(InType)
-        , CommandPool(nullptr)
         , Queue(InQueue)
         , QueueFamilyIndex(InQueueFamilyIndex)
     {
@@ -192,14 +191,11 @@ namespace Lumina
     TRefCountPtr<FTrackedCommandBuffer> FQueue::GetOrCreateCommandBuffer()
     {
         LUMINA_PROFILE_SCOPE();
+        
+        uint64 RecodingID = LastRecordingID.fetch_add(1, eastl::memory_order_relaxed);
 
-        std::scoped_lock Lock(GetMutex);
-        LockMark(GetMutex);
-
-        uint64 RecodingID = ++LastRecordingID;
-
-        TRefCountPtr<FTrackedCommandBuffer> Buf;
-        if (CommandBufferPool.empty())
+        TRefCountPtr<FTrackedCommandBuffer> TrackedBuffer;
+        if (!CommandBufferPool.try_dequeue(TrackedBuffer))
         {
             LUMINA_PROFILE_SECTION_COLORED("vkCreateCommandPool", tracy::Color::DarkRed);
 
@@ -210,8 +206,10 @@ namespace Lumina
             PoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
             PoolInfo.queueFamilyIndex = QueueFamilyIndex;
             PoolInfo.flags = Flags;
-
+            
+            VkCommandPool CommandPool = VK_NULL_HANDLE;
             VK_CHECK(vkCreateCommandPool(Device->GetDevice(), &PoolInfo, VK_ALLOC_CALLBACK, &CommandPool));
+            LUM_ASSERT(CommandPool)
 
             VkCommandBufferAllocateInfo BufferInfo = {};
             BufferInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -222,17 +220,11 @@ namespace Lumina
             VkCommandBuffer Buffer;
             VK_CHECK(vkAllocateCommandBuffers(Device->GetDevice(), &BufferInfo, &Buffer));
 
-            bool bCreateTracy = (Type == ECommandQueue::Graphics || Type == ECommandQueue::Compute);
-            Buf = MakeRefCount<FTrackedCommandBuffer>(Device, Buffer, CommandPool, bCreateTracy, Queue);
-        }
-        else
-        {
-            Buf = CommandBufferPool.back();
-            CommandBufferPool.pop_back();
+            TrackedBuffer = MakeRefCount<FTrackedCommandBuffer>(Device, Buffer, CommandPool, this);
         }
 
-        Buf->RecordingID = RecodingID;
-        return Buf;
+        TrackedBuffer->RecordingID = RecodingID;
+        return TrackedBuffer;
     }
 
     void FQueue::RetireCommandBuffers()
@@ -250,7 +242,7 @@ namespace Lumina
             {
                 Submission->ClearReferencedResources();
                 Submission->SubmissionID = 0;
-                CommandBufferPool.push_back(Submission);
+                LUM_ASSERT(CommandBufferPool.try_enqueue(Submission))
             }
             else
             {
@@ -262,6 +254,9 @@ namespace Lumina
     uint64 FQueue::Submit(ICommandList* const* CommandLists, uint32 NumCommandLists)
     {
         LUMINA_PROFILE_SCOPE();
+        
+        std::scoped_lock Lock(Mutex);
+        LockMark(Mutex);
         
         TFixedVector<VkCommandBuffer, 4> CommandBuffers(NumCommandLists);
         TFixedVector<VkPipelineStageFlags, 4> StageFlags(WaitSemaphores.size());
@@ -278,7 +273,7 @@ namespace Lumina
             auto* VulkanCommandList = static_cast<FVulkanCommandList*>(CommandLists[i]);
             auto& TrackedBuffer = VulkanCommandList->CurrentCommandBuffer;
 
-            Assert(TrackedBuffer->Queue == Queue)
+            Assert(TrackedBuffer->Queue == this)
 
             CommandBuffers[i] = TrackedBuffer->CommandBuffer;
             CommandBuffersInFlight.push_back(TrackedBuffer);
@@ -315,9 +310,6 @@ namespace Lumina
         SubmitInfo.pWaitDstStageMask = StageFlags.data();
         SubmitInfo.pSignalSemaphores = SignalSemaphores.data();
         SubmitInfo.signalSemaphoreCount = (uint32)SignalSemaphores.size();
-
-        std::scoped_lock Lock(SubmitMutex);
-        LockMark(GetMutex);
         
         VK_CHECK(vkQueueSubmit(Queue, 1, &SubmitInfo, nullptr));
 
@@ -400,10 +392,19 @@ namespace Lumina
         WaitSemaphores.push_back(Semaphore);
         WaitSemaphoreValues.push_back(Value);
     }
-    
+
+    void FQueue::Lock()
+    {
+        Mutex.try_lock();
+    }
+
+    void FQueue::Unlock()
+    {
+        Mutex.unlock();
+    }
+
     FVulkanRenderContext::FVulkanRenderContext()
         : CurrentFrameIndex(0)
-        , Queues{}
         , VulkanInstance(nullptr)
         , ShaderCompiler(nullptr)
     {
@@ -672,7 +673,6 @@ namespace Lumina
         VulkanDevice = Memory::New<FVulkanDevice>(this, VulkanInstance, PhysicalDevice, Device);
 
         
-        
         if (vkbDevice.get_queue(vkb::QueueType::graphics).has_value())
         {
             VkQueue Queue = vkbDevice.get_queue(vkb::QueueType::graphics).value();
@@ -710,7 +710,7 @@ namespace Lumina
         return Math::GetAligned(Size, MinAlignment);
     }
     
-    FRHIViewportRef FVulkanRenderContext::CreateViewport(const FIntVector2D& Size)
+    FRHIViewportRef FVulkanRenderContext::CreateViewport(const glm::uvec2& Size)
     {
         return MakeRefCount<FVulkanViewport>(Size, this);
     }
@@ -778,6 +778,8 @@ namespace Lumina
     FRHISamplerRef FVulkanRenderContext::CreateSampler(const FSamplerDesc& SamplerDesc)
     {
         uint64 Hash = Hash::GetHash(SamplerDesc);
+        
+        FScopeLock Lock(SamplerMutex);
         if (SamplerMap.find(Hash) != SamplerMap.end())
         {
             return SamplerMap.at(Hash);
@@ -1101,7 +1103,7 @@ namespace Lumina
     void FVulkanRenderContext::CompileEngineShaders()
     {
         //@TODO - Obviously we don't want to recompile every shader everytime the engine loads, this is starting to become annoying
-        // but for now until we have some data cache setup, we'll just leave it for now.
+        // but until we have some data cache setup, we'll just leave it for now.
         
         TVector<FString> Shaders;
 
@@ -1155,6 +1157,7 @@ namespace Lumina
             Hash::HashCombine(Hash, Hash::GetHash(AttributeDesc[i]));
         }
 
+        FScopeLock Lock(LayoutMutex);
         auto it = InputLayoutMap.find(Hash);
         if (it != InputLayoutMap.end())
         {

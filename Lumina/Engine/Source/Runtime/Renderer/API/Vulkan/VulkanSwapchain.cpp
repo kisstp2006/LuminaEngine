@@ -46,7 +46,7 @@ namespace Lumina
     	
     }
 
-    void FVulkanSwapchain::CreateSwapchain(VkInstance Instance, FVulkanRenderContext* InContext, FWindow* Window, FIntVector2D Extent, bool bFromResize)
+    void FVulkanSwapchain::CreateSwapchain(VkInstance Instance, FVulkanRenderContext* InContext, FWindow* Window, glm::uvec2 Extent, bool bFromResize)
     {
     	LUMINA_PROFILE_SCOPE();
 
@@ -78,13 +78,13 @@ namespace Lumina
     		.set_old_swapchain(Swapchain)
             .set_image_array_layer_count(1)
     		.set_allocation_callbacks(VK_ALLOC_CALLBACK)
-            .set_desired_extent(Extent.X, Extent.Y)
+            .set_desired_extent(Extent.x, Extent.y)
             .add_image_usage_flags(VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT)
             .build();
 
     	if (!vkbSwapchain.has_value() || !vkbSwapchain->get_images().has_value())
     	{
-    		LOG_CRITICAL("Failed to create swapchain! Error: {} - Extent: {}x{}", vkbSwapchain.error().message(), Extent.X, Extent.Y);
+    		LOG_CRITICAL("Failed to create swapchain! Error: {} - Extent: {}x{}", vkbSwapchain.error().message(), Extent.x, Extent.y);
     		LUMINA_NO_ENTRY()
     	}
     	
@@ -147,7 +147,7 @@ namespace Lumina
     	
     }
 
-    void FVulkanSwapchain::RecreateSwapchain(const FIntVector2D& Extent)
+    void FVulkanSwapchain::RecreateSwapchain(const glm::uvec2& Extent)
     {
     	LUMINA_PROFILE_SCOPE();
 

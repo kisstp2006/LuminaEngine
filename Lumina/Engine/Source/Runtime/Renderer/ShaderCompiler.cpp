@@ -33,7 +33,7 @@ namespace Lumina
                 result->content = Memory::NewArray<char>(ShaderData.size() + 1);
                 result->content_length = ShaderData.size();
 
-                memcpy((void*)result->content, ShaderData.data(), ShaderData.size() + 1);
+                Memory::Memcpy((void*)result->content, ShaderData.data(), ShaderData.size() + 1);
                 return result;
             }
 
@@ -175,7 +175,7 @@ namespace Lumina
         TVector<FShaderCompileOptions> Options(CompileOptions.begin(), CompileOptions.end());
 
         
-        Task::AsyncTask(NumShaders, NumShaders / 4, [this,
+        Task::AsyncTask(NumShaders, 1, [this,
             Paths = Move(Paths),
             Options = Move(Options),
             Callback = Move(OnCompleted)] (uint32 Start, uint32 End, uint32 Thread) mutable
@@ -185,7 +185,9 @@ namespace Lumina
             CompileOpts.SetOptimizationLevel(shaderc_optimization_level_performance);
             CompileOpts.SetGenerateDebugInfo();
             CompileOpts.SetTargetEnvironment(shaderc_target_env_vulkan, shaderc_env_version_vulkan_1_3);
-    
+
+            uint32 Num = End - Start;
+            
             for (uint32 i = Start; i < End; ++i)
             {
                 shaderc::Compiler Compiler;
@@ -207,7 +209,6 @@ namespace Lumina
                     if (!FileHelper::LoadFileIntoString(RawShaderString, Path))
                     {
                         LOG_ERROR("Failed to load shader: {0}", Path);
-                        PendingTasks.fetch_sub(1, eastl::memory_order_acq_rel);
                         continue;
                     }
                 }
@@ -221,7 +222,6 @@ namespace Lumina
                 if (Preprocessed.GetCompilationStatus() != shaderc_compilation_status_success)
                 {
                     LOG_ERROR("Preprocessing failed: {0} - {1}", Path, Preprocessed.GetErrorMessage());
-                    PendingTasks.fetch_sub(1, eastl::memory_order_acq_rel);
                     continue;
                 }
     
@@ -236,7 +236,6 @@ namespace Lumina
                 if (CompileResult.GetCompilationStatus() != shaderc_compilation_status_success)
                 {
                     LOG_ERROR("Compilation failed: {0} - {1}", Path, CompileResult.GetErrorMessage());
-                    PendingTasks.fetch_sub(1, eastl::memory_order_acq_rel);
                     continue;
                 }
     
@@ -244,7 +243,6 @@ namespace Lumina
                 if (Binaries.empty())
                 {
                     LOG_ERROR("Shader compiled to empty SPIR-V: {0}", Path);
-                    PendingTasks.fetch_sub(1, eastl::memory_order_acq_rel);
                     continue;
                 }
 
@@ -263,8 +261,10 @@ namespace Lumina
                 
                 Callback(Move(Shader));
 
-                PendingTasks.fetch_sub(1, eastl::memory_order_acq_rel);
             }
+
+            PendingTasks.fetch_sub(Num, eastl::memory_order_relaxed);
+            
         }, ETaskPriority::High);
     
         return true;
@@ -292,10 +292,10 @@ namespace Lumina
             ShaderString = Move(ShaderString),
             CompileOptions = Move(CompileOptions),
             Callback = Move(OnCompleted)]
-            (uint32, uint32, uint32)
+            (uint32, uint32, uint32 Thread)
         {
-            LOG_TRACE("Compiling Raw Shader - Thread: {0}", Threading::GetThreadID());
-
+            auto CompileStart = std::chrono::high_resolution_clock::now();
+            
             shaderc::Compiler Compiler;
             shaderc::CompileOptions Options;
             Options.SetIncluder(std::make_unique<FShaderCIncluder>());
@@ -353,6 +353,11 @@ namespace Lumina
             Shader.Binaries = Move(Binaries);
 
             ReflectSpirv(Shader.Binaries, Shader.Reflection, true);
+
+            auto CompileEnd = std::chrono::high_resolution_clock::now();
+            std::chrono::duration<double, std::milli> DurationMs = CompileEnd - CompileStart;
+                
+            LOG_TRACE("Compiled raw shader in {0:.2f} ms (Thread {1})", DurationMs.count(), Thread);
             
             Callback(Move(Shader));
 

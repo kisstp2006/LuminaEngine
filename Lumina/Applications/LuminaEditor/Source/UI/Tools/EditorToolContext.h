@@ -5,6 +5,7 @@
 
 namespace Lumina
 {
+    class CObject;
     class CClass;
     class FSubsystemManager;
     class FAssetRegistry;

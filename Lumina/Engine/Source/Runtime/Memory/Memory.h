@@ -120,10 +120,6 @@ namespace Lumina::Memory
 
     LUMINA_API NODISCARD SIZE_T GetActualAlignment(size_t size, size_t alignment);
 
-    LUMINA_API void Memcpy(void* Destination, void* Source, uint64 SrcSize);
-    
-    LUMINA_API void Memcpy(void* Destination, const void* Source, uint64 SrcSize);
-
     LUMINA_API NODISCARD void* Malloc(size_t size, size_t alignment = DEFAULT_ALIGNMENT);
     
     LUMINA_API NODISCARD void* Realloc(void* Memory, size_t NewSize, size_t OriginalAlignment = DEFAULT_ALIGNMENT);

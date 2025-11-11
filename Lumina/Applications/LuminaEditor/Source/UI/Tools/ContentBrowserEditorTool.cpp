@@ -469,14 +469,19 @@ namespace Lumina
                 {
                     return A->AssetName.ToString() > B->AssetName.ToString();
                 });
+
+                Task::ParallelFor(Assets.size(), 1, [&](uint32 Index)
+                {
+                    FAssetData* Asset = Assets[Index];
+                    FString PackageFullPath = Paths::ResolveVirtualPath(Asset->PackageName.ToString());
+                    CThumbnailManager::Get().GetOrLoadThumbnailsForPackage(PackageFullPath);
+                });
                 
                 for (FAssetData* Asset : Assets)
                 {
                     FName ShortClassName = Paths::GetExtension(Asset->AssetClass.ToString());
                     if (FilterState.count(ShortClassName) && FilterState.at(ShortClassName))
                     {
-                        FString PackageFullPath = Paths::ResolveVirtualPath(Asset->PackageName.ToString());
-                        CThumbnailManager::Get().GetOrLoadThumbnailsForPackage(PackageFullPath);
                         FullPath = Paths::ResolveVirtualPath(Asset->FullPath.ToString());
                         ContentBrowserTileView.AddItemToTree<FContentBrowserTileViewItem>(nullptr, std::move(FullPath), Asset);
                     }

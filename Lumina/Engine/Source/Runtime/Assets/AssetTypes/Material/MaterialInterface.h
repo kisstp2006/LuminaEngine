@@ -13,6 +13,15 @@ namespace Lumina
 
 namespace Lumina
 {
+
+    LUM_ENUM()
+    enum class EMaterialType : uint8
+    {
+        None,
+        PBR,
+        PostProcess,
+        UI,
+    };
     
     LUM_CLASS()
     class LUMINA_API CMaterialInterface : public CObject
@@ -29,6 +38,13 @@ namespace Lumina
         virtual FRHIBindingLayoutRef GetBindingLayout() const { LUMINA_NO_ENTRY() }
         virtual FRHIVertexShaderRef GetVertexShader() const { LUMINA_NO_ENTRY() }
         virtual FRHIPixelShaderRef GetPixelShader() const { LUMINA_NO_ENTRY() }
+
+        virtual EMaterialType GetMaterialType() const { return EMaterialType::None; };
+
+        virtual bool DoesCastShadows() const { return false; };
+        virtual bool IsTwoSided() const { return false; };
+        virtual bool IsTranslucent() { return false; };
+        
 
         void SetReadyForRender(bool bReady) { bReadyForRender.store(bReady, std::memory_order_release); }
         bool IsReadyForRender() const { return bReadyForRender.load(std::memory_order_acquire); }

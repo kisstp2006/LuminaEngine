@@ -33,6 +33,7 @@ project "Lumina"
         "Engine/ThirdParty/EnkiTS/src/**.h",
         "Engine/ThirdParty/EnkiTS/src/**.cpp",
 
+        "Engine/ThirdParty/concurrentqueue/concurrentqueue.h",
         "Engine/ThirdParty/rpmalloc/**.h",
         "Engine/ThirdParty/rpmalloc/**.c",
         "Engine/ThirdParty/RenderDoc/renderdoc_app.h",

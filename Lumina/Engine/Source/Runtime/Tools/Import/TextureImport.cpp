@@ -13,7 +13,7 @@
 
 namespace Lumina::Import::Textures
 {
-    FIntVector2D ImportTexture(TVector<uint8>& OutPixels, const FString& RawFilePath, bool bFlipVertical)
+    glm::uvec2 ImportTexture(TVector<uint8>& OutPixels, const FString& RawFilePath, bool bFlipVertical)
     {
         OutPixels.clear();
         
@@ -49,7 +49,7 @@ namespace Lumina::Import::Textures
         
         FRHIImageRef ReturnImage = RenderContext->CreateImage(ImageDescription);
 
-        const uint32 Width = ImageDescription.Extent.X;
+        const uint32 Width = ImageDescription.Extent.x;
         const SIZE_T RowPitch = Width * 4;
 
         FRHICommandListRef TransferCommandList = RenderContext->CreateCommandList(FCommandListInfo::Transfer());

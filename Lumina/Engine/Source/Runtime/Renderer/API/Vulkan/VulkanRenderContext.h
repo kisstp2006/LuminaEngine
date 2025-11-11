@@ -9,6 +9,7 @@
 #include "VulkanMacros.h"
 #include "VulkanPipelineCache.h"
 #include "VulkanResources.h"
+#include "concurrentqueue/concurrentqueue.h"
 #include "Core/Threading/Thread.h"
 #include "Memory/SmartPtr.h"
 #include "Renderer/RenderContext.h"
@@ -77,7 +78,10 @@ namespace Lumina
         void AddSignalSemaphore(VkSemaphore Semaphore, uint64 Value);
         void AddWaitSemaphore(VkSemaphore Semaphore, uint64 Value);
 
-        uint64                              LastRecordingID = 0;
+        void Lock();
+        void Unlock();
+
+        eastl::atomic<uint64>               LastRecordingID = 0;
         uint64                              LastSubmittedID = 0;
         uint64                              LastFinishedID = 0;
         
@@ -85,17 +89,16 @@ namespace Lumina
         TFixedVector<uint64, 4>             WaitSemaphoreValues;
         TFixedVector<VkSemaphore, 4>        SignalSemaphores;
         TFixedVector<uint64, 4>             SignalSemaphoreValues;
-        
+
         ECommandQueue               Type;
-        TracyLockable(FMutex, GetMutex);
-        TracyLockable(FMutex, SubmitMutex);
-        VkCommandPool               CommandPool;
+        TracyLockable(FMutex,       Mutex);
+        
         VkQueue                     Queue;
         uint32                      QueueFamilyIndex;
         VkSemaphore                 TimelineSemaphore;
 
         TFixedVector<TRefCountPtr<FTrackedCommandBuffer>, 4> CommandBuffersInFlight;
-        TFixedVector<TRefCountPtr<FTrackedCommandBuffer>, 4> CommandBufferPool;
+        TConcurrentQueue<TRefCountPtr<FTrackedCommandBuffer>> CommandBufferPool;
     };
 
     class FCommandListManager
@@ -195,7 +198,7 @@ namespace Lumina
         
         //-------------------------------------------------------------------------------------
 
-        NODISCARD FRHIViewportRef CreateViewport(const FIntVector2D& Size) override;
+        NODISCARD FRHIViewportRef CreateViewport(const glm::uvec2& Size) override;
         
         NODISCARD FRHIStagingImageRef CreateStagingImage(const FRHIImageDesc& Desc, ERHIAccess Access) override;
         void* MapStagingTexture(FRHIStagingImage* Image, const FTextureSlice& slice, ERHIAccess Access, size_t* OutRowPitch) override;
@@ -245,8 +248,10 @@ namespace Lumina
 
         uint8                                               CurrentFrameIndex;
         TBitFlags<EVulkanExtensions>                        EnabledExtensions;
-        
+
+        FMutex                                              LayoutMutex;
         THashMap<uint64, FRHIInputLayoutRef>                InputLayoutMap;
+        FMutex                                              SamplerMutex;
         THashMap<uint64, FRHISamplerRef>                    SamplerMap;
         
         FVulkanDescriptorCache                              DescriptorCache;

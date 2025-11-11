@@ -5,15 +5,17 @@
 
 namespace Lumina
 {
-    FTrackedCommandBuffer::FTrackedCommandBuffer(FVulkanDevice* InDevice, VkCommandBuffer InBuffer, VkCommandPool InPool, bool bCreateTraceContext, VkQueue InQueue)
+    FTrackedCommandBuffer::FTrackedCommandBuffer(FVulkanDevice* InDevice, VkCommandBuffer InBuffer, VkCommandPool InPool, FQueue* InQueue)
         : IDeviceChild(InDevice)
         , CommandBuffer(InBuffer)
         , CommandPool(InPool)
         , Queue(InQueue)
     {
-        if (bCreateTraceContext)
+        if (InQueue->Type != ECommandQueue::Transfer)
         {
-            TracyContext = TracyVkContext(InDevice->GetPhysicalDevice(), InDevice->GetDevice(), InQueue, CommandBuffer)
+            std::scoped_lock Lock(InQueue->Mutex);
+            LockMark(InQueue->Mutex);
+            TracyContext = TracyVkContext(InDevice->GetPhysicalDevice(), InDevice->GetDevice(), Queue->Queue, CommandBuffer)
         }
     }
 
@@ -21,9 +23,10 @@ namespace Lumina
     {
         if (TracyContext)
         {
+            std::scoped_lock Lock(Queue->Mutex);
+            LockMark(Queue->Mutex);
             TracyVkDestroy(TracyContext)
             TracyContext = nullptr;
-            
         }
         
         vkDestroyCommandPool(Device->GetDevice(), CommandPool, VK_ALLOC_CALLBACK);

@@ -16,15 +16,6 @@ namespace Lumina
 }
 namespace Lumina
 {
-    LUM_ENUM()
-    enum class EMaterialType : uint8
-    {
-        None,
-        PBR,
-        PostProcess,
-        UI,
-    };
-    
     LUM_CLASS()
     class LUMINA_API CMaterial : public CMaterialInterface
     {
@@ -50,7 +41,12 @@ namespace Lumina
         FRHIPixelShaderRef GetPixelShader() const override;
         static CMaterial* GetDefaultMaterial();
 
-        void CreateDefaultMaterial();
+        static void CreateDefaultMaterial();
+
+        EMaterialType GetMaterialType() const override { return MaterialType; }
+        bool DoesCastShadows() const override { return bCastShadows; }
+        bool IsTwoSided() const override { return bTwoSided; }
+        bool IsTranslucent() override { return bTranslucent; }
         
         LUM_PROPERTY(Editable)
         EMaterialType MaterialType;
@@ -62,11 +58,11 @@ namespace Lumina
         bool bTwoSided = false;
 
         LUM_PROPERTY(Editable)
-        bool bTransparent = false;
+        bool bTranslucent = false;
 
         
         LUM_PROPERTY()
-        TVector<TObjectPtr<CTexture>>        Textures;
+        TVector<TObjectPtr<CTexture>>           Textures;
         
         TVector<uint32>                         VertexShaderBinaries;
         TVector<uint32>                         PixelShaderBinaries;

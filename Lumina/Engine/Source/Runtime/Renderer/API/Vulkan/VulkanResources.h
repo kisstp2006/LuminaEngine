@@ -94,7 +94,7 @@ namespace Lumina
         friend class FVulkanRenderContext;
         
 
-        FVulkanViewport(const FIntVector2D& InSize, IRenderContext* InContext)
+        FVulkanViewport(const glm::uvec2& InSize, IRenderContext* InContext)
             : FRHIViewport(InSize, InContext)
         {}
 

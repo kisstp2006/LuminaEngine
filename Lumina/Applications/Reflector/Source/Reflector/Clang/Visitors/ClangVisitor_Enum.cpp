@@ -1,5 +1,4 @@
-﻿#include "ClangVisitor_Enum.h"
-
+﻿#include "ClangVisitor.h"
 #include "Reflector/Clang/ClangParserContext.h"
 #include "Reflector/Clang/Utils.h"
 #include "Reflector/Types/ReflectedType.h"
@@ -75,14 +74,22 @@ namespace Lumina::Reflection::Visitor
             return CXChildVisit_Break;
         }
         
-        FReflectedEnum* Enum = Context->ReflectionDatabase.GetOrCreateReflectedType<FReflectedEnum>(FStringHash(FullyQualifiedName));
-        Enum->DisplayName   = std::move(CursorName);
-        Enum->LineNumber    = ClangUtils::GetCursorLineNumber(Cursor);
-        Enum->HeaderID      = Context->ReflectedHeader->HeaderPath;
+        FReflectedEnum* ReflectedEnum = Context->ReflectionDatabase.GetOrCreateReflectedType<FReflectedEnum>(FStringHash(FullyQualifiedName));
+        ReflectedEnum->DisplayName = CursorName;
+        ReflectedEnum->Project = Context->Project->Name;
+        ReflectedEnum->Type = FReflectedType::EType::Enum;
+        ReflectedEnum->LineNumber = ClangUtils::GetCursorLineNumber(Cursor);
+        ReflectedEnum->HeaderID = Context->ReflectedHeader->HeaderPath;
+        ReflectedEnum->GenerateMetadata(Macro.MacroContents);
 
+        if (!Context->CurrentNamespace.empty())
+        {
+            ReflectedEnum->Namespace = Context->CurrentNamespace;
+        }
+        
         FReflectedType* PreviousParentType = Context->ParentReflectedType;
         
-        Context->ParentReflectedType = Enum;
+        Context->ParentReflectedType = ReflectedEnum;
         if (!Context->bInitialPass)
         {
             clang_visitChildren(Cursor, VisitEnumContents, Context);
@@ -90,7 +97,7 @@ namespace Lumina::Reflection::Visitor
         Context->ParentReflectedType = PreviousParentType;
         
         
-        Context->ReflectionDatabase.AddReflectedType(Enum);
+        Context->ReflectionDatabase.AddReflectedType(ReflectedEnum);
         
         return CXChildVisit_Continue;
 

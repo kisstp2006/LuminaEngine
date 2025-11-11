@@ -13,11 +13,12 @@
 #include "Entity/Components/VelocityComponent.h"
 #include "Entity/Systems/UpdateTransformEntitySystem.h"
 #include "glm/gtx/matrix_decompose.hpp"
+#include "Scene/RenderScene/Forward/ForwardRenderScene.h"
 #include "Subsystems/FCameraManager.h"
 #include "TaskSystem/TaskSystem.h"
 #include "World/Entity/Components/RelationshipComponent.h"
+#include "World/Scene/RenderScene/Deferred/DeferredRenderScene.h"
 #include "World/entity/systems/EntitySystem.h"
-#include "World/Scene/RenderScene/RenderScene.h"
 
 namespace Lumina
 {
@@ -116,7 +117,8 @@ namespace Lumina
         CameraManager = Memory::New<FCameraManager>();
         SetupEditorWorld();
 
-        RenderScene = Memory::New<FRenderScene>(this);
+        RenderScene = Memory::New<FForwardRenderScene>(this);
+        RenderScene->Init();
 
         TVector<TObjectPtr<CEntitySystem>> Systems;
         CEntitySystemRegistry::Get().GetRegisteredSystems(Systems);
@@ -232,7 +234,9 @@ namespace Lumina
             System->ConditionalBeginDestroy();
         }
 
+        RenderScene->Shutdown();
         Memory::Delete(RenderScene);
+        
         Memory::Delete(CameraManager);
     }
 

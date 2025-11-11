@@ -13,7 +13,7 @@ namespace Lumina
 	class FWindow;
 
 	LUMINA_API DECLARE_MULTICAST_DELEGATE(FWindowDropEvent, FWindow*, int, const char**);
-	LUMINA_API DECLARE_MULTICAST_DELEGATE(FWindowResizeEvent, FWindow*, const FIntVector2D&);
+	LUMINA_API DECLARE_MULTICAST_DELEGATE(FWindowResizeEvent, FWindow*, const glm::uvec2&);
 	
 	class FWindow
 	{
@@ -35,12 +35,23 @@ namespace Lumina
 		GLFWwindow* GetWindow() const { return Window; }
 		bool IsMinimized() const;
 
-		const FIntVector2D& GetExtent() const { return Specs.Extent; }
-		uint32 GetWidth() const { return Specs.Extent.X; }
-		uint32 GetHeight() const { return Specs.Extent.Y; }
+		const glm::uvec2& GetExtent() const { return Specs.Extent; }
+		uint32 GetWidth() const { return Specs.Extent.x; }
+		uint32 GetHeight() const { return Specs.Extent.y; }
+
+		void GetWindowPos(int& X, int& Y);
+		void SetWindowPos(int X, int Y);
+
+		LUMINA_API bool ShouldClose() const;
+		LUMINA_API bool IsMaximized() const;
+		LUMINA_API void Minimize();
+		LUMINA_API void Restore();
+		LUMINA_API void Maximize();
+		LUMINA_API void Close();
 
 		static void WindowResizeCallback(GLFWwindow* window, int width, int height);
 		static void WindowDropCallback(GLFWwindow* Window, int PathCount, const char* Paths[]);
+		static void WindowCloseCallback(GLFWwindow* window);
 		
 		LUMINA_API static FWindowDropEvent OnWindowDropped;
 		LUMINA_API static FWindowResizeEvent OnWindowResized;

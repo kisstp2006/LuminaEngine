@@ -74,7 +74,7 @@ namespace Lumina
         
         //-------------------------------------------------------------------------------------
 
-        NODISCARD virtual FRHIViewportRef CreateViewport(const FIntVector2D& Size) = 0;
+        NODISCARD virtual FRHIViewportRef CreateViewport(const glm::uvec2& Size) = 0;
 
         
         //-------------------------------------------------------------------------------------

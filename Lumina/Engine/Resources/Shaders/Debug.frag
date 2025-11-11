@@ -5,11 +5,8 @@
 
 layout(set = 1, binding = 0) uniform sampler2D uRenderTarget;
 layout(set = 1, binding = 1) uniform sampler2D uDepth;
-layout(set = 1, binding = 2) uniform sampler2D uNormal;
-layout(set = 1, binding = 3) uniform sampler2D uAlbedo;
-layout(set = 1, binding = 4) uniform sampler2D uSSAO;
-layout(set = 1, binding = 5) uniform sampler2D uMaterial;
-layout(set = 1, binding = 6) uniform sampler2D uShadowAtlas;
+layout(set = 1, binding = 2) uniform sampler2D uSSAO;
+layout(set = 1, binding = 3) uniform sampler2D uShadowAtlas;
 
 
 layout(location = 0) in vec2 vUV;
@@ -49,55 +46,12 @@ void main()
         return;
     }
     
-    if (Debug.DebugFlags == DEBUG_NORMALS)
-    {
-        vec3 Normal = texture(uNormal, vUV).rgb * 2.0 - 1.0;
-        Normal = normalize(mat3(GetInverseCameraView()) * Normal);
-        OutFragColor = vec4(Normal, 1.0);
-        return;
-    }
-    
-    if (Debug.DebugFlags == DEBUG_ALBEDO)
-    {
-        OutFragColor = texture(uAlbedo, vUV);
-        return;
-    }
-    
     if (Debug.DebugFlags == DEBUG_SSAO)
     {
         float ssao = texture(uSSAO, vUV).r;
         OutFragColor = vec4(vec3(ssao), 1.0);
         return;
     }
-
-    if(Debug.DebugFlags == DEBUG_AMBIENT_OCCLUSION)
-    {
-        float ao = texture(uMaterial, vUV).r;
-        OutFragColor = vec4(vec3(ao), 1.0);
-        return;
-    }
-
-    if(Debug.DebugFlags == DEBUG_ROUGHNESS)
-    {
-        float Roughness = texture(uMaterial, vUV).g;
-        OutFragColor = vec4(vec3(Roughness), 1.0);
-        return;
-    }
-
-    if(Debug.DebugFlags == DEBUG_METALLIC)
-    {
-        float Metallic = texture(uMaterial, vUV).b;
-        OutFragColor = vec4(vec3(Metallic), 1.0);
-        return;
-    }
-
-    if(Debug.DebugFlags == DEBUG_SPECULAR)
-    {
-        float Specular = texture(uMaterial, vUV).a;
-        OutFragColor = vec4(vec3(Specular), 1.0);
-        return;
-    }
-    
 
     if (Debug.DebugFlags == DEBUG_DEPTH)
     {

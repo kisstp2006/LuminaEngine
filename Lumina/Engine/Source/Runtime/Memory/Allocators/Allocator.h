@@ -147,7 +147,7 @@ namespace Lumina
          
         void* Allocate(SIZE_T Size, SIZE_T Alignment) override 
         {
-            if (Size > GetUsableBlockSize()) [[unlikely]]
+            if (Size > GetUsableBlockSize())
             {
                 LUM_ASSERT(false)
             }
@@ -157,7 +157,7 @@ namespace Lumina
             SIZE_T NextOffset = AlignedPtr - reinterpret_cast<SIZE_T>(CurrentBlock->GetData()) + Size; 
             
             // Check if we need a new block
-            if (NextOffset > GetUsableBlockSize()) [[unlikely]]
+            if (NextOffset > GetUsableBlockSize())
             { 
                 // Allocate new block and switch to it
                 AllocateNewBlock();
@@ -282,5 +282,6 @@ namespace Lumina
         SIZE_T CurrentOffset;
         SIZE_T BlockCount;
     };
+    
 
 }

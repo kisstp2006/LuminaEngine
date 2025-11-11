@@ -272,8 +272,6 @@ namespace Lumina
         TVector<int32> FreeIndices;
         eastl::atomic<uint32> NumAliveObjects{0};
         
-        mutable FMutex Mutex;
-    
         bool bInitialized = false;
         bool bShuttingDown = false;
     
@@ -314,9 +312,7 @@ namespace Lumina
         {
             assert(bInitialized && "Object pool not initialized!");
             assert(Object != nullptr);
-    
-            FScopeLock Lock(Mutex);
-    
+            
             int32 Index;
             int32 Generation;
     
@@ -366,9 +362,7 @@ namespace Lumina
         void DeallocateObject(int32 Index)
         {
             assert(bInitialized && "Object pool not initialized!");
-    
-            FScopeLock Lock(Mutex);
-    
+            
             FCObjectItem* Item = ChunkedArray.GetItem(Index);
             assert(Item != nullptr);
             assert(Item->GetObj() != nullptr);

@@ -185,10 +185,6 @@ virtual ERHIResourceType GetResourceType() const override { return ERHIResourceT
 
 namespace Lumina
 {
-
-	LUMINA_API extern eastl::atomic<uint64> GTotalRenderResourcesAllocated;
-	LUMINA_API extern TFixedHashMap<EAPIResourceType, uint64, 64> AllocatedRHIResourcesMap;
-	
 	constexpr uint64 GVersionSubmittedFlag = 0x8000000000000000;
 	constexpr uint32 GVersionQueueShift = 60;
 	constexpr uint32 GVersionQueueMask = 0x7;
@@ -263,6 +259,7 @@ namespace Lumina
 
     	static void ReleaseAllRHIResources();
     	static const TFixedVector<IRHIResource*, 400>& GetAllRHIResources();
+    	static uint32 GetNumberRHIResources();
     	
     	template<typename T, EAPIResourceType Type = EAPIResourceType::Default>
 		T GetAPI()
@@ -282,147 +279,57 @@ namespace Lumina
     protected:
 
     	virtual void* GetAPIResourceImpl(EAPIResourceType Type) { return nullptr; }
-
-    private:
-
-    	void Destroy() const;
-    	
+    
     public:
 
     	        
     	uint32 AddRef() const
     	{
-    		int32 NewValue = AtomicFlags.AddRef(std::memory_order_acquire);
-    		Assert(NewValue > 0)
-    		return uint32(NewValue);
+    		uint32 NewValue = RefCount.fetch_add(1, eastl::memory_order_relaxed) + 1;
+			#if LE_DEBUG
+    		Assert(NewValue > 0 && NewValue < 0x3FFFFFFF)
+			#endif
+    		return NewValue;
     	}
         
     	uint32 Release()
     	{
-    		int32 NewValue = AtomicFlags.Release(std::memory_order_release);
-    		Assert(NewValue >= 0)
-
+    		uint32 NewValue = RefCount.fetch_sub(1, eastl::memory_order_acq_rel) - 1;
+			#if LE_DEBUG
+    		Assert(NewValue != ~0u)
+			#endif
     		if (NewValue == 0)
     		{
-    			Destroy();
+    			Delete();
     			return 0;
     		}
-    		
-    		return uint32(NewValue);
+		
+    		return NewValue;
     	}
         
     	uint32 GetRefCount() const
     	{
-    		int32 CurrentValue = AtomicFlags.GetNumRefs(std::memory_order_relaxed);
-    		Assert(CurrentValue >= 0)
-    		return uint32(CurrentValue);
+    		return RefCount.load(eastl::memory_order_relaxed);
     	}
 
     	bool IsValid() const
     	{
-    		return AtomicFlags.IsValid(std::memory_order_relaxed);
+    		return RefCount.load(eastl::memory_order_relaxed) > 0;
     	}
 
     	void Delete()
     	{
-    		Assert(!AtomicFlags.MarkForDelete(std::memory_order_acquire))
     		Memory::Delete(this);
     	}
-
-    	NODISCARD bool Deleting() const
-    	{
-    		return AtomicFlags.Deleteing();
-    	}
-    	
-    	//-----------------------------------------------------------------------------
-
-        class FAtomicFlags
-		{
-			static constexpr uint32 MarkedForDeleteBit    = 1 << 30;
-			static constexpr uint32 DeletingBit           = 1 << 31;
-			static constexpr uint32 NumRefsMask           = ~(MarkedForDeleteBit | DeletingBit);
-		
-			std::atomic_uint Packed = { 0 };
-		
-		public:
-    		
-			int32 AddRef(std::memory_order MemoryOrder)
-			{
-				uint32 OldPacked = Packed.fetch_add(1, MemoryOrder);
-				AssertMsg((OldPacked & DeletingBit) == 0, "Resource is being deleted.");
-				int32  NumRefs = (OldPacked & NumRefsMask) + 1;
-				AssertMsg(NumRefs < NumRefsMask, "Reference count has overflowed.");
-				return NumRefs;
-			}
-		
-			int32 Release(std::memory_order MemoryOrder)
-			{
-				uint32 OldPacked = Packed.fetch_sub(1, MemoryOrder);
-				AssertMsg((OldPacked & DeletingBit) == 0, "Resource is being deleted.");
-				int32  NumRefs = (OldPacked & NumRefsMask) - 1;
-				AssertMsg(NumRefs >= 0, "Reference count has underflowed.");
-				return NumRefs;
-			}
-		
-			bool MarkForDelete(std::memory_order MemoryOrder)
-			{
-				uint32 OldPacked = Packed.fetch_or(MarkedForDeleteBit, MemoryOrder);
-				Assert((OldPacked & DeletingBit) == 0);
-				return (OldPacked & MarkedForDeleteBit) != 0;
-			}
-		
-			bool UnmarkForDelete(std::memory_order MemoryOrder)
-			{
-				uint32 OldPacked = Packed.fetch_xor(MarkedForDeleteBit, MemoryOrder);
-				Assert((OldPacked & DeletingBit) == 0);
-				bool  OldMarkedForDelete = (OldPacked & MarkedForDeleteBit) != 0;
-				Assert(OldMarkedForDelete == true);
-				return OldMarkedForDelete;
-			}
-		
-			bool Deleteing()
-			{
-				uint32 LocalPacked = Packed.load(std::memory_order_acquire);
-				Assert((LocalPacked & MarkedForDeleteBit) != 0)
-				Assert((LocalPacked & DeletingBit) == 0)
-				uint32 NumRefs = LocalPacked & NumRefsMask;
-		
-				if (NumRefs == 0)
-				{
-					Packed.fetch_or(DeletingBit, std::memory_order_acquire);
-					return true;
-				}
-				else
-				{
-					UnmarkForDelete(std::memory_order_release);
-					return false;
-				}
-			}
-		
-			bool IsValid(std::memory_order MemoryOrder) const
-			{
-				uint32 LocalPacked = Packed.load(MemoryOrder);
-				return (LocalPacked & MarkedForDeleteBit) == 0 && (LocalPacked & NumRefsMask) != 0;
-			}
-		
-			bool IsMarkedForDelete(std::memory_order MemoryOrder) const
-			{
-				return (Packed.load(MemoryOrder) & MarkedForDeleteBit) != 0;
-			}
-		
-			int32 GetNumRefs(std::memory_order MemoryOrder) const
-			{
-				return Packed.load(MemoryOrder) & NumRefsMask;
-			}
-		};
+    
     
     private:
-        
-		mutable FAtomicFlags AtomicFlags;
 
+    	mutable eastl::atomic<uint32> RefCount = 0;
+    	
 		int32 ListIndex = INDEX_NONE;
     };
-
+	
 	//-------------------------------------------------------------------------------------------------------------------
 
 	class IEventQuery : public IRHIResource { };
@@ -434,14 +341,14 @@ namespace Lumina
 
 		RENDER_RESOURCE(RRT_Viewport)
 		
-		FRHIViewport(const FIntVector2D& InSize, IRenderContext* InContext)
+		FRHIViewport(const glm::uvec2& InSize, IRenderContext* InContext)
 			: RenderContext(InContext)
 			, Size(InSize)
 		{
 			CreateRenderTarget(InSize);
 		}
 
-		FRHIViewport(const FViewVolume& InVolume, const FIntVector2D& InSize, IRenderContext* InContext)
+		FRHIViewport(const FViewVolume& InVolume, const glm::uvec2& InSize, IRenderContext* InContext)
 			: RenderContext(InContext)
 			, ViewVolume(InVolume)
 			, Size(InSize)
@@ -449,25 +356,25 @@ namespace Lumina
 			CreateRenderTarget(InSize);
 		}
 		
-		void SetSize(const FIntVector2D& InSize);
+		void SetSize(const glm::uvec2& InSize);
 		
 
 		const FViewVolume& GetViewVolume() const { return ViewVolume; }
-		const FIntVector2D& GetSize() const { return Size; }
+		const glm::uvec2& GetSize() const { return Size; }
 
 		void SetViewVolume(const FViewVolume& InVolume) { ViewVolume = InVolume;}
 		virtual FRHIImageRef GetRenderTarget() const { return RenderTarget; }
 
 	private:
 
-		void CreateRenderTarget(const FIntVector2D& InSize);
+		void CreateRenderTarget(const glm::uvec2& InSize);
 
 	protected:
 
 		IRenderContext*		RenderContext;
 		FRHIImageRef		RenderTarget;
 		FViewVolume        	ViewVolume;
-		FIntVector2D       	Size; 
+		glm::uvec2       	Size; 
     
 	};
 
@@ -568,7 +475,7 @@ namespace Lumina
 		 * The width and height of the image. 
 		 * This is the primary size for 2D textures.
 		 */
-		FIntVector2D Extent = FIntVector2D(1);
+		glm::uvec2 Extent = glm::uvec2(1);
 
 		/** The depth of the image (used for 3D textures). */
 		uint16 Depth = 1;
@@ -734,11 +641,11 @@ namespace Lumina
         	FORCEINLINE bool IsValid() const { return Image != nullptr; }
         };
         
-        TFixedVector<FAttachment, 8>	ColorAttachments;
+        TFixedVector<FAttachment, 2>	ColorAttachments;
         FAttachment						DepthAttachment;
-		FIntVector2D					RenderArea;
+		glm::uvec2					RenderArea;
 
-		FRenderPassDesc& SetRenderArea(const FIntVector2D& Area) { RenderArea = Area; return *this; }
+		FRenderPassDesc& SetRenderArea(const glm::uvec2& Area) { RenderArea = Area; return *this; }
 		FRenderPassDesc& AddColorAttachment(const FAttachment& a) { ColorAttachments.push_back(a); return *this; }
 		FRenderPassDesc& AddColorAttachment(FRHIImage* texture) { ColorAttachments.push_back(FAttachment().SetImage(texture)); return *this; }
 		FRenderPassDesc& AddColorAttachment(FRHIImage* texture, FTextureSubresourceSet subresources) { ColorAttachments.push_back(FAttachment().SetImage(texture).SetSubresources(subresources)); return *this; }
@@ -896,9 +803,9 @@ namespace Lumina
 		
 		FORCEINLINE const FRHIImageDesc& GetDescription() const { return Description; }
 		
-		FORCEINLINE const FIntVector2D& GetExtent() const { return Description.Extent; }
-		FORCEINLINE uint32 GetSizeX() const { return Description.Extent.X; }
-		FORCEINLINE uint32 GetSizeY() const { return Description.Extent.Y; }
+		FORCEINLINE const glm::uvec2& GetExtent() const { return Description.Extent; }
+		FORCEINLINE uint32 GetSizeX() const { return Description.Extent.x; }
+		FORCEINLINE uint32 GetSizeY() const { return Description.Extent.y; }
 		FORCEINLINE EFormat GetFormat() const { return Description.Format; }
 		FORCEINLINE TBitFlags<EImageCreateFlags> GetFlags() const { return Description.Flags; }
 

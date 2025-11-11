@@ -67,6 +67,23 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0)
 }
 // ----------------------------------------------------------------------------
 
+
+vec3 GetWorldNormal(vec3 FragNormal, vec2 UV, vec3 FragPos, vec3 TangentSpaceNormal)
+{
+    vec3 N = normalize(FragNormal);
+
+    vec3 Q1 = dFdx(FragPos);
+    vec3 Q2 = dFdy(FragPos);
+    vec2 st1 = dFdx(UV);
+    vec2 st2 = dFdy(UV);
+
+    vec3 T = normalize(Q1 * st2.t - Q2 * st1.t);
+    vec3 B = normalize(cross(N, T));
+    mat3 TBN = mat3(T, B, N);
+
+    return normalize(TBN * TangentSpaceNormal);
+}
+
 vec3 EvaluateLightContribution(FLight Light, vec3 Position, vec3 N, vec3 V, vec3 Albedo, float Roughness, float Metallic, vec3 F0)
 {
     vec3 L;
@@ -484,8 +501,6 @@ void main()
     vec3 Color = Ambient + Lo;
 
     Color = Color / (Color + vec3(1.0));
-
-    Color = pow(Color, vec3(1.0/2.2));
     
     if(Alpha == 0.0)
     {

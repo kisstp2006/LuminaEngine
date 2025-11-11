@@ -78,6 +78,10 @@
 
 #endif
 
+#ifndef RESTRICT
+    #define RESTRICT __restrict						/* no alias hint */
+#endif
+
 //------------------------------------------------------------------------------
 // Calling Conventions & Function Pointer Aliases
 //------------------------------------------------------------------------------

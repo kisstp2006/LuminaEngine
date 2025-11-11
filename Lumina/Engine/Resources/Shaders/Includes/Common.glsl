@@ -85,6 +85,9 @@ struct FLight
     vec3 Position;
     uint Color;
 
+    float Intensity;
+    //... 12 bytes of padding.
+    
     vec3 Direction;
     float Radius;
     

@@ -7,7 +7,7 @@
 namespace Lumina
 {
     struct SStaticMeshComponent;
-    class FRenderScene;
+    class FDeferredRenderScene;
     struct FMeshBatch;
     class CMaterialInterface;
     class CStaticMesh;
@@ -20,7 +20,7 @@ namespace Lumina
     
     struct FStaticMeshScenePrimitive : FScenePrimitive
     {
-        FStaticMeshScenePrimitive(const SStaticMeshComponent& StaticMeshComponent, const glm::mat4& InRenderTransform, FRenderScene* InScene);
+        FStaticMeshScenePrimitive(const SStaticMeshComponent& StaticMeshComponent, const glm::mat4& InRenderTransform, FDeferredRenderScene* InScene);
         
         const CStaticMesh* StaticMesh;
     };

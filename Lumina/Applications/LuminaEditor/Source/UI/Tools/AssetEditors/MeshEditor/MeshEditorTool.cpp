@@ -227,7 +227,7 @@ void FMeshEditorTool::OnInitialize()
 
         if (ImGui::BeginMenu(LE_ICON_DEBUG_STEP_INTO " Render Debug"))
         {
-            FRenderScene* SceneRenderer = World->GetRenderer();
+            IRenderScene* SceneRenderer = World->GetRenderer();
 
             ImGui::TextColored(ImVec4(0.58f, 0.86f, 1.0f, 1.0f), "Debug Visualization");
             ImGui::Separator();

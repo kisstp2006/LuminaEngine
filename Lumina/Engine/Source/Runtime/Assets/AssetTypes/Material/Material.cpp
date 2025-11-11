@@ -192,16 +192,22 @@ namespace Lumina
 
         ShaderCompiler->Flush();
 
-        FString FragmentPath = Paths::GetEngineResourceDirectory() + "/MaterialShader/GeometryPass.frag";
-
-        LUM_ASSERT(DefaultMaterial == nullptr)
+        FString FragmentPath = Paths::GetEngineResourceDirectory() + "/MaterialShader/ForwardBasePass.frag";
+        
+        if (DefaultMaterial)
+        {
+            DefaultMaterial->RemoveFromRoot();
+            DefaultMaterial->ConditionalBeginDestroy();
+            DefaultMaterial = nullptr;
+        }
         
         DefaultMaterial = NewObject<CMaterial>();
+        DefaultMaterial->AddToRoot();
         
         FString LoadedString;
         if (!FileHelper::LoadFileIntoString(LoadedString, FragmentPath))
         {
-            LOG_ERROR("Failed to find GeometryPass.frag!");
+            LOG_ERROR("Failed to find ForwardBasePass.frag!");
             return;
         }
 
@@ -234,7 +240,7 @@ namespace Lumina
             LOG_ERROR("Missing [$MATERIAL_INPUTS] in base shader!");
         }
 
-        ShaderCompiler->CompilerShaderRaw(LoadedString, {}, [this](const FShaderHeader& Header) mutable 
+        ShaderCompiler->CompilerShaderRaw(LoadedString, {}, [](const FShaderHeader& Header) mutable 
         {
             DefaultMaterial->PixelShader = GRenderContext->CreatePixelShader(Header);
             DefaultMaterial->VertexShader = GRenderContext->GetShaderLibrary()->GetShader("GeometryPass.vert").As<FRHIVertexShader>();
@@ -242,7 +248,7 @@ namespace Lumina
             DefaultMaterial->PixelShaderBinaries.assign(Header.Binaries.begin(), Header.Binaries.end());
             DefaultMaterial->VertexShaderBinaries.assign(DefaultMaterial->VertexShader->GetShaderHeader().Binaries.begin(), DefaultMaterial->VertexShader->GetShaderHeader().Binaries.end());
             
-            GRenderContext->OnShaderCompiled(PixelShader, false, true);
+            GRenderContext->OnShaderCompiled(DefaultMaterial->PixelShader, false, true);
         });
 
         ShaderCompiler->Flush();

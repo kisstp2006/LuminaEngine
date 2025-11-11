@@ -26,9 +26,6 @@ namespace Lumina
     template class LUMINA_API TRefCountPtr<IRHIInputLayout>;
     template class LUMINA_API TRefCountPtr<FShaderLibrary>;
     template class LUMINA_API TRefCountPtr<FRHIDescriptorTable>;
-
-    LUMINA_API eastl::atomic<uint64> GTotalRenderResourcesAllocated {0};
-
     	
     class LUMINA_API FRHIResourceList
     {
@@ -42,39 +39,38 @@ namespace Lumina
 
         int32 Allocate(IRHIResource* Resource)
         {
-            FScopeLock Lock(Mutex);
             int32 Index;
-            if (FreeList.empty())
+            if (FreeList.try_dequeue(Index))
+            {
+                ResourceList[Index] = Resource;
+
+            }
+            else
             {
                 Index = (int32)ResourceList.size();
                 ResourceList.emplace_back(Resource);
             }
-            else
-            {
-                Index = FreeList.back();
-                FreeList.pop();
 
-                ResourceList[Index] = Resource;
-            }
-
+            TotalRenderResourcesAllocated.fetch_add(1, eastl::memory_order_relaxed);
             return Index;
         }
 
         void Deallocate(int32 Index)
         {
-            FScopeLock Lock(Mutex);
-            FreeList.push(Index);
+            TotalRenderResourcesAllocated.fetch_sub(1, eastl::memory_order_relaxed);
+            FreeList.try_enqueue(Index);
             ResourceList[Index] = nullptr;
         }
 
         void Clear()
         {
             FScopeLock Lock(Mutex);
-            while (!FreeList.empty())
+            uint64 Index;
+            while (!FreeList.try_dequeue(Index))
             {
-                FreeList.pop();
             }
             ResourceList.clear();
+            TotalRenderResourcesAllocated.exchange(0, eastl::memory_order_acquire);
         }
 
         template<typename FunctionType>
@@ -92,21 +88,19 @@ namespace Lumina
 	    }
         
         FMutex Mutex;
-        TQueue<int32> FreeList;
+        TConcurrentQueue<int32> FreeList;
         TFixedVector<IRHIResource*, 400> ResourceList;
-		
+        eastl::atomic<uint32> TotalRenderResourcesAllocated {0};
     };
 
     
     IRHIResource::IRHIResource()
     {
-        GTotalRenderResourcesAllocated.fetch_add(1, eastl::memory_order_relaxed);
         ListIndex = FRHIResourceList::Get().Allocate(this);
     }
 
     IRHIResource::~IRHIResource()
     {
-        GTotalRenderResourcesAllocated.fetch_sub(1, eastl::memory_order_relaxed);
         FRHIResourceList::Get().Deallocate(ListIndex);
         ListIndex = INDEX_NONE;
     }
@@ -132,7 +126,7 @@ namespace Lumina
         {
             if (Resource && Resource->GetListIndex() != INDEX_NONE)
             {
-                Resource->Destroy();
+                Resource->Delete();
             }
         }
 
@@ -144,15 +138,12 @@ namespace Lumina
         return FRHIResourceList::Get().ResourceList;
     }
 
-    void IRHIResource::Destroy() const
+    uint32 IRHIResource::GetNumberRHIResources()
     {
-        if (!AtomicFlags.MarkForDelete(std::memory_order_relaxed))
-        {
-            Memory::Delete(this);
-        }
+        return FRHIResourceList::Get().TotalRenderResourcesAllocated.load(eastl::memory_order_acquire);
     }
     
-    void FRHIViewport::SetSize(const FIntVector2D& InSize)
+    void FRHIViewport::SetSize(const glm::uvec2& InSize)
     {
         if (Size == InSize)
         {
@@ -162,14 +153,14 @@ namespace Lumina
         CreateRenderTarget(InSize);
     }
 
-    void FRHIViewport::CreateRenderTarget(const FIntVector2D& InSize)
+    void FRHIViewport::CreateRenderTarget(const glm::uvec2& InSize)
     {
         FRHIImageDesc Desc;
         Desc.Format = EFormat::RGBA8_UNORM;
         Desc.Flags.SetMultipleFlags(EImageCreateFlags::RenderTarget, EImageCreateFlags::ShaderResource);
         Desc.Extent = InSize;
-        //Desc.InitialState = EResourceStates::RenderTarget;
-        //Desc.bKeepInitialState = true;
+        Desc.InitialState = EResourceStates::RenderTarget;
+        Desc.bKeepInitialState = true;
         Desc.DebugName = "Viewport Render Target";
 
         RenderTarget = RenderContext->CreateImage(Desc);
@@ -183,12 +174,12 @@ namespace Lumina
 
         if (X == uint32(0))
         {
-            ret.X = std::max((uint32)desc.Extent.X >> MipLevel, 1u);
+            ret.X = std::max((uint32)desc.Extent.x >> MipLevel, 1u);
         }
 
         if (Y == uint32(0))
         {
-            ret.Y = std::max((uint32)desc.Extent.Y >> MipLevel, 1u);
+            ret.Y = std::max((uint32)desc.Extent.y >> MipLevel, 1u);
         }
 
         if (Z == uint32(0))

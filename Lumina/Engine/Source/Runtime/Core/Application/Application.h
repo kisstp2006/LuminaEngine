@@ -32,7 +32,6 @@ namespace Lumina
 
 		int32 Run(int argc, char** argv);
 
-		virtual bool ApplicationLoop() = 0;
 		virtual bool Initialize(int argc, char** argv) = 0;
 		virtual void Shutdown() = 0;
 
@@ -40,8 +39,8 @@ namespace Lumina
 
 		bool HasAnyFlags(EApplicationFlags Flags);
 
-		void WindowResized(FWindow* Window, const FIntVector2D& Extent);
-		virtual void OnWindowResized(FWindow* Window, const FIntVector2D& Extent) { }
+		void WindowResized(FWindow* Window, const glm::uvec2& Extent);
+		virtual void OnWindowResized(FWindow* Window, const glm::uvec2& Extent) { }
 
 		static void RequestExit();
 
@@ -55,7 +54,7 @@ namespace Lumina
 		bool CreateApplicationWindow();
 		bool FatalError(const FString& Error);
 		
-		bool ShouldExit();
+		virtual bool ShouldExit() const = 0;
 		
 	protected:
 

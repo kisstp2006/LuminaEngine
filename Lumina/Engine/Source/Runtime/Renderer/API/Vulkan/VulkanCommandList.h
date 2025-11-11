@@ -136,7 +136,6 @@ namespace Lumina
         TUniquePtr<FUploadManager>                              UploadManager;
         TUniquePtr<FUploadManager>                              ScratchManager;
 
-        FMutex                                                  DynamicBufferWriteMutex;
         TFixedHashMap<FRHIBufferRef, FDynamicBufferWrite, 2>    DynamicBufferWrites;
 
         FGraphicsState                                          CurrentGraphicsState;

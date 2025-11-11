@@ -19,7 +19,7 @@ namespace Lumina
         FRHIBuffer*         VertexBuffer;
         uint32              IndirectDrawOffset;
     };
-
+    
     static_assert(sizeof(FMeshDrawCommand) <= 32, "FMeshDrawCommand should be at most 1/2 the size of a typical 64 bit cache line");
     
     

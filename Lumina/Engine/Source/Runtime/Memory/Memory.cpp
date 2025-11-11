@@ -1,5 +1,9 @@
 #include "Memory.h"
 
+#include "Core/Profiler/Profile.h"
+
+//#undef LUMINA_RPMALLOC
+
 namespace Lumina
 {
     void Memory::Initialize()
@@ -60,18 +64,6 @@ namespace Lumina
         SIZE_T Align = (alignment < DefaultAlignment) ? DefaultAlignment : (alignment);
 
         return Align;
-    }
-
-    void Memory::Memcpy(void* Destination, void* Source, uint64 SrcSize)
-    {
-        memcpy(Destination, Source, SrcSize);
-        Assert(Destination != nullptr)
-    }
-
-    void Memory::Memcpy(void* Destination, const void* Source, uint64 SrcSize)
-    {
-        memcpy(Destination, Source, SrcSize);
-        Assert(Destination != nullptr)
     }
 
     void* Memory::Malloc(size_t size, size_t alignment)

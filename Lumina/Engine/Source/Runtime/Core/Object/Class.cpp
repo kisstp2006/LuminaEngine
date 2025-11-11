@@ -64,6 +64,8 @@ namespace Lumina
         }
         
         ClassDefaultObject = StaticAllocateObject(Params);
+        ClassDefaultObject->AddToRoot();
+        
         ClassDefaultObject->SetFlag(OF_DefaultObject);
 
         ClassDefaultObject->PostCreateCDO();

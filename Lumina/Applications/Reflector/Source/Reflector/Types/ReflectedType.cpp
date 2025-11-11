@@ -55,6 +55,16 @@ namespace Lumina::Reflection
     void FReflectedEnum::DefineInitialHeader(eastl::string& Stream, const eastl::string& FileID)
     {
         Stream += "enum class " + DisplayName + " : uint8;\n";
+
+        eastl::string ProjectAPI = Project + "_api";
+        ProjectAPI.make_upper();
+
+        if (ProjectAPI == "LUMINA_API")
+        {
+            Stream += "LUMINA_API ";
+        }
+        Stream += "Lumina::CEnum* Construct_CEnum_" + Namespace + "_" + DisplayName + "();\n";
+        
         Stream += "template<> Lumina::CEnum* StaticEnum<" +  DisplayName + ">();\n\n";
     }
 
@@ -64,13 +74,13 @@ namespace Lumina::Reflection
 
     void FReflectedEnum::DeclareImplementation(eastl::string& Stream)
     {
-        Stream += "static Lumina::FEnumRegistrationInfo Registration_Info_CEnum_" + DisplayName + ";\n\n";
+        Stream += "static Lumina::FEnumRegistrationInfo Registration_Info_CEnum_" + Namespace + "_" + DisplayName + ";\n\n";
 
-        Stream += "struct Construct_CEnum_" + DisplayName + "_Statics\n";
+        Stream += "struct Construct_CEnum_" + Namespace + "_" + DisplayName + "_Statics\n";
         Stream +="{\n";
 
         Stream += "\tstatic constexpr Lumina::FEnumeratorParam Enumerators[] = {\n";
-        for (FReflectedEnum::FConstant Constant : Constants)
+        for (const FReflectedEnum::FConstant& Constant : Constants)
         {
             Stream += "\t\t{ \"" + DisplayName + "::" + Constant.Label + "\", " + eastl::to_string(Constant.Value) + " },\n";
         }
@@ -78,33 +88,33 @@ namespace Lumina::Reflection
 
         Stream += "\tstatic const Lumina::FEnumParams EnumParams;\n";
         Stream += "};\n";
-        Stream += "const Lumina::FEnumParams Construct_CEnum_" + DisplayName + "_Statics::EnumParams = {\n";
+        Stream += "const Lumina::FEnumParams Construct_CEnum_" + Namespace + "_" + DisplayName + "_Statics::EnumParams = {\n";
         Stream += "\t\"" + DisplayName + "\",\n";
-        Stream += "\t Construct_CEnum_" + DisplayName + "_Statics::Enumerators,\n";
-        Stream += "\tstd::size(Construct_CEnum_" + DisplayName + "_Statics::Enumerators),\n";
+        Stream += "\t Construct_CEnum_" + Namespace + "_" + DisplayName + "_Statics::Enumerators,\n";
+        Stream += "\tstd::size(Construct_CEnum_" + Namespace + "_" + DisplayName + "_Statics::Enumerators),\n";
         Stream += "};\n\n";
-        Stream += "Lumina::CEnum* Construct_CEnum_" + DisplayName + "()\n";
+        Stream += "Lumina::CEnum* Construct_CEnum_" + Namespace + "_" + DisplayName + "()\n";
         Stream += "{\n";
-        Stream += "\tif(!Registration_Info_CEnum_" + DisplayName + ".InnerSingleton)" + "\n";
+        Stream += "\tif(!Registration_Info_CEnum_" + Namespace + "_" + DisplayName + ".InnerSingleton)" + "\n";
         Stream += "\t{\n";
-        Stream += "\t\tLumina::ConstructCEnum(&Registration_Info_CEnum_" + DisplayName + ".InnerSingleton, Construct_CEnum_" + DisplayName + "_Statics::EnumParams);" + "\n";
+        Stream += "\t\tLumina::ConstructCEnum(&Registration_Info_CEnum_" + Namespace + "_" + DisplayName + ".InnerSingleton, Construct_CEnum_" + Namespace + "_" + DisplayName + "_Statics::EnumParams);" + "\n";
         Stream += "\t}\n";
-        Stream += "\treturn Registration_Info_CEnum_" + DisplayName + ".InnerSingleton;" + "\n";
+        Stream += "\treturn Registration_Info_CEnum_" + Namespace + "_" + DisplayName + ".InnerSingleton;" + "\n";
         Stream += "}\n";
         Stream += "\n";
         Stream += "template<> Lumina::CEnum* StaticEnum<" + DisplayName + ">()\n";
         Stream += "{\n";
-        Stream += "\tif (!Registration_Info_CEnum_" + DisplayName + ".OuterSingleton)\n";
+        Stream += "\tif (!Registration_Info_CEnum_" + Namespace + "_" + DisplayName + ".OuterSingleton)\n";
         Stream += "\t{\n";
-        Stream += "\t\tRegistration_Info_CEnum_" + DisplayName + ".OuterSingleton = Construct_CEnum_" + DisplayName + "();\n";
+        Stream += "\t\tRegistration_Info_CEnum_" + Namespace + "_" + DisplayName + ".OuterSingleton = Construct_CEnum_" + Namespace + "_" + DisplayName + "();\n";
         Stream += "\t}\n";
-        Stream += "\treturn Registration_Info_CEnum_" + DisplayName + ".OuterSingleton;\n";
+        Stream += "\treturn Registration_Info_CEnum_" + Namespace + "_" + DisplayName + ".OuterSingleton;\n";
         Stream += "}\n";
     }
 
     void FReflectedEnum::DeclareStaticRegistration(eastl::string& Stream)
     {
-        Stream += "\t{ Construct_CEnum_" + DisplayName + ", TEXT(\"" + DisplayName + "\") },\n";
+        Stream += "\t{ Construct_CEnum_" + Namespace + "_" + DisplayName + ", TEXT(\"" + DisplayName + "\") },\n";
     }
 
 

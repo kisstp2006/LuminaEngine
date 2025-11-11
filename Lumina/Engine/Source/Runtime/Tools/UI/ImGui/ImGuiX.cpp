@@ -3,6 +3,7 @@
 #include "ImGuiRenderer.h"
 #include "imgui_internal.h"
 #include "Assets/AssetRegistry/AssetRegistry.h"
+#include "Core/Application/Application.h"
 #include "Core/Engine/Engine.h"
 #include "Core/Object/Class.h"
 #include "Core/Reflection/Type/LuminaTypes.h"
@@ -281,25 +282,25 @@ namespace Lumina::ImGuiX
         ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 0);
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 0));
 
-        GLFWwindow* Window = (GLFWwindow*) ImGui::GetWindowViewport()->PlatformHandle;
+        FWindow* Window = Windowing::GetPrimaryWindowHandle();
 
         ImGui::BeginHorizontal("TitleBar");
 
         if (ImGuiX::FlatButton(LE_ICON_WINDOW_MINIMIZE "##Min", ImVec2(s_windowControlButtonWidth, -1)))
         {
-            glfwIconifyWindow(Window);
+            Window->Minimize();
         }
 
         
         if (ImGuiX::FlatButton(LE_ICON_WINDOW_RESTORE "##Res", ImVec2(s_windowControlButtonWidth, -1)))
         {
-            if (glfwGetWindowAttrib(Window, GLFW_MAXIMIZED))
+            if (Window->IsMaximized())
             {
-                glfwRestoreWindow(Window);
+                Window->Restore();
             }
             else
             {
-                glfwMaximizeWindow(Window);
+                Window->Maximize();
             }
         }
 
@@ -307,7 +308,7 @@ namespace Lumina::ImGuiX
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.7f, 0.1f, 0.1f, 1.0f));
         if (ImGuiX::FlatButton(LE_ICON_WINDOW_CLOSE "##X", ImVec2(s_windowControlButtonWidth, -1)))
         {
-            glfwSetWindowShouldClose(Window, GLFW_TRUE);
+            FApplication::RequestExit();
         }
 
         ImGui::PopStyleColor();
@@ -355,7 +356,6 @@ namespace Lumina::ImGuiX
             DragAreaStartPos.x += menuSectionFinalWidth + 10;
             
             // Dragging Logic
-            GLFWwindow* Window = (GLFWwindow*)ImGui::GetWindowViewport()->PlatformHandle;
             ImGui::SetCursorPos(DragAreaStartPos);
             ImGui::InvisibleButton("TitleBarDragZone", ImVec2(remainingSpace, titleBarHeight));
             
@@ -369,7 +369,7 @@ namespace Lumina::ImGuiX
                 initialClickPos = ImGui::GetMousePos();
 
                 int winX, winY;
-                glfwGetWindowPos(Window, &winX, &winY);
+                Windowing::GetPrimaryWindowHandle()->GetWindowPos(winX, winY);
                 initialWindowPos = ImVec2((float)winX, (float)winY);
             }
 
@@ -378,7 +378,7 @@ namespace Lumina::ImGuiX
                 ImVec2 mousePos = ImGui::GetMousePos();
                 ImVec2 delta = ImVec2(mousePos.x - initialClickPos.x, mousePos.y - initialClickPos.y);
 
-                glfwSetWindowPos(Window, (int)(initialWindowPos.x + delta.x), (int)(initialWindowPos.y + delta.y));
+                Windowing::GetPrimaryWindowHandle()->SetWindowPos((int)(initialWindowPos.x + delta.x), (int)(initialWindowPos.y + delta.y));
             }
             else
             {

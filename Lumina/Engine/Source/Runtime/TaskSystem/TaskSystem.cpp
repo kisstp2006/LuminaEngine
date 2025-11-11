@@ -11,6 +11,8 @@ namespace Lumina
     {
         void OnStartThread(uint32 threadNum)
         {
+            LUMINA_PROFILE_SCOPE();
+            
             FString ThreadName = "Background Worker: " + eastl::to_string(threadNum);
             Threading::SetThreadName(ThreadName.c_str());
         
@@ -19,6 +21,8 @@ namespace Lumina
 
         void OnStopThread(uint32_t threadNum)
         {
+            LUMINA_PROFILE_SCOPE();
+            
             Memory::ShutdownThreadHeap();
         }
 

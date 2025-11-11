@@ -29,9 +29,8 @@ namespace Lumina
         LUMINA_PROFILE_SCOPE();
         AllocateTransientResources();
 
-        if (Passes.size() > 1000) // Pretty much disabled for now because it's so much slower.
+        if (Passes.size() > 1900) // Pretty much disabled for now because it's so much slower.
         {
-
             Compile();
             
             struct CommandListBatch
@@ -66,8 +65,7 @@ namespace Lumina
                 }
             }
         
-            uint64 WorkGrain = Math::Max<uint64>(1u, CommandListBatches.size() / 4);
-            Task::ParallelFor(CommandListBatches.size(), WorkGrain, [&](uint32 Index)
+            Task::ParallelFor(CommandListBatches.size(), 1, [&](uint32 Index)
             {
                 FRHICommandListRef CommandList = GRenderContext->CreateCommandList(FCommandListInfo::Graphics());
                 CommandList->Open();
@@ -77,6 +75,8 @@ namespace Lumina
             uint32 BatchIndex = 0;
             for (int i = 0; i < ParallelGroups.size(); ++i)
             {
+                LUMINA_PROFILE_SECTION("Render Graph Parallel Group");
+                
                 const FRGPassGroup& Group = ParallelGroups[i];
             
                 if (Group.Passes.size() == 1)
@@ -88,7 +88,7 @@ namespace Lumina
                 else
                 {
                     uint32 GroupBatchStart = BatchIndex;
-                    Task::ParallelFor(Group.Passes.size(), Group.Passes.size() / 4, [&](uint32 PassIndex)
+                    Task::ParallelFor(Group.Passes.size(), 1, [&](uint32 PassIndex)
                     {
                         ICommandList* CommandList = CommandListBatches[GroupBatchStart + PassIndex].CommandList;
                         FRGPassHandle Pass = Group.Passes[PassIndex];
@@ -100,7 +100,7 @@ namespace Lumina
                 }
             }
         
-            Task::ParallelFor(CommandListBatches.size(), WorkGrain, [&](uint32 Index)
+            Task::ParallelFor(CommandListBatches.size(), 1, [&](uint32 Index)
             {
                 CommandListBatches[Index].CommandList->Close();
             });

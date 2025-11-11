@@ -6,7 +6,9 @@
 #include "VulkanResources.h"
 #include "VulkanSwapchain.h"
 #include "Core/Profiler/Profile.h"
+#include "Memory/Memcpy.h"
 #include "Renderer/RHIGlobals.h"
+#include "TaskSystem/TaskSystem.h"
 
 namespace Lumina
 {
@@ -70,9 +72,13 @@ namespace Lumina
         
         CurrentCommandBuffer = RenderContext->GetQueue(Info.CommandQueue)->GetOrCreateCommandBuffer();
         
-        VkCommandBufferBeginInfo BeginInfo = {};
-        BeginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        BeginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        static VkCommandBufferBeginInfo BeginInfo
+        {
+            .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+            .pNext = nullptr,
+            .flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+            .pInheritanceInfo = nullptr,
+        };
         
         VK_CHECK(vkBeginCommandBuffer(CurrentCommandBuffer->CommandBuffer, &BeginInfo));
         CurrentCommandBuffer->ReferencedResources.push_back(this);
@@ -86,7 +92,7 @@ namespace Lumina
         
         EndRenderPass();
         
-        if (Info.CommandQueue != ECommandQueue::Transfer)
+        if (CurrentCommandBuffer->TracyContext != nullptr)
         {
             TracyVkCollect(CurrentCommandBuffer->TracyContext, CurrentCommandBuffer->CommandBuffer)
         }
@@ -287,8 +293,8 @@ namespace Lumina
 
     static void ComputeMipLevelInformation(const FRHIImageDesc& Desc, uint32 MipLevel, uint32* WidthOut, uint32* HeightOut, uint32* DepthOut)
     {
-        uint32 Width    = std::max((uint32)Desc.Extent.X >> MipLevel, uint32(1));
-        uint32 Height   = std::max((uint32)Desc.Extent.Y >> MipLevel, uint32(1));
+        uint32 Width    = std::max((uint32)Desc.Extent.x >> MipLevel, uint32(1));
+        uint32 Height   = std::max((uint32)Desc.Extent.y >> MipLevel, uint32(1));
         uint32 Depth    = std::max((uint32)Desc.Depth >> MipLevel, uint32(1));
 
         if (WidthOut)
@@ -310,7 +316,7 @@ namespace Lumina
         LUMINA_PROFILE_SCOPE();
         Assert(Dst != nullptr && Data != nullptr)
         
-        if (Dst->GetDescription().Extent.Y > 1 && RowPitch == 0)
+        if (Dst->GetDescription().Extent.y > 1 && RowPitch == 0)
         {
             LOG_ERROR("WriteImage: RowPitch is 0 but dest has multiple rows");
         }
@@ -323,22 +329,26 @@ namespace Lumina
         uint32 DeviceNumRows = (MipHeight + FormatInfo.BlockSize - 1) / FormatInfo.BlockSize;
         uint32 DeviceRowPitch = DeviceNumCols * FormatInfo.BytesPerBlock;
         uint64 DeviceMemSize = uint64(DeviceRowPitch) * uint64(DeviceNumRows) * MipDepth;
-        
+
         FRHIBuffer* UploadBuffer;
         uint64 UploadOffset;
         void* UploadCPUVA;
         if (!UploadManager->SuballocateBuffer(DeviceMemSize, &UploadBuffer, &UploadOffset, &UploadCPUVA, MakeVersion(CurrentCommandBuffer->RecordingID, Info.CommandQueue, false)))
         {
-            LOG_ERROR("Failed to suballocate buffer for size: %s", DeviceMemSize);
+            LOG_ERROR("Failed to suballocate buffer for size: %llu", DeviceMemSize);
             return;
         }
 
         uint32 MinRowPitch = std::min(DeviceRowPitch, RowPitch);
-        uint8* MappedPtr = (uint8*)UploadCPUVA;
-        for (uint32 Slice = 0; Slice < MipDepth; ++Slice)
+        uint8* RESTRICT MappedPtrBase = static_cast<uint8*>(UploadCPUVA);
+        const uint8* RESTRICT SourceBase = static_cast<const uint8*>(Data);
+
+        for (uint32 slice = 0; slice < MipDepth; ++slice)
         {
-            const uint8* SourcePtr = (const uint8*)Data + DepthPitch * Slice;
-            for (uint32 row = 0; row < DeviceNumRows; row++)
+            const uint8* RESTRICT SourcePtr = SourceBase + static_cast<size_t>(slice) * static_cast<size_t>(DepthPitch);
+            uint8* RESTRICT MappedPtr = MappedPtrBase + slice * static_cast<uint64>(DeviceNumRows) * DeviceRowPitch;
+
+            for (uint32 row = 0; row < DeviceNumRows; ++row)
             {
                 Memory::Memcpy(MappedPtr, SourcePtr, MinRowPitch);
                 MappedPtr += DeviceRowPitch;
@@ -595,7 +605,7 @@ namespace Lumina
 
         PendingState.AddPendingState(EPendingCommandState::DynamicBufferWrites);
     }
-
+    
     void FVulkanCommandList::WriteBuffer(FRHIBuffer* Buffer, const void* Data, SIZE_T Offset, SIZE_T Size)
     {
         LUMINA_PROFILE_SCOPE();
@@ -650,10 +660,9 @@ namespace Lumina
 
                 FRHIBuffer* UploadBuffer;
                 uint64 UploadOffset;
-                void* UploadCPU;
+                void* RESTRICT UploadCPU;
                 if (UploadManager->SuballocateBuffer(Size, &UploadBuffer, &UploadOffset, &UploadCPU, MakeVersion(CurrentCommandBuffer->RecordingID, Info.CommandQueue, false)))
                 {
-
                     Memory::Memcpy(UploadCPU, Data, Size);
                     CopyBuffer(UploadBuffer, UploadOffset, Buffer, Offset, Size);
                 }
@@ -1051,8 +1060,8 @@ namespace Lumina
         RenderInfo.colorAttachmentCount = (uint32)ColorAttachments.size();
         RenderInfo.pColorAttachments = ColorAttachments.data();
         RenderInfo.pDepthAttachment = (DepthAttachment.imageView != VK_NULL_HANDLE) ? &DepthAttachment : nullptr;
-        RenderInfo.renderArea.extent.width = PassInfo.RenderArea.X;
-        RenderInfo.renderArea.extent.height = PassInfo.RenderArea.Y;
+        RenderInfo.renderArea.extent.width = PassInfo.RenderArea.x;
+        RenderInfo.renderArea.extent.height = PassInfo.RenderArea.y;
         RenderInfo.layerCount = NumArraySlices;
         RenderInfo.viewMask = (NumArraySlices > 1) ? ((1u << NumArraySlices) - 1u) : 0u;
 
@@ -1249,8 +1258,6 @@ namespace Lumina
             TrackResourcesAndBarriers(State);
         }
         
-        bool bHasBarriers = !StateTracker.GetBufferBarriers().empty() || !StateTracker.GetTextureBarriers().empty();
-        
         if (CurrentGraphicsState.Pipeline != State.Pipeline)
         {
             CommandListStats.NumPipelineSwitches++;
@@ -1259,7 +1266,7 @@ namespace Lumina
             CurrentCommandBuffer->AddReferencedResource(State.Pipeline);
         }
 
-        if (CurrentGraphicsState.RenderPass != State.RenderPass || bHasBarriers)
+        if (CurrentGraphicsState.RenderPass != State.RenderPass)
         {
             EndRenderPass();
         }
@@ -1281,7 +1288,7 @@ namespace Lumina
 
         if (!State.ViewportState.Viewports.empty() && !VectorsAreTriviallyEqual(State.ViewportState.Viewports, CurrentGraphicsState.ViewportState.Viewports))
         {
-            TFixedVector<VkViewport, 16> Viewports;
+            TFixedVector<VkViewport, 16, false> Viewports;
             for (const FViewport& Viewport : State.ViewportState.Viewports)
             {
                 Viewports.emplace_back(ToVkViewport(Viewport.MinX, Viewport.MinY, Viewport.MinZ, Viewport.MaxX, Viewport.MaxY, Viewport.MaxZ));
@@ -1294,7 +1301,7 @@ namespace Lumina
 
         if (!State.ViewportState.Scissors.empty() && !VectorsAreTriviallyEqual(State.ViewportState.Scissors, CurrentGraphicsState.ViewportState.Scissors))
         {
-            TFixedVector<VkRect2D, 16> Scissors;
+            TFixedVector<VkRect2D, 16, false> Scissors;
             for (const FRect& Rect : State.ViewportState.Scissors)
             {
                 Scissors.emplace_back(ToVkScissorRect(Rect.MinX, Rect.MinY, Rect.MaxX, Rect.MaxY));
@@ -1603,7 +1610,7 @@ namespace Lumina
     {
         LUMINA_PROFILE_SCOPE();
         
-        if (State.Bindings != CurrentGraphicsState.Bindings)
+        if (!VectorsAreEqual(State.Bindings, CurrentGraphicsState.Bindings))
         {
             for (SIZE_T i = 0; i < State.Bindings.size(); ++i)
             {
@@ -1616,7 +1623,7 @@ namespace Lumina
             RequireBufferState(State.IndexBuffer.Buffer, EResourceStates::IndexBuffer);
         }
 
-        if (State.VertexBuffers != CurrentGraphicsState.VertexBuffers)
+        if (!VectorsAreEqual(State.VertexBuffers, CurrentGraphicsState.VertexBuffers))
         {
             for (const FVertexBufferBinding& Binding : State.VertexBuffers)
             {
@@ -1624,8 +1631,11 @@ namespace Lumina
             }
         }
 
-        SetResourceStateForRenderPass(State.RenderPass);
-
+        if (CurrentGraphicsState.RenderPass != State.RenderPass)
+        {
+            SetResourceStateForRenderPass(State.RenderPass);
+        }
+        
         if (State.IndirectParams && State.IndirectParams != CurrentGraphicsState.IndirectParams)
         {
             RequireBufferState(State.IndirectParams, EResourceStates::IndirectArgument);

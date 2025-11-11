@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "Containers/Array.h"
+#include "Containers/Name.h"
 #include "Core/Threading/Thread.h"
 #include "Renderer/RHIFwd.h"
 

@@ -14,13 +14,11 @@
 #include "Renderer/ShaderCompiler.h"
 #include "World/entity/components/lightcomponent.h"
 #include "World/entity/components/staticmeshcomponent.h"
-#include "Core/Object/Package/Thumbnail/PackageThumbnail.h"
 #include "Thumbnails/ThumbnailManager.h"
 #include "Tools/UI/ImGui/ImGuiX.h"
 #include "UI/Tools/NodeGraph/Material/MaterialCompiler.h"
 #include "UI/Tools/NodeGraph/Material/MaterialNodeGraph.h"
 #include "world/entity/components/environmentcomponent.h"
-#include "World/Scene/RenderScene/RenderScene.h"
 
 namespace Lumina
 {

@@ -4,6 +4,8 @@
 #include "Core/Application/Application.h"
 #include "Core/Delegates/CoreDelegates.h"
 #include "Core/Module/ModuleManager.h"
+#include "Core/Object/ObjectIterator.h"
+#include "Core/Object/Package/Package.h"
 #include "Core/Profiler/Profile.h"
 #include "Core/Windows/Window.h"
 #include "Input/InputSubsystem.h"
@@ -70,6 +72,7 @@ namespace Lumina
         // Shutdown core engine state.
         //-------------------------------------------------------------------------
 
+
         #if WITH_DEVELOPMENT_TOOLS
         DeveloperToolUI->Deinitialize(UpdateContext);
         delete DeveloperToolUI;
@@ -95,7 +98,7 @@ namespace Lumina
         return false;
     }
 
-    bool FEngine::Update()
+    bool FEngine::Update(bool bApplicationWantsExit)
     {
         LUMINA_PROFILE_SCOPE();
 
@@ -103,6 +106,8 @@ namespace Lumina
         // Update core engine state.
         //-------------------------------------------------------------------------
 
+        bEngineReadyToClose = true;
+        bCloseRequested = bApplicationWantsExit;
         
         if (!Windowing::GetPrimaryWindowHandle()->IsMinimized())
         {
@@ -189,7 +194,7 @@ namespace Lumina
                 OnUpdateStage(UpdateContext);
             }
 
-            // Frame End
+            // Frame End / Render
             //-------------------------------------------------------------------
             {
                 FRenderGraph RenderGraph;
@@ -216,6 +221,11 @@ namespace Lumina
         }
 
         UpdateContext.MarkFrameEnd(glfwGetTime());
+
+        if (bApplicationWantsExit)
+        {
+            return !bEngineReadyToClose;
+        }
         
         return true;
     }
@@ -239,8 +249,8 @@ namespace Lumina
     {
         return entt::locator<entt::meta_ctx>::handle();
     }
-
-    void FEngine::SetEngineViewportSize(const FIntVector2D& InSize)
+    
+    void FEngine::SetEngineViewportSize(const glm::uvec2& InSize)
     {
         EngineViewport->SetSize(InSize);
     }

@@ -101,24 +101,25 @@ namespace Lumina
 				int monitorX, monitorY, monitorWidth, monitorHeight;
 				glfwGetMonitorWorkarea(currentMonitor, &monitorX, &monitorY, &monitorWidth, &monitorHeight);
 
-				if (Specs.Extent.X == 0 || Specs.Extent.X >= monitorWidth)
+				if (Specs.Extent.x == 0 || Specs.Extent.x >= monitorWidth)
 				{
-					Specs.Extent.X = static_cast<decltype(Specs.Extent.X)>(static_cast<float>(monitorWidth) / 1.15f);
+					Specs.Extent.x = static_cast<decltype(Specs.Extent.x)>(static_cast<float>(monitorWidth) / 1.15f);
 				}
-				if (Specs.Extent.Y == 0 || Specs.Extent.Y >= monitorHeight)
+				if (Specs.Extent.y == 0 || Specs.Extent.y >= monitorHeight)
 				{
-					Specs.Extent.Y = static_cast<decltype(Specs.Extent.Y)>(static_cast<float>(monitorHeight) / 1.15f);
+					Specs.Extent.y = static_cast<decltype(Specs.Extent.y)>(static_cast<float>(monitorHeight) / 1.15f);
 				}
 				
 
-				LOG_TRACE("Initializing Window: {0} (Width: {1}p Height: {2}p)", Specs.Title, Specs.Extent.X, Specs.Extent.Y);
+				LOG_TRACE("Initializing Window: {0} (Width: {1}p Height: {2}p)", Specs.Title, Specs.Extent.x, Specs.Extent.y);
 
-				glfwSetWindowSize(Window, Specs.Extent.X, Specs.Extent.Y);
+				glfwSetWindowSize(Window, Specs.Extent.x, Specs.Extent.y);
 			}
 			
 			glfwSetWindowUserPointer(Window, this);
 			glfwSetWindowSizeCallback(Window, WindowResizeCallback);
 			glfwSetDropCallback(Window, WindowDropCallback);
+			glfwSetWindowCloseCallback(Window, WindowCloseCallback);
 		}
 	}
 	
@@ -143,11 +144,51 @@ namespace Lumina
 		return (w == 0 || h == 0);
 	}
 
+	void FWindow::GetWindowPos(int& X, int& Y)
+	{
+		glfwGetWindowPos(Window, &X, &Y);
+	}
+
+	void FWindow::SetWindowPos(int X, int Y)
+	{
+		glfwSetWindowPos(Window, X, Y);
+	}
+
+	bool FWindow::ShouldClose() const
+	{
+		return glfwWindowShouldClose(Window);
+	}
+
+	bool FWindow::IsMaximized() const
+	{
+		return glfwGetWindowAttrib(Window, GLFW_MAXIMIZED);
+	}
+
+	void FWindow::Minimize()
+	{
+		glfwIconifyWindow(Window);
+	}
+
+	void FWindow::Restore()
+	{
+		glfwRestoreWindow(Window);
+	}
+
+	void FWindow::Maximize()
+	{
+		glfwMaximizeWindow(Window);
+	}
+
+	void FWindow::Close()
+	{
+		glfwSetWindowShouldClose(Window, GLFW_TRUE);
+	}
+
 	void FWindow::WindowResizeCallback(GLFWwindow* window, int width, int height)
 	{
 		auto WindowHandle = (FWindow*)glfwGetWindowUserPointer(window);
-		WindowHandle->Specs.Extent.X = width;
-		WindowHandle->Specs.Extent.Y = height;
+		WindowHandle->Specs.Extent.x = width;
+		WindowHandle->Specs.Extent.y = height;
 		OnWindowResized.Broadcast(WindowHandle, WindowHandle->Specs.Extent);
 	}
 
@@ -156,6 +197,11 @@ namespace Lumina
 		auto WindowHandle = (FWindow*)glfwGetWindowUserPointer(Window);
 
 		OnWindowDropped.Broadcast(WindowHandle, PathCount, Paths);
+	}
+
+	void FWindow::WindowCloseCallback(GLFWwindow* window)
+	{
+		FApplication::RequestExit();
 	}
 
 	FWindow* FWindow::Create(const FWindowSpecs& InSpecs)

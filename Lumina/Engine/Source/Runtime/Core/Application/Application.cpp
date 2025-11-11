@@ -49,16 +49,16 @@ namespace Lumina
         // Core application loop.
         //--------------------------------------------------------------
 
-        bool bAppWantedExit = false;
-        while(!ShouldExit() && !bAppWantedExit)
+        bool bEngineWantsExit = false;
+        while(!bEngineWantsExit)
         {
             LUMINA_PROFILE_FRAME();
 
             MainWindow->ProcessMessages();
+
+            bool bApplicationWantsExit = ShouldExit();
             
-            GEngine->Update();
-            
-            bAppWantedExit = !ApplicationLoop();
+            bEngineWantsExit = !GEngine->Update(bApplicationWantsExit);
         }
 
         
@@ -84,7 +84,7 @@ namespace Lumina
         return (ApplicationFlags & static_cast<uint32>(Flags)) != 0;
     }
 
-    void FApplication::WindowResized(FWindow* Window, const FIntVector2D& Extent)
+    void FApplication::WindowResized(FWindow* Window, const glm::uvec2& Extent)
     {
         if (!Window->IsMinimized())
         {
@@ -125,11 +125,5 @@ namespace Lumina
     {
         return false;
     }
-
-    bool FApplication::ShouldExit()
-    {
-        return glfwWindowShouldClose(MainWindow->GetWindow()) || bExitRequested;
-    }
-
-
+    
 }

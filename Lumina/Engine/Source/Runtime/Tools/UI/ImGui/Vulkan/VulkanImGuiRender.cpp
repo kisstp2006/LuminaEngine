@@ -176,7 +176,8 @@ namespace Lumina
     void FVulkanImGuiRender::Deinitialize()
     {
 		VulkanRenderContext->WaitIdle();
-		
+		FScopeLock Lock(Mutex);
+
 		Memory::Delete(SquareWhiteTexture.second);
 		SquareWhiteTexture.second = nullptr;
 		Images.erase(SquareWhiteTexture.first);
@@ -571,7 +572,7 @@ namespace Lumina
 			}
 		}
 	
-		ImGui::Text("Total Resources: %lli", GTotalRenderResourcesAllocated.load(eastl::memory_order_relaxed));
+		ImGui::Text("Total Resources: %u", IRHIResource::GetNumberRHIResources());
 		ImGui::Spacing();
 	
 		// Resource pie chart data
@@ -609,13 +610,13 @@ namespace Lumina
 		if (FVulkanSwapchain* Swapchain = VulkanRenderContext->GetSwapchain())
 		{
 			const VkSurfaceFormatKHR& surfaceFormat = Swapchain->GetSurfaceFormat();
-			const FIntVector2D& extent = Swapchain->GetSwapchainExtent();
+			const glm::uvec2& extent = Swapchain->GetSwapchainExtent();
 			VkPresentModeKHR presentMode = Swapchain->GetPresentMode();
 	
 			ImGui::Columns(4, nullptr, false);
 			
 			ImGui::Text("Resolution");
-			ImGui::TextColored(ImVec4(0.7f, 0.9f, 0.7f, 1.0f), "%dx%d", extent.X, extent.Y);
+			ImGui::TextColored(ImVec4(0.7f, 0.9f, 0.7f, 1.0f), "%dx%d", extent.x, extent.y);
 			
 			ImGui::NextColumn();
 			ImGui::Text("Present Mode");
@@ -844,7 +845,7 @@ namespace Lumina
 			ImGui::TableSetColumnIndex(0);
 			ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.3f, 1.0f), "Total Resources");
 			ImGui::TableSetColumnIndex(1);
-			ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.3f, 1.0f), "%lli", GTotalRenderResourcesAllocated.load(eastl::memory_order_relaxed));
+			ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.3f, 1.0f), "%u", IRHIResource::GetNumberRHIResources());
 		
 			for (int type = (int)RRT_None + 1; type < (int)RRT_Num; ++type)
 			{

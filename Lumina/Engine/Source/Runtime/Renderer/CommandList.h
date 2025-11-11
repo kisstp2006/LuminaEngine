@@ -102,7 +102,7 @@ namespace Lumina
          * @param Dst Destination image to copy to
          * @param DstSlice Region of the destination image (array/mip levels)
          */
-        virtual void CopyImage(FRHIImage* Src, const FTextureSlice& SrcSlice, FRHIImage* Dst, const FTextureSlice& DstSlice) = 0;
+        virtual void CopyImage(FRHIImage* RESTRICT Src, const FTextureSlice& SrcSlice, FRHIImage* RESTRICT Dst, const FTextureSlice& DstSlice) = 0;
     
         /**
          * Copies from a GPU image to a staging (CPU-accessible) image
@@ -111,7 +111,7 @@ namespace Lumina
          * @param Dst Destination staging image (CPU-accessible)
          * @param DstSlice Region of the destination image (array/mip levels)
          */
-        virtual void CopyImage(FRHIImage* Src, const FTextureSlice& SrcSlice, FRHIStagingImage* Dst, const FTextureSlice& DstSlice) = 0;
+        virtual void CopyImage(FRHIImage* RESTRICT Src, const FTextureSlice& SrcSlice, FRHIStagingImage* RESTRICT Dst, const FTextureSlice& DstSlice) = 0;
         
         /**
          * Copies from a staging (CPU-accessible) image to a GPU image
@@ -120,18 +120,18 @@ namespace Lumina
          * @param Dst Destination GPU image to copy to
          * @param DstSlice Region of the destination image (array/mip levels)
          */
-        virtual void CopyImage(FRHIStagingImage* Src, const FTextureSlice& SrcSlice, FRHIImage* Dst, const FTextureSlice& DstSlice) = 0;
+        virtual void CopyImage(FRHIStagingImage* RESTRICT Src, const FTextureSlice& SrcSlice, FRHIImage* RESTRICT Dst, const FTextureSlice& DstSlice) = 0;
     
         /**
          * Writes CPU data directly to a GPU image
          * @param Dst Destination image to write to
          * @param ArraySlice Array layer index to write to
          * @param MipLevel Mip level to write to
-         * @param Data Pointer to source data in CPU memory
+         * @param Data Pointer to source data in CPU memory (non-aliasing)
          * @param RowPitch Bytes between rows in the source data
          * @param DepthPitch Bytes between depth slices in the source data
          */
-        virtual void WriteImage(FRHIImage* Dst, uint32 ArraySlice, uint32 MipLevel, const void* Data, uint32 RowPitch, uint32 DepthPitch) = 0;
+        virtual void WriteImage(FRHIImage* RESTRICT Dst, uint32 ArraySlice, uint32 MipLevel, const void* RESTRICT Data, uint32 RowPitch, uint32 DepthPitch) = 0;
         
         /**
          * Clears an image with a floating-point color value
@@ -152,11 +152,11 @@ namespace Lumina
         /**
          * Writes CPU data directly to a GPU buffer
          * @param Buffer Destination buffer to write to
-         * @param Data Pointer to source data in CPU memory
+         * @param Data Pointer to source data in CPU memory (non-aliasing)
          * @param Offset Byte offset in the destination buffer
          * @param Size Number of bytes to write
          */
-        virtual void WriteBuffer(FRHIBuffer* Buffer, const void* Data, SIZE_T Offset, SIZE_T Size) = 0;
+        virtual void WriteBuffer(FRHIBuffer* RESTRICT Buffer, const void* RESTRICT Data, SIZE_T Offset, SIZE_T Size) = 0;
         
         /**
          * Fills an entire buffer with a repeated 32-bit value
@@ -173,7 +173,7 @@ namespace Lumina
          * @param DstOffset Byte offset in the destination buffer
          * @param CopySize Number of bytes to copy
          */
-        virtual void CopyBuffer(FRHIBuffer* Source, uint64 SrcOffset, FRHIBuffer* Destination, uint64 DstOffset, uint64 CopySize) = 0;
+        virtual void CopyBuffer(FRHIBuffer* RESTRICT Source, uint64 SrcOffset, FRHIBuffer* RESTRICT Destination, uint64 DstOffset, uint64 CopySize) = 0;
         
         /**
          * Sets a fixed resource state that won't be automatically tracked
@@ -264,7 +264,7 @@ namespace Lumina
     
         /**
          * Begins a debug marker region for GPU profiling/debugging
-         * @param Name Label for the marker region
+         * @param Name Label for the marker region (non-aliasing)
          * @param Color Color for visualization in profiling tools
          */
         virtual void AddMarker(const char* Name, const FColor& Color = FColor::Red) = 0;
@@ -294,7 +294,7 @@ namespace Lumina
         
         /**
          * Updates push constants for the currently bound pipeline
-         * @param Data Pointer to push constant data
+         * @param Data Pointer to push constant data (non-aliasing)
          * @param ByteSize Size of push constant data in bytes
          */
         virtual void SetPushConstants(const void* Data, SIZE_T ByteSize) = 0;
@@ -374,12 +374,12 @@ namespace Lumina
          * Type-safe helper for writing typed data to a buffer
          * @tparam T Type of data to write
          * @param Buffer Destination buffer
-         * @param Data Pointer to typed data
+         * @param Data Pointer to typed data (non-aliasing)
          * @param Offset Byte offset in the buffer
          * @param Size Size in bytes (defaults to sizeof(T))
          */
         template<typename T>
-        void WriteBuffer(FRHIBuffer* Buffer, const T* Data, SIZE_T Offset = 0, SIZE_T Size = sizeof(T))
+        void WriteBuffer(FRHIBuffer* RESTRICT Buffer, const T* RESTRICT Data, SIZE_T Offset = 0, SIZE_T Size = sizeof(T))
         {
             WriteBuffer(Buffer, (const void*)Data, Offset, Size);
         }

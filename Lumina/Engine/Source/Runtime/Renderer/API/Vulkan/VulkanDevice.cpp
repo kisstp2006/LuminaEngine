@@ -81,12 +81,13 @@ namespace Lumina
     VmaAllocation FVulkanMemoryAllocator::AllocateBuffer(const VkBufferCreateInfo* CreateInfo, VmaAllocationCreateFlags Flags, VkBuffer* vkBuffer, const char* AllocationName)
     {
         LUMINA_PROFILE_SCOPE();
-        FScopeLock Lock(BufferAllocationMutex);
     
         VmaAllocationCreateInfo Info = {};
         Info.usage = VMA_MEMORY_USAGE_AUTO;
         Info.flags = Flags;
-        
+
+        FScopeLock Lock(BufferAllocationMutex);
+
         uint64 PoolKey = CreateInfo->usage;
         auto PoolIt = BufferPools.find(PoolKey);
         if (PoolIt != BufferPools.end() && CreateInfo->size < PoolIt->second.BlockSize / 2)
@@ -107,7 +108,8 @@ namespace Lumina
     
         VmaAllocation Allocation = nullptr;
         VmaAllocationInfo AllocationInfo;
-    
+
+        
         VK_CHECK(vmaCreateBuffer(Allocator, CreateInfo, &Info, vkBuffer, &Allocation, &AllocationInfo));
         AssertMsg(Allocation, "Vulkan failed to allocate buffer memory!");
     
@@ -128,7 +130,6 @@ namespace Lumina
         constexpr uint64 DEDICATED_MEMORY_THRESHOLD = 2048 * 2048;
 
         LUMINA_PROFILE_SCOPE();
-        FScopeLock Lock(ImageAllocationMutex);
     
         if (CreateInfo->extent.depth == 0)
         {
@@ -150,7 +151,9 @@ namespace Lumina
     
         VmaAllocation Allocation;
         VmaAllocationInfo AllocationInfo;
-    
+
+        FScopeLock Lock(ImageAllocationMutex);
+
         VK_CHECK(vmaCreateImage(Allocator, CreateInfo, &Info, vkImage, &Allocation, &AllocationInfo));
         AssertMsg(Allocation, "Vulkan failed to allocate image memory!");
     

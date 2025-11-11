@@ -24,7 +24,7 @@ enum class EName : uint32
 #define STRINGIFY_DETAIL(x) #x
 #define STRINGIFY(x) STRINGIFY_DETAIL(x)
 
-#define LUM_DEPRECATED(Version, Reason) [[deprecated("Deprecated since " Version ": " Reason)]]
+#define LUM_DEPRECATED(Version, Reason) [[deprecated("Deprecated since " #Version ": " Reason)]]
 
 
 #define ENUM_CLASS_FLAGS(Enum) \

@@ -51,8 +51,9 @@ namespace Lumina
         template<typename T, typename... Args>
         requires std::is_base_of_v<FEditorTool, T> && std::constructible_from<T, Args...>
         T* CreateTool(Args&&... args);
-
-
+        
+        void VerifyDirtyPackages();
+        
     private:
 
         void EditorToolLayoutCopy(FEditorTool* SourceTool);

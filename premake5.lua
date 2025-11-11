@@ -45,7 +45,9 @@ workspace "Lumina"
         systemversion "latest"
         defines { "LE_PLATFORM_WINDOWS" }
         flags { "MultiProcessorCompile" } -- Parallel compilation
-        buildoptions { 
+        buildoptions 
+        { 
+            "/arch:AVX2",
             "/MP",      -- Multi-processor compilation
             "/Zc:inline", -- Remove unreferenced functions/data
             "/Zc:__cplusplus",

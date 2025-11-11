@@ -30,15 +30,6 @@ namespace Lumina
         void OnDependenciesComplete(enki::TaskScheduler* pTaskScheduler_, uint32_t threadNum_ ) override;
     };
 
-    struct AsyncActionRecycle : enki::ICompletable
-    {
-        enki::Dependency    Dependency;
-
-        // We override OnDependenciesComplete to provide an 'action' which occurs after
-        // the dependency task is complete.
-        void OnDependenciesComplete(enki::TaskScheduler* pTaskScheduler_, uint32_t threadNum_ ) override;
-    };
-
     typedef TMoveOnlyFunction<void (uint32 Start, uint32 End, uint32 Thread)> TaskSetFunction;
     class FLambdaTask : public ITaskSet
     {
@@ -53,14 +44,10 @@ namespace Lumina
             TaskRecycle.SetDependency(TaskRecycle.Dependency, this);
         }
         
-        FLambdaTask()
-        {
-            TaskRecycle.SetDependency(TaskRecycle.Dependency, this);
-        }
         
         void ExecuteRange(TaskSetPartition range_, uint32_t threadnum_) override
         {
-            LUMINA_PROFILE_SCOPE();
+            LUMINA_PROFILE_SECTION("Tasks::LambdaTask");
 
             Function(range_.start, range_.end, threadnum_);
         }
@@ -74,7 +61,7 @@ namespace Lumina
         }
 
         TaskSetFunction             Function;
-        AsyncActionRecycle          TaskRecycle;
+        CompletionActionDelete      TaskRecycle;
     };
     
 }

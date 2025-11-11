@@ -5,16 +5,16 @@
 #include "World/Entity/Components/CameraComponent.h"
 #include "Core/Object/ObjectHandleTyped.h"
 #include "Entity/Registry/EntityRegistry.h"
-#include "World.generated.h"
 #include "Entity/EntityWorld.h"
 #include "Renderer/RenderGraph/RenderGraph.h"
+#include "World.generated.h"
 
 namespace Lumina
 {
+    class IRenderScene;
     struct SRenderComponent;
     class FCameraManager;
     struct FLineBatcherComponent;
-    class FRenderScene;
     class CEntitySystem;
     class Entity;
 }
@@ -94,7 +94,7 @@ namespace Lumina
 
         static CWorld* DuplicateWorldForPIE(CWorld* OwningWorld);
 
-        FRenderScene* GetRenderer() const { return RenderScene; }
+        IRenderScene* GetRenderer() const { return RenderScene; }
 
         const TVector<CEntitySystem*>& GetSystemsForUpdateStage(EUpdateStage Stage);
 
@@ -126,7 +126,7 @@ namespace Lumina
         FLineBatcherComponent*                          LineBatcherComponent = nullptr;
 
         FCameraManager*                                 CameraManager = nullptr;
-        FRenderScene*                                   RenderScene = nullptr;
+        IRenderScene*                                   RenderScene = nullptr;
         
         TVector<CEntitySystem*>                         SystemUpdateList[(int32)EUpdateStage::Max];
         

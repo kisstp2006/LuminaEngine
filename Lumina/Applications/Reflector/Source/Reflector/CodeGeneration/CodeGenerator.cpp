@@ -222,26 +222,7 @@ namespace Lumina::Reflection
                         {
                             PropProjectAPI = "";
                         }
-                    
-                        Property->DeclareCrossModuleReference(PropProjectAPI, Stream);
-                    }
-                }
-            }
-
-            if (FReflectedClass* Class = dynamic_cast<FReflectedClass*>(Type))
-            {
-                for (auto& Property : Class->Props)
-                {
-                    if (FReflectedType* PropType = ReflectionDatabase->GetReflectedType<FReflectedType>(FStringHash(Property->TypeName)))
-                    {
-                        eastl::string PropProjectAPI = PropType->Project + "_api";
-                        PropProjectAPI.make_upper();
-                    
-                        if (PropProjectAPI != "LUMINA_API")
-                        {
-                            PropProjectAPI = "";
-                        }
-                    
+                        
                         Property->DeclareCrossModuleReference(PropProjectAPI, Stream);
                     }
                 }

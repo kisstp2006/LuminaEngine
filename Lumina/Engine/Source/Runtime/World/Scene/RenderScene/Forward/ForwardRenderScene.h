@@ -1,0 +1,145 @@
+﻿#pragma once
+#include "Renderer/TypedBuffer.h"
+#include "World/Scene/RenderScene/MeshDrawCommand.h"
+#include "World/Scene/RenderScene/RenderScene.h"
+
+namespace Lumina
+{
+    class CWorld;
+    class FForwardRenderScene : public IRenderScene
+    {
+
+        static constexpr int NumCascades = 4;
+
+    public:
+        FForwardRenderScene(CWorld* InWorld);
+        
+        void Init() override;
+        void Shutdown() override;
+        void RenderScene(FRenderGraph& RenderGraph, const FViewVolume& ViewVolume) override;
+        void SetViewVolume(const FViewVolume& ViewVolume) override;
+        
+        void CompileDrawCommands(FRenderGraph& RenderGraph) override;
+
+        //~ Begin Render Passes
+        void ResetPass(FRenderGraph& RenderGraph);
+        void CullPass(FRenderGraph& RenderGraph, const FViewVolume& View);
+        void DepthPrePass(FRenderGraph& RenderGraph, const FViewVolume& View);
+        void ClusterBuildPass(FRenderGraph& RenderGraph, const FViewVolume& View);
+        void LightCullPass(FRenderGraph& RenderGraph, const FViewVolume& View);
+        void PointShadowPass(FRenderGraph& RenderGraph);
+        void SpotShadowPass(FRenderGraph& RenderGraph);
+        void DirectionalShowPass(FRenderGraph& RenderGraph);
+        void BasePass(FRenderGraph& RenderGraph, const FViewVolume& View);
+        void TransparentPass(FRenderGraph& RenderGraph, const FViewVolume& View);
+        void SSAOPass(FRenderGraph& RenderGraph);
+        void EnvironmentPass(FRenderGraph& RenderGraph);
+        void BatchedLineDraw(FRenderGraph& RenderGraph);
+        void ToneMappingPass(FRenderGraph& RenderGraph);
+        void DebugDrawPass(FRenderGraph& RenderGraph);
+        //~ End Render Passes
+
+        void InitBuffers();
+        void InitImages();
+        void InitResources();
+
+        static FViewportState MakeViewportStateFromImage(const FRHIImage* Image);
+
+        void CheckInstanceBufferResize(uint32 NumInstances);
+        void CheckLightBufferResize(uint32 NumLights);
+        
+        FRHIImageRef GetVisualizationImage() const override;
+        FRHIImageRef GetRenderTarget() const override;
+        ERenderSceneDebugFlags GetDebugMode() const override;
+        void SetDebugMode(ERenderSceneDebugFlags Mode) override;
+        FSceneRenderSettings& GetSceneRenderSettings() override;
+        entt::entity GetEntityAtPixel(uint32 X, uint32 Y) const override;
+
+
+        CWorld*                             World = nullptr;
+        
+        FSceneRenderSettings                RenderSettings;
+        FSceneLightData                     LightData;
+
+        FRHIViewportRef                     SceneViewport;
+        
+        FRHIInputLayoutRef                  VertexLayoutInput;
+        FRHIInputLayoutRef                  PositionOnlyLayoutInput;
+        FRHIInputLayoutRef                  SimpleVertexLayoutInput;
+
+        FSceneGlobalData                    SceneGlobalData;
+
+        FRHIBindingSetRef                   BasePassSet;
+        FRHIBindingLayoutRef                BasePassLayout;
+
+        FRHIBindingSetRef                   ToneMappingPassSet;
+        FRHIBindingLayoutRef                ToneMappingPassLayout;
+        
+        FRHIBindingSetRef                   ShadowPassSet;
+        FRHIBindingLayoutRef                ShadowPassLayout;
+
+        FRHIBindingSetRef                   DebugPassSet;
+        FRHIBindingLayoutRef                DebugPassLayout;
+
+        FRHIBindingSetRef                   SSAOPassSet;
+        FRHIBindingLayoutRef                SSAOPassLayout;
+
+        FRHIBindingSetRef                   SSAOBlurPassSet;
+        FRHIBindingLayoutRef                SSAOBlurPassLayout;
+        
+        FRHIBindingSetRef                   BindingSet;
+        FRHIBindingLayoutRef                BindingLayout;
+
+        FRHIBindingSetRef                   FrustumCullSet;
+        FRHIBindingLayoutRef                FrustumCullLayout;
+
+        FRHIBindingSetRef                   ClusterBuildSet;
+        FRHIBindingLayoutRef                ClusterBuildLayout;
+
+        FRHIBindingSetRef                   LightCullSet;
+        FRHIBindingLayoutRef                LightCullLayout;
+
+        FRHITypedVertexBuffer<FSimpleElementVertex> SimpleVertexBuffer;
+        TRenderVector<FSimpleElementVertex>         SimpleVertices;
+        FRHIBindingLayoutRef                        SimplePassLayout;
+        
+        FRHIBufferRef                               ClusterBuffer;
+        FRHIBufferRef                               SceneDataBuffer;
+        FRHIBufferRef                               InstanceDataBuffer;
+        FRHIBufferRef                               InstanceMappingBuffer;
+        FRHIBufferRef                               LightDataBuffer;
+        FRHIBufferRef                               IndirectDrawBuffer;
+        
+        FShadowAtlas                        ShadowAtlas;
+
+        FRHIImageRef                        HDRRenderTarget;
+        FRHIImageRef                        CascadedShadowMap;
+        FRHIImageRef                        PointLightShadowMap;
+        FRHIImageRef                        DepthMap;
+        FRHIImageRef                        DepthAttachment;
+        FRHIImageRef                        NoiseImage;
+        FRHIImageRef                        SSAOImage;
+        FRHIImageRef                        SSAOBlur;
+        FRHIImageRef                        PickerImage;
+        FRHIImageRef                        DebugVisualizationImage;
+
+        ERenderSceneDebugFlags              DebugVisualizationMode;
+
+        TArray<FShadowCascade, NumCascades>           ShadowCascades;
+        
+        /** Packed array of per-instance data */
+        TRenderVector<FInstanceData>                  InstanceData;
+
+        
+        FMeshPass DepthMeshPass;
+        FMeshPass OpaqueMeshPass;
+        FMeshPass TranslucentMeshPass;
+        FMeshPass ShadowMeshPass;
+        
+        /** Packed array of all cached mesh draw commands */
+        TRenderVector<FMeshDrawCommand>             DrawCommands;
+
+        /** Packed indirect draw arguments, gets sent directly to the GPU */
+        TRenderVector<FDrawIndexedIndirectArguments>  IndirectDrawArguments;
+    };
+}

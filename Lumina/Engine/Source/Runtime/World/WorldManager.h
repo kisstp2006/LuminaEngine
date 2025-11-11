@@ -8,7 +8,7 @@
 namespace Lumina
 {
     enum class EWorldType : uint8;
-    class FRenderScene;
+    class FDeferredRenderScene;
 }
 
 namespace Lumina

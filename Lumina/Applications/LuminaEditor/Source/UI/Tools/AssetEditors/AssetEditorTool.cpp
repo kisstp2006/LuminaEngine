@@ -80,8 +80,8 @@ namespace Lumina
             return;
         }
     
-        const uint32 SourceWidth  = RenderTarget->GetDescription().Extent.X;
-        const uint32 SourceHeight = RenderTarget->GetDescription().Extent.Y;
+        const uint32 SourceWidth  = RenderTarget->GetDescription().Extent.x;
+        const uint32 SourceHeight = RenderTarget->GetDescription().Extent.y;
         
         CPackage* AssetPackage = Asset->GetPackage();
     

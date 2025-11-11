@@ -1,10 +1,5 @@
 ﻿#include "ClangTranslationUnit.h"
-
-#include <complex.h>
-
-#include "ClangVisitor_Structure.h"
-#include "ClangVisitor_Enum.h"
-#include "ClangVisitor_Macro.h"
+#include "ClangVisitor.h"
 #include "Reflector/Clang/ClangParserContext.h"
 #include "Reflector/Clang/Utils.h"
 
@@ -45,7 +40,7 @@ namespace Lumina::Reflection
         {
             case (CXCursor_MacroExpansion):
                 {
-                    return Visitor::VisitMacro(Cursor, ParserContext->ReflectedHeader, ParserContext);
+                    return Visitor::VisitMacro(Cursor, Parent, ParserContext);
                 }
             
             case(CXCursor_ClassDecl):

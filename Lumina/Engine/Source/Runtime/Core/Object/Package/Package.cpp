@@ -167,8 +167,6 @@ namespace Lumina
 
         Reader.Seek(SizeBefore);
         
-        
-
         LOG_INFO("Loaded Package: \"{}\" - ( [{}] Exports | [{}] Imports | [{}] Bytes)", Package->GetName(), Package->ExportTable.size(), Package->ImportTable.size(), Package->Loader->TotalSize());
 
         return Package;

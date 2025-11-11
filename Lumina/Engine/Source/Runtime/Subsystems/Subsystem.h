@@ -69,8 +69,6 @@ namespace Lumina
         requires std::is_base_of_v<ISubsystem, T>
         T* GetSubsystem()
         {
-            LUMINA_PROFILE_SCOPE();
-            
             size_t TypeHash = typeid(T).hash_code();
             auto it = SubsystemLookup.find(TypeHash);
             return static_cast<T*>(it->second);

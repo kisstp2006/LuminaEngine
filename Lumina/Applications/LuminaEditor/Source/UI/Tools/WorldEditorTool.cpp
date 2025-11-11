@@ -315,7 +315,7 @@ namespace Lumina
         {
             ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(8, 4));
             
-            FRenderScene* SceneRenderer = World->GetRenderer();
+            IRenderScene* SceneRenderer = World->GetRenderer();
             FRHICommandListRef CommandList = GRenderContext->GetImmediateCommandList();
 
             ImGui::TextColored(ImVec4(0.4f, 1.0f, 0.6f, 1.0f), "Performance Statistics (Global)");
@@ -530,8 +530,8 @@ namespace Lumina
 
         if (ImGui::IsWindowHovered(ImGuiHoveredFlags_RootAndChildWindows))
         {
-            uint32 PickerWidth = World->GetRenderer()->GetRenderTarget()->GetExtent().X;
-            uint32 PickerHeight = World->GetRenderer()->GetRenderTarget()->GetExtent().Y;
+            uint32 PickerWidth = World->GetRenderer()->GetRenderTarget()->GetExtent().x;
+            uint32 PickerHeight = World->GetRenderer()->GetRenderTarget()->GetExtent().y;
             
             ImVec2 viewportScreenPos = ImGui::GetWindowPos();
             ImVec2 mousePos = ImGui::GetMousePos();
@@ -1315,7 +1315,6 @@ namespace Lumina
         
         ImGui::Spacing();
         
-        // ===== Components Section =====
         {
             ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.7f, 0.7f, 0.7f, 1.0f));
             ImGui::AlignTextToFramePadding();
@@ -1471,7 +1470,7 @@ namespace Lumina
             ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
             ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.1f, 0.1f, 0.12f, 1.0f));
             
-            ImGui::BeginChild(("ComponentContent##" + FString(ComponentName)).c_str(), ImVec2(0, 300), true);
+            //ImGui::BeginChild(("ComponentContent##" + FString(ComponentName)).c_str(), ImVec2(0, 300), true);
 
             // Remove button (if not required)
             if (!bIsRequired)
@@ -1495,13 +1494,9 @@ namespace Lumina
                 }
             }
             
-            ImGui::Indent(12.0f);
-            ImGuiX::Font::PushFont(ImGuiX::Font::EFont::Tiny);
             Table->DrawTree();
-            ImGuiX::Font::PopFont();
-            ImGui::Unindent(12.0f);
             
-            ImGui::EndChild();
+            //ImGui::EndChild();
             
             ImGui::PopStyleColor();
             ImGui::PopStyleVar();

@@ -7,7 +7,7 @@
 
 namespace Lumina
 {
-    FStaticMeshScenePrimitive::FStaticMeshScenePrimitive(const SStaticMeshComponent& StaticMeshComponent, const glm::mat4& InRenderTransform, FRenderScene* InScene)
+    FStaticMeshScenePrimitive::FStaticMeshScenePrimitive(const SStaticMeshComponent& StaticMeshComponent, const glm::mat4& InRenderTransform, FDeferredRenderScene* InScene)
         : StaticMesh(StaticMeshComponent.StaticMesh)
     {
         RenderTransform = InRenderTransform;

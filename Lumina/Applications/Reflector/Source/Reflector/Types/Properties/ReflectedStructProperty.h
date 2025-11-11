@@ -21,6 +21,7 @@ namespace Lumina
 
         const char* GetPropertyParamType() const override { return "FStructPropertyParams"; }
 
+        bool CanDeclareCrossModuleReferences() const override { return true; }
         void DeclareCrossModuleReference(const eastl::string& API, eastl::string& Stream) override
         {
             Stream += API;

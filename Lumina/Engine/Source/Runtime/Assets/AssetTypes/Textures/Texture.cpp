@@ -22,15 +22,15 @@ namespace Lumina
 
     void CTexture::PostLoad()
     {
-        if (ImageDescription.Extent.X == 0 || ImageDescription.Extent.Y == 0)
+        if (ImageDescription.Extent.x == 0 || ImageDescription.Extent.x == 0)
         {
-            LOG_ERROR("Image {} has an invalid size!: X: {} Y: {}, Image may be corrupt!", ImageDescription.DebugName, ImageDescription.Extent.X, ImageDescription.Extent.Y);
+            LOG_ERROR("Image {} has an invalid size!: X: {} Y: {}, Image may be corrupt!", ImageDescription.DebugName, ImageDescription.Extent.x, ImageDescription.Extent.y);
             return;
         }
         
         RHIImage = GRenderContext->CreateImage(ImageDescription);
 
-        const uint32 Width = ImageDescription.Extent.X;
+        const uint32 Width = ImageDescription.Extent.x;
         const uint32 RowPitch = Width * RHI::Format::BytesPerBlock(ImageDescription.Format);
 
         FRHICommandListRef TransferCommandList = GRenderContext->CreateCommandList(FCommandListInfo::Transfer());

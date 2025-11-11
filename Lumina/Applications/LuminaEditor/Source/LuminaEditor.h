@@ -44,8 +44,7 @@ namespace Lumina
         bool Initialize(int argc, char** argv) override;
         FEngine* CreateEngine() override;
         
-        bool ApplicationLoop() override;
-        
+        bool ShouldExit() const override;        
         void CreateProject();
         void OpenProject();
 

@@ -12,6 +12,16 @@ namespace Lumina
 {
     LUMINA_API extern class FTaskSystem* GTaskSystem;
 
+    namespace Task
+    {
+        struct FParallelRange
+        {
+            uint32 Start;
+            uint32 End;
+            uint32 Thread;
+        };
+    }
+
     class FTaskSystem
     {
     public:
@@ -54,27 +64,12 @@ namespace Lumina
                 LOG_WARN("Task Size of [0] passed to task system.");
                 return nullptr;
             }
-
-            FLambdaTask* Task = nullptr;
-            if (!LambdaTaskPool.empty())
-            {
-                if (LambdaTaskPool.back()->GetIsComplete())
-                {
-                    Task = LambdaTaskPool.back();
-                }
-                
-                LambdaTaskPool.pop();
-            }
             
-            if (!Task)
-            {
-                Task = Memory::New<FLambdaTask>();
-            }
-
-            Task->Reset(Priority, Num, std::max(1u, MinRange), Move(Function));
+            auto* Task = Memory::New<FLambdaTask>(Priority, Num, std::max(1u, MinRange), Move(Function));
             ScheduleTask(Task);
             return Task;
         }
+        
         
         template<typename TFunc>
         void ParallelFor(uint32 Num, uint32 MinRange, TFunc&& Func, ETaskPriority Priority = ETaskPriority::Medium)
@@ -89,8 +84,12 @@ namespace Lumina
 
                 void ExecuteRange(TaskSetPartition range_, uint32_t ThreadNum) override
                 {
-                    LUMINA_PROFILE_SCOPE();
-
+                    if constexpr (eastl::is_invocable_v<TFunc, const Task::FParallelRange&>)
+                    {
+                        Func(Task::FParallelRange{range_.start, range_.end, ThreadNum});
+                        return;
+                    }
+                    
                     for (uint32 i = range_.start; i < range_.end; ++i)
                     {
                         if constexpr (eastl::is_invocable_v<TFunc, uint32>)
@@ -107,7 +106,7 @@ namespace Lumina
                 TFunc Func;
             };
 
-            
+            LUMINA_PROFILE_SECTION("Tasks::ParallelFor");
             ParallelTask Task = ParallelTask(std::forward<TFunc>(Func), Num, std::max(1u, MinRange));
             Task.m_Priority = (enki::TaskPriority)Priority;
             ScheduleTask(&Task);
@@ -128,9 +127,7 @@ namespace Lumina
                 }
 
                 void ExecuteRange(TaskSetPartition range_, uint32) override
-                {
-                    LUMINA_PROFILE_SCOPE();
-                    
+                {                    
                     IteratorType it = Begin;
                     eastl::advance(it, range_.start);
 
@@ -145,10 +142,11 @@ namespace Lumina
                 TFunc Func;
             };
 
+            LUMINA_PROFILE_SECTION("Tasks::ParallelFor");
             ParallelTask task(Begin, End, std::forward<TFunc>(Func), std::max(1u, MinRange));
             task.m_Priority = static_cast<enki::TaskPriority>(Priority);
             ScheduleTask(&task);
-            WaitForTask(&task);
+            WaitForTask(&task, Priority);
         }
 
         
@@ -175,17 +173,8 @@ namespace Lumina
 
             Scheduler.WaitforTask(pTask);
         }
-
-        void PushLambdaTaskToPool(FLambdaTask* InTask)
-        {
-            LambdaTaskPool.push(InTask);
-        }
     
-
     private:
-
-        FMutex                  LambdaTaskMutex;
-        TQueue<FLambdaTask*>    LambdaTaskPool;
         
         enki::TaskScheduler     Scheduler;
         uint32                  NumWorkers = 0;
@@ -197,7 +186,6 @@ namespace Lumina
         LUMINA_API FLambdaTask* AsyncTask(uint32 Num, uint32 MinRange, TaskSetFunction&& Function, ETaskPriority Priority = ETaskPriority::Medium);
 
         template<typename TIndex, typename TFunc>
-        requires (eastl::is_invocable_v<TFunc, uint32> && eastl::is_integral_v<TIndex>)
         void ParallelFor(TIndex Num, uint32 MinRange, TFunc&& Func, ETaskPriority Priority = ETaskPriority::Medium)
         {
             GTaskSystem->ParallelFor(static_cast<uint32>(Num), MinRange, std::forward<TFunc>(Func), Priority);

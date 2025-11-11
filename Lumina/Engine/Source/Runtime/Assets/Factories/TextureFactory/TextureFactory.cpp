@@ -46,14 +46,14 @@ namespace Lumina
         ImageDescription.Format                 = EFormat::RGBA8_UNORM;
         ImageDescription.Extent                 = Import::Textures::ImportTexture(NewTexture->Pixels, RawPath, false);
         ImageDescription.Flags                  .SetFlag(EImageCreateFlags::ShaderResource);
-        ImageDescription.NumMips                = CalculateMipCount(ImageDescription.Extent.X, ImageDescription.Extent.Y);
+        ImageDescription.NumMips                = CalculateMipCount(ImageDescription.Extent.x, ImageDescription.Extent.y);
         ImageDescription.InitialState           = EResourceStates::ShaderResource;
         ImageDescription.bKeepInitialState      = true;
         NewTexture->ImageDescription            = ImageDescription;
 
-        if (ImageDescription.Extent.X == 0 || ImageDescription.Extent.Y == 0)
+        if (ImageDescription.Extent.x == 0 || ImageDescription.Extent.y == 0)
         {
-            LOG_ERROR("Attempted to import an image with an invalid size: X: {} Y: {}", ImageDescription.Extent.X, ImageDescription.Extent.Y);
+            LOG_ERROR("Attempted to import an image with an invalid size: X: {} Y: {}", ImageDescription.Extent.x, ImageDescription.Extent.y);
         }
         
     }

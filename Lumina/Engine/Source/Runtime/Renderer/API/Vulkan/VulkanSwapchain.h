@@ -22,9 +22,9 @@ namespace Lumina
         
         ~FVulkanSwapchain();
 
-        void CreateSwapchain(VkInstance Instance, FVulkanRenderContext* InContext, FWindow* Window, FIntVector2D Extent, bool bFromResize = false);
+        void CreateSwapchain(VkInstance Instance, FVulkanRenderContext* InContext, FWindow* Window, glm::uvec2 Extent, bool bFromResize = false);
 
-        void RecreateSwapchain(const FIntVector2D& Extent);
+        void RecreateSwapchain(const glm::uvec2& Extent);
         void SetPresentMode(VkPresentModeKHR NewMode);
 
         FORCEINLINE const VkSurfaceFormatKHR& GetSurfaceFormat() const { return SurfaceFormat; }
@@ -33,7 +33,7 @@ namespace Lumina
         FORCEINLINE uint32 GetImageCount() const { return (uint32)SwapchainImages.size(); }
         FORCEINLINE VkPresentModeKHR GetPresentMode() const { return CurrentPresentMode; }
         FORCEINLINE VkFormat GetSwapchainFormat() const { return Format; }
-        FORCEINLINE const FIntVector2D& GetSwapchainExtent() const { return SwapchainExtent; }
+        FORCEINLINE const glm::uvec2& GetSwapchainExtent() const { return SwapchainExtent; }
         
         TRefCountPtr<FVulkanImage> GetCurrentImage() const;
 
@@ -48,7 +48,7 @@ namespace Lumina
         bool                                    bNeedsResize = false;
         VkSurfaceKHR                            Surface = VK_NULL_HANDLE;
         VkFormat                                Format = VK_FORMAT_MAX_ENUM;
-        FIntVector2D                            SwapchainExtent;
+        glm::uvec2                            SwapchainExtent;
                                                 
         VkSwapchainKHR                          Swapchain = VK_NULL_HANDLE;
         VkSurfaceFormatKHR                      SurfaceFormat = {};

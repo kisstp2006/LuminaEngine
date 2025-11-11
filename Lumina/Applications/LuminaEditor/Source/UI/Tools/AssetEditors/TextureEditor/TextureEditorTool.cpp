@@ -73,7 +73,7 @@ namespace Lumina
                 }
             }
 
-            ImVec2 TextureSize = ImVec2((float)ImageDesc.Extent.X, (float)ImageDesc.Extent.Y);
+            ImVec2 TextureSize = ImVec2((float)ImageDesc.Extent.x, (float)ImageDesc.Extent.y);
             ImVec2 ScaledSize = ImVec2(TextureSize.x * ZoomFactor, TextureSize.y * ZoomFactor);
             ImVec2 CenterPos = ImVec2(WindowPos.x + (WindowSize.x - ScaledSize.x) * 0.5f + PanOffset.x,WindowPos.y + (WindowSize.y - ScaledSize.y) * 0.5f + PanOffset.y);
 
@@ -221,7 +221,7 @@ namespace Lumina
             
             ImVec4 dimensionColor(0.5f, 0.9f, 0.5f, 1.0f);
             PropertyRow("Type", dimensionStr, &dimensionColor);
-            PropertyRow("Resolution", eastl::to_string(ImageDesc.Extent.X) + " x " + eastl::to_string(ImageDesc.Extent.Y));
+            PropertyRow("Resolution", eastl::to_string(ImageDesc.Extent.x) + " x " + eastl::to_string(ImageDesc.Extent.y));
             
             if (ImageDesc.Depth > 1)
             {
@@ -247,7 +247,7 @@ namespace Lumina
 
             // Row pitch and depth pitch calculations
             size_t bytesPerPixel = FormatInfo.BytesPerBlock;
-            size_t bytesPerRow = ImageDesc.Extent.X * bytesPerPixel;
+            size_t bytesPerRow = ImageDesc.Extent.x * bytesPerPixel;
             
             PropertyRow("Bytes per Row", eastl::to_string(bytesPerRow) + " bytes");
 
@@ -343,8 +343,8 @@ namespace Lumina
             
             ImGui::Spacing();
     
-            float aspectRatio = (float)ImageDesc.Extent.X / (float)ImageDesc.Extent.Y;
-            uint32 totalTexels = ImageDesc.Extent.X * ImageDesc.Extent.Y * ImageDesc.Depth * ImageDesc.ArraySize;
+            float aspectRatio = (float)ImageDesc.Extent.x / (float)ImageDesc.Extent.y;
+            uint32 totalTexels = ImageDesc.Extent.x * ImageDesc.Extent.y * ImageDesc.Depth * ImageDesc.ArraySize;
             
             if (ImGui::BeginTable("##Stats", 2, ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingStretchProp))
             {
@@ -371,8 +371,8 @@ namespace Lumina
                     uint32 mipChainSize = 0;
                     for (int i = 0; i < ImageDesc.NumMips; ++i)
                     {
-                        uint32 mipWidth = eastl::max<uint32>(1u, ImageDesc.Extent.X >> i);
-                        uint32 mipHeight = eastl::max<uint32>(1u, ImageDesc.Extent.Y >> i);
+                        uint32 mipWidth = eastl::max<uint32>(1u, ImageDesc.Extent.x >> i);
+                        uint32 mipHeight = eastl::max<uint32>(1u, ImageDesc.Extent.y >> i);
                         mipChainSize += mipWidth * mipHeight;
                     }
                     StatRow("Mip Chain Texels:", eastl::to_string(mipChainSize));
@@ -453,8 +453,8 @@ namespace Lumina
             return;
         }
     
-        const uint32 SourceWidth  = Texture->RHIImage->GetDescription().Extent.X;
-        const uint32 SourceHeight = Texture->RHIImage->GetDescription().Extent.Y;
+        const uint32 SourceWidth  = Texture->RHIImage->GetDescription().Extent.x;
+        const uint32 SourceHeight = Texture->RHIImage->GetDescription().Extent.y;
         
         CPackage* AssetPackage = Asset->GetPackage();
     
