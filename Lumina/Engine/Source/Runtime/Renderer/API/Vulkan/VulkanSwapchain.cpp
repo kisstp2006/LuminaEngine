@@ -185,7 +185,7 @@ namespace Lumina
     	
     	if (Result == VK_SUCCESS || Result == VK_SUBOPTIMAL_KHR)
     	{
-    		Context->GetQueue(ECommandQueue::Graphics)->AddWaitSemaphore(Semaphore, 0);
+    		Context->GetQueue(ECommandQueue::Graphics)->AddWaitSemaphore(Semaphore, 0, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT);
     		return true;
     	}
 

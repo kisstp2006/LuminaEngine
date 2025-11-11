@@ -82,13 +82,14 @@ namespace Lumina
         {
         public:
             
-            FContentBrowserTileViewItem(FTileViewItem* InParent, const FString& InPath, FAssetData* InAssetData)
+            FContentBrowserTileViewItem(FTileViewItem* InParent, const FString& InPath, const FAssetData* InAssetData)
                 : FTileViewItem(InParent)
                 , Path(InPath)
                 , VirtualPath(Paths::ConvertToVirtualPath(InPath))
             {
                 if (InAssetData)
                 {
+                    Package = FindObject<CPackage>(nullptr, InAssetData->PackageName);
                     AssetData = *InAssetData;
                 }
             }
@@ -140,16 +141,10 @@ namespace Lumina
             FName GetName() const override
             {
                 FInlineString NameString;
-                if (!AssetData.PackageName.IsNone())
+                if (Package && Package->IsDirty())
                 {
-                    if (CPackage* Package = FindObject<CPackage>(nullptr, AssetData.PackageName))
-                    {
-                        if (Package->IsDirty())
-                        {
-                            NameString.append(Paths::FileName(Path, true).c_str()).append(" " LE_ICON_ARCHIVE_ALERT);
-                            return NameString;
-                        }
-                    }
+                    NameString.append(Paths::FileName(Path, true).c_str()).append(" " LE_ICON_ARCHIVE_ALERT);
+                    return NameString;
                 }
                 
                 NameString.append(Paths::FileName(Path, true).c_str());
@@ -163,9 +158,11 @@ namespace Lumina
             const FString& GetVirtualPath() const { return VirtualPath; }
             bool IsDirectory() const { return AssetData.AssetClass.IsNone(); }
             const FAssetData& GetAssetData() const { return AssetData; }
+            CPackage* GetPackage() const { return Package; }
             
         private:
             
+            CPackage*               Package = nullptr;
             FAssetData              AssetData;
             FString                 Path;
             FString                 VirtualPath;

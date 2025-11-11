@@ -395,7 +395,6 @@ vec3 EvaluateLightContribution(FLight Light, vec3 Position, vec3 N, vec3 V, vec3
     }
     else
     {
-        LightColor.a *= 100.0f;
         vec3 LightToFrag = Light.Position - Position;
         float Distance = length(LightToFrag);
         L = LightToFrag / Distance;
@@ -417,7 +416,7 @@ vec3 EvaluateLightContribution(FLight Light, vec3 Position, vec3 N, vec3 V, vec3
 
 
     // Radiance
-    vec3 Radiance = LightColor.rgb * LightColor.a * Attenuation * Falloff;
+    vec3 Radiance = LightColor.rgb * Light.Intensity * Attenuation * Falloff;
 
     // Half vector
     vec3 H = normalize(V + L);
@@ -532,7 +531,7 @@ void main()
     
     // Add emissive
     Color += Material.Emissive;
-    
+
     // Output
     outColor = vec4(Color, Material.Opacity);
     GPicker = inEntityID;

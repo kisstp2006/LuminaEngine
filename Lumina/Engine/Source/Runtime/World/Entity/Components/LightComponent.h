@@ -85,7 +85,7 @@ namespace Lumina
         glm::vec3 Direction = glm::vec3(0.0f, 0.3f, 0.8f);
 
         LUM_PROPERTY(Editable, Category = "Light", ClampMin = 0.0f)
-        float Intensity = 10.0f;
+        float Intensity = 2.5f;
 
         LUM_PROPERTY(Editable)
         bool bCastShadows = true;

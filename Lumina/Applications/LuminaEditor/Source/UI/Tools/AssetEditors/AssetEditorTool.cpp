@@ -55,6 +55,11 @@ namespace Lumina
         }
     }
 
+    bool FAssetEditorTool::IsAssetEditorTool() const
+    {
+        return true;
+    }
+
     void FAssetEditorTool::GenerateThumbnailOnLoad()
     {
         if (!World)

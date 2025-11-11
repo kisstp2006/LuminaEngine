@@ -330,22 +330,18 @@ namespace Lumina
 
 		ImGui::BeginChild("ContentArea");
 
-		// === OVERVIEW TAB ===
 		if (selectedTab == 0)
 		{
 			DrawOverviewTab(props, memProps, Allocator);
 		}
-		// === MEMORY TAB ===
 		else if (selectedTab == 1)
 		{
 			DrawMemoryTab(memProps, Allocator);
 		}
-		// === RESOURCES TAB ===
 		else if (selectedTab == 2)
 		{
 			DrawResourcesTab();
 		}
-		// === DEVICE INFO TAB ===
 		else if (selectedTab == 3)
 		{
 			DrawDeviceInfoTab(props, Features);
@@ -357,7 +353,6 @@ namespace Lumina
 
 	ImTextureID FVulkanImGuiRender::GetOrCreateImTexture(const FString& Path)
 	{
-		LUMINA_PROFILE_SCOPE();
 		FScopeLock Lock(TextureMutex);
 
 		FName NamePath = Path;
@@ -395,14 +390,12 @@ namespace Lumina
 
 	ImTextureID FVulkanImGuiRender::GetOrCreateImTexture(FRHIImageRef Image)
     {
-    	LUMINA_PROFILE_SCOPE();
-		FScopeLock Lock(TextureMutex);
-		
     	if(Image == nullptr)
     	{
     		return 0;
     	}
-		
+
+		FScopeLock Lock(TextureMutex);
 		ReferencedImages.push_back(Image);
 	    VkImage VulkanImage = Image->GetAPI<VkImage>();
 		
@@ -563,7 +556,8 @@ namespace Lumina
 	
 		THashMap<ERHIResourceType, TVector<IRHIResource*>> ResourceMap;
 		ResourceMap.reserve(RRT_Num);
-	
+
+		IRHIResource::LockResourceArray();
 		for (IRHIResource* Resource : IRHIResource::GetAllRHIResources())
 		{
 			if (Resource != nullptr)
@@ -571,6 +565,7 @@ namespace Lumina
 				ResourceMap[Resource->GetResourceType()].push_back(Resource);
 			}
 		}
+		IRHIResource::UnlockResourceArray();
 	
 		ImGui::Text("Total Resources: %u", IRHIResource::GetNumberRHIResources());
 		ImGui::Spacing();

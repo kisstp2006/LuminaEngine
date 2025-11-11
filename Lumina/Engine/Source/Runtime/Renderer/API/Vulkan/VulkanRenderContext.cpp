@@ -242,7 +242,7 @@ namespace Lumina
             {
                 Submission->ClearReferencedResources();
                 Submission->SubmissionID = 0;
-                LUM_ASSERT(CommandBufferPool.try_enqueue(Submission))
+                LUM_ASSERT(CommandBufferPool.enqueue(Submission))
             }
             else
             {
@@ -259,12 +259,6 @@ namespace Lumina
         LockMark(Mutex);
         
         TFixedVector<VkCommandBuffer, 4> CommandBuffers(NumCommandLists);
-        TFixedVector<VkPipelineStageFlags, 4> StageFlags(WaitSemaphores.size());
-
-        for (SIZE_T i = 0; i < WaitSemaphores.size(); ++i)
-        {
-            StageFlags[i] = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
-        }
         
         LastSubmittedID++;
 
@@ -307,7 +301,7 @@ namespace Lumina
         SubmitInfo.commandBufferCount = NumCommandLists;
         SubmitInfo.pWaitSemaphores = WaitSemaphores.data();
         SubmitInfo.waitSemaphoreCount = (uint32)WaitSemaphores.size();
-        SubmitInfo.pWaitDstStageMask = StageFlags.data();
+        SubmitInfo.pWaitDstStageMask = WaitStageFlags.data();
         SubmitInfo.pSignalSemaphores = SignalSemaphores.data();
         SubmitInfo.signalSemaphoreCount = (uint32)SignalSemaphores.size();
         
@@ -386,11 +380,12 @@ namespace Lumina
         SignalSemaphoreValues.push_back(Value);
     }
 
-    void FQueue::AddWaitSemaphore(VkSemaphore Semaphore, uint64 Value)
+    void FQueue::AddWaitSemaphore(VkSemaphore Semaphore, uint64 Value, VkPipelineStageFlags Stage)
     {
         Assert(Semaphore)
         WaitSemaphores.push_back(Semaphore);
         WaitSemaphoreValues.push_back(Value);
+        WaitStageFlags.push_back(Stage);
     }
 
     void FQueue::Lock()

@@ -37,6 +37,16 @@ namespace Lumina
             return Instance;
         }
 
+        void Lock()
+        {
+            Mutex.lock();
+        }
+
+        void Unlock()
+        {
+            Mutex.unlock();
+        }
+
         int32 Allocate(IRHIResource* Resource)
         {
             int32 Index;
@@ -131,6 +141,16 @@ namespace Lumina
         }
 
         FRHIResourceList::Get().Clear();
+    }
+
+    void IRHIResource::LockResourceArray()
+    {
+        FRHIResourceList::Get().Lock();
+    }
+
+    void IRHIResource::UnlockResourceArray()
+    {
+        FRHIResourceList::Get().Unlock();
     }
 
     const TFixedVector<IRHIResource*, 400>& IRHIResource::GetAllRHIResources()

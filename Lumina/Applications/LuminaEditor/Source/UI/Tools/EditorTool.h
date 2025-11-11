@@ -128,7 +128,9 @@ namespace Lumina
 
         bool BeginViewportToolbarGroup(char const* GroupID, ImVec2 GroupSize, const ImVec2& Padding);
         void EndViewportToolbarGroup();
-        
+
+        /** Is this editor tool for editing assets? */
+        virtual bool IsAssetEditorTool() const { return false; }
         
         /** Can there only ever be one of this tool? */
         virtual bool IsSingleton() const { return HasFlag(EEditorToolFlags::Tool_Singleton); }

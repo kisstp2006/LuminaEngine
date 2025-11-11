@@ -27,7 +27,7 @@ namespace Lumina
         Entity DirectionalLightEntity = World->ConstructEntity("Directional Light");
         DirectionalLightEntity.Emplace<SDirectionalLightComponent>();
         DirectionalLightEntity.Emplace<SEnvironmentComponent>();
-
+        
         MeshEntity = World->ConstructEntity("MeshEntity");
         
         MeshEntity.Emplace<SStaticMeshComponent>().StaticMesh = Cast<CStaticMesh>(InAsset);

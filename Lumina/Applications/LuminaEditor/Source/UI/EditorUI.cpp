@@ -1919,13 +1919,19 @@ namespace Lumina
     {
         ImGui::SameLine();
 
-        const TInlineString<100> PerfStats(TInlineString<100>::CtorSprintf(), "FPS: %3.0f / %.2f ms", UpdateContext.GetFPS(), UpdateContext.GetDeltaTime() * 1000.0f);
+        // Exponential moving average: smoothed = lerp(smoothed, current, factor)
+        float CurrentFPS = UpdateContext.GetFPS();
+        float CurrentFrameTime = UpdateContext.GetDeltaTime() * 1000.0f;
+        
+        SmoothedFPS = SmoothedFPS + (CurrentFPS - SmoothedFPS) * FPSSmoothingFactor;
+        SmoothedFrameTime = SmoothedFrameTime + (CurrentFrameTime - SmoothedFrameTime) * FPSSmoothingFactor;
+
+        const TInlineString<100> PerfStats(TInlineString<100>::CtorSprintf(), "FPS: %3.0f / %.2f ms", SmoothedFPS, SmoothedFrameTime);
         ImGui::TextUnformatted(PerfStats.c_str());
 
         ImGui::SameLine();
 
-        int32 CObjectCount = GObjectArray.GetNumAliveObjects();
-        const TInlineString<100> ObjectStats(TInlineString<100>::CtorSprintf(), "CObjects: %i", CObjectCount);
+        const TInlineString<100> ObjectStats(TInlineString<100>::CtorSprintf(), "CObjects: %i", GObjectArray.GetNumAliveObjects());
         ImGui::TextUnformatted(ObjectStats.c_str());
     }
 

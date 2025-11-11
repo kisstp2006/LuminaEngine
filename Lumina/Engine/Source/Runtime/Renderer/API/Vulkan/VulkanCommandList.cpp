@@ -166,8 +166,8 @@ namespace Lumina
         BlitInfo.dstImageLayout         = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
         BlitInfo.filter                 = VK_FILTER_LINEAR;
 
-        VkImageBlit2 BlitRegion = {};
-        BlitRegion.sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2;
+        VkImageBlit2 BlitRegion                     = {};
+        BlitRegion.sType                            = VK_STRUCTURE_TYPE_IMAGE_BLIT_2;
     
         // Source Image
         BlitRegion.srcSubresource.aspectMask        = VulkanImageSrc->GetFullAspectMask();
@@ -190,7 +190,6 @@ namespace Lumina
 
         CommandListStats.NumBlitCommands++;
         vkCmdBlitImage2(CurrentCommandBuffer->CommandBuffer, &BlitInfo);
-
     }
 
     void FVulkanCommandList::CopyImage(FRHIImage* Src, const FTextureSlice& SrcSlice, FRHIStagingImage* Dst, const FTextureSlice& DstSlice)

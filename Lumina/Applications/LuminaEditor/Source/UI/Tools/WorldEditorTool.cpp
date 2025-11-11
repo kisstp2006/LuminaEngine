@@ -789,6 +789,11 @@ namespace Lumina
         });
     }
 
+    bool FWorldEditorTool::IsAssetEditorTool() const
+    {
+        return World->GetPackage() != nullptr;
+    }
+
     void FWorldEditorTool::NotifyPlayInEditorStart()
     {
         bGamePreviewRunning = true;

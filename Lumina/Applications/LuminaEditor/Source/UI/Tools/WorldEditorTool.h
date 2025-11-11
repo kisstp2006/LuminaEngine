@@ -113,7 +113,7 @@ namespace Lumina
         void PushAddComponentModal(const Entity& Entity);
         void PushRenameEntityModal(Entity Ent);
 
-        
+        bool IsAssetEditorTool() const override;
         FOnGamePreview& GetOnPreviewStartRequestedDelegate() { return OnGamePreviewStartRequested; }
         FOnGamePreview& GetOnPreviewStopRequestedDelegate() { return OnGamePreviewStopRequested; }
 

@@ -73,12 +73,15 @@ namespace Lumina
             OnNew();
         }
 
-        if (ImGui::MenuItem(LE_ICON_CONTENT_SAVE"##Save"))
+        if (IsAssetEditorTool())
         {
-            Task::AsyncTask(1, 1, [this](uint32, uint32, uint32)
+            if (ImGui::MenuItem(LE_ICON_CONTENT_SAVE"##Save"))
             {
-                OnSave();
-            });
+                Task::AsyncTask(1, 1, [this](uint32, uint32, uint32)
+                {
+                    OnSave();
+                });
+            }
         }
 
         ImGui::BeginDisabled();

@@ -138,7 +138,7 @@ namespace Lumina
                 }
                 else
                 {
-                    if (CPackage* Package = FindObject<CPackage>(nullptr, ContentItem->GetAssetData().PackageName))
+                    if (CPackage* Package =ContentItem->GetPackage())
                     {
                         if (Package->GetPackageThumbnail()->LoadedImage)
                         {
@@ -222,27 +222,6 @@ namespace Lumina
         ContentBrowserTileViewContext.DrawItemContextMenuFunction = [this] (const TVector<FTileViewItem*>& Items)
         {
             bool bMultipleItems = Items.size() > 1;
-            bool bAllDirectories = true;
-            bool bAllAssets = true;
-            bool bHasRedirectors = false;
-            
-            // Analyze selection
-            for (FTileViewItem* Item : Items)
-            {
-                FContentBrowserTileViewItem* ContentItem = static_cast<FContentBrowserTileViewItem*>(Item);
-                if (ContentItem->IsDirectory())
-                {
-                    bAllAssets = false;
-                }
-                else
-                {
-                    bAllDirectories = false;
-                    if (ContentItem->GetAssetData().IsRedirector())
-                    {
-                        bHasRedirectors = true;
-                    }
-                }
-            }
             
             for (FTileViewItem* Item : Items)
             {

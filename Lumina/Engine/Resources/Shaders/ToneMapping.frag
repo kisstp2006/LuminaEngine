@@ -25,5 +25,7 @@ void main()
 
 	vec3 toneMappedColor = ACESFilm(hdrColor);
 
+	toneMappedColor = pow(toneMappedColor, vec3(1.0 / 2.2));
+
 	oFragColor = vec4(toneMappedColor, 1.0);
 }

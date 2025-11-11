@@ -34,6 +34,7 @@ namespace Lumina
         virtual void OnAssetLoadFinished() { }
         void OnSave() override;
 
+        bool IsAssetEditorTool() const override;
         FPropertyTable* GetPropertyTable() { return &PropertyTable; }
         
     protected:

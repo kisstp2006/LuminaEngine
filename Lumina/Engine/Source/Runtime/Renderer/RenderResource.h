@@ -258,6 +258,8 @@ namespace Lumina
     	IRHIResource& operator=(const IRHIResource&&) = delete;
 
     	static void ReleaseAllRHIResources();
+    	static void LockResourceArray();
+    	static void UnlockResourceArray();
     	static const TFixedVector<IRHIResource*, 400>& GetAllRHIResources();
     	static uint32 GetNumberRHIResources();
     	

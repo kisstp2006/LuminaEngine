@@ -103,12 +103,17 @@ namespace Lumina
 
     void CMesh::GenerateGPUBuffers()
     {
-        auto Info = FCommandListInfo::Graphics();
-        Info.UploadChunkSize = 10'024;
-        FRHICommandListRef CommandList = GRenderContext->CreateCommandList(Info);
+        FRHICommandListRef CommandList = GRenderContext->CreateCommandList(FCommandListInfo::Graphics());
         CommandList->Open();
-        
-        MeshResources->MeshBuffers.VertexBuffer = FRHITypedVertexBuffer<FVertex>::Create(CommandList, MeshResources->Vertices.data(), MeshResources->Vertices.size());
+
+        FRHIBufferDesc VertexBufferDesc;
+        VertexBufferDesc.Size = sizeof(FVertex) * MeshResources->Vertices.size();
+        VertexBufferDesc.Usage.SetMultipleFlags(BUF_VertexBuffer);
+        VertexBufferDesc.DebugName = GetName().ToString() + "Vertex Buffer";
+        MeshResources->MeshBuffers.VertexBuffer = GRenderContext->CreateBuffer(VertexBufferDesc);
+
+        CommandList->BeginTrackingBufferState(MeshResources->MeshBuffers.VertexBuffer, EResourceStates::CopyDest);
+        CommandList->WriteBuffer(MeshResources->MeshBuffers.VertexBuffer, MeshResources->Vertices.data(), 0, MeshResources->Vertices.size() * sizeof(FVertex));
         CommandList->SetPermanentBufferState(MeshResources->MeshBuffers.VertexBuffer, EResourceStates::VertexBuffer);
         
 

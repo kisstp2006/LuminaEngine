@@ -2,16 +2,14 @@
 #include "Core/Object/ObjectMacros.h"
 #include "Core/Object/Object.h"
 #include "Core/Object/ObjectHandleTyped.h"
+#include "Core/Threading/Atomic.h"
 #include "ThumbnailManager.generated.h"
-#include "Memory/SmartPtr.h"
-#include "Renderer/RHIFwd.h"
 
 namespace Lumina
 {
     struct FPackageThumbnail;
     class CStaticMesh;
 }
-
 
 namespace Lumina
 {
@@ -28,8 +26,7 @@ namespace Lumina
         static CThumbnailManager& Get();
 
         void GetOrLoadThumbnailsForPackage(const FString& PackagePath);
-
-
+        
         LUM_PROPERTY(NotSerialized)
         TObjectPtr<CStaticMesh> CubeMesh;
 
@@ -39,7 +36,7 @@ namespace Lumina
         LUM_PROPERTY(NotSerialized)
         TObjectPtr<CStaticMesh> PlaneMesh;
         
-        static CThumbnailManager* ThumbnailManagerSingleton;
+        static TAtomic<CThumbnailManager*> ThumbnailManagerSingleton;
         
     };
 }

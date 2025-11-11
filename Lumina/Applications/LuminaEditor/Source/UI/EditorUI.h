@@ -84,6 +84,7 @@ namespace Lumina
     private:
 
         FUITransactionManager                           TransactionManager;
+        FEditorModalManager                             ModalManager;
             
         ImGuiX::ApplicationTitleBar                     TitleBar;
         ImGuiWindowClass                                EditorWindowClass;
@@ -98,17 +99,19 @@ namespace Lumina
         FString                                         FocusTargetWindowName; // If this is set we need to switch focus to this window
 
         THashMap<CObject*, FEditorTool*>                ActiveAssetTools;
+        TQueue<FEditorTool*>                            ToolsPendingAdd;
+        TQueue<FEditorTool*>                            ToolsPendingDestroy;
         
-        FEditorModalManager                             ModalManager;
         bool                                            bShowLuminaInfo = false;
         bool                                            bShowDearImGuiDemoWindow = false;
         bool                                            bShowImPlotDemoWindow = false;
         bool                                            bShowObjectDebug = false;
         bool                                            bShowRenderDebug = false;
 
-        TQueue<FEditorTool*>                            ToolsPendingAdd;
-        TQueue<FEditorTool*>                            ToolsPendingDestroy;
-        
+        float                                           SmoothedFPS = 60.0f;
+        float                                           SmoothedFrameTime = 16.67f;
+        static constexpr float                          FPSSmoothingFactor = 0.001f;
+        static constexpr float                          ObjectSmoothingFactor = 0.05f;
     };
 
     template <typename T, typename ... Args>

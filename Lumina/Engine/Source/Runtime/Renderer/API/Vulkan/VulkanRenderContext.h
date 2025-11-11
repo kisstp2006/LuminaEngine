@@ -61,8 +61,11 @@ namespace Lumina
         
         FQueue(FVulkanRenderContext* InRenderContext, VkQueue InQueue, uint32 InQueueFamilyIndex, ECommandQueue InType);
         ~FQueue() override;
-        
-        /** Free threaded */
+
+        /**
+         * @threadsafety - Called from ICommandList::Open, so free-threaded.
+         * @return A valid command buffer to use.
+         */
         TRefCountPtr<FTrackedCommandBuffer> GetOrCreateCommandBuffer();
 
         void RetireCommandBuffers();
@@ -76,7 +79,7 @@ namespace Lumina
         bool WaitCommandList(uint64 CommandListID, uint64 Timeout);
         
         void AddSignalSemaphore(VkSemaphore Semaphore, uint64 Value);
-        void AddWaitSemaphore(VkSemaphore Semaphore, uint64 Value);
+        void AddWaitSemaphore(VkSemaphore Semaphore, uint64 Value, VkPipelineStageFlags Stage);
 
         void Lock();
         void Unlock();
@@ -85,10 +88,11 @@ namespace Lumina
         uint64                              LastSubmittedID = 0;
         uint64                              LastFinishedID = 0;
         
-        TFixedVector<VkSemaphore, 4>        WaitSemaphores;
-        TFixedVector<uint64, 4>             WaitSemaphoreValues;
-        TFixedVector<VkSemaphore, 4>        SignalSemaphores;
-        TFixedVector<uint64, 4>             SignalSemaphoreValues;
+        TFixedVector<VkSemaphore, 4>            WaitSemaphores;
+        TFixedVector<uint64, 4>                 WaitSemaphoreValues;
+        TFixedVector<VkPipelineStageFlags, 4>   WaitStageFlags;
+        TFixedVector<VkSemaphore, 4>            SignalSemaphores;
+        TFixedVector<uint64, 4>                 SignalSemaphoreValues;
 
         ECommandQueue               Type;
         TracyLockable(FMutex,       Mutex);

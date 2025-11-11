@@ -13,7 +13,7 @@
 namespace Lumina
 {
 
-    CThumbnailManager* CThumbnailManager::ThumbnailManagerSingleton = nullptr;
+    TAtomic<CThumbnailManager*> CThumbnailManager::ThumbnailManagerSingleton = nullptr;
 
     CThumbnailManager::CThumbnailManager()
     {
@@ -32,7 +32,7 @@ namespace Lumina
             Surface.MaterialIndex = 0;
             Resource->GeometrySurfaces.push_back(Surface);
 
-            CubeMesh = NewObject<CStaticMesh>();
+            CubeMesh = NewObject<CStaticMesh>(nullptr, "ThumbnailCubeMesh", OF_Transient);
             CubeMesh->Materials.resize(1);
             CubeMesh->SetMeshResource(eastl::move(Resource));
         }
@@ -48,7 +48,7 @@ namespace Lumina
             Surface.MaterialIndex = 0;
             Resource->GeometrySurfaces.push_back(Surface);
 
-            SphereMesh = NewObject<CStaticMesh>();
+            SphereMesh = NewObject<CStaticMesh>(nullptr, "ThumbnailSphereMesh", OF_Transient);
             SphereMesh->Materials.resize(1);
             SphereMesh->SetMeshResource(eastl::move(Resource));
         }
@@ -64,7 +64,7 @@ namespace Lumina
             Surface.MaterialIndex = 0;
             Resource->GeometrySurfaces.push_back(Surface);
 
-            PlaneMesh = NewObject<CStaticMesh>();
+            PlaneMesh = NewObject<CStaticMesh>(nullptr, "ThumbnailPlaneMesh", OF_Transient);
             PlaneMesh->Materials.resize(1);
             PlaneMesh->SetMeshResource(eastl::move(Resource));
         }
@@ -72,13 +72,23 @@ namespace Lumina
 
     CThumbnailManager& CThumbnailManager::Get()
     {
-        if (ThumbnailManagerSingleton == nullptr)
+        CThumbnailManager* Manager = ThumbnailManagerSingleton.load(eastl::memory_order_acquire);
+        if (Manager == nullptr)
         {
-            ThumbnailManagerSingleton = NewObject<CThumbnailManager>();
-            ThumbnailManagerSingleton->Initialize();
+            CThumbnailManager* NewManager = NewObject<CThumbnailManager>();
+            NewManager->Initialize();
+
+            CThumbnailManager* Expected = nullptr;
+            if (!ThumbnailManagerSingleton.compare_exchange_strong(Expected, NewManager, eastl::memory_order_release, eastl::memory_order_relaxed))
+            {
+                // Another thread beat us.
+                NewManager->ConditionalBeginDestroy();
+            }
+
+            Manager = ThumbnailManagerSingleton.load(eastl::memory_order_acquire);
         }
-        
-        return *ThumbnailManagerSingleton;
+
+        return *Manager;
     }
 
     void CThumbnailManager::GetOrLoadThumbnailsForPackage(const FString& PackagePath)
