@@ -329,6 +329,7 @@ namespace Lumina
 		VmaAllocator Allocator = VulkanRenderContext->GetDevice()->GetAllocator()->GetVMA();
 
 		ImGui::BeginChild("ContentArea");
+		
 
 		if (selectedTab == 0)
 		{
@@ -557,16 +558,11 @@ namespace Lumina
 		THashMap<ERHIResourceType, TVector<IRHIResource*>> ResourceMap;
 		ResourceMap.reserve(RRT_Num);
 
-		IRHIResource::LockResourceArray();
-		for (IRHIResource* Resource : IRHIResource::GetAllRHIResources())
+		FRHIResourceList::ForEach([&](IRHIResource* Resource)
 		{
-			if (Resource != nullptr)
-			{
-				ResourceMap[Resource->GetResourceType()].push_back(Resource);
-			}
-		}
-		IRHIResource::UnlockResourceArray();
-	
+			ResourceMap[Resource->GetResourceType()].push_back(Resource);
+		});
+		
 		ImGui::Text("Total Resources: %u", IRHIResource::GetNumberRHIResources());
 		ImGui::Spacing();
 	
@@ -769,13 +765,10 @@ namespace Lumina
 		THashMap<ERHIResourceType, TVector<IRHIResource*>> ResourceMap;
 		ResourceMap.reserve(RRT_Num);
 		
-		for (IRHIResource* Resource : IRHIResource::GetAllRHIResources())
+		FRHIResourceList::ForEach([&](IRHIResource* Resource)
 		{
-			if (Resource != nullptr)
-			{
-				ResourceMap[Resource->GetResourceType()].push_back(Resource);
-			}
-		}
+			ResourceMap[Resource->GetResourceType()].push_back(Resource);
+		});
 		
 		// Resource count history
 		static ImVector<ImVector<float>> resourceHistory;

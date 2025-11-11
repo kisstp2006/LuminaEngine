@@ -242,9 +242,45 @@ namespace Lumina
 		constexpr FDrawIndexedIndirectArguments& SetBaseVertexLocation(int32 value) { BaseVertexLocation = value; return *this; }
 		constexpr FDrawIndexedIndirectArguments& SetStartInstanceLocation(uint32 value) { StartInstanceLocation = value; return *this; }
 	};
-	
-	
-    class LUMINA_API IRHIResource
+
+	class LUMINA_API FRHIResourceList
+	{
+	public:
+
+		friend class IRHIResource;
+		
+		void Track(IRHIResource* Resource);
+
+		void Untrack(IRHIResource* Resource);
+
+		void Clear();
+
+		template<typename TCallable>
+		requires(eastl::is_invocable_v<TCallable, IRHIResource*>)
+		static void ForEach(TCallable&& Callable)
+		{
+			FRHIResourceList& List = Get();
+			
+			FScopeLock Lock(List.Mutex);
+			for (IRHIResource* Resource : List.ResourceList)
+			{
+				std::forward<TCallable>(Callable)(Resource);
+			}
+		}
+		
+	private:
+
+		static FRHIResourceList& Get();
+
+		FMutex Mutex;
+		TFixedHashSet<IRHIResource*, 1> ResourceList;
+	};
+
+	/**
+	 * Global RHI resource, is free-threaded and atomically ref counted and deleted.
+	 * It is not promised to be owned by a single thread, nor is it promised to be deleted on a single thread.
+	 */
+	class LUMINA_API IRHIResource
     {
     public:
 
@@ -257,11 +293,11 @@ namespace Lumina
     	IRHIResource& operator=(const IRHIResource&) = delete;
     	IRHIResource& operator=(const IRHIResource&&) = delete;
 
+    	static void BeginTrackingResource(IRHIResource* InResource);
+    	static void EndTrackingResource(IRHIResource* InResource);
     	static void ReleaseAllRHIResources();
-    	static void LockResourceArray();
-    	static void UnlockResourceArray();
-    	static const TFixedVector<IRHIResource*, 400>& GetAllRHIResources();
     	static uint32 GetNumberRHIResources();
+    	
     	
     	template<typename T, EAPIResourceType Type = EAPIResourceType::Default>
 		T GetAPI()
@@ -275,9 +311,7 @@ namespace Lumina
     		void* Resource = GetAPIResourceImpl(Type);
     		return Resource;
     	}
-
-    	int32 GetListIndex() const { return ListIndex; }
-    	
+    
     protected:
 
     	virtual void* GetAPIResourceImpl(EAPIResourceType Type) { return nullptr; }
@@ -311,25 +345,22 @@ namespace Lumina
         
     	uint32 GetRefCount() const
     	{
-    		return RefCount.load(eastl::memory_order_relaxed);
+    		return RefCount.load(eastl::memory_order_acquire);
     	}
 
     	bool IsValid() const
     	{
-    		return RefCount.load(eastl::memory_order_relaxed) > 0;
+    		return RefCount.load(eastl::memory_order_acquire) > 0;
     	}
 
     	void Delete()
     	{
     		Memory::Delete(this);
     	}
-    
-    
+	
     private:
 
     	mutable eastl::atomic<uint32> RefCount = 0;
-    	
-		int32 ListIndex = INDEX_NONE;
     };
 	
 	//-------------------------------------------------------------------------------------------------------------------

@@ -1,17 +1,22 @@
 #pragma once
 
 #include <mutex>
+#include <shared_mutex>
+
 #include "Module/API.h"
 #include "Platform/GenericPlatform.h"
 
 
 namespace Lumina
 {
-    using FThread =             std::thread;
-    using FMutex =              std::mutex;
-    using FRecursiveMutex =     std::recursive_mutex;
-    using FScopeLock =          std::scoped_lock<FMutex>;
-    using FRecursiveScopeLock = std::lock_guard<FRecursiveMutex>;
+    using FThread               = std::thread;
+    using FSharedMutex          = std::shared_mutex;
+    using FMutex                = std::mutex;
+    using FRecursiveMutex       = std::recursive_mutex;
+    using FScopeLock            = std::scoped_lock<FMutex>;
+    using FReadScopeLock        = std::shared_lock<FSharedMutex>;
+    using FWriteScopeLock       = std::unique_lock<FSharedMutex>;
+    using FRecursiveScopeLock   = std::lock_guard<FRecursiveMutex>;
 
     namespace Threading
     {

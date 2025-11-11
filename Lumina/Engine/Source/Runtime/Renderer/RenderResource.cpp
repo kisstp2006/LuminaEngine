@@ -26,93 +26,50 @@ namespace Lumina
     template class LUMINA_API TRefCountPtr<IRHIInputLayout>;
     template class LUMINA_API TRefCountPtr<FShaderLibrary>;
     template class LUMINA_API TRefCountPtr<FRHIDescriptorTable>;
-    	
-    class LUMINA_API FRHIResourceList
+
+
+    void FRHIResourceList::Track(IRHIResource* Resource)
     {
-    public:
+        FScopeLock Lock(Mutex);
+        ResourceList.emplace(Resource);
+    }
 
-        static FRHIResourceList& Get()
-        {
-            static FRHIResourceList Instance;
-            return Instance;
-        }
+    void FRHIResourceList::Untrack(IRHIResource* Resource)
+    {
+        FScopeLock Lock(Mutex);
+        ResourceList.erase(Resource);
+    }
 
-        void Lock()
-        {
-            Mutex.lock();
-        }
+    void FRHIResourceList::Clear()
+    {
+        FScopeLock Lock(Mutex);
+        ResourceList.clear();
+    }
 
-        void Unlock()
-        {
-            Mutex.unlock();
-        }
+    FRHIResourceList& FRHIResourceList::Get()
+    {
+        static FRHIResourceList Instance;
+        return Instance;
+    }
 
-        int32 Allocate(IRHIResource* Resource)
-        {
-            int32 Index;
-            if (FreeList.try_dequeue(Index))
-            {
-                ResourceList[Index] = Resource;
-
-            }
-            else
-            {
-                Index = (int32)ResourceList.size();
-                ResourceList.emplace_back(Resource);
-            }
-
-            TotalRenderResourcesAllocated.fetch_add(1, eastl::memory_order_relaxed);
-            return Index;
-        }
-
-        void Deallocate(int32 Index)
-        {
-            TotalRenderResourcesAllocated.fetch_sub(1, eastl::memory_order_relaxed);
-            FreeList.enqueue(Index);
-            ResourceList[Index] = nullptr;
-        }
-
-        void Clear()
-        {
-            FScopeLock Lock(Mutex);
-            uint64 Index;
-            while (!FreeList.try_dequeue(Index))
-            {
-            }
-            ResourceList.clear();
-            TotalRenderResourcesAllocated.exchange(0, eastl::memory_order_acquire);
-        }
-
-        template<typename FunctionType>
-	    void ForEachReverse(const FunctionType& Function)
-	    {
-	    	FScopeLock Lock(Mutex);
-	    	for (int32 Index = (int32)ResourceList.size() - 1; Index >= 0; --Index)
-	    	{
-                if (IRHIResource* Resource = ResourceList[Index])
-	    		{
-	    			Assert(Resource->GetListIndex() == Index)
-	    			Function(Resource);
-	    		}
-	    	}
-	    }
-        
-        FMutex Mutex;
-        TConcurrentQueue<int32> FreeList;
-        TFixedVector<IRHIResource*, 400> ResourceList;
-        eastl::atomic<uint32> TotalRenderResourcesAllocated {0};
-    };
-
-    
     IRHIResource::IRHIResource()
     {
-        ListIndex = FRHIResourceList::Get().Allocate(this);
+        BeginTrackingResource(this);
     }
 
     IRHIResource::~IRHIResource()
     {
-        FRHIResourceList::Get().Deallocate(ListIndex);
-        ListIndex = INDEX_NONE;
+        EndTrackingResource(this);
+    }
+
+    void IRHIResource::BeginTrackingResource(IRHIResource* InResource)
+    {
+        FRHIResourceList::Get().Track(InResource);
+    }
+
+    void IRHIResource::EndTrackingResource(IRHIResource* InResource)
+    {
+        FRHIResourceList::Get().Untrack(InResource);
     }
 
     void IRHIResource::ReleaseAllRHIResources()
@@ -121,46 +78,21 @@ namespace Lumina
 
         {
             FScopeLock Lock(FRHIResourceList::Get().Mutex);
-            ResourcesSnapshot.reserve(FRHIResourceList::Get().ResourceList.size());
-
-            for (IRHIResource* Resource : FRHIResourceList::Get().ResourceList)
-            {
-                if (Resource)
-                {
-                    ResourcesSnapshot.push_back(Resource);
-                }
-            }
-        } 
+            ResourcesSnapshot.assign(FRHIResourceList::Get().ResourceList.begin(), FRHIResourceList::Get().ResourceList.end());
+        }
 
         for (IRHIResource* Resource : ResourcesSnapshot)
         {
-            if (Resource && Resource->GetListIndex() != INDEX_NONE)
-            {
-                Resource->Delete();
-            }
+            Resource->Delete();
         }
 
-        FRHIResourceList::Get().Clear();
+        LUM_ASSERT(FRHIResourceList::Get().ResourceList.empty())
     }
-
-    void IRHIResource::LockResourceArray()
-    {
-        FRHIResourceList::Get().Lock();
-    }
-
-    void IRHIResource::UnlockResourceArray()
-    {
-        FRHIResourceList::Get().Unlock();
-    }
-
-    const TFixedVector<IRHIResource*, 400>& IRHIResource::GetAllRHIResources()
-    {
-        return FRHIResourceList::Get().ResourceList;
-    }
-
+    
     uint32 IRHIResource::GetNumberRHIResources()
     {
-        return FRHIResourceList::Get().TotalRenderResourcesAllocated.load(eastl::memory_order_acquire);
+        FScopeLock Lock(FRHIResourceList::Get().Mutex);
+        return (uint32)FRHIResourceList::Get().ResourceList.size();
     }
     
     void FRHIViewport::SetSize(const glm::uvec2& InSize)
