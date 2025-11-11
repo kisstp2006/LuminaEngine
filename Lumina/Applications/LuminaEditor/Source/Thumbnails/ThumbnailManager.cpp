@@ -72,20 +72,20 @@ namespace Lumina
 
     CThumbnailManager& CThumbnailManager::Get()
     {
-        CThumbnailManager* Manager = ThumbnailManagerSingleton.load(eastl::memory_order_acquire);
+        CThumbnailManager* Manager = ThumbnailManagerSingleton.load(Atomic::MemoryOrderAcquire);
         if (Manager == nullptr)
         {
             CThumbnailManager* NewManager = NewObject<CThumbnailManager>();
             NewManager->Initialize();
 
             CThumbnailManager* Expected = nullptr;
-            if (!ThumbnailManagerSingleton.compare_exchange_strong(Expected, NewManager, eastl::memory_order_release, eastl::memory_order_relaxed))
+            if (!ThumbnailManagerSingleton.compare_exchange_strong(Expected, NewManager, Atomic::MemoryOrderRelease, Atomic::MemoryOrderRelaxed))
             {
                 // Another thread beat us.
                 NewManager->ConditionalBeginDestroy();
             }
 
-            Manager = ThumbnailManagerSingleton.load(eastl::memory_order_acquire);
+            Manager = ThumbnailManagerSingleton.load(Atomic::MemoryOrderAcquire);
         }
 
         return *Manager;

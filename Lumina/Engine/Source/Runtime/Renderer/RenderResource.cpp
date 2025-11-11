@@ -68,7 +68,7 @@ namespace Lumina
         void Deallocate(int32 Index)
         {
             TotalRenderResourcesAllocated.fetch_sub(1, eastl::memory_order_relaxed);
-            FreeList.try_enqueue(Index);
+            FreeList.enqueue(Index);
             ResourceList[Index] = nullptr;
         }
 
