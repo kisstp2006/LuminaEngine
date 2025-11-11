@@ -1470,8 +1470,6 @@ namespace Lumina
             ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
             ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.1f, 0.1f, 0.12f, 1.0f));
             
-            //ImGui::BeginChild(("ComponentContent##" + FString(ComponentName)).c_str(), ImVec2(0, 300), true);
-
             // Remove button (if not required)
             if (!bIsRequired)
             {
@@ -1496,7 +1494,6 @@ namespace Lumina
             
             Table->DrawTree();
             
-            //ImGui::EndChild();
             
             ImGui::PopStyleColor();
             ImGui::PopStyleVar();

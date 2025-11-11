@@ -1000,9 +1000,13 @@ namespace Lumina
                 return;
             }
             
-            FRenderPassDesc::FAttachment RenderTarget; RenderTarget
-                .SetLoadOp(ERenderLoadOp::Load)
-                .SetImage(HDRRenderTarget);
+            FRenderPassDesc::FAttachment RenderTarget;
+            if (RenderSettings.bHasEnvironment)
+            {
+                RenderTarget.SetLoadOp(ERenderLoadOp::Load);
+            }
+            
+            RenderTarget.SetImage(HDRRenderTarget);
             
             FRenderPassDesc::FAttachment PickerImageAttachment; PickerImageAttachment
                 .SetImage(PickerImage);
