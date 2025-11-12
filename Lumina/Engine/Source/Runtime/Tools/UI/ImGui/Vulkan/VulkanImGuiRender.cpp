@@ -239,13 +239,6 @@ namespace Lumina
 				FRenderPassDesc RenderPass; RenderPass
 				.AddColorAttachment(Attachment)
 				.SetRenderArea(GEngine->GetEngineViewport()->GetRenderTarget()->GetExtent());
-			
-				for (FRHIImage* Image : ReferencedImages)
-				{
-					CmdList.SetImageState(Image, AllSubresources, EResourceStates::ShaderResource);
-				}
-			
-				CmdList.CommitBarriers();
 		
 				CmdList.BeginRenderPass(RenderPass);
 				{

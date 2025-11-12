@@ -29,90 +29,61 @@ namespace Lumina
         LUMINA_PROFILE_SCOPE();
         AllocateTransientResources();
 
-        if (Passes.size() > 1900) // Pretty much disabled for now because it's so much slower.
+        if (Passes.size() > 30)
         {
             Compile();
+
+            TFixedVector<ICommandList*, 30> AllCommandLists;
+            AllCommandLists.reserve(Passes.size());
             
-            struct CommandListBatch
-            {
-                ICommandList* CommandList = nullptr;
-                uint32 GroupIndex;
-                uint32 PassIndex;
-            };
-        
-            TVector<CommandListBatch> CommandListBatches;
-        
-            for (int i = 0; i < ParallelGroups.size(); ++i)
-            {
-                const FRGPassGroup& Group = ParallelGroups[i];
-            
-                if (Group.Passes.size() == 1)
-                {
-                    CommandListBatch Batch;
-                    Batch.GroupIndex = i;
-                    Batch.PassIndex = 0;
-                    CommandListBatches.push_back(Batch);
-                }
-                else
-                {
-                    for (uint32 PassIndex = 0; PassIndex < Group.Passes.size(); ++PassIndex)
-                    {
-                        CommandListBatch Batch;
-                        Batch.GroupIndex = i;
-                        Batch.PassIndex = PassIndex;
-                        CommandListBatches.push_back(Batch);
-                    }
-                }
-            }
-        
-            Task::ParallelFor(CommandListBatches.size(), 1, [&](uint32 Index)
-            {
-                FRHICommandListRef CommandList = GRenderContext->CreateCommandList(FCommandListInfo::Graphics());
-                CommandList->Open();
-                CommandListBatches[Index].CommandList = CommandList;
-            });
-        
-            uint32 BatchIndex = 0;
+            uint32 TotalOffset = 0;
+
             for (int i = 0; i < ParallelGroups.size(); ++i)
             {
                 LUMINA_PROFILE_SECTION("Render Graph Parallel Group");
-                
                 const FRGPassGroup& Group = ParallelGroups[i];
-            
-                if (Group.Passes.size() == 1)
+
+                uint32 GroupOffset = TotalOffset;
+                for (int j = 0; j < Group.Passes.size(); ++j)
                 {
-                    ICommandList* CommandList = CommandListBatches[BatchIndex].CommandList;
-                    Group.Passes[0]->Execute(*CommandList);
-                    BatchIndex++;
+                    AllCommandLists.push_back(nullptr);
+                }
+
+                if (Group.Passes.size() <= 2)
+                {
+                    for (int PassIndex = 0; PassIndex < Group.Passes.size(); ++PassIndex)
+                    {
+                        FRHICommandListRef CommandList = GRenderContext->CreateCommandList(FCommandListInfo::Graphics());
+                    
+                        CommandList->Open();
+                        FRGPassHandle Pass = Group.Passes[PassIndex];
+                        Pass->Execute(*CommandList);
+                        CommandList->Close();
+                    
+                        AllCommandLists[GroupOffset + PassIndex] = CommandList.GetReference();   
+                    }
                 }
                 else
                 {
-                    uint32 GroupBatchStart = BatchIndex;
                     Task::ParallelFor(Group.Passes.size(), 1, [&](uint32 PassIndex)
                     {
-                        ICommandList* CommandList = CommandListBatches[GroupBatchStart + PassIndex].CommandList;
-                        FRGPassHandle Pass = Group.Passes[PassIndex];
+                        FRHICommandListRef CommandList = GRenderContext->CreateCommandList(FCommandListInfo::Graphics());
                     
+                        CommandList->Open();
+                        FRGPassHandle Pass = Group.Passes[PassIndex];
                         Pass->Execute(*CommandList);
-                    }, ETaskPriority::High);
-                
-                    BatchIndex += Group.Passes.size();
+                        CommandList->Close();
+                    
+                        AllCommandLists[GroupOffset + PassIndex] = CommandList.GetReference();
+
+                    });
                 }
+                TotalOffset += Group.Passes.size();
+                
             }
-        
-            Task::ParallelFor(CommandListBatches.size(), 1, [&](uint32 Index)
-            {
-                CommandListBatches[Index].CommandList->Close();
-            });
-        
-            TVector<ICommandList*> FlatCommandLists;
-            FlatCommandLists.reserve(CommandListBatches.size());
-            for (const CommandListBatch& Batch : CommandListBatches)
-            {
-                FlatCommandLists.push_back(Batch.CommandList);
-            }
-        
-            GRenderContext->ExecuteCommandLists(FlatCommandLists.data(), (uint32)FlatCommandLists.size(), ECommandQueue::Graphics);
+
+            GRenderContext->ExecuteCommandLists(AllCommandLists.data(), AllCommandLists.size(), ECommandQueue::Graphics);
+
         }
         else
         {

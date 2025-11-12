@@ -72,7 +72,8 @@ namespace Lumina
         
         /** Submission must happen from a single thread at a time */
         uint64 Submit(ICommandList* const* CommandLists, uint32 NumCommandLists);
-
+        void SignalSemaphore(VkSemaphore SemaphoreToSignal) const;
+        
         void WaitIdle();
         uint64 UpdateLastFinishID();
         bool PollCommandList(uint64 CommandListID);
@@ -81,9 +82,7 @@ namespace Lumina
         void AddSignalSemaphore(VkSemaphore Semaphore, uint64 Value);
         void AddWaitSemaphore(VkSemaphore Semaphore, uint64 Value, VkPipelineStageFlags Stage);
 
-        void Lock();
-        void Unlock();
-
+        FVulkanRenderContext*               RenderContext;
         eastl::atomic<uint64>               LastRecordingID = 0;
         uint64                              LastSubmittedID = 0;
         uint64                              LastFinishedID = 0;
@@ -109,43 +108,14 @@ namespace Lumina
     {
     private:
 
-        THashMap<Threading::ThreadID, FRHICommandListRef> CommandLists;
-        FMutex Mutex;
+        TArray<TConcurrentQueue<FRHICommandListRef>, (uint32)ECommandQueue::Num> CommandLists;
 
     public:
-        FRHICommandListRef GetOrCreateCommandList(const FCommandListInfo& CommandListInfo = FCommandListInfo::Graphics());
+        FRHICommandListRef GetOrCreateCommandList(FVulkanRenderContext* RenderContext, const FCommandListInfo& CommandListInfo);
 
-        void CloseAll()
-        {
-            FScopeLock Lock(Mutex);
-            for (auto& [ID, CmdList] : CommandLists)
-            {
-                CmdList->Close();
-            }
-        }
-
-        TVector<ICommandList*> GetAllCommandLists()
-        {
-            TVector<ICommandList*> Result;
-            FScopeLock Lock(Mutex);
-            Result.reserve(CommandLists.size());
-            for (auto& [ID, CmdList] : CommandLists)
-            {
-                Result.push_back(CmdList);
-            }
-            return Result;
-        }
-
-        void Cleanup()
-        {
-            FScopeLock Lock(Mutex);
-            CommandLists.clear();
-        }
-
-        ~FCommandListManager()
-        {
-            Cleanup();
-        }
+        void Enqueue(ICommandList* RetiredCommandList);
+        void BulkEnqueue(ICommandList* const* RetiredCommandLists, uint32 Num, ECommandQueue QueueType);
+        void Cleanup();
     };
     
     class FVulkanRenderContext : public IRenderContext
@@ -166,7 +136,7 @@ namespace Lumina
         void CreateDevice(vkb::Instance Instance);
         
         bool FrameStart(const FUpdateContext& UpdateContext, uint8 InCurrentFrameIndex) override;
-        bool FrameEnd(const FUpdateContext& UpdateContext) override;
+        bool FrameEnd(const FUpdateContext& UpdateContext, FRenderGraph& RenderGraph) override;
 
         uint64 GetAllocatedMemory() const override;
         uint64 GetAvailableMemory() const override;
@@ -174,10 +144,9 @@ namespace Lumina
 
         NODISCARD FQueue* GetQueue(ECommandQueue Type) const { return Queues[(uint32)Type].get(); }
 
+        void ClearCommandListCache() override;
         NODISCARD FRHICommandListRef CreateCommandList(const FCommandListInfo& Info) override;
         uint64 ExecuteCommandLists(ICommandList* const* CommandLists, uint32 NumCommandLists, ECommandQueue QueueType) override;
-        NODISCARD FRHICommandListRef GetOrCreateCommandList(ECommandQueue Queue) override;
-        NODISCARD FRHICommandListRef GetImmediateCommandList() override;
         
         NODISCARD VkInstance GetVulkanInstance() const { return VulkanInstance; }
         NODISCARD FVulkanDevice* GetDevice() const { return VulkanDevice; }
@@ -188,9 +157,11 @@ namespace Lumina
         NODISCARD FRHIEventQueryRef CreateEventQuery() override;
         void SetEventQuery(IEventQuery* Query, ECommandQueue Queue) override;
         void ResetEventQuery(IEventQuery* Query) override;
-        void PollEventQuery(IEventQuery* Query) override;
+        bool PollEventQuery(IEventQuery* Query) override;
         void WaitEventQuery(IEventQuery* Query) override;
 
+        void AddCommandQueueWait(ECommandQueue Waiting, ECommandQueue WaitOn) override;
+        
         //-------------------------------------------------------------------------------------
 
         NODISCARD void* MapBuffer(FRHIBuffer* Buffer) override;
@@ -257,13 +228,12 @@ namespace Lumina
         THashMap<uint64, FRHIInputLayoutRef>                InputLayoutMap;
         FMutex                                              SamplerMutex;
         THashMap<uint64, FRHISamplerRef>                    SamplerMap;
-        
+
+        FCommandListManager                                 CommandListManager;
         FVulkanDescriptorCache                              DescriptorCache;
         FVulkanPipelineCache                                PipelineCache;
         FQueueArray                                         Queues;
         
-        FRHICommandListRef                                  ImmediateCommandList;
-
         VkInstance                                          VulkanInstance;
         
         FVulkanSwapchain*                                   Swapchain = nullptr;

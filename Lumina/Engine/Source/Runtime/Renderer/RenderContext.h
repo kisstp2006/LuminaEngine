@@ -3,17 +3,14 @@
 #include "RenderResource.h"
 #include "RenderTypes.h"
 #include "RHIFwd.h"
-#include "Shader.h"
 #include "Types/BitFlags.h"
 #include "Core/UpdateContext.h"
+#include "RenderGraph/RenderGraph.h"
+
 
 namespace Lumina
 {
     class IShaderCompiler;
-}
-
-namespace Lumina
-{
     struct FCommandListInfo;
     class ICommandList;
     struct FGPUBarrier;
@@ -40,7 +37,7 @@ namespace Lumina
 
 
         virtual bool FrameStart(const FUpdateContext& UpdateContext, uint8 InCurrentFrameIndex) = 0;
-        virtual bool FrameEnd(const FUpdateContext& UpdateContext) = 0;
+        virtual bool FrameEnd(const FUpdateContext& UpdateContext, FRenderGraph& RenderGraph) = 0;
         
 
         NODISCARD virtual uint64 GetAllocatedMemory() const = 0;
@@ -48,10 +45,9 @@ namespace Lumina
         
         //-------------------------------------------------------------------------------------
 
+        virtual void ClearCommandListCache() = 0;
         virtual FRHICommandListRef CreateCommandList(const FCommandListInfo& Info) = 0;
         virtual uint64 ExecuteCommandLists(ICommandList* const* CommandLists, uint32 NumCommandLists, ECommandQueue QueueType) = 0;
-        NODISCARD virtual FRHICommandListRef GetOrCreateCommandList(ECommandQueue Queue) = 0;
-        NODISCARD virtual FRHICommandListRef GetImmediateCommandList() = 0;
 
         //-------------------------------------------------------------------------------------
 
@@ -59,9 +55,10 @@ namespace Lumina
         virtual void SetEventQuery(IEventQuery* Query, ECommandQueue Queue) = 0;
         virtual void ResetEventQuery(IEventQuery* Query) = 0;
         virtual void WaitEventQuery(IEventQuery* Query) = 0;
-        virtual void PollEventQuery(IEventQuery* Query) = 0;
-        
+        virtual bool PollEventQuery(IEventQuery* Query) = 0;
 
+        virtual void AddCommandQueueWait(ECommandQueue Waiting, ECommandQueue WaitOn) = 0;
+        
         //-------------------------------------------------------------------------------------
 
         NODISCARD virtual void* MapBuffer(FRHIBuffer* Buffer) = 0;

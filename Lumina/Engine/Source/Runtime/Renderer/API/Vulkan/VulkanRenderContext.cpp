@@ -16,6 +16,7 @@
 #include "Renderer/CommandList.h"
 #include "Renderer/RHIStaticStates.h"
 #include "Renderer/ShaderCompiler.h"
+#include "Renderer/RenderGraph/RenderGraphDescriptor.h"
 #include "src/VkBootstrap.h"
 #include "TaskSystem/TaskSystem.h"
 
@@ -165,6 +166,7 @@ namespace Lumina
 
     FQueue::FQueue(FVulkanRenderContext* InRenderContext, VkQueue InQueue, uint32 InQueueFamilyIndex, ECommandQueue InType)
         : IDeviceChild(InRenderContext->GetDevice())
+        , RenderContext(InRenderContext)
         , Type(InType)
         , Queue(InQueue)
         , QueueFamilyIndex(InQueueFamilyIndex)
@@ -179,7 +181,7 @@ namespace Lumina
         CreateInfo.pNext = &TimelineInfo;
 
         VK_CHECK(vkCreateSemaphore(Device->GetDevice(), &CreateInfo, VK_ALLOC_CALLBACK, &TimelineSemaphore));
-        InRenderContext->SetVulkanObjectName("Timeline Semaphore", VK_OBJECT_TYPE_SEMAPHORE, (uintptr_t)TimelineSemaphore);
+        RenderContext->SetVulkanObjectName("Timeline Semaphore", VK_OBJECT_TYPE_SEMAPHORE, (uintptr_t)TimelineSemaphore);
     }
     
     FQueue::~FQueue()
@@ -219,11 +221,33 @@ namespace Lumina
 
             VkCommandBuffer Buffer;
             VK_CHECK(vkAllocateCommandBuffers(Device->GetDevice(), &BufferInfo, &Buffer));
-
             TrackedBuffer = MakeRefCount<FTrackedCommandBuffer>(Device, Buffer, CommandPool, this);
+            TrackedBuffer->RecordingID = RecodingID;
+
+#if LE_DEBUG
+            const char* QueueName = "\0";
+            // ReSharper disable once CppIncompleteSwitchStatement
+            switch (Type)
+            {
+            case ECommandQueue::Graphics:
+                QueueName = "Graphics";
+                break;
+            case ECommandQueue::Compute:
+                QueueName = "Compute";
+                break;
+            case ECommandQueue::Transfer:
+                QueueName = "Transfer";
+                break;
+            default:
+                break;
+            }
+            
+            FInlineString String;
+            String.sprintf("CommandBuffer: %s", QueueName);
+            RenderContext->SetVulkanObjectName(String.data(), VK_OBJECT_TYPE_COMMAND_BUFFER, (uintptr_t)Buffer);
+#endif
         }
 
-        TrackedBuffer->RecordingID = RecodingID;
         return TrackedBuffer;
     }
 
@@ -292,8 +316,7 @@ namespace Lumina
             TimelineSubmitInfo.waitSemaphoreValueCount = (uint32)WaitSemaphoreValues.size();
             TimelineSubmitInfo.pWaitSemaphoreValues = WaitSemaphoreValues.data();
         }
-
-
+        
         VkSubmitInfo SubmitInfo = {};
         SubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
         SubmitInfo.pNext = &TimelineSubmitInfo;
@@ -313,6 +336,18 @@ namespace Lumina
         SignalSemaphoreValues.clear();
 
         return LastSubmittedID;
+    }
+
+    void FQueue::SignalSemaphore(VkSemaphore SemaphoreToSignal) const
+    {
+        LUMINA_PROFILE_SCOPE();
+
+        VkSubmitInfo SubmitInfo = {};
+        SubmitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+        SubmitInfo.pSignalSemaphores = &SemaphoreToSignal;
+        SubmitInfo.signalSemaphoreCount = 1;
+        
+        VK_CHECK(vkQueueSubmit(Queue, 1, &SubmitInfo, nullptr));
     }
 
     void FQueue::WaitIdle()
@@ -388,16 +423,39 @@ namespace Lumina
         WaitStageFlags.push_back(Stage);
     }
 
-    void FQueue::Lock()
+    
+    FRHICommandListRef FCommandListManager::GetOrCreateCommandList(FVulkanRenderContext* RenderContext, const FCommandListInfo& CommandListInfo)
     {
-        Mutex.try_lock();
+        TConcurrentQueue<FRHICommandListRef>& CommandListPool = CommandLists[(uint32)CommandListInfo.CommandQueue];
+
+        FRHICommandListRef CommandList;
+        if (!CommandListPool.try_dequeue(CommandList))
+        {
+            CommandList = MakeRefCount<FVulkanCommandList>(RenderContext, CommandListInfo);
+        }
+
+        return CommandList;
     }
 
-    void FQueue::Unlock()
+    void FCommandListManager::Enqueue(ICommandList* RetiredCommandList)
     {
-        Mutex.unlock();
+        CommandLists[(uint32)RetiredCommandList->GetCommandListInfo().CommandQueue].enqueue(RetiredCommandList);
     }
 
+    void FCommandListManager::BulkEnqueue(ICommandList* const* RetiredCommandLists, uint32 Num, ECommandQueue QueueType)
+    {
+        CommandLists[(uint32)QueueType].enqueue_bulk(RetiredCommandLists, Num);
+    }
+
+    void FCommandListManager::Cleanup()
+    {
+        for (uint32 i = 0; i < (uint32)ECommandQueue::Num; ++i)
+        {
+            FRHICommandListRef Item;
+            while (CommandLists[i].try_dequeue(Item)) { }
+        }
+    }
+    
     FVulkanRenderContext::FVulkanRenderContext()
         : CurrentFrameIndex(0)
         , VulkanInstance(nullptr)
@@ -453,14 +511,9 @@ namespace Lumina
         DebugUtils.DebugUtilsObjectNameEXT      = (PFN_vkSetDebugUtilsObjectNameEXT)(vkGetInstanceProcAddr(VulkanInstance, "vkSetDebugUtilsObjectNameEXT"));
         DebugUtils.vkCmdDebugMarkerBeginEXT     = (PFN_vkCmdDebugMarkerBeginEXT)vkGetDeviceProcAddr(GetDevice()->GetDevice(), "vkCmdDebugMarkerBeginEXT");
         DebugUtils.vkCmdDebugMarkerEndEXT       = (PFN_vkCmdDebugMarkerEndEXT)vkGetDeviceProcAddr(GetDevice()->GetDevice(), "vkCmdDebugMarkerEndEXT");
-
-
-        ImmediateCommandList = CreateCommandList(FCommandListInfo::Graphics());
-
-
+        
         Swapchain = Memory::New<FVulkanSwapchain>();
         Swapchain->CreateSwapchain(VulkanInstance, this, Windowing::GetPrimaryWindowHandle(), Windowing::GetPrimaryWindowHandle()->GetExtent());
-
         
         ShaderLibrary = MakeRefCount<FShaderLibrary>();
         ShaderCompiler = Memory::New<FSpirVShaderCompiler>();
@@ -483,7 +536,6 @@ namespace Lumina
         ShaderCompiler->Shutdown();
         Memory::Delete(ShaderCompiler);
         
-        ImmediateCommandList.SafeRelease();
         ShaderLibrary.SafeRelease();
         PipelineCache.ReleasePipelines();
         DescriptorCache.ReleaseResources();
@@ -494,9 +546,10 @@ namespace Lumina
         {
             Queues[i].reset();
         }
-        
+
         SamplerMap.clear();
         InputLayoutMap.clear();
+        CommandListManager.Cleanup();
         FlushPendingDeletes();
         IRHIResource::ReleaseAllRHIResources();
 
@@ -538,16 +591,20 @@ namespace Lumina
         return bSuccess;
     }
 
-    bool FVulkanRenderContext::FrameEnd(const FUpdateContext& UpdateContext)
+    bool FVulkanRenderContext::FrameEnd(const FUpdateContext& UpdateContext, FRenderGraph& RenderGraph)
     {
         LUMINA_PROFILE_SCOPE();
 
-        ImmediateCommandList->Open();
-        ImmediateCommandList->CopyImage(GEngine->GetEngineViewport()->GetRenderTarget(), FTextureSlice(), Swapchain->GetCurrentImage(), FTextureSlice());
-        ImmediateCommandList->Close();
+        FRGPassDescriptor* Descriptor = RenderGraph.AllocDescriptor();
+        Descriptor->AddRawRead(GEngine->GetEngineViewport()->GetRenderTarget());
+        Descriptor->AddRawWrite(Swapchain->GetCurrentImage());
+        RenderGraph.AddPass<RG_Raster>(FRGEvent("Swapchain Copy"), Descriptor, [&](ICommandList& CmdList)
+        {
+            CmdList.CopyImage(GEngine->GetEngineViewport()->GetRenderTarget(), FTextureSlice(), Swapchain->GetCurrentImage(), FTextureSlice());
+        });
 
-        ExecuteCommandList(ImmediateCommandList);
-        
+        RenderGraph.Execute();
+
         bool bSuccess = Swapchain->Present();
         
         return bSuccess;
@@ -563,14 +620,14 @@ namespace Lumina
         return 0;
     }
 
+    void FVulkanRenderContext::ClearCommandListCache()
+    {
+        CommandListManager.Cleanup();
+    }
+
     FRHICommandListRef FVulkanRenderContext::CreateCommandList(const FCommandListInfo& Info)
     {
-        if (Queues[uint32(Info.CommandQueue)] == nullptr)
-        {
-            return nullptr;
-        }
-
-        return MakeRefCount<FVulkanCommandList>(this, Info);
+        return CommandListManager.GetOrCreateCommandList(this, Info);
     }
     
     uint64 FVulkanRenderContext::ExecuteCommandLists(ICommandList* const* CommandLists, uint32 NumCommandLists, ECommandQueue QueueType)
@@ -581,24 +638,28 @@ namespace Lumina
 
         uint64 SubmissionID = Queue->Submit(CommandLists, NumCommandLists);
 
-        for (uint32 i = 0; i < NumCommandLists; ++i)
+        if (NumCommandLists > 30)
         {
-            static_cast<FVulkanCommandList*>(CommandLists[i])->Executed(Queue.get(), SubmissionID);
+            Task::ParallelFor(NumCommandLists, 1, [&](uint32 Index)
+            {
+                FVulkanCommandList* CommandList = static_cast<FVulkanCommandList*>(CommandLists[Index]);
+                CommandList->Executed(Queue.get(), SubmissionID);   
+            });
         }
-
+        else
+        {
+            for (int i = 0; i < NumCommandLists; ++i)
+            {
+                FVulkanCommandList* CommandList = static_cast<FVulkanCommandList*>(CommandLists[i]);
+                CommandList->Executed(Queue.get(), SubmissionID);   
+            }
+        }
+        
+        CommandListManager.BulkEnqueue(CommandLists, NumCommandLists, QueueType);
+        
         return SubmissionID;
     }
-
-    NODISCARD FRHICommandListRef FVulkanRenderContext::GetOrCreateCommandList(ECommandQueue Queue)
-    {
-        return nullptr;
-    }
     
-    FRHICommandListRef FVulkanRenderContext::GetImmediateCommandList()
-    {
-        return ImmediateCommandList;
-    }
-
     void FVulkanRenderContext::CreateDevice(vkb::Instance Instance)
     {
         VkPhysicalDeviceFeatures DeviceFeatures = {};
@@ -1035,11 +1096,11 @@ namespace Lumina
         VkQuery->CommandListID = 0;
     }
 
-    void FVulkanRenderContext::PollEventQuery(IEventQuery* Query)
+    bool FVulkanRenderContext::PollEventQuery(IEventQuery* Query)
     {
         FVulkanEventQuery* VkQuery = static_cast<FVulkanEventQuery*>(Query);
         FQueue* Queue = GetQueue(VkQuery->Queue);
-        Queue->PollCommandList(VkQuery->CommandListID);
+        return Queue->PollCommandList(VkQuery->CommandListID);
     }
 
     void FVulkanRenderContext::WaitEventQuery(IEventQuery* Query)
@@ -1056,6 +1117,32 @@ namespace Lumina
         Assert(bSuccess)
         
         (void)bSuccess;
+    }
+
+    void FVulkanRenderContext::AddCommandQueueWait(ECommandQueue Waiting, ECommandQueue WaitOn)
+    {
+        FQueue* WaitingQueue = Queues[(uint32)Waiting].get();
+        FQueue* WaitOnQueue = Queues[(uint32)WaitOn].get();
+
+        VkPipelineStageFlags WaitStage = 0;
+    
+        if (Waiting == ECommandQueue::Graphics)
+        {
+            WaitStage = VK_PIPELINE_STAGE_VERTEX_SHADER_BIT | 
+                        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT |
+                        VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT |
+                        VK_PIPELINE_STAGE_TRANSFER_BIT;
+        }
+        else if (Waiting == ECommandQueue::Compute)
+        {
+            WaitStage = VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT;
+        }
+        else if (Waiting == ECommandQueue::Transfer)
+        {
+            WaitStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        }
+        
+        WaitingQueue->AddWaitSemaphore(WaitOnQueue->TimelineSemaphore, WaitOnQueue->LastSubmittedID, WaitStage);
     }
 
     void* FVulkanRenderContext::MapBuffer(FRHIBuffer* Buffer)
@@ -1183,24 +1270,5 @@ namespace Lumina
     FVulkanRenderContextFunctions& FVulkanRenderContext::GetDebugUtils()
     {
         return DebugUtils;
-    }
-
-
-    FRHICommandListRef FCommandListManager::GetOrCreateCommandList(const FCommandListInfo& CommandListInfo)
-    {
-        Threading::ThreadID ThreadID = Threading::GetThreadID();
-
-        FScopeLock Lock(Mutex);
-
-        auto It = CommandLists.find(ThreadID);
-        if (It != CommandLists.end())
-        {
-            return It->second;
-        }
-
-        FRHICommandListRef NewCmdList = GRenderContext->CreateCommandList(CommandListInfo);
-        NewCmdList->Open();
-        CommandLists.emplace(ThreadID, NewCmdList);
-        return NewCmdList;
     }
 }

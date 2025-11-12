@@ -399,6 +399,11 @@ namespace Lumina
         GetEntityRegistry().destroy(Entity);
     }
 
+    uint32 CWorld::GetNumEntities() const
+    {
+        return EntityWorld.Registry.view<entt::entity>().size<>();
+    }
+
     void CWorld::SetActiveCamera(Entity InEntity)
     {
         CameraManager->SetActiveCamera(InEntity);

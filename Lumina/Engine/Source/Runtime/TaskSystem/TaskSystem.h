@@ -108,69 +108,38 @@ namespace Lumina
 
             LUMINA_PROFILE_SECTION("Tasks::ParallelFor");
             ParallelTask Task = ParallelTask(std::forward<TFunc>(Func), Num, std::max(1u, MinRange));
+            if (Num == 1)
+            {
+                Task.ExecuteRange(TaskSetPartition{0, 1}, Threading::GetThreadID());
+                return;
+            }
+            
             Task.m_Priority = (enki::TaskPriority)Priority;
             ScheduleTask(&Task);
             WaitForTask(&Task);
         }
-
-        template<typename TBegin, typename TEnd, typename TFunc>
-        void ParallelFor(TBegin Begin, TEnd End, uint32 MinRange, TFunc&& Func, ETaskPriority Priority = ETaskPriority::Medium)
-        {
-            using IteratorType = decltype(Begin);
-
-            struct ParallelTask : ITaskSet
-            {
-                ParallelTask(TBegin b, TEnd e, TFunc f, uint32 InMinRange)
-                    : ITaskSet(static_cast<uint32_t>(eastl::distance(Begin, End)), InMinRange)
-                    , Begin(b), End(e), Func(eastl::move(f))
-                {
-                }
-
-                void ExecuteRange(TaskSetPartition range_, uint32) override
-                {                    
-                    IteratorType it = Begin;
-                    eastl::advance(it, range_.start);
-
-                    for (uint32 i = range_.start; i < range_.end; ++i, ++it)
-                    {
-                        Func(*it);
-                    }
-                }
-
-                TBegin Begin;
-                TEnd End;
-                TFunc Func;
-            };
-
-            LUMINA_PROFILE_SECTION("Tasks::ParallelFor");
-            ParallelTask task(Begin, End, std::forward<TFunc>(Func), std::max(1u, MinRange));
-            task.m_Priority = static_cast<enki::TaskPriority>(Priority);
-            ScheduleTask(&task);
-            WaitForTask(&task, Priority);
-        }
-
         
         LUMINA_API void ScheduleTask(ITaskSet* pTask)
         {
+            LUMINA_PROFILE_SECTION("Tasks::ScheduleTask");
             Scheduler.AddTaskSetToPipe(pTask);
         }
 
         LUMINA_API void ScheduleTask(IPinnedTask* pTask)
         {
+            LUMINA_PROFILE_SECTION("Tasks::ScheduleTask");
             Scheduler.AddPinnedTask(pTask);
         }
 
         LUMINA_API void WaitForTask(const ITaskSet* pTask, ETaskPriority Priority = ETaskPriority::Low)
         {
-            LUMINA_PROFILE_SCOPE();
-            
+            LUMINA_PROFILE_SECTION("Tasks::WaitForTask");
             Scheduler.WaitforTask(pTask, (enki::TaskPriority)Priority);
         }
 
         LUMINA_API void WaitForTask(const IPinnedTask* pTask)
         {
-            LUMINA_PROFILE_SCOPE();
-
+            LUMINA_PROFILE_SECTION("Tasks::WaitForTask");
             Scheduler.WaitforTask(pTask);
         }
     
@@ -186,29 +155,10 @@ namespace Lumina
         LUMINA_API FLambdaTask* AsyncTask(uint32 Num, uint32 MinRange, TaskSetFunction&& Function, ETaskPriority Priority = ETaskPriority::Medium);
 
         template<typename TIndex, typename TFunc>
+        requires(eastl::is_integral_v<TIndex>)
         void ParallelFor(TIndex Num, uint32 MinRange, TFunc&& Func, ETaskPriority Priority = ETaskPriority::Medium)
         {
             GTaskSystem->ParallelFor(static_cast<uint32>(Num), MinRange, std::forward<TFunc>(Func), Priority);
-        }
-
-        template<std::contiguous_iterator TBegin, std::contiguous_iterator TEnd, typename TFunc>
-        requires (!eastl::is_integral_v<eastl::decay_t<TBegin>>)
-        void ParallelFor(TBegin&& Begin, TEnd&& End, uint32 MinRange, TFunc&& Func, ETaskPriority Priority = ETaskPriority::Medium)
-        {
-            GTaskSystem->ParallelFor(std::forward<TBegin>(Begin), std::forward<TEnd>(End), MinRange, std::forward<TFunc>(Func), Priority);
-        }
-
-        template<typename T>
-        concept CTContiguousContainer = requires(T t)
-        {
-            { t.begin() } -> std::contiguous_iterator;
-            { t.end() }   -> std::contiguous_iterator;
-        };
-
-        template<CTContiguousContainer TContainer, typename TFunc>
-        void ParallelFor(TContainer&& Container, uint32 MinRange, TFunc&& Func, ETaskPriority Priority = ETaskPriority::Medium)
-        {
-            GTaskSystem->ParallelFor(std::forward<TContainer>(Container).begin(), std::forward<TContainer>(Container).end(), MinRange, std::forward<TFunc>(Func), Priority);
         }
     }
 }

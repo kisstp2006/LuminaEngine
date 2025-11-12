@@ -48,7 +48,7 @@ namespace Lumina
         bool                                    bNeedsResize = false;
         VkSurfaceKHR                            Surface = VK_NULL_HANDLE;
         VkFormat                                Format = VK_FORMAT_MAX_ENUM;
-        glm::uvec2                            SwapchainExtent;
+        glm::uvec2                              SwapchainExtent = {};
                                                 
         VkSwapchainKHR                          Swapchain = VK_NULL_HANDLE;
         VkSurfaceFormatKHR                      SurfaceFormat = {};
@@ -59,7 +59,7 @@ namespace Lumina
         TVector<VkSemaphore>                    AcquireSemaphores;
         FVulkanRenderContext*                   Context = nullptr;
 
-        TFixedVector<FRHIEventQueryRef, 4>      FramesInFlight;
+        TQueue<FRHIEventQueryRef>               FramesInFlight;
         TFixedVector<FRHIEventQueryRef, 4>      QueryPool;
     };
     

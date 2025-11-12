@@ -2,7 +2,7 @@
 
 #include <glm/glm.hpp>
 
-#include "Core/Math/Transform.h"
+#include "Containers/Array.h"
 #include "Platform/GenericPlatform.h"
 #include "Renderer/MeshData.h"
 #include "Renderer/RenderContext.h"
@@ -34,9 +34,8 @@ constexpr unsigned int ClusterGridSizeZ = 24;
 
 constexpr unsigned int NumClusters = ClusterGridSizeX * ClusterGridSizeY * ClusterGridSizeZ;
 
-constexpr int GShadowMapResolution      = 4096;
+constexpr int GCSMResolution            = 2048;
 constexpr int GShadowAtlasResolution    = 8192;
-constexpr int GShadowCubemapResolution  = 512;
 constexpr int GMaxPointLightShadows     = 100;
 
 namespace Lumina
@@ -99,7 +98,6 @@ namespace Lumina
     {
         glm::vec2 UVOffset;     // Normalized offset (0-1 range)
         glm::vec2 UVScale;      // Normalized scale (1.0 / TilesPerRow)
-        bool bInUse = false;
     };
     
     class FShadowAtlas
@@ -130,36 +128,43 @@ namespace Lumina
                     uint32 Index = y * Config.TilesPerRow() + x;
                     Tiles[Index].UVOffset = glm::vec2(x * Scale, y * Scale);
                     Tiles[Index].UVScale = glm::vec2(Scale, Scale);
+                    Free.push(Index);
                 }
             }
         }
     
         int32 AllocateTile()
         {
-            for (uint32 i = 0; i < Tiles.size(); ++i)
+            if (Free.empty())
             {
-                if (!Tiles[i].bInUse)
-                {
-                    Tiles[i].bInUse = true;
-                    return static_cast<int32>(i);
-                }
+                return INDEX_NONE;
             }
-            return INDEX_NONE; // Atlas full
+            
+            int32 TileIndex = Free.front();
+            Free.pop();
+            return TileIndex;
         }
     
         void FreeTile(int32 TileIndex)
         {
-            if (TileIndex >= 0 && TileIndex < Tiles.size())
+            if (TileIndex < 0 || TileIndex >= static_cast<int32>(Tiles.size()))
             {
-                Tiles[TileIndex].bInUse = false;
+                return;
             }
+        
+            Free.push(TileIndex);
         }
 
         void FreeTiles()
         {
-            for (FShadowTile& Tile : Tiles)
+            while (!Free.empty())
             {
-                Tile.bInUse = false;
+                Free.pop();
+            }
+            
+            for (uint32 i = 0; i < Tiles.size(); ++i)
+            {
+                Free.push(i);
             }
         }
         
@@ -171,6 +176,7 @@ namespace Lumina
         FRHIImageRef ShadowAtlas;
         FShadowAtlasConfig Config;
         TVector<FShadowTile> Tiles;
+        TQueue<int32> Free;
     };
     
 
@@ -185,7 +191,7 @@ namespace Lumina
     
     VERIFY_SSBO_ALIGNMENT(FLightShadow)
     
-    struct alignas(16) FLight
+    struct FLight
     {
         glm::vec3       Position;
         uint32          Color;
@@ -202,7 +208,7 @@ namespace Lumina
         uint32          Flags;
         float           Falloff;
 
-        FLightShadow    Shadow;
+        FLightShadow    Shadow[6];
     };
 
     static_assert(eastl::is_trivially_copyable_v<FLight>);
@@ -221,7 +227,7 @@ namespace Lumina
         uint32          Padding0[3] = {};
 
         glm::vec3       SunDirection;
-        bool            bHasSun;
+        uint32          bHasSun;
 
         glm::vec4       CascadeSplits;
 

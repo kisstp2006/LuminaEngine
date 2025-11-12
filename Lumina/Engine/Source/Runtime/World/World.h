@@ -78,7 +78,7 @@ namespace Lumina
         //LUM_DEPRECATED("0.0.1", "Access to the registry has been deprecated")
         const FEntityRegistry& GetEntityRegistry_Immutable() const { return EntityWorld.Registry; }
 
-        
+        uint32 GetNumEntities() const;
         void SetActiveCamera(Entity InEntity);
         SCameraComponent& GetActiveCamera();
         Entity GetActiveCameraEntity() const;

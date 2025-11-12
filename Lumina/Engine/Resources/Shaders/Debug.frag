@@ -3,10 +3,8 @@
 
 #include "Includes/SceneGlobals.glsl"
 
-layout(set = 1, binding = 0) uniform sampler2D uRenderTarget;
-layout(set = 1, binding = 1) uniform sampler2D uDepth;
-layout(set = 1, binding = 2) uniform sampler2D uSSAO;
-layout(set = 1, binding = 3) uniform sampler2D uShadowAtlas;
+layout(set = 1, binding = 0) uniform sampler2D uDepth;
+layout(set = 1, binding = 1) uniform sampler2D uShadowAtlas;
 
 
 layout(location = 0) in vec2 vUV;
@@ -32,12 +30,6 @@ layout(push_constant) uniform DebugInfo
 
 void main()
 {
-    if (Debug.DebugFlags == DEBUG_NONE)
-    {
-        OutFragColor = texture(uRenderTarget, vUV);
-        return;
-    }
-
     if (Debug.DebugFlags == DEBUG_POSITION)
     {
         float Depth = texture(uDepth, vUV).r;
@@ -46,13 +38,6 @@ void main()
         return;
     }
     
-    if (Debug.DebugFlags == DEBUG_SSAO)
-    {
-        float ssao = texture(uSSAO, vUV).r;
-        OutFragColor = vec4(vec3(ssao), 1.0);
-        return;
-    }
-
     if (Debug.DebugFlags == DEBUG_DEPTH)
     {
         float depth = texture(uDepth, vUV).r;

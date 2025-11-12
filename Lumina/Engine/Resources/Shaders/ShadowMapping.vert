@@ -11,19 +11,20 @@ layout(location = 1) out vec3 outLightPos;
 
 layout(push_constant) uniform PushConstants
 {
-    uint LightIndex;
+    uint Mask;
 } PC;
 
 void main()
 {
-    FLight Light = LightData.Lights[PC.LightIndex];
+    uint LightNum = PC.Mask >> 16;
+    uint FaceIndex = PC.Mask & 0xFFFF;
+    
+    FLight Light = LightData.Lights[LightNum];
     mat4 ModelMatrix = GetModelMatrix(gl_InstanceIndex);
     vec4 WorldPos = ModelMatrix * vec4(inPosition, 1.0);
     
     outWorldPos = WorldPos.xyz;
     outLightPos = Light.Position;
     
-    gl_ViewportIndex = gl_ViewIndex;
-    
-    gl_Position = Light.ViewProjection[gl_ViewIndex] * WorldPos;
+    gl_Position = Light.ViewProjection[FaceIndex] * WorldPos;
 }

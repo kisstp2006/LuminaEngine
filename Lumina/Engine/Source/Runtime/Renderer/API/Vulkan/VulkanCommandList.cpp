@@ -402,6 +402,7 @@ namespace Lumina
         }
         CommitBarriers();
         
+        
         VkImageSubresourceRange SubresourceRange    = {};
         SubresourceRange.aspectMask                 = VK_IMAGE_ASPECT_COLOR_BIT;
         SubresourceRange.baseArrayLayer             = Subresource.BaseArraySlice;
@@ -427,7 +428,8 @@ namespace Lumina
         EndRenderPass();
 
         FVulkanImage* VulkanImage = static_cast<FVulkanImage*>(Image);
-
+        CurrentCommandBuffer->AddReferencedResource(Image);
+        
         Subresource = Subresource.Resolve(VulkanImage->GetDescription(), false);
 
         if (PendingState.IsInState(EPendingCommandState::AutomaticBarriers))
@@ -443,6 +445,20 @@ namespace Lumina
         SubresourceRange.baseMipLevel               = Subresource.BaseMipLevel;
         SubresourceRange.levelCount                 = Subresource.NumMipLevels;
 
+        if (Image->GetFlags().IsFlagSet(EImageCreateFlags::DepthStencil) || Image->GetFlags().IsFlagSet(EImageCreateFlags::DepthAttachment))
+        {
+            SubresourceRange.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+
+            VkClearDepthStencilValue DepthValue = {};
+            DepthValue.depth    = (float)Color;
+            DepthValue.stencil  = 0;
+
+            vkCmdClearDepthStencilImage(CurrentCommandBuffer->CommandBuffer, VulkanImage->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &DepthValue, 1, &SubresourceRange);
+
+            return;
+        }
+        
+
         VkClearColorValue Value = {};
         Value.uint32[0] = Color;
         Value.uint32[1] = Color;
@@ -452,9 +468,6 @@ namespace Lumina
         Value.int32[1] = (int32)Color;
         Value.int32[2] = (int32)Color;
         Value.int32[3] = (int32)Color;
-
-
-        CurrentCommandBuffer->AddReferencedResource(Image);
         
         CommandListStats.NumClearCommands++;
         vkCmdClearColorImage(CurrentCommandBuffer->CommandBuffer, VulkanImage->GetImage(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &Value, 1, &SubresourceRange);
@@ -1053,6 +1066,7 @@ namespace Lumina
                 NumArraySlices = Subresource.NumArraySlices;
             }
         }
+
         
         VkRenderingInfo RenderInfo = {};
         RenderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;

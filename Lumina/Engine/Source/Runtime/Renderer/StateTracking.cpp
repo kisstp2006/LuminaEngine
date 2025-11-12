@@ -367,8 +367,6 @@ namespace Lumina
             texture->PermanentState = state;
         }
         
-        PermanentTextureStates.clear();
-
         for (auto& [buffer, state] : PermanentBufferStates)
         {
             if (buffer->PermanentState != EResourceStates::Unknown && buffer->PermanentState != state)
@@ -383,8 +381,6 @@ namespace Lumina
             buffer->PermanentState = state;
         }
         
-        PermanentBufferStates.clear();
-
         for (auto& [texture, State] : TextureStates)
         {
             if (texture->DescRef.bKeepInitialState && !texture->bStateInitialized)
@@ -392,7 +388,9 @@ namespace Lumina
                 texture->bStateInitialized = true;
             }
         }
-
+        
+        PermanentTextureStates.clear();
+        PermanentBufferStates.clear();
         TextureStates.clear(); 
         BufferStates.clear();
         LinearAllocator.Reset();

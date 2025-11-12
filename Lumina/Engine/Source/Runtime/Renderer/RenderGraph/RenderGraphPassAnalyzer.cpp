@@ -11,7 +11,7 @@ namespace Lumina
 
         TVector<FPassResourceAccess> PassAccess(Passes.size());
 
-        Task::ParallelFor(Passes.size(), Passes.size() / 2, [&](uint32 Index)
+        Task::ParallelFor(Passes.size(), 1, [&](uint32 Index)
         {
             FRGPassHandle Pass = Passes[Index];
             PassAccess[Index] = AnalyzePassResources(Pass);
@@ -137,7 +137,7 @@ namespace Lumina
         const int NumPasses = (int)PassAccess.size();
         TVector<TVector<int>> Dependencies(NumPasses);
 
-        Task::ParallelFor(NumPasses, NumPasses / 4, [&](uint32 Index)
+        Task::ParallelFor(NumPasses, 1, [&](uint32 Index)
         {
             const FPassResourceAccess& CurrentPass = PassAccess[Index];
 
@@ -232,7 +232,6 @@ namespace Lumina
 
     void FRGPassAnalyzer::AnalyzeLastResourceUsages(TSpan<FPassResourceAccess> PassResources)
     {
-
         for (const FPassResourceAccess& Access : PassResources)
         {
 			for (const IRHIResource* ReadResource : Access.Reads)

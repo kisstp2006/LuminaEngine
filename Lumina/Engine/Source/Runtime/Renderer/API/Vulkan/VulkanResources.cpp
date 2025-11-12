@@ -469,7 +469,7 @@ namespace Lumina
 
         for (auto it = ChunkPool.begin(); it != ChunkPool.end(); ++it)
         {
-            TSharedPtr<FBufferChunk> Chunk = *it;
+            TSharedPtr<FBufferChunk> Chunk = *it; // Must be copied.
 
             if (VersionGetSubmitted(Chunk->Version) && VersionGetInstance(Chunk->Version) <= completedInstance)
             {

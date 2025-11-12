@@ -113,13 +113,12 @@ namespace Lumina
             ImageDesc.Extent = {256, 256};
             ImageDesc.Format = EFormat::RGBA8_UNORM;
             ImageDesc.Flags.SetFlag(EImageCreateFlags::ShaderResource);
-            ImageDesc.InitialState = EResourceStates::ShaderResource;
-            ImageDesc.bKeepInitialState = true;
             FRHIImageRef Image = GRenderContext->CreateImage(ImageDesc);
         
             FRHICommandListRef CommandList = GRenderContext->CreateCommandList(FCommandListInfo::Graphics());
             CommandList->Open();
-        
+            CommandList->BeginTrackingImageState(Image, AllSubresources, EResourceStates::Common);
+            
             const uint8 BytesPerPixel = RHI::Format::BytesPerBlock(ImageDesc.Format);
             const uint32 RowBytes = 256 * BytesPerPixel;
             
@@ -135,6 +134,8 @@ namespace Lumina
         
             CommandList->WriteImage(Image, 0, 0, FlippedData.data(), RowPitch, DepthPitch);
 
+            CommandList->SetPermanentImageState(Image, EResourceStates::ShaderResource);
+            CommandList->CommitBarriers();
             
             CommandList->Close();
         

@@ -27,12 +27,12 @@ namespace Lumina
         void DepthPrePass(FRenderGraph& RenderGraph, const FViewVolume& View);
         void ClusterBuildPass(FRenderGraph& RenderGraph, const FViewVolume& View);
         void LightCullPass(FRenderGraph& RenderGraph, const FViewVolume& View);
+        void ClearShadowPass(FRenderGraph& RenderGraph);
         void PointShadowPass(FRenderGraph& RenderGraph);
         void SpotShadowPass(FRenderGraph& RenderGraph);
         void DirectionalShowPass(FRenderGraph& RenderGraph);
         void BasePass(FRenderGraph& RenderGraph, const FViewVolume& View);
         void TransparentPass(FRenderGraph& RenderGraph, const FViewVolume& View);
-        void SSAOPass(FRenderGraph& RenderGraph);
         void EnvironmentPass(FRenderGraph& RenderGraph);
         void BatchedLineDraw(FRenderGraph& RenderGraph);
         void ToneMappingPass(FRenderGraph& RenderGraph);
@@ -47,8 +47,8 @@ namespace Lumina
 
         void CheckInstanceBufferResize(uint32 NumInstances);
         void CheckLightBufferResize(uint32 NumLights);
+        void RecreatePickerImageIfRequired(uint32 NumEntities);
         
-        FRHIImageRef GetVisualizationImage() const override;
         FRHIImageRef GetRenderTarget() const override;
         ERenderSceneDebugFlags GetDebugMode() const override;
         void SetDebugMode(ERenderSceneDebugFlags Mode) override;
@@ -81,9 +81,6 @@ namespace Lumina
         FRHIBindingSetRef                   DebugPassSet;
         FRHIBindingLayoutRef                DebugPassLayout;
 
-        FRHIBindingSetRef                   SSAOPassSet;
-        FRHIBindingLayoutRef                SSAOPassLayout;
-
         FRHIBindingSetRef                   SSAOBlurPassSet;
         FRHIBindingLayoutRef                SSAOBlurPassLayout;
         
@@ -114,15 +111,9 @@ namespace Lumina
 
         FRHIImageRef                        HDRRenderTarget;
         FRHIImageRef                        CascadedShadowMap;
-        FRHIImageRef                        PointLightShadowMap;
-        FRHIImageRef                        DepthMap;
         FRHIImageRef                        DepthAttachment;
-        FRHIImageRef                        NoiseImage;
-        FRHIImageRef                        SSAOImage;
-        FRHIImageRef                        SSAOBlur;
         FRHIImageRef                        PickerImage;
-        FRHIImageRef                        DebugVisualizationImage;
-
+        
         ERenderSceneDebugFlags              DebugVisualizationMode;
 
         TArray<FShadowCascade, NumCascades>           ShadowCascades;

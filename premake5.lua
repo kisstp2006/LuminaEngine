@@ -10,7 +10,9 @@ workspace "Lumina"
 
 	flags  
 	{
-		"MultiProcessorCompile", 
+		"MultiProcessorCompile",
+        "NoIncrementalLink",
+        "ShadowedVariables",
 	}
 		
 	defines
@@ -44,7 +46,7 @@ workspace "Lumina"
     filter "system:windows"
         systemversion "latest"
         defines { "LE_PLATFORM_WINDOWS" }
-        flags { "MultiProcessorCompile" } -- Parallel compilation
+        
         buildoptions 
         { 
             "/arch:AVX2",
@@ -65,7 +67,6 @@ workspace "Lumina"
         symbols "On"
         editandcontinue "Off"
         defines { "LE_DEBUG", "_DEBUG" }
-        flags { "NoRuntimeChecks", "NoIncrementalLink" }
 
     -- Release Configuration (Developer build with symbols)
     filter "configurations:Release"
@@ -74,7 +75,7 @@ workspace "Lumina"
         optimize "Speed"
         symbols "On" -- Keep symbols for profiling
         defines { "LE_RELEASE", "NDEBUG" }
-        flags { "LinkTimeOptimization", "NoIncrementalLink" }
+        flags { "LinkTimeOptimization" }
         
 
     -- Shipping Configuration (Maximum optimization, no symbols)
@@ -84,7 +85,7 @@ workspace "Lumina"
         optimize "Full"
         symbols "Off"
         defines { "LE_SHIP", "NDEBUG" }
-        flags { "LinkTimeOptimization", "NoIncrementalLink", "NoRuntimeChecks" }
+        flags { "LinkTimeOptimization" }
         
 
     filter {}

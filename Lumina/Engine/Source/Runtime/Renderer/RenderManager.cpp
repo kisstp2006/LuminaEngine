@@ -57,10 +57,10 @@ namespace Lumina
         ImGuiRenderer->EndFrame(UpdateContext, RenderGraph);
         #endif
 
-        RenderGraph.Execute();
-        
-        GRenderContext->FrameEnd(UpdateContext);
+        // Internally executes the render graph.
+        GRenderContext->FrameEnd(UpdateContext, RenderGraph);
 
+        
         GRenderContext->FlushPendingDeletes();
         
         CurrentFrameIndex = (CurrentFrameIndex + 1) % FRAMES_IN_FLIGHT;

@@ -41,7 +41,7 @@ namespace Lumina
             {
                 PropertyTable.DrawTree();
 
-                ICommandList* CommandList = GRenderContext->GetImmediateCommandList();
+                ICommandList* CommandList = GRenderContext->CreateCommandList(FCommandListInfo::Graphics());
                 CommandList->Open();
 
                 CMaterialInstance* Instance = Cast<CMaterialInstance>(Asset.Get());

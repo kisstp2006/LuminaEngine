@@ -2,7 +2,7 @@
 
 #include "Common.glsl"
 
-layout(set = 0, binding = 0) readonly uniform SceneGlobals
+layout(set = 0, binding = 0) restrict readonly uniform SceneGlobals
 {
     FCameraView CameraView;
     uvec4 ScreenSize;
@@ -17,24 +17,24 @@ layout(set = 0, binding = 0) readonly uniform SceneGlobals
 
 } SceneUBO;
 
-layout(set = 0, binding = 1) readonly buffer FModelData
+layout(set = 0, binding = 1) restrict readonly buffer FModelData
 {
     FInstanceData Instances[];
 } ModelData;
 
-layout(set = 0, binding = 2) readonly buffer InstanceMappingData
+layout(set = 0, binding = 2) restrict readonly buffer InstanceMappingData
 {
     uint Mapping[];
 } uMappingData;
 
 
-layout(set = 0, binding = 3) readonly buffer FLightData
+layout(set = 0, binding = 3) restrict readonly buffer FLightData
 {
     uint    NumLights;
     uint    Padding[3];
 
     vec3    SunDirection;
-    bool    bHasSun;
+    uint    bHasSun;
 
     vec4    CascadeSplits;
 

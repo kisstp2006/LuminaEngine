@@ -1,10 +1,7 @@
 ﻿
 #include "VulkanDevice.h"
-#include "Renderer/CommandList.h"
-#include "Renderer/StateTracking.h"
 #include "Core/Profiler/Profile.h"
-#ifdef LUMINA_RENDERER_VULKAN
-
+#include "Renderer/CommandList.h"
 #include "VulkanMacros.h"
 #include "VulkanRenderContext.h"
 #include "Core/Windows/Window.h"
@@ -99,7 +96,7 @@ namespace Lumina
         std::vector<VkImage> RawImages = vkbSwapchain->get_images().value();
     	
 
-    	ICommandList* CommandList = Context->GetImmediateCommandList();
+    	FRHICommandListRef CommandList = Context->CreateCommandList(FCommandListInfo::Graphics());
     	CommandList->Open();
     	
         for (VkImage RawImage : RawImages)
@@ -196,13 +193,11 @@ namespace Lumina
     {
 	    LUMINA_PROFILE_SCOPE();
 
-    	VkSemaphore Semaphore = PresentSemaphores[CurrentImageIndex];
-
     	FQueue* Queue = Context->GetQueue(ECommandQueue::Graphics);
     	
-    	Queue->AddSignalSemaphore(Semaphore, 0);
+    	VkSemaphore Semaphore = PresentSemaphores[CurrentImageIndex];
     	
-    	Context->ExecuteCommandLists(nullptr, 0, ECommandQueue::Graphics);
+    	Queue->SignalSemaphore(Semaphore);
     	
     	VkPresentInfoKHR PresentInfo = {};
     	PresentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -231,14 +226,11 @@ namespace Lumina
     	}
 #endif
 
-#if 0
-    	while (!FramesInFlight.empty())
-#else
+
     	while (FramesInFlight.size() >= FRAMES_IN_FLIGHT)
-#endif
     	{
     		FRHIEventQueryRef Query = FramesInFlight.front();
-    		FramesInFlight.pop_back();
+    		FramesInFlight.pop();
 			
     		Context->WaitEventQuery(Query);
 
@@ -258,9 +250,7 @@ namespace Lumina
 
     	Context->ResetEventQuery(Query);
     	Context->SetEventQuery(Query, ECommandQueue::Graphics);
-    	FramesInFlight.push_back(Query);
+    	FramesInFlight.push(Query);
     	return true;
     }
 }
-
-#endif

@@ -19,7 +19,7 @@ const float INV_PI = 0.31830988618;
 #define COL_A_SHIFT 24
 #define COL_A_MASK 0xFF000000
 
-#define MAX_LIGHTS 3456
+#define MAX_LIGHTS 1728
 #define MAX_SHADOWS 100
 #define NUM_CASCADES 4
 
@@ -78,6 +78,7 @@ struct FLightShadow
     vec2 AtlasUVOffset;
     vec2 AtlasUVScale;
     int ShadowMapIndex; // -1 means no shadow.
+    uint Pad[3];
 };
 
 struct FLight
@@ -97,7 +98,7 @@ struct FLight
     uint Flags;
     float Falloff;
 
-    FLightShadow Shadow;
+    FLightShadow Shadow[6];
 };
 
 struct FCluster
@@ -160,6 +161,8 @@ uint ToggleFlag(uint value, uint flag)
 {
     return value ^ flag;
 }
+
+
 
 vec3 ReconstructWorldPosition(vec2 uv, float depth, mat4 invProjection, mat4 invView) 
 {

@@ -1,9 +1,13 @@
-#ifdef LE_PLATFORM_WINDOWS
+#ifdef _WIN32
+
 #include "Containers/Array.h"
 #include "Containers/String.h"
 #include "Paths/Paths.h"
 #include "Platform/Process/PlatformProcess.h"
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#endif
 #include <shellapi.h>
 #include <commdlg.h>
 #include <tchar.h>

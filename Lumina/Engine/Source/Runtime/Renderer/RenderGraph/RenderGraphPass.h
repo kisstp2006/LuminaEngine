@@ -25,20 +25,20 @@ namespace Lumina
 
         FRenderGraphPass(FRGEvent&& InEvent, ERGPassFlags Flags, const FRGPassDescriptor* InDescriptor)
             : Event(std::move(InEvent))
-            , PipelineType(Flags == ERGPassFlags::Compute ? EPipelineType::Compute : EPipelineType::Graphics)
+            , QueueType(Flags == ERGPassFlags::Compute ? ECommandQueue::Compute : ECommandQueue::Graphics)
             , Parameters(InDescriptor)
         {}
         
 
         virtual void Execute(ICommandList& CommandList) = 0;
-        EPipelineType GetPipelineType() const { return PipelineType; }
+        ECommandQueue GetQueueType() const { return QueueType; }
         const FRGPassDescriptor* GetDescriptor() const { return Parameters; }
         const FRGEvent& GetEvent() const { return Event; }
     
     protected:
         
         FRGEvent Event;
-        EPipelineType PipelineType;
+        ECommandQueue QueueType;
         const FRGPassDescriptor* Parameters;
     };
 

@@ -31,6 +31,14 @@ namespace Lumina
         /** Type of command queue that this list is to be executed on */
         ECommandQueue CommandQueue = ECommandQueue::Graphics;
 
+
+        static FCommandListInfo As(ECommandQueue Queue)
+        {
+            FCommandListInfo Ret;
+            Ret.CommandQueue = Queue;
+            return Ret;
+        }
+        
         static FCommandListInfo Transfer()
         {
             FCommandListInfo Ret;

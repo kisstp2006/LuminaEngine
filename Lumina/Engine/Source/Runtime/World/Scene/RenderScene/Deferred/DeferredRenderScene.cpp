@@ -96,16 +96,7 @@ namespace Lumina
             DebugDrawPass(RenderGraph);
         }
 
-        FRHIImageRef FDeferredRenderScene::GetVisualizationImage() const
-        {
-            if (DebugVisualizationMode == ERenderSceneDebugFlags::None)
-            {
-                return HDRRenderTarget;
-            }
-
-            return DebugVisualizationImage;
-        }
-
+    
         void FDeferredRenderScene::OnSwapchainResized()
         {
             CreateImages();
@@ -1051,23 +1042,23 @@ namespace Lumina
                 {
                     const FLight& Light = LightData.Lights[LightNum];
                     
-                    if (Light.Flags != LIGHT_TYPE_POINT || Light.Shadow.ShadowMapIndex == INDEX_NONE)
+                    if (Light.Flags != LIGHT_TYPE_POINT || Light.Shadow[0].ShadowMapIndex == INDEX_NONE)
                     {
                         continue;
                     }
                     
-                    float SizeY = (float)GShadowCubemapResolution;
-                    float SizeX = (float)GShadowCubemapResolution;
+                    //float SizeY = (float)GShadowCubemapResolution;
+                    //float SizeX = (float)GShadowCubemapResolution;
             
-                    FViewportState ViewportState;
-                    for (int i = 0; i < 6; ++i)
-                    {
-                        ViewportState.Viewports.emplace_back(FViewport(SizeX, SizeY));
-                        ViewportState.Scissors.emplace_back(FRect(SizeX, SizeY));
-                    }
+                    //FViewportState ViewportState;
+                    //for (int i = 0; i < 6; ++i)
+                    //{
+                    //    ViewportState.Viewports.emplace_back(FViewport(SizeX, SizeY));
+                    //    ViewportState.Scissors.emplace_back(FRect(SizeX, SizeY));
+                    //}
                         
             
-                    uint32 BaseLayerIndex = Light.Shadow.ShadowMapIndex * 6;
+                    uint32 BaseLayerIndex = Light.Shadow[0].ShadowMapIndex * 6;
                         
                     FRenderPassDesc::FAttachment Depth; Depth
                         .SetImage(PointLightShadowMap)
@@ -1075,8 +1066,8 @@ namespace Lumina
                         .SetDepthClearValue(1.0f);
                 
                     FRenderPassDesc RenderPass; RenderPass
-                        .SetDepthAttachment(Depth)
-                        .SetRenderArea(glm::uvec2(GShadowCubemapResolution, GShadowCubemapResolution));
+                        .SetDepthAttachment(Depth);
+                        //.SetRenderArea(glm::uvec2(GShadowCubemapResolution, GShadowCubemapResolution));
 
                     FRHIGraphicsPipelineRef Pipeline = GRenderContext->CreateGraphicsPipeline(Desc, RenderPass);
                     
@@ -1086,7 +1077,7 @@ namespace Lumina
 
                         FGraphicsState GraphicsState; GraphicsState
                             .SetRenderPass(RenderPass)
-                            .SetViewportState(ViewportState)
+                            //.SetViewportState(ViewportState)
                             .SetPipeline(Pipeline)
                             .AddBindingSet(BindingSet)
                             .AddBindingSet(ShadowPassSet)
@@ -1139,12 +1130,12 @@ namespace Lumina
                 {
                     FLight& Light = LightData.Lights[LightNum];
                     
-                    if (Light.Flags != LIGHT_TYPE_SPOT || Light.Shadow.ShadowMapIndex == INDEX_NONE)
+                    if (Light.Flags != LIGHT_TYPE_SPOT || Light.Shadow[0].ShadowMapIndex == INDEX_NONE)
                     {
                         continue;
                     }
 
-                    const FShadowTile& Tile = ShadowAtlas.GetTile(Light.Shadow.ShadowMapIndex);
+                    const FShadowTile& Tile = ShadowAtlas.GetTile(Light.Shadow[0].ShadowMapIndex);
                     uint32 TilePixelX = static_cast<uint32>(Tile.UVOffset.x * GShadowAtlasResolution);
                     uint32 TilePixelY = static_cast<uint32>(Tile.UVOffset.y * GShadowAtlasResolution);
                     uint32 TileSize = static_cast<uint32>(Tile.UVScale.x * GShadowAtlasResolution);
@@ -1563,7 +1554,7 @@ namespace Lumina
                         glm::mat4 LightViewMatrix = glm::lookAt(FrustumCenter - LightDir * -MinExtents.z, FrustumCenter, FViewVolume::UpAxis);
 
                         glm::vec3 FrustumCenterLS = LightViewMatrix * glm::vec4(FrustumCenter, 1.0f);
-                        float TexelSize = (Radius * 2.0f) / (float)GShadowMapResolution;
+                        float TexelSize = (Radius * 2.0f) / (float)GCSMResolution;
                         FrustumCenterLS.x = glm::floor(FrustumCenterLS.x / TexelSize) * TexelSize;
                         FrustumCenterLS.y = glm::floor(FrustumCenterLS.y / TexelSize) * TexelSize;
 
@@ -1579,7 +1570,7 @@ namespace Lumina
 
                         Light.ViewProjection[i] = Cascade.LightViewProjection;
 
-                        Cascade.ShadowMapSize = glm::ivec2(GShadowMapResolution);
+                        //Cascade.ShadowMapSize = glm::ivec2(GShadowCubemapResolution);
 
                         LastSplitDist = CascadeSplits[i];
                     }
@@ -1587,7 +1578,7 @@ namespace Lumina
                     LightData.SunDirection = Light.Direction;
                     LightData.NumLights++;
                     
-                    LightData.Lights[0] = Move(Light);
+                    LightData.Lights[0] = Light;
                 });
             }
 
@@ -1638,19 +1629,19 @@ namespace Lumina
                     for (int Face = 0; Face < 6; ++Face)
                     {
                         SetView(LightView, Face);
-                        Light.ViewProjection[Face] = LightView.ToReverseDepthViewProjectionMatrix();                        
+                        Light.ViewProjection[Face] = LightView.ToReverseDepthViewProjectionMatrix();                    
                     }
                     
                     if (PointLightComponent.bCastShadows)
                     {
-                        Light.Shadow.ShadowMapIndex = CurrentShadowMapIndex++;
+                        Light.Shadow[0].ShadowMapIndex = CurrentShadowMapIndex++;
                     }
                     else
                     {
-                        Light.Shadow.ShadowMapIndex = INDEX_NONE;
+                        Light.Shadow[0].ShadowMapIndex = INDEX_NONE;
                     }
                     
-                    LightData.Lights[LightData.NumLights++] = Move(Light);
+                    LightData.Lights[LightData.NumLights++] = Light;
         
                     //Scene->DrawDebugSphere(Transform.Location, 0.25f, Light.Color);
                 });
@@ -1694,17 +1685,17 @@ namespace Lumina
                         if (TileIndex != INDEX_NONE)
                         {
                             const FShadowTile& Tile = ShadowAtlas.GetTile(TileIndex);
-                            Light.Shadow.ShadowMapIndex = TileIndex;
-                            Light.Shadow.AtlasUVOffset = Tile.UVOffset;
-                            Light.Shadow.AtlasUVScale = Tile.UVScale;
+                            Light.Shadow[0].ShadowMapIndex = TileIndex;
+                            Light.Shadow[0].AtlasUVOffset = Tile.UVOffset;
+                            Light.Shadow[0].AtlasUVScale = Tile.UVScale;
                         }
                     }
                     else
                     {
-                        Light.Shadow.ShadowMapIndex = INDEX_NONE;
+                        Light.Shadow[0].ShadowMapIndex = INDEX_NONE;
                     }
 
-                    LightData.Lights[LightData.NumLights++] = Move(Light);
+                    LightData.Lights[LightData.NumLights++] = Light;
                     
                    //World->DrawViewVolume(ViewVolume, FColor::Red);
         
@@ -2231,7 +2222,7 @@ namespace Lumina
             
             {
                 FRHIImageDesc ImageDesc;
-                ImageDesc.Extent = {GShadowCubemapResolution, GShadowCubemapResolution};
+                //ImageDesc.Extent = {GShadowCubemapResolution, GShadowCubemapResolution};
                 ImageDesc.Flags.SetMultipleFlags(EImageCreateFlags::DepthAttachment, EImageCreateFlags::ShaderResource, EImageCreateFlags::CubeCompatible);
                 ImageDesc.Dimension = EImageDimension::TextureCubeArray;
                 ImageDesc.ArraySize = 6 * GMaxPointLightShadows;

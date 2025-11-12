@@ -192,8 +192,10 @@ namespace Lumina
     
         void Clear() noexcept
         {
-            for (Index i = 0; i < Data.size(); ++i) {
-                if (Occupied[i]) {
+            for (Index i = 0; i < Data.size(); ++i)
+            {
+                if (Occupied[i])
+                {
                     reinterpret_cast<T*>(&Data[i])->~T();
                 }
             }

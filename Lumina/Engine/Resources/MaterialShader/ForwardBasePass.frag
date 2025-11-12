@@ -19,12 +19,10 @@ layout(location = 0) out vec4 outColor;
 layout(location = 1) out uint GPicker;
 
 layout(set = 1, binding = 0) uniform sampler2DArray uShadowCascade;
-layout(set = 1, binding = 1) uniform samplerCubeArray uShadowCubemaps;
-layout(set = 1, binding = 2) uniform sampler2D uShadowAtlas;
-layout(set = 1, binding = 3) uniform sampler2D uSSAO;
+layout(set = 1, binding = 1) uniform sampler2D uShadowAtlas;
 
 // Cluster data
-layout(set = 1, binding = 4) readonly buffer ClusterSSBO
+layout(set = 1, binding = 2) restrict readonly buffer ClusterSSBO
 {
     FCluster Clusters[];
 } Clusters;
@@ -209,6 +207,66 @@ float Shadow_Directional(float bias, vec3 worldPos, vec3 viewPos)
     return shadow / float(sampleCount);
 }
 
+struct FCubemapCoord
+{
+    int Face;      // 0-5 (±X, ±Y, ±Z)
+    vec2 UV;       // [0,1] range within face
+};
+
+FCubemapCoord DirectionToCubemapCoord(vec3 dir)
+{
+    FCubemapCoord result;
+
+    vec3 absDir = abs(dir);
+    float maxAxis = max(absDir.x, max(absDir.y, absDir.z));
+
+    // Determine face and calculate UV coordinates
+    if (maxAxis == absDir.x)
+    {
+        if (dir.x > 0.0) // +X
+        {
+            result.Face = 0;
+            result.UV = vec2(-dir.z, -dir.y) / absDir.x;
+        }
+        else // -X
+        {
+            result.Face = 1;
+            result.UV = vec2(dir.z, -dir.y) / absDir.x;
+        }
+    }
+    else if (maxAxis == absDir.y)
+    {
+        if (dir.y > 0.0) // +Y
+        {
+            result.Face = 2;
+            result.UV = vec2(dir.x, dir.z) / absDir.y;
+        }
+        else // -Y
+        {
+            result.Face = 3;
+            result.UV = vec2(dir.x, -dir.z) / absDir.y;
+        }
+    }
+    else // Z is max
+    {
+        if (dir.z > 0.0) // +Z
+        {
+            result.Face = 4;
+            result.UV = vec2(dir.x, -dir.y) / absDir.z;
+        }
+        else // -Z
+        {
+            result.Face = 5;
+            result.UV = vec2(-dir.x, -dir.y) / absDir.z;
+        }
+    }
+
+    // Convert from [-1,1] to [0,1]
+    result.UV = result.UV * 0.5 + 0.5;
+
+    return result;
+}
+
 float Shadow_Point(FLight light, vec3 worldPos, float bias)
 {
     vec3 L = worldPos - light.Position;
@@ -230,7 +288,12 @@ float Shadow_Point(FLight light, vec3 worldPos, float bias)
         for (int y = -2; y <= 2; ++y)
         {
             vec3 sampleDir = normalize(dir + right * SearchOffsetAngle * x + up * SearchOffsetAngle * y);
-            float shadowDepth = texture(uShadowCubemaps, vec4(sampleDir, light.Shadow.ShadowMapIndex)).r;
+
+            FCubemapCoord coord = DirectionToCubemapCoord(sampleDir);
+            FLightShadow shadowTile = light.Shadow[coord.Face];
+            vec2 atlasUV = shadowTile.AtlasUVOffset + (coord.UV * shadowTile.AtlasUVScale);
+            
+            float shadowDepth = texture(uShadowAtlas, atlasUV).r;
             
             if (shadowDepth < currentDepth - bias)
             {
@@ -257,8 +320,14 @@ float Shadow_Point(FLight light, vec3 worldPos, float bias)
     {
         for (int y = -2; y <= 2; ++y)
         {
-            vec3 sampleDir = normalize(dir + right * shadowOffset * x + up * shadowOffset * y);
-            float shadowDepth = texture(uShadowCubemaps, vec4(sampleDir, light.Shadow.ShadowMapIndex)).r;
+            vec3 sampleDir = normalize(dir + right * SearchOffsetAngle * x + up * SearchOffsetAngle * y);
+
+            FCubemapCoord coord = DirectionToCubemapCoord(sampleDir);
+            FLightShadow shadowTile = light.Shadow[coord.Face];
+            vec2 atlasUV = shadowTile.AtlasUVOffset + (coord.UV * shadowTile.AtlasUVScale);
+
+            float shadowDepth = texture(uShadowAtlas, atlasUV).r;
+            
             shadow += (currentDepth - bias > shadowDepth) ? 0.0 : 1.0;
             sampleCount++;
         }
@@ -280,12 +349,14 @@ float Shadow_Spot(FLight light, vec3 worldPos, float bias)
     vec3 L = worldPos - light.Position;
     float distanceToLight = length(L);
     float currentDepth = distanceToLight / light.Radius;
+
+    FLightShadow Shadow = light.Shadow[0];
     
     vec2 localUV = projCoords.xy * 0.5 + 0.5;
-    vec2 atlasUV = light.Shadow.AtlasUVOffset + (localUV * light.Shadow.AtlasUVScale);
+    vec2 atlasUV = Shadow.AtlasUVOffset + (localUV * Shadow.AtlasUVScale);
     
     vec2 atlasTexelSize = 1.0 / vec2(textureSize(uShadowAtlas, 0));
-    vec2 tileTexelSize = atlasTexelSize / light.Shadow.AtlasUVScale;
+    vec2 tileTexelSize = atlasTexelSize / Shadow.AtlasUVScale;
     
     float blockerDepthSum = 0.0;
     int blockerCount = 0;
@@ -298,7 +369,7 @@ float Shadow_Spot(FLight light, vec3 worldPos, float bias)
             vec2 offsetLocalUV = localUV + vec2(x, y) * tileTexelSize * searchRadius;
             offsetLocalUV = clamp(offsetLocalUV, vec2(0.0), vec2(1.0));
             
-            vec2 offsetAtlasUV = light.Shadow.AtlasUVOffset + (offsetLocalUV * light.Shadow.AtlasUVScale);
+            vec2 offsetAtlasUV = Shadow.AtlasUVOffset + (offsetLocalUV * Shadow.AtlasUVScale);
             
             float shadowMapDepth = texture(uShadowAtlas, offsetAtlasUV).r;
             if (shadowMapDepth < currentDepth - bias)
@@ -329,7 +400,7 @@ float Shadow_Spot(FLight light, vec3 worldPos, float bias)
             vec2 offsetLocalUV = localUV + vec2(x, y) * tileTexelSize * kernelSize;
             offsetLocalUV = clamp(offsetLocalUV, vec2(0.0), vec2(1.0));
             
-            vec2 offsetAtlasUV = light.Shadow.AtlasUVOffset + (offsetLocalUV * light.Shadow.AtlasUVScale);
+            vec2 offsetAtlasUV = Shadow.AtlasUVOffset + (offsetLocalUV * Shadow.AtlasUVScale);
             
             float shadowMapDepth = texture(uShadowAtlas, offsetAtlasUV).r;
             shadow += (currentDepth - bias > shadowMapDepth) ? 0.0 : 1.0;
@@ -459,7 +530,6 @@ void main()
     float Roughness = Material.Roughness;
     float Metallic  = Material.Metallic;
     float Specular  = Material.Specular;
-    //float SSAO      = Mate;
 
     vec3 Position = (GetInverseCameraView() * vec4(ViewPosition, 1.0f)).xyz;
 
@@ -493,7 +563,7 @@ void main()
     vec3 Lo = vec3(0.0);
     
     // Directional light (sun)
-    if(LightData.bHasSun)
+    if(LightData.bHasSun != 0)
     {
         FLight Light = GetLightAt(0);
         float Shadow = ComputeShadow(Light, WorldPosition, ViewPosition, 0.0005);
@@ -508,7 +578,7 @@ void main()
         FLight Light = GetLightAt(LightIndex);
         
         float Shadow = 1.0;
-        if(Light.Shadow.ShadowMapIndex != INDEX_NONE)
+        if(Light.Shadow[0].ShadowMapIndex != INDEX_NONE)
         {
             vec3 L = WorldPosition - Light.Position;
             vec3 DirectionToLight = normalize(L);

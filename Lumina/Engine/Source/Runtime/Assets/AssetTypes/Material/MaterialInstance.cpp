@@ -134,7 +134,7 @@ namespace Lumina
                 SetDesc.AddItem(FBindingSetItem::TextureSRV((uint32)i, Image));
             }
 
-            ICommandList* CommandList = GRenderContext->GetImmediateCommandList();
+            FRHICommandListRef CommandList = GRenderContext->CreateCommandList(FCommandListInfo::Graphics());
             CommandList->Open();
             
             CommandList->WriteBuffer(UniformBuffer, &MaterialUniforms, 0, sizeof(FMaterialUniforms));

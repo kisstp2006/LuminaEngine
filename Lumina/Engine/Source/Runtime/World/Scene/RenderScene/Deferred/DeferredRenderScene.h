@@ -48,7 +48,6 @@ namespace Lumina
         void RenderScene(FRenderGraph& RenderGraph, const FViewVolume& ViewVolume) override;
     
         FRHIImageRef GetRenderTarget() const override { return SceneViewport->GetRenderTarget(); }
-        FRHIImageRef GetVisualizationImage() const override;
         FSceneGlobalData* GetSceneGlobalData() { return &SceneGlobalData; }
 
         FSceneRenderSettings& GetSceneRenderSettings() override { return RenderSettings; }

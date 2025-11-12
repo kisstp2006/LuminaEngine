@@ -1266,7 +1266,7 @@ namespace Lumina
                     if (DrawViewportWindow)
                     {
                         IRenderScene* SceneRenderer = Tool->GetWorld()->GetRenderer();
-                        ImTextureRef ViewportTexture = ImGuiX::ToImTextureRef(SceneRenderer->GetVisualizationImage());
+                        ImTextureRef ViewportTexture = ImGuiX::ToImTextureRef(SceneRenderer->GetRenderTarget());
                         
                         Tool->bViewportFocused = ImGui::IsWindowFocused();
                         Tool->bViewportHovered = ImGui::IsWindowHovered();

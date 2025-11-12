@@ -1,6 +1,7 @@
 ﻿#include "RenderContext.h"
 #include "RenderResource.h"
 #include "RHIGlobals.h"
+#include "Shader.h"
 
 namespace Lumina
 {

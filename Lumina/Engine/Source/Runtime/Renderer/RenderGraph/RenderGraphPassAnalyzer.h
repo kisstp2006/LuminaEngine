@@ -15,7 +15,7 @@ namespace Lumina
 
     private:
 
-        struct FPassResourceAccess
+        struct alignas(64) FPassResourceAccess
         {
             FRGPassHandle Pass;
             THashSet<const IRHIResource*> Reads;

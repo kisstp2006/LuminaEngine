@@ -41,7 +41,7 @@ namespace Lumina
         {
             FShaderHeader Header;
 
-            FRHICommandListRef CommandList = GRenderContext->GetImmediateCommandList();
+            FRHICommandListRef CommandList = GRenderContext->CreateCommandList(FCommandListInfo::Graphics());
             CommandList->Open();
             
             Header.DebugName = GetQualifiedName().ToString() + "_VertexShader";

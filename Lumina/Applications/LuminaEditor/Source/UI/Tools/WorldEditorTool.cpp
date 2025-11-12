@@ -316,7 +316,7 @@ namespace Lumina
             ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(8, 4));
             
             IRenderScene* SceneRenderer = World->GetRenderer();
-            FRHICommandListRef CommandList = GRenderContext->GetImmediateCommandList();
+            FRHICommandListRef CommandList = GRenderContext->CreateCommandList(FCommandListInfo::Graphics());
 
             ImGui::TextColored(ImVec4(0.4f, 1.0f, 0.6f, 1.0f), "Performance Statistics (Global)");
             ImGui::Separator();
