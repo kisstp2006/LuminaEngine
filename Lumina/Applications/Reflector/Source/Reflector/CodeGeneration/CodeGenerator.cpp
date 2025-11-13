@@ -104,6 +104,14 @@ namespace Lumina::Reflection
         }
     }
 
+    static void SanitizeFileID(eastl::string& FileID)
+    {
+        FileID = StringUtils::ReplaceAllOccurrences(FileID, "/", "_");
+        FileID = StringUtils::ReplaceAllOccurrences(FileID, "\\", "_");
+        FileID = StringUtils::ReplaceAllOccurrences(FileID, ".", "_");
+        FileID = StringUtils::ReplaceAllOccurrences(FileID, "-", "_");
+    }
+
     void FCodeGenerator::GenerateCodeHeader(eastl::string& Stream, const FReflectedHeader& Header)
     {
 
@@ -128,10 +136,8 @@ namespace Lumina::Reflection
         {
             FileID = FileID.substr(SlashPos + 1);
         }
-        
-        FileID = StringUtils::ReplaceAllOccurrences(FileID, "/", "_");
-        FileID = StringUtils::ReplaceAllOccurrences(FileID, "\\", "_");
-        FileID = StringUtils::ReplaceAllOccurrences(FileID, ".", "_");
+
+        SanitizeFileID(FileID);
 
         Stream += "#ifdef " + FileID + "_generated_h\n";
         Stream += "#error Already included, missing #pragma once\n";
@@ -172,10 +178,10 @@ namespace Lumina::Reflection
         {
             FileID = FileID.substr(SlashPos + 1);
         }
-        FileID = StringUtils::ReplaceAllOccurrences(FileID, "/", "_");
-        FileID = StringUtils::ReplaceAllOccurrences(FileID, "\\", "_");
-        FileID = StringUtils::ReplaceAllOccurrences(FileID, ".", "_");
-    
+
+        SanitizeFileID(FileID);
+
+        
         // Preamble and Includes
         GenerateFileWarning(Stream);
         

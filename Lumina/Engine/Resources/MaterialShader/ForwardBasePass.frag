@@ -34,6 +34,15 @@ layout(set = 2, binding = 0) uniform FMaterialUniforms
     vec4 Vectors[MAX_VECTORS];
 } MaterialUniforms;
 
+
+
+
+
+#define PCF_SAMPLES_DIV_2 2
+
+
+
+
 float GetMaterialScalar(uint Index)
 {
     uint v = Index / 4;
@@ -137,76 +146,6 @@ vec3 GetWorldNormal(vec3 FragNormal, vec2 UV, vec3 FragPos, vec3 TangentSpaceNor
 // SHADOW FUNCTIONS
 // ============================================================================
 
-float Shadow_Directional(float bias, vec3 worldPos, vec3 viewPos)
-{
-    int CascadeIndex = 3;
-    
-    for(int i = 0; i < 3; ++i)
-    {
-        if(viewPos.z < LightData.CascadeSplits[i])
-        {
-            CascadeIndex = i;
-            break;
-        }
-    }
-    
-    FLight Light = GetLightAt(0);
-    
-    vec4 shadowCoord = Light.ViewProjection[CascadeIndex] * vec4(worldPos, 1.0);
-    vec3 projCoords = shadowCoord.xyz / shadowCoord.w;
-    vec2 uv = projCoords.xy * 0.5 + 0.5;
-    float currentDepth = projCoords.z;
-    
-    vec2 texelSize = 1.0 / vec2(textureSize(uShadowCascade, 0));
-    float blockerDepthSum = 0.0;
-    int blockerCount = 0;
-    
-    float searchRadius = 2.0;
-    for (int x = -2; x <= 2; ++x)
-    {
-        for (int y = -2; y <= 2; ++y)
-        {
-            vec2 offsetUV = uv + vec2(x, y) * texelSize * searchRadius;
-            offsetUV = clamp(offsetUV, vec2(0.0), vec2(1.0));
-            
-            float shadowMapDepth = texture(uShadowCascade, vec3(offsetUV, CascadeIndex)).r;
-            if (shadowMapDepth < currentDepth - bias)
-            {
-                blockerDepthSum += shadowMapDepth;
-                blockerCount++;
-            }
-        }
-    }
-    
-    float penumbraSize = 0.0;
-    if (blockerCount > 0)
-    {
-        float avgBlockerDepth = blockerDepthSum / float(blockerCount);
-        float lightSize = 0.5;
-        penumbraSize = (currentDepth - avgBlockerDepth) * lightSize / avgBlockerDepth;
-        penumbraSize = clamp(penumbraSize, 0.0, 3.0);
-    }
-    
-    float shadow = 0.0;
-    int sampleCount = 0;
-    
-    float kernelSize = mix(0.5, 3.0, penumbraSize);
-    for (int x = -2; x <= 2; ++x)
-    {
-        for (int y = -2; y <= 2; ++y)
-        {
-            vec2 offsetUV = uv + vec2(x, y) * texelSize * kernelSize;
-            offsetUV = clamp(offsetUV, vec2(0.0), vec2(1.0));
-            
-            float shadowMapDepth = texture(uShadowCascade, vec3(offsetUV, CascadeIndex)).r;
-            shadow += (currentDepth - bias > shadowMapDepth) ? 0.0 : 1.0;
-            sampleCount++;
-        }
-    }
-    
-    return shadow / float(sampleCount);
-}
-
 struct FCubemapCoord
 {
     int Face;      // 0-5 (±X, ±Y, ±Z)
@@ -267,168 +206,47 @@ FCubemapCoord DirectionToCubemapCoord(vec3 dir)
     return result;
 }
 
-float Shadow_Point(FLight light, vec3 worldPos, float bias)
+float ComputeShadowFactor(FLight Light, vec3 FragmentPos, float Bias)
 {
-    vec3 L = worldPos - light.Position;
-    float distanceToLight = length(L);
-    float currentDepth = distanceToLight / light.Radius;
-    vec3 dir = normalize(L);
-    dir.y = -dir.y;
-    
-    vec3 up = abs(dir.y) < 0.999 ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0);
-    vec3 right = normalize(cross(up, dir));
-    up = normalize(cross(dir, right));
-    
-    const float SearchOffsetAngle = 0.01;
-    float blockerDepthSum = 0.0;
-    int blockerCount = 0;
-    
-    for (int x = -2; x <= 2; ++x)
-    {
-        for (int y = -2; y <= 2; ++y)
-        {
-            vec3 sampleDir = normalize(dir + right * SearchOffsetAngle * x + up * SearchOffsetAngle * y);
+    bool IsPointLight       = Light.Flags == LIGHT_FLAG_TYPE_POINT;
+    bool IsSpotLight        = Light.Flags == LIGHT_FLAG_TYPE_SPOT;
+    bool IsDirectionalLight = Light.Flags == LIGHT_FLAG_TYPE_DIRECTIONAL;
 
-            FCubemapCoord coord = DirectionToCubemapCoord(sampleDir);
-            FLightShadow shadowTile = light.Shadow[coord.Face];
-            vec2 atlasUV = shadowTile.AtlasUVOffset + (coord.UV * shadowTile.AtlasUVScale);
-            
-            float shadowDepth = texture(uShadowAtlas, atlasUV).r;
-            
-            if (shadowDepth < currentDepth - bias)
-            {
-                blockerDepthSum += shadowDepth;
-                blockerCount++;
-            }
+    int ViewProjectionIndex = 0;
+    if(IsDirectionalLight)
+    {
+        for (int i = 0; i < 3; ++i)
+        {
+            ViewProjectionIndex = max(ViewProjectionIndex, int(step(LightData.CascadeSplits[i], ViewPosition.z)) * i);
         }
     }
     
-    float penumbraSize = 0.0;
-    if (blockerCount > 0)
-    {
-        float avgBlockerDepth = blockerDepthSum / float(blockerCount);
-        float lightSize = 0.3;
-        penumbraSize = (currentDepth - avgBlockerDepth) * lightSize / avgBlockerDepth;
-        penumbraSize = clamp(penumbraSize, 0.0, 2.0);
-    }
-    
-    float shadowOffset = mix(0.003, 0.015, penumbraSize);
-    float shadow = 0.0;
-    int sampleCount = 0;
-    
-    for (int x = -2; x <= 2; ++x)
-    {
-        for (int y = -2; y <= 2; ++y)
-        {
-            vec3 sampleDir = normalize(dir + right * SearchOffsetAngle * x + up * SearchOffsetAngle * y);
+    vec4 ShadowCoord        = Light.ViewProjection[ViewProjectionIndex] * vec4(FragmentPos, 1.0);
+    vec3 ProjCoords         = ShadowCoord.xyz / max(ShadowCoord.w, 1.0);
+    vec2 ProjectionUV       = ProjCoords.xy * 0.5 + 0.5;
 
-            FCubemapCoord coord = DirectionToCubemapCoord(sampleDir);
-            FLightShadow shadowTile = light.Shadow[coord.Face];
-            vec2 atlasUV = shadowTile.AtlasUVOffset + (coord.UV * shadowTile.AtlasUVScale);
+    vec3 L                  = FragmentPos - Light.Position;
+    float DistanceToLight   = length(L);
+    float CurrentDepth      = DistanceToLight / max(Light.Radius, 1.0);
+    vec3 Dir                = normalize(L);
+    Dir.y                   = -Dir.y;
 
-            float shadowDepth = texture(uShadowAtlas, atlasUV).r;
-            
-            shadow += (currentDepth - bias > shadowDepth) ? 0.0 : 1.0;
-            sampleCount++;
-        }
-    }
+    FCubemapCoord Coord     = DirectionToCubemapCoord(Dir);
+    Coord.UV                = mix(Coord.UV, ProjectionUV, float(IsSpotLight));
+    Coord.Face              = int(mix(float(Coord.Face), 0.0, float(IsSpotLight)));
     
-    return shadow / float(sampleCount);
-}
+    FLightShadow ShadowTile = Light.Shadow[Coord.Face];
+    vec2 AtlasUV            = ShadowTile.AtlasUVOffset + (Coord.UV * ShadowTile.AtlasUVScale);
 
-float Shadow_Spot(FLight light, vec3 worldPos, float bias)
-{
-    vec4 shadowCoord = light.ViewProjection[0] * vec4(worldPos, 1.0);
-    vec3 projCoords = shadowCoord.xyz / shadowCoord.w;
-    
-    if(projCoords.z > 1.0)
+    float ShadowDepth = 0.0f;
+    if(IsDirectionalLight)
     {
-        return 0.0;
+        ShadowDepth = texture(uShadowCascade, vec3(ProjectionUV, ViewProjectionIndex)).r;
+        return step(ShadowDepth, CurrentDepth - Bias);
     }
     
-    vec3 L = worldPos - light.Position;
-    float distanceToLight = length(L);
-    float currentDepth = distanceToLight / light.Radius;
-
-    FLightShadow Shadow = light.Shadow[0];
-    
-    vec2 localUV = projCoords.xy * 0.5 + 0.5;
-    vec2 atlasUV = Shadow.AtlasUVOffset + (localUV * Shadow.AtlasUVScale);
-    
-    vec2 atlasTexelSize = 1.0 / vec2(textureSize(uShadowAtlas, 0));
-    vec2 tileTexelSize = atlasTexelSize / Shadow.AtlasUVScale;
-    
-    float blockerDepthSum = 0.0;
-    int blockerCount = 0;
-    
-    float searchRadius = 2.0;
-    for (int x = -2; x <= 2; ++x)
-    {
-        for (int y = -2; y <= 2; ++y)
-        {
-            vec2 offsetLocalUV = localUV + vec2(x, y) * tileTexelSize * searchRadius;
-            offsetLocalUV = clamp(offsetLocalUV, vec2(0.0), vec2(1.0));
-            
-            vec2 offsetAtlasUV = Shadow.AtlasUVOffset + (offsetLocalUV * Shadow.AtlasUVScale);
-            
-            float shadowMapDepth = texture(uShadowAtlas, offsetAtlasUV).r;
-            if (shadowMapDepth < currentDepth - bias)
-            {
-                blockerDepthSum += shadowMapDepth;
-                blockerCount++;
-            }
-        }
-    }
-    
-    float penumbraSize = 0.0;
-    if (blockerCount > 0)
-    {
-        float avgBlockerDepth = blockerDepthSum / float(blockerCount);
-        float lightSize = 0.5;
-        penumbraSize = (currentDepth - avgBlockerDepth) * lightSize / avgBlockerDepth;
-        penumbraSize = clamp(penumbraSize, 0.0, 3.0);
-    }
-    
-    float shadow = 0.0;
-    int sampleCount = 0;
-    
-    float kernelSize = mix(0.5, 3.0, penumbraSize);
-    for (int x = -2; x <= 2; ++x)
-    {
-        for (int y = -2; y <= 2; ++y)
-        {
-            vec2 offsetLocalUV = localUV + vec2(x, y) * tileTexelSize * kernelSize;
-            offsetLocalUV = clamp(offsetLocalUV, vec2(0.0), vec2(1.0));
-            
-            vec2 offsetAtlasUV = Shadow.AtlasUVOffset + (offsetLocalUV * Shadow.AtlasUVScale);
-            
-            float shadowMapDepth = texture(uShadowAtlas, offsetAtlasUV).r;
-            shadow += (currentDepth - bias > shadowMapDepth) ? 0.0 : 1.0;
-            sampleCount++;
-        }
-    }
-    
-    return shadow / float(sampleCount);
-}
-
-float ComputeShadow(FLight light, vec3 worldPos, vec3 viewPos, float bias)
-{
-    if (HasFlag(light.Flags, LIGHT_FLAG_TYPE_DIRECTIONAL))
-    {
-        return Shadow_Directional(0.00005, worldPos, viewPos);
-    }
-    else if (HasFlag(light.Flags, LIGHT_FLAG_TYPE_POINT))
-    {
-        return Shadow_Point(light, worldPos, bias);
-    }
-    else if (HasFlag(light.Flags, LIGHT_FLAG_TYPE_SPOT))
-    {
-        return Shadow_Spot(light, worldPos, bias);
-    }
-    else
-    {
-        return 1.0;
-    }
+    ShadowDepth = texture(uShadowAtlas, AtlasUV).r;
+    return step(CurrentDepth - Bias, ShadowDepth);
 }
 
 float ComputeShadowBias(FLight Light, vec3 Normal, vec3 LightDir, float CascadeIndex)
@@ -448,6 +266,7 @@ float ComputeShadowBias(FLight Light, vec3 Normal, vec3 LightDir, float CascadeI
     
     return 0.0;
 }
+
 
 // ============================================================================
 // LIGHTING
@@ -497,9 +316,9 @@ vec3 EvaluateLightContribution(FLight Light, vec3 Position, vec3 N, vec3 V, vec3
     float G   = GeometrySmith(N, V, L, Roughness);
     vec3  F   = fresnelSchlick(max(dot(H, V), 0.0), F0);
 
-    vec3 Numerator   = NDF * G * F;
-    float Denominator = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.0001;
-    vec3 Spec = Numerator / Denominator;
+    vec3 Numerator      = NDF * G * F;
+    float Denominator   = 4.0 * max(dot(N, V), 0.0) * max(dot(N, L), 0.0) + 0.0001;
+    vec3 Spec           = Numerator / Denominator;
 
     vec3 kS = F;
     vec3 kD = (vec3(1.0) - kS) * (1.0 - Metallic);
@@ -517,13 +336,7 @@ void main()
 {
     // Get material properties
     SMaterialInputs Material = GetMaterialInputs();
-    
-    // Early discard for fully transparent fragments
-    if (Material.Opacity <= 0.0)
-    {
-        discard;
-    }
-    
+
     vec3 Albedo     = Material.Diffuse;
     float Alpha     = Material.Opacity;
     float AO        = Material.AmbientOcclusion;
@@ -565,9 +378,9 @@ void main()
     // Directional light (sun)
     if(LightData.bHasSun != 0)
     {
-        FLight Light = GetLightAt(0);
-        float Shadow = ComputeShadow(Light, WorldPosition, ViewPosition, 0.0005);
-        vec3 LContribution = EvaluateLightContribution(Light, WorldPosition, N, V, Albedo, Roughness, Metallic, F0);
+        FLight Light        = GetLightAt(0);
+        float Shadow        = ComputeShadowFactor(Light, WorldPosition, 0.0005);
+        vec3 LContribution  = EvaluateLightContribution(Light, WorldPosition, N, V, Albedo, Roughness, Metallic, F0);
         Lo += LContribution * Shadow;
     }
     
@@ -580,14 +393,14 @@ void main()
         float Shadow = 1.0;
         if(Light.Shadow[0].ShadowMapIndex != INDEX_NONE)
         {
-            vec3 L = WorldPosition - Light.Position;
-            vec3 DirectionToLight = normalize(L);
-            float DistanceToLight = length(L);
+            vec3 L                  = WorldPosition - Light.Position;
+            vec3 DirectionToLight   = normalize(L);
+            float DistanceToLight   = length(L);
             float AttenuationFactor = 1.0 / (DistanceToLight * DistanceToLight);
-            float BiasScale = mix(0.1, 1.0, AttenuationFactor);
+            float BiasScale         = mix(0.1, 1.0, AttenuationFactor);
             
             float Bias = ComputeShadowBias(Light, N, DirectionToLight, 0) * BiasScale;
-            Shadow = ComputeShadow(Light, WorldPosition, ViewPosition, Bias);
+            Shadow = ComputeShadowFactor(Light, WorldPosition, Bias);
         }
         
         vec3 LContribution = EvaluateLightContribution(Light, WorldPosition, N, V, Albedo, Roughness, Metallic, F0);
@@ -595,14 +408,14 @@ void main()
     }
     
     // Add ambient lighting
-    vec3 AmbientLightColor = GetAmbientLightColor() * GetAmbientLightIntensity();
-    vec3 Ambient = AmbientLightColor * AO;
-    vec3 Color = Ambient + Lo;
+    vec3 AmbientLightColor  = GetAmbientLightColor() * GetAmbientLightIntensity();
+    vec3 Ambient            = AmbientLightColor * AO;
+    vec3 Color              = Ambient + Lo;
     
     // Add emissive
     Color += Material.Emissive;
 
     // Output
-    outColor = vec4(Color, Material.Opacity);
-    GPicker = inEntityID;
+    outColor    = vec4(Color, Material.Opacity);
+    GPicker     = inEntityID;
 }

@@ -36,6 +36,8 @@ namespace Lumina
         SceneViewport = GRenderContext->CreateViewport(Windowing::GetPrimaryWindowHandle()->GetExtent());
         InitResources();
 
+        Memory::Memzero(&LightData, sizeof(FSceneLightData));
+        
     }
 
     void FForwardRenderScene::Shutdown()

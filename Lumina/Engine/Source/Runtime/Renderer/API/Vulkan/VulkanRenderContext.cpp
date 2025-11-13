@@ -634,7 +634,7 @@ namespace Lumina
     {
         LUMINA_PROFILE_SCOPE();
         
-        TUniquePtr<FQueue>& Queue = Queues[uint32(QueueType)];
+        TUniquePtr<FQueue>& Queue = Queues[(uint32)QueueType];
 
         uint64 SubmissionID = Queue->Submit(CommandLists, NumCommandLists);
 

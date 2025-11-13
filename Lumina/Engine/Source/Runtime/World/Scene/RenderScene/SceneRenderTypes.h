@@ -144,16 +144,6 @@ namespace Lumina
             Free.pop();
             return TileIndex;
         }
-    
-        void FreeTile(int32 TileIndex)
-        {
-            if (TileIndex < 0 || TileIndex >= static_cast<int32>(Tiles.size()))
-            {
-                return;
-            }
-        
-            Free.push(TileIndex);
-        }
 
         void FreeTiles()
         {
@@ -223,8 +213,8 @@ namespace Lumina
     
     struct FSceneLightData
     {
-        uint32          NumLights = 0;
-        uint32          Padding0[3] = {};
+        uint32          NumLights;
+        uint32          Padding0[3];
 
         glm::vec3       SunDirection;
         uint32          bHasSun;

@@ -233,8 +233,6 @@ void main()
     exposure = mix(1.2, 2.5, smoothstep(-0.2, 0.3, GetSunDirection().y));
 
     color = 1.0 - exp(-color * exposure);
-    color = pow(color, vec3(1.0 / 2.2));
-
     color = mix(color, color * color * (3.0 - 2.0 * color), 0.1);
 
     fragColor = vec4(color, 1.0);

@@ -20,6 +20,7 @@ namespace Lumina
 
     /** Objects that will not be destroyed */
     static THashSet<TObjectPtr<CObjectBase>> GRootedObjects;
+    static FMutex RootMutex;
 
     struct FPendingRegistrantInfo
     {
@@ -146,11 +147,13 @@ namespace Lumina
 
     void CObjectBase::AddToRoot()
     {
+        FScopeLock Lock(RootMutex);
         GRootedObjects.emplace(this);
     }
 
     void CObjectBase::RemoveFromRoot()
     {
+        FScopeLock Lock(RootMutex);
         GRootedObjects.erase(this);
     }
 

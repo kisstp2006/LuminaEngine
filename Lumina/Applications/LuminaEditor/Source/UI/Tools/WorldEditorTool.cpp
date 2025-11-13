@@ -1267,7 +1267,6 @@ namespace Lumina
     {
         FName EntityName = SelectedEntity.GetComponent<SNameComponent>().Name;
         
-        // ===== Entity Header =====
         {
             ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
             ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.15f, 0.15f, 0.18f, 1.0f));
@@ -1279,7 +1278,6 @@ namespace Lumina
                 ImGui::Spacing();
                 ImGui::Indent(8.0f);
                 
-                // Entity ID (read-only)
                 ImGui::BeginDisabled();
                 ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.12f, 0.12f, 0.14f, 1.0f));
                 int ID = (int)SelectedEntity.GetHandle();
@@ -1295,7 +1293,6 @@ namespace Lumina
                 
                 ImGui::Spacing();
                 
-                // Entity Name (read-only)
                 ImGui::BeginDisabled();
                 ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.12f, 0.12f, 0.14f, 1.0f));
                 ImGui::SetNextItemWidth(-1);

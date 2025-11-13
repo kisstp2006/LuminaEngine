@@ -23,7 +23,6 @@ vec3 ACESFilm(vec3 x)
     return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
 }
 
-// Alternative: Uncharted 2 (often looks better)
 vec3 Uncharted2Tonemap(vec3 x)
 {
     const float A = 0.15;
