@@ -154,7 +154,7 @@ struct FCubemapCoord
 
 FCubemapCoord DirectionToCubemapCoord(vec3 dir)
 {
-    FCubemapCoord result;
+    FCubemapCoord Result;
 
     vec3 absDir = abs(dir);
 
@@ -168,22 +168,24 @@ FCubemapCoord DirectionToCubemapCoord(vec3 dir)
     mix(5.0, 4.0, step(0.0, dir.z))  // Z: +Z=4, -Z=5
     );
 
-    result.Face = int(isXMax * faceIndex.x + isYMax * faceIndex.y + isZMax * faceIndex.z);
+    Result.Face = int(isXMax * faceIndex.x + isYMax * faceIndex.y + isZMax * faceIndex.z);
+    bool bDownFace = Result.Face == 3;
 
     float signX = sign(dir.x);
     float signY = sign(dir.y);
     float signZ = sign(dir.z);
 
-    vec2 uvX = vec2(-signX * dir.z, -dir.y) / absDir.x;
+    vec2 uvX = vec2(-signX * dir.z, dir.y) / absDir.x;
     vec2 uvY = vec2(dir.x, signY * dir.z) / absDir.y;
-    vec2 uvZ = vec2(signZ * dir.x, -dir.y) / absDir.z;
+    vec2 uvZ = vec2(signZ * dir.x, dir.y) / absDir.z;
 
-    result.UV = isXMax * uvX + isYMax * uvY + isZMax * uvZ;
+    Result.UV = isXMax * uvX + isYMax * uvY + isZMax * uvZ;
 
-    // Convert from [-1,1] to [0,1]
-    result.UV = result.UV * 0.5 + 0.5;
+    Result.UV.y = mix(Result.UV.y, -Result.UV.y, float(bDownFace));
 
-    return result;
+    Result.UV = Result.UV * 0.5 + 0.5;
+
+    return Result;
 }
 
 float ComputeShadowFactor(FLight Light, vec3 FragmentPos, float Bias)
@@ -209,7 +211,6 @@ float ComputeShadowFactor(FLight Light, vec3 FragmentPos, float Bias)
     float DistanceToLight   = length(L);
     float CurrentDepth      = DistanceToLight / max(Light.Radius, 1.0);
     vec3 Dir                = normalize(L);
-    Dir.y                   = -Dir.y;
 
     FCubemapCoord Coord     = DirectionToCubemapCoord(Dir);
     Coord.UV                = mix(Coord.UV, ProjectionUV, float(IsSpotLight));
@@ -221,7 +222,11 @@ float ComputeShadowFactor(FLight Light, vec3 FragmentPos, float Bias)
     float Shadow = 0.0f;
     for(int i = 0; i < SHADOW_SAMPLE_COUNT; i++)
     {
-        float FilterRadius  = 0.0015f;
+        float MinRadius     = 0.00001;
+        float MaxRadius     = 0.0015;
+        float Exponent      = 1.5;
+        
+        float FilterRadius  = mix(MinRadius, MaxRadius, pow(CurrentDepth, Exponent));
         float ShadowDepth   = 0.0f;
         vec2 Offset         = VogelDiskSample(i, SHADOW_SAMPLE_COUNT, Angle) * FilterRadius;
         
@@ -271,9 +276,9 @@ float ComputeShadowBias(FLight Light, vec3 Normal, vec3 LightDir, float CascadeI
 vec3 EvaluateLightContribution(FLight Light, vec3 Position, vec3 N, vec3 V, vec3 Albedo, float Roughness, float Metallic, vec3 F0)
 {
     vec3 L;
-    float Attenuation = 1.0;
-    float Falloff = 1.0;
-    vec4 LightColor = GetLightColor(Light);
+    float Attenuation   = 1.0;
+    float Falloff       = 1.0;
+    vec4 LightColor     = GetLightColor(Light);
 
     if (HasFlag(Light.Flags, LIGHT_FLAG_TYPE_DIRECTIONAL))
     {
@@ -281,22 +286,22 @@ vec3 EvaluateLightContribution(FLight Light, vec3 Position, vec3 N, vec3 V, vec3
     }
     else
     {
-        vec3 LightToFrag = Light.Position - Position;
-        float Distance = length(LightToFrag);
-        L = LightToFrag / Distance;
-        Attenuation = 1.0 / (Distance * Distance);
+        vec3 LightToFrag    = Light.Position - Position;
+        float Distance      = length(LightToFrag);
+        L                   = LightToFrag / Distance;
+        Attenuation         = 1.0 / (Distance * Distance);
 
         float DistanceRatio = Distance / Light.Radius;
-        float Cutoff = 1.0 - smoothstep(Light.Falloff, 1.0, DistanceRatio);
-        Attenuation *= Cutoff;
+        float Cutoff        = 1.0 - smoothstep(Light.Falloff, 1.0, DistanceRatio);
+        Attenuation         *= Cutoff;
 
         if (HasFlag(Light.Flags, LIGHT_FLAG_TYPE_SPOT))
         {
-            vec3 LightDir = normalize(Light.Direction.xyz);
-            float CosTheta = dot(LightDir, L);
-            float InnerCos = Light.Angles.x;
-            float OuterCos = Light.Angles.y;
-            Falloff = clamp((CosTheta - OuterCos) / max(InnerCos - OuterCos, 0.001), 0.0, 1.0);
+            vec3 LightDir   = normalize(Light.Direction.xyz);
+            float CosTheta  = dot(LightDir, L);
+            float InnerCos  = Light.Angles.x;
+            float OuterCos  = Light.Angles.y;
+            Falloff         = clamp((CosTheta - OuterCos) / max(InnerCos - OuterCos, 0.001), 0.0, 1.0);
         }
     }
 
@@ -339,7 +344,7 @@ void main()
     float Metallic  = Material.Metallic;
     float Specular  = Material.Specular;
 
-    vec3 Position = (GetInverseCameraView() * vec4(ViewPosition, 1.0f)).xyz;
+    vec3 Position   = (GetInverseCameraView() * vec4(ViewPosition, 1.0f)).xyz;
 
     // Setup geometry
     vec3 TSN        = normalize(Material.Normal);
@@ -367,10 +372,8 @@ void main()
     uint TileIndex  = Tile.x + (Tile.y * GridSize.x) + (Tile.z * GridSize.x * GridSize.y);
     uint LightCount = Clusters.Clusters[TileIndex].Count;
     
-    // Lighting accumulation
     vec3 Lo = vec3(0.0);
     
-    // Directional light (sun)
     if(LightData.bHasSun != 0)
     {
         FLight Light        = GetLightAt(0);
@@ -379,7 +382,6 @@ void main()
         Lo += LContribution * Shadow;
     }
     
-    // Clustered lights
     for (uint i = 0; i < LightCount; ++i)
     {
         uint LightIndex = Clusters.Clusters[TileIndex].LightIndices[i];
@@ -402,15 +404,12 @@ void main()
         Lo += LContribution * Shadow;
     }
     
-    // Add ambient lighting
     vec3 AmbientLightColor  = GetAmbientLightColor() * GetAmbientLightIntensity();
     vec3 Ambient            = AmbientLightColor * AO;
     vec3 Color              = Ambient + Lo;
     
-    // Add emissive
     Color                   += Material.Emissive;
 
-    // Output
     outColor    = vec4(Color, Material.Opacity);
     GPicker     = inEntityID;
 }

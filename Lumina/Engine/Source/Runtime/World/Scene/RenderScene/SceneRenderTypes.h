@@ -108,13 +108,13 @@ namespace Lumina
             : Config(InConfig)
         {
             FRHIImageDesc ImageDesc;
-            ImageDesc.Extent = glm::uvec2(InConfig.AtlasResolution);
-            ImageDesc.Flags.SetMultipleFlags(EImageCreateFlags::DepthAttachment, EImageCreateFlags::ShaderResource);
-            ImageDesc.Format = EFormat::D32;
+            ImageDesc.Extent            = glm::uvec2(InConfig.AtlasResolution);
+            ImageDesc.Format            = EFormat::D32;
             ImageDesc.bKeepInitialState = true;
-            ImageDesc.InitialState = EResourceStates::ShaderResource;
-            ImageDesc.Dimension = EImageDimension::Texture2D;
-            ImageDesc.DebugName = "Shadow Atlas";
+            ImageDesc.InitialState      = EResourceStates::ShaderResource;
+            ImageDesc.Dimension         = EImageDimension::Texture2D;
+            ImageDesc.Flags.SetMultipleFlags(EImageCreateFlags::DepthAttachment, EImageCreateFlags::ShaderResource);
+            ImageDesc.DebugName         = "Shadow Atlas";
 
             ShadowAtlas = GRenderContext->CreateImage(ImageDesc);
             

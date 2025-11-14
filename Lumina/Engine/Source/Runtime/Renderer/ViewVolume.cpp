@@ -53,8 +53,7 @@ namespace Lumina
     
     FViewVolume& FViewVolume::SetView(const glm::vec3& Position, const glm::vec3& ViewDirection, const glm::vec3& UpDirection)
     {
-        ViewPosition = Position;
-
+        ViewPosition    = Position;
         UpVector        = glm::normalize(UpDirection);
         ForwardVector   = glm::normalize(ViewDirection);
         RightVector     = glm::normalize(glm::cross(UpVector, ForwardVector));
@@ -99,9 +98,15 @@ namespace Lumina
 
     FViewVolume& FViewVolume::Rotate(float Angle, glm::vec3 Axis)
     {
-        ViewMatrix = glm::rotate(ViewMatrix, Angle, Axis);
-        UpdateMatrices();
+        float Radians   = glm::radians(Angle);
+        glm::mat4 R     = glm::rotate(glm::mat4(1), Radians, Axis);
+        
+        ForwardVector = glm::normalize(R * glm::vec4(ForwardVector, 0));
+        UpVector      = glm::normalize(R * glm::vec4(UpVector, 0));
+        
+        RightVector   = glm::normalize(glm::cross(UpVector, ForwardVector));
 
+        UpdateMatrices();
         return *this;
     }
 

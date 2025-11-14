@@ -105,7 +105,6 @@ namespace Lumina
             
             const size_t EntityCount = Group.size();
             const size_t EstimatedProxies = EntityCount * 2;
-            RecreatePickerImageIfRequired(World->GetNumEntities());
             
             InstanceData.clear();
             InstanceData.reserve(EstimatedProxies);
@@ -376,22 +375,22 @@ namespace Lumina
                 {
                     switch (Index)
                     {
-                    case 0: // + X
+                    case 0: // +X
                         View.SetView(Light.Position, FViewVolume::RightAxis, FViewVolume::DownAxis);
                         break;
-                    case 1: // - X
+                    case 1: // -X
                         View.SetView(Light.Position, FViewVolume::LeftAxis, FViewVolume::DownAxis);
                         break;
-                    case 2: // + Y
+                    case 2: // +Y
                         View.SetView(Light.Position, FViewVolume::UpAxis, FViewVolume::ForwardAxis);
                         break;
-                    case 3: // - Y
+                    case 3: // -Y
                         View.SetView(Light.Position, FViewVolume::DownAxis, FViewVolume::BackwardAxis);
                         break;
-                    case 4: // + Z
+                    case 4: // +Z
                         View.SetView(Light.Position, FViewVolume::ForwardAxis, FViewVolume::DownAxis);
                         break;
-                    case 5: // - Z
+                    case 5: // -Z
                         View.SetView(Light.Position, FViewVolume::BackwardAxis, FViewVolume::DownAxis);
                         break;
                     default:
@@ -1385,7 +1384,7 @@ namespace Lumina
         {
             FRHIImageDesc ImageDesc = {};
             ImageDesc.Extent = Extent;
-            ImageDesc.Format = EFormat::R8_UINT;
+            ImageDesc.Format = EFormat::R32_UINT;
             ImageDesc.Dimension = EImageDimension::Texture2D;
             ImageDesc.InitialState = EResourceStates::RenderTarget;
             ImageDesc.bKeepInitialState = true;
@@ -1682,38 +1681,6 @@ namespace Lumina
                 GRenderContext->CreateBindingSetAndLayout(Visibility, 0, SetDesc, LightCullLayout, LightCullSet);
             }
             
-        }
-    }
-
-    void FForwardRenderScene::RecreatePickerImageIfRequired(uint32 NumEntities)
-    {
-        EFormat CurrentFormat = PickerImage->GetFormat();
-        EFormat DesiredFormat;
-        if (NumEntities <= 0xFF)
-        {
-            DesiredFormat = EFormat::R8_UINT;
-        }
-        else if (NumEntities <= 0xFFFF)
-        {
-            DesiredFormat = EFormat::R16_UINT;
-        }
-        else
-        {
-            DesiredFormat = EFormat::R32_UINT;
-        }
-
-        if (CurrentFormat != DesiredFormat)
-        {
-            FRHIImageDesc ImageDesc     = {};
-            ImageDesc.Extent            = GetRenderTarget()->GetExtent();
-            ImageDesc.Format            = DesiredFormat;
-            ImageDesc.Dimension         = EImageDimension::Texture2D;
-            ImageDesc.InitialState      = EResourceStates::RenderTarget;
-            ImageDesc.bKeepInitialState = true;
-            ImageDesc.Flags.SetMultipleFlags(EImageCreateFlags::ColorAttachment, EImageCreateFlags::ShaderResource);
-            ImageDesc.DebugName         = "Picker";
-            
-            PickerImage = GRenderContext->CreateImage(ImageDesc);
         }
     }
 
