@@ -157,48 +157,28 @@ FCubemapCoord DirectionToCubemapCoord(vec3 dir)
     FCubemapCoord result;
 
     vec3 absDir = abs(dir);
-    float maxAxis = max(absDir.x, max(absDir.y, absDir.z));
 
-    // Determine face and calculate UV coordinates
-    if (maxAxis == absDir.x)
-    {
-        if (dir.x > 0.0) // +X
-        {
-            result.Face = 0;
-            result.UV = vec2(-dir.z, -dir.y) / absDir.x;
-        }
-        else // -X
-        {
-            result.Face = 1;
-            result.UV = vec2(dir.z, -dir.y) / absDir.x;
-        }
-    }
-    else if (maxAxis == absDir.y)
-    {
-        if (dir.y > 0.0) // +Y
-        {
-            result.Face = 2;
-            result.UV = vec2(dir.x, dir.z) / absDir.y;
-        }
-        else // -Y
-        {
-            result.Face = 3;
-            result.UV = vec2(dir.x, -dir.z) / absDir.y;
-        }
-    }
-    else // Z is max
-    {
-        if (dir.z > 0.0) // +Z
-        {
-            result.Face = 4;
-            result.UV = vec2(dir.x, -dir.y) / absDir.z;
-        }
-        else // -Z
-        {
-            result.Face = 5;
-            result.UV = vec2(-dir.x, -dir.y) / absDir.z;
-        }
-    }
+    float isXMax = step(absDir.y, absDir.x) * step(absDir.z, absDir.x);
+    float isYMax = step(absDir.x, absDir.y) * step(absDir.z, absDir.y);
+    float isZMax = 1.0 - isXMax - isYMax;
+
+    vec3 faceIndex = vec3(
+    mix(1.0, 0.0, step(0.0, dir.x)), // X: +X=0, -X=1
+    mix(3.0, 2.0, step(0.0, dir.y)), // Y: +Y=2, -Y=3
+    mix(5.0, 4.0, step(0.0, dir.z))  // Z: +Z=4, -Z=5
+    );
+
+    result.Face = int(isXMax * faceIndex.x + isYMax * faceIndex.y + isZMax * faceIndex.z);
+
+    float signX = sign(dir.x);
+    float signY = sign(dir.y);
+    float signZ = sign(dir.z);
+
+    vec2 uvX = vec2(-signX * dir.z, -dir.y) / absDir.x;
+    vec2 uvY = vec2(dir.x, signY * dir.z) / absDir.y;
+    vec2 uvZ = vec2(signZ * dir.x, -dir.y) / absDir.z;
+
+    result.UV = isXMax * uvX + isYMax * uvY + isZMax * uvZ;
 
     // Convert from [-1,1] to [0,1]
     result.UV = result.UV * 0.5 + 0.5;
@@ -236,17 +216,33 @@ float ComputeShadowFactor(FLight Light, vec3 FragmentPos, float Bias)
     Coord.Face              = int(mix(float(Coord.Face), 0.0, float(IsSpotLight)));
     
     FLightShadow ShadowTile = Light.Shadow[Coord.Face];
-    vec2 AtlasUV            = ShadowTile.AtlasUVOffset + (Coord.UV * ShadowTile.AtlasUVScale);
-
-    float ShadowDepth = 0.0f;
-    if(IsDirectionalLight)
+    float Angle             = fract(sin(dot(FragmentPos.xy, vec2(12.9898, 78.233))) * 43758.5453) * 6.28318530718;
+    
+    float Shadow = 0.0f;
+    for(int i = 0; i < SHADOW_SAMPLE_COUNT; i++)
     {
-        ShadowDepth = texture(uShadowCascade, vec3(ProjectionUV, ViewProjectionIndex)).r;
-        return step(ShadowDepth, CurrentDepth - Bias);
+        float FilterRadius  = 0.0015f;
+        float ShadowDepth   = 0.0f;
+        vec2 Offset         = VogelDiskSample(i, SHADOW_SAMPLE_COUNT, Angle) * FilterRadius;
+        
+        if(IsDirectionalLight)
+        {
+            vec2 CascadeUV  = ProjectionUV + Offset;
+            ShadowDepth     = texture(uShadowCascade, vec3(CascadeUV, ViewProjectionIndex)).r;
+            Shadow          += step(ShadowDepth, CurrentDepth - Bias);
+        }
+        else
+        {
+            // We apply a clamp due to a small pixel difference in the atlas.
+            vec2 ClampedUV  = clamp(Coord.UV + (Offset / ShadowTile.AtlasUVScale), 0.001, 0.999);
+            vec2 SampleUV   = ShadowTile.AtlasUVOffset + (ClampedUV * ShadowTile.AtlasUVScale);
+            
+            ShadowDepth     = texture(uShadowAtlas, SampleUV).r;
+            Shadow          += step(CurrentDepth - Bias, ShadowDepth);
+        }
     }
     
-    ShadowDepth = texture(uShadowAtlas, AtlasUV).r;
-    return step(CurrentDepth - Bias, ShadowDepth);
+    return Shadow / float(SHADOW_SAMPLE_COUNT);
 }
 
 float ComputeShadowBias(FLight Light, vec3 Normal, vec3 LightDir, float CascadeIndex)
@@ -254,7 +250,7 @@ float ComputeShadowBias(FLight Light, vec3 Normal, vec3 LightDir, float CascadeI
     float ConstBias = 0.000025;
     float SlopeBias = 0.00001;
     
-    float DiffuseFactor = dot(Normal, -LightDir);
+    float DiffuseFactor = dot(Normal, LightDir);
     DiffuseFactor = clamp(DiffuseFactor, 0.0, 1.0);
     
     float Bias = mix(ConstBias, SlopeBias, DiffuseFactor);
@@ -334,7 +330,6 @@ vec3 EvaluateLightContribution(FLight Light, vec3 Position, vec3 N, vec3 V, vec3
 
 void main()
 {
-    // Get material properties
     SMaterialInputs Material = GetMaterialInputs();
 
     vec3 Albedo     = Material.Diffuse;
@@ -388,7 +383,7 @@ void main()
     for (uint i = 0; i < LightCount; ++i)
     {
         uint LightIndex = Clusters.Clusters[TileIndex].LightIndices[i];
-        FLight Light = GetLightAt(LightIndex);
+        FLight Light    = GetLightAt(LightIndex);
         
         float Shadow = 1.0;
         if(Light.Shadow[0].ShadowMapIndex != INDEX_NONE)
@@ -413,7 +408,7 @@ void main()
     vec3 Color              = Ambient + Lo;
     
     // Add emissive
-    Color += Material.Emissive;
+    Color                   += Material.Emissive;
 
     // Output
     outColor    = vec4(Color, Material.Opacity);

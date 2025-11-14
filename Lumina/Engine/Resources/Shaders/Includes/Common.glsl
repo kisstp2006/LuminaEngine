@@ -2,14 +2,16 @@
 //// ---------------------------------------------------------------------------------
 ////  Constants
 
-const float PI = 3.14159265359;
-const float TWO_PI = 6.28318530718;
-const float INV_PI = 0.31830988618;
+const float PHI     = 1.618033988749895; // Golden ratio
+const float PI      = 3.1415926535897932384626433832795;
+const float TWO_PI  = 6.28318530718;
+const float INV_PI  = 0.31830988618;
 
 
 #define LIGHT_INDEX_MASK 0x1FFFu
 #define LIGHTS_PER_UINT 2
 #define LIGHTS_PER_CLUSTER 100
+#define SHADOW_SAMPLE_COUNT 32
 
 #define INDEX_NONE -1
 
@@ -56,6 +58,15 @@ const uint LIGHT_FLAG_CASTSHADOW       = 1 << 3;
 
 
 //////////////////////////////////////////////////////////
+
+vec2 VogelDiskSample(int SampleIndex, int SamplesCount, float Angle)
+{
+    float GoldenAngle   = 2.0 * PI * (1.0 - 1.0 / PHI);
+    float r             = sqrt(float(SampleIndex) + 0.5) / sqrt(float(SamplesCount));
+    float theta         = float(SampleIndex) * GoldenAngle + Angle;
+    
+    return vec2(r * cos(theta), r * sin(theta));
+}
 
 struct FSSAOSettings
 {
