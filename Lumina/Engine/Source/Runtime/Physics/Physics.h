@@ -1,72 +1,37 @@
 #pragma once
+#include "Memory/SmartPtr.h"
+#include "Platform/GenericPlatform.h"
 
-#if _MSC_VER
-#pragma warning(push, 0)
-#pragma warning(disable : 4435; disable : 4996)
-#endif
 
-#include <PxPhysicsAPI.h>
-#include <extensions/PxDefaultAllocator.h>
-#include <extensions/PxDefaultErrorCallback.h>
-
-#include "glm/fwd.hpp"
-#include "Memory/Memory.h"
-
-#if _MSC_VER
-#pragma warning(pop)
-#endif
+namespace Lumina
+{
+    class CWorld;
+}
 
 namespace Lumina::Physics
 {
-    struct LUMINA_API Constants
+    class IPhysicsScene;
+}
+
+namespace Lumina::Physics
+{
+    
+    class IPhysicsContext
     {
-        static constexpr float const    s_lengthScale = 1.0f;
-        static constexpr float const    s_speedScale = 9.81f;
-        static glm::vec3 const          s_gravity;
+    public:
+
+        virtual void Initialize() = 0;
+        virtual void Shutdown() = 0;
+        virtual TUniquePtr<IPhysicsScene> CreatePhysicsScene(CWorld* World) = 0;
     };
-
-    namespace PX
+    
+    enum class EPhysicsAPI : uint8
     {
-        struct Conversion
-        {
-            static glm::quat const         s_capsuleConversionToPx;
-            static glm::quat const         s_capsuleConversionFromPx;
-        };
-
-        struct Shapes
-        {
-            static physx::PxConvexMesh*     s_pUnitCylinderMesh;
-        };
-
-        class Allocator final : public physx::PxAllocatorCallback
-        {
-            virtual void* allocate(size_t size, const char* typeName, const char* filename, int line) override
-            {
-                return Memory::Malloc(size, 16);
-            }
-
-            virtual void deallocate( void* ptr ) override
-            {
-                Memory::Free(ptr);
-            }
-        };
-
-        class UserErrorCallback final : public physx::PxErrorCallback
-        {
-            virtual void reportError(physx::PxErrorCode::Enum code, const char* message, const char* file, int line) override
-            {
-                if (code >= physx::PxErrorCode::eINVALID_PARAMETER)
-                {
-                    LUMINA_NO_ENTRY()
-                }
-
-                LOG_ERROR("[PhysX] - {} {} {}", message, file, line);
-            }
-        };
-    }
+        Jolt,
+    };
     
-    
-    void Initialize();
+    void Initialize(EPhysicsAPI API = EPhysicsAPI::Jolt);
     void Shutdown();
-    physx::PxPhysics* GetPxPhysics();
+
+    IPhysicsContext* GetPhysicsContext();
 }

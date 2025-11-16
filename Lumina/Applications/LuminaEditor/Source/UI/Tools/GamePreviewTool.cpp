@@ -8,6 +8,7 @@ namespace Lumina
     FGamePreviewTool::FGamePreviewTool(IEditorToolContext* Context, CWorld* InWorld)
         :FEditorTool(Context, "Game Preview", InWorld)
     {
+        
     }
 
     void FGamePreviewTool::OnInitialize()

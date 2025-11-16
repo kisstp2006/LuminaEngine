@@ -49,7 +49,6 @@ workspace "Lumina"
         
         buildoptions 
         { 
-            "/arch:AVX2",
             "/MP",      -- Multi-processor compilation
             "/Zc:inline", -- Remove unreferenced functions/data
             "/Zc:__cplusplus",
@@ -71,6 +70,8 @@ workspace "Lumina"
     -- Release Configuration (Developer build with symbols)
     filter "configurations:Release"
         runtime "Release"
+        vectorextensions "AVX2"
+        isaextensions { "BMI", "POPCNT", "LZCNT", "F16C" }
         links { "%{VULKAN_SDK}/lib/shaderc_combined.lib" }
         optimize "Speed"
         symbols "On" -- Keep symbols for profiling
@@ -81,6 +82,8 @@ workspace "Lumina"
     -- Shipping Configuration (Maximum optimization, no symbols)
     filter "configurations:Shipping"
         runtime "Release"
+        vectorextensions "AVX2"
+        isaextensions { "BMI", "POPCNT", "LZCNT", "F16C" }
         links { "%{VULKAN_SDK}/lib/shaderc_combined.lib" }
         optimize "Full"
         symbols "Off"
@@ -96,7 +99,6 @@ workspace "Lumina"
 		include "Lumina/Engine/ThirdParty/imgui"
 		include "Lumina/Engine/Thirdparty/Tracy"
 		include "Lumina/Engine/ThirdParty/xxhash"
-		include "Lumina/Engine/ThirdParty/entt"
 	group ""
 
 	group "Core"

@@ -33,6 +33,12 @@ project "Lumina"
         "Engine/ThirdParty/EnkiTS/src/**.h",
         "Engine/ThirdParty/EnkiTS/src/**.cpp",
 
+        "Engine/ThirdParty/JoltPhysics/Jolt/**.cpp",
+        "Engine/ThirdParty/JoltPhysics/Jolt/**.h",
+        "Engine/ThirdParty/JoltPhysics/Jolt/**.inl",
+        "Engine/ThirdParty/JoltPhysics/Jolt/**.gliffy",
+
+        "Engine/ThirdParty/entt/**.hpp",
         "Engine/ThirdParty/concurrentqueue/concurrentqueue.h",
         "Engine/ThirdParty/rpmalloc/**.h",
         "Engine/ThirdParty/rpmalloc/**.c",
@@ -59,11 +65,6 @@ project "Lumina"
         "Engine/ThirdParty/fastgltf/deps/simdjson/**.cpp",
     }
 
-    removefiles
-    {
-        "Engine/ThirdParty/glm/glm/**.cpp",
-    }
-
     includedirs
     { 
         "Engine/Source",
@@ -77,7 +78,6 @@ project "Lumina"
     libdirs
     {
         "%{VULKAN_SDK}/lib",
-        "%{LuminaEngineDirectory}/External/PhysX/physx/bin/win.x86_64.vc143.mt/checked/",
     }
 
     links
@@ -87,27 +87,34 @@ project "Lumina"
         "EA",
         "Tracy",
         "XXHash",
-        "EnTT",
         "vulkan-1.lib",
-        "PhysXExtensions_static_64.lib",
-        "PhysX_64.lib",
-        "PhysXPvdSDK_static_64.lib",
-        "PhysXCommon_64.lib",
-        "PhysXFoundation_64.lib",
     }
+    
+
 
     defines
     {
         "LUMINA_ENGINE_DIRECTORY=%{LuminaEngineDirectory}",
         "LUMINA_ENGINE",
+
         "EASTL_USER_DEFINED_ALLOCATOR=1",
+
         "GLFW_INCLUDE_NONE",
         "GLFW_STATIC",
+
         "_SILENCE_ALL_MS_EXT_DEPRECATION_WARNINGS",
+
         "LUMINA_RENDERER_VULKAN",
+
         "TRACY_ENABLE",
         "TRACY_CALLSTACK",
         "TRACY_ON_DEMAND",
         "TRACY_IMPORTS",
+
         "LUMINA_RPMALLOC",
+
+        "JPH_DEBUG_RENDERER",
+        "JPH_FLOATING_POINT_EXCEPTIONS_ENABLED",
+        "JPH_EXTERNAL_PROFILE",
+		"JPH_ENABLE_ASSERTS"
     }

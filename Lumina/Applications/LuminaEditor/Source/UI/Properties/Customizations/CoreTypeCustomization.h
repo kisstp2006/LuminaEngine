@@ -239,6 +239,25 @@ namespace Lumina
         glm::vec4 DisplayValue{};
     };
 
+    class FQuatPropertyCustomization : public IPropertyTypeCustomization
+    {
+    public:
+        
+        static TSharedPtr<FQuatPropertyCustomization> MakeInstance()
+        {
+            return MakeSharedPtr<FQuatPropertyCustomization>();
+        }
+
+        EPropertyChangeOp DrawProperty(TSharedPtr<FPropertyHandle> Property) override;
+        void UpdatePropertyValue(TSharedPtr<FPropertyHandle> Property) override;
+        void HandleExternalUpdate(TSharedPtr<FPropertyHandle> Property) override;
+
+    private:
+
+        glm::quat CachedValue{};
+        glm::quat DisplayValue{};
+    };
+
     class FTransformPropertyCustomization : public IPropertyTypeCustomization
     {
     public:

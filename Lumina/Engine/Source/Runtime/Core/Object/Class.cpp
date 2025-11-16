@@ -101,6 +101,12 @@ namespace Lumina
         return Struct;   
     }
 
+    CStruct* TBaseStructure<glm::quat>::Get()
+    {
+        static CStruct* Struct = StaticGetBaseStructureInternal("quat");
+        return Struct;   
+    }
+
     CStruct* TBaseStructure<FTransform>::Get()
     {
         static CStruct* Struct = StaticGetBaseStructureInternal("FTransform");

@@ -74,6 +74,10 @@ namespace Lumina
         {
             return FVec4PropertyCustomization::MakeInstance();
         });
+        PropertyCustomizationRegistry->RegisterPropertyCustomization(TBaseStructure<glm::quat>::Get()->GetName(), [this]()
+        {
+            return FVec3PropertyCustomization::MakeInstance();
+        });
         PropertyCustomizationRegistry->RegisterPropertyCustomization(TBaseStructure<FTransform>::Get()->GetName(), [this]()
         {
             return FTransformPropertyCustomization::MakeInstance();

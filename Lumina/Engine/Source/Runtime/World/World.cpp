@@ -1,6 +1,4 @@
 ﻿#include "World.h"
-
-#include "WorldManager.h"
 #include "Core/Engine/Engine.h"
 #include "Core/Object/Class.h"
 #include "Core/Object/ObjectIterator.h"
@@ -13,12 +11,13 @@
 #include "Entity/Components/VelocityComponent.h"
 #include "Entity/Systems/UpdateTransformEntitySystem.h"
 #include "glm/gtx/matrix_decompose.hpp"
+#include "Physics/Physics.h"
 #include "Scene/RenderScene/Forward/ForwardRenderScene.h"
 #include "Subsystems/FCameraManager.h"
 #include "TaskSystem/TaskSystem.h"
 #include "World/Entity/Components/RelationshipComponent.h"
-#include "World/Scene/RenderScene/Deferred/DeferredRenderScene.h"
 #include "World/entity/systems/EntitySystem.h"
+#include "World/Scene/RenderScene/Deferred/DeferredRenderScene.h"
 
 namespace Lumina
 {
@@ -113,6 +112,8 @@ namespace Lumina
         {
             return;
         }
+
+        PhysicsScene = Physics::GetPhysicsContext()->CreatePhysicsScene(this);
         
         CameraManager = Memory::New<FCameraManager>();
         SetupEditorWorld();
@@ -169,6 +170,11 @@ namespace Lumina
         }
         
         FSystemContext SystemContext(this);
+
+        if (Stage == EUpdateStage::DuringPhysics)
+        {
+            PhysicsScene->Update(Context.GetDeltaTime());
+        }
         
         auto& SystemVector = SystemUpdateList[(uint32)Stage];
         for(CEntitySystem* System : SystemVector)
@@ -212,6 +218,11 @@ namespace Lumina
     {
         FSystemContext SystemContext(this);
 
+        if (bIsPlayWorld)
+        {
+            EndPlay();
+        }
+
         // Collect unique systems across all stages
         TVector<CEntitySystem*> UniqueSystems;
     
@@ -233,11 +244,15 @@ namespace Lumina
             System->Shutdown(SystemContext);
             System->ConditionalBeginDestroy();
         }
-
+        
         RenderScene->Shutdown();
         Memory::Delete(RenderScene);
+        RenderScene = nullptr;
         
         Memory::Delete(CameraManager);
+        CameraManager = nullptr;
+
+        PhysicsScene.reset();
     }
 
     bool CWorld::RegisterSystem(CEntitySystem* NewSystem)
@@ -417,6 +432,16 @@ namespace Lumina
     Entity CWorld::GetActiveCameraEntity() const
     {
         return CameraManager->GetActiveCameraEntity();
+    }
+
+    void CWorld::BeginPlay()
+    {
+        PhysicsScene->OnWorldSimulate();
+    }
+
+    void CWorld::EndPlay()
+    {
+        PhysicsScene->OnWorldStopSimulate();
     }
 
     CWorld* CWorld::DuplicateWorldForPIE(CWorld* OwningWorld)

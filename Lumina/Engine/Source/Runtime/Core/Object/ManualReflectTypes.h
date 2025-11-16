@@ -55,6 +55,22 @@ namespace glm
         LUM_PROPERTY(Editable)
         float w;
     };
+
+    LUM_STRUCT()
+    struct quat
+    {
+        LUM_PROPERTY(Editable)
+        float x;
+
+        LUM_PROPERTY(Editable)
+        float y;
+    
+        LUM_PROPERTY(Editable)
+        float z;
+
+        LUM_PROPERTY()
+        float w;
+    };
 }
 
 namespace Lumina
@@ -66,7 +82,7 @@ namespace Lumina
         glm::vec3 Location;
 
         LUM_PROPERTY(Editable)
-        glm::vec3 Rotation;
+        glm::quat Rotation;
 
         LUM_PROPERTY(Editable)
         glm::vec3 Scale;

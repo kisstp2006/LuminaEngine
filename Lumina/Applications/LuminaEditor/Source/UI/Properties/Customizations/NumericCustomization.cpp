@@ -115,6 +115,34 @@ namespace Lumina
         }
     }
 
+    EPropertyChangeOp FQuatPropertyCustomization::DrawProperty(TSharedPtr<FPropertyHandle> Property)
+    {
+        ImGui::PushItemWidth(ImGui::GetContentRegionAvail().x);
+
+        ImGui::DragFloat4("##", glm::value_ptr(DisplayValue), 0.01f);
+
+        ImGui::PopItemWidth();
+        
+        return ImGui::IsItemEdited() ? EPropertyChangeOp::Updated : EPropertyChangeOp::None;
+    }
+
+    void FQuatPropertyCustomization::UpdatePropertyValue(TSharedPtr<FPropertyHandle> Property)
+    {
+        CachedValue = DisplayValue;
+        Property->Property->SetValue(Property->ContainerPtr, CachedValue, Property->Index);
+    }
+
+    void FQuatPropertyCustomization::HandleExternalUpdate(TSharedPtr<FPropertyHandle> Property)
+    {
+        glm::quat ActualValue;
+        Property->Property->GetValue(Property->ContainerPtr, &ActualValue, Property->Index);
+        
+        if (CachedValue != ActualValue)
+        {
+            CachedValue = DisplayValue = ActualValue;
+        }
+    }
+
     EPropertyChangeOp FTransformPropertyCustomization::DrawProperty(TSharedPtr<FPropertyHandle> Property)
     {
         constexpr float HeaderWidth = 24;

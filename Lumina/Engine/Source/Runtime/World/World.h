@@ -7,10 +7,14 @@
 #include "Entity/Registry/EntityRegistry.h"
 #include "Entity/EntityWorld.h"
 #include "Renderer/RenderGraph/RenderGraph.h"
+#include "Memory/SmartPtr.h"
 #include "World.generated.h"
+#include "Physics/PhysicsScene.h"
+
 
 namespace Lumina
 {
+    class FPhysicsScene;
     class IRenderScene;
     struct SRenderComponent;
     class FCameraManager;
@@ -86,6 +90,9 @@ namespace Lumina
         double GetWorldDeltaTime() const { return DeltaTime; }
         double GetTimeSinceWorldCreation() const { return TimeSinceCreation; }
 
+        void BeginPlay();
+        void EndPlay();
+
         void SetPaused(bool bNewPause) { bPaused = bNewPause; }
         bool IsPaused() const { return bPaused; }
 
@@ -127,6 +134,7 @@ namespace Lumina
 
         FCameraManager*                                 CameraManager = nullptr;
         IRenderScene*                                   RenderScene = nullptr;
+        TUniquePtr<Physics::IPhysicsScene>              PhysicsScene = nullptr;
         
         TVector<CEntitySystem*>                         SystemUpdateList[(int32)EUpdateStage::Max];
         

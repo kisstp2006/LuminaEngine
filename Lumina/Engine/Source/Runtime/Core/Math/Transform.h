@@ -4,8 +4,6 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/quaternion.hpp>
 
-#include "Core/Profiler/Profile.h"
-
 namespace Lumina
 {
     class FTransform

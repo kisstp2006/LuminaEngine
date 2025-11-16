@@ -25,7 +25,6 @@ project "Editor"
     	"EA",
 		"Tracy",
 		"XXHash",
-		"EnTT",
 	 }
 	 
 	files

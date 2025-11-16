@@ -17,9 +17,7 @@ namespace Lumina
     public:
 
         virtual ~IRenderScene() = default;
-
-        virtual void Init() = 0;
-        virtual void Shutdown() = 0;
+        
         LUMINA_API virtual void RenderScene(FRenderGraph& RenderGraph, const FViewVolume& ViewVolume) = 0;
         LUMINA_API virtual void SetViewVolume(const FViewVolume& ViewVolume) = 0;
         LUMINA_API virtual void CompileDrawCommands(FRenderGraph& RenderGraph) = 0;

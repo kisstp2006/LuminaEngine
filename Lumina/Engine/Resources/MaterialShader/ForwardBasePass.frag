@@ -275,12 +275,15 @@ float ComputeShadowBias(FLight Light, vec3 Normal, vec3 LightDir, float CascadeI
 
 vec3 EvaluateLightContribution(FLight Light, vec3 Position, vec3 N, vec3 V, vec3 Albedo, float Roughness, float Metallic, vec3 F0)
 {
+    bool bSpotLight = Light.Flags == LIGHT_FLAG_TYPE_SPOT;
+    bool bDirectional = Light.Flags == LIGHT_FLAG_TYPE_DIRECTIONAL;
+    
     vec3 L;
     float Attenuation   = 1.0;
     float Falloff       = 1.0;
     vec4 LightColor     = GetLightColor(Light);
 
-    if (HasFlag(Light.Flags, LIGHT_FLAG_TYPE_DIRECTIONAL))
+    if (bDirectional)
     {
         L = normalize(Light.Direction.xyz);
     }
@@ -295,7 +298,7 @@ vec3 EvaluateLightContribution(FLight Light, vec3 Position, vec3 N, vec3 V, vec3
         float Cutoff        = 1.0 - smoothstep(Light.Falloff, 1.0, DistanceRatio);
         Attenuation         *= Cutoff;
 
-        if (HasFlag(Light.Flags, LIGHT_FLAG_TYPE_SPOT))
+        if (bSpotLight)
         {
             vec3 LightDir   = normalize(Light.Direction.xyz);
             float CosTheta  = dot(LightDir, L);
