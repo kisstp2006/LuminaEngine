@@ -1,8 +1,10 @@
 ﻿#pragma once
+#include "Core/Delegates/Delegate.h"
 #include "Renderer/BindingCache.h"
 #include "Renderer/TypedBuffer.h"
 #include "World/Scene/RenderScene/MeshDrawCommand.h"
 #include "World/Scene/RenderScene/RenderScene.h"
+
 
 namespace Lumina
 {
@@ -19,6 +21,7 @@ namespace Lumina
         void Shutdown() override;
         void RenderScene(FRenderGraph& RenderGraph, const FViewVolume& ViewVolume) override;
         void SetViewVolume(const FViewVolume& ViewVolume) override;
+        void SwapchainResized(glm::vec2 NewSize);
         
         void CompileDrawCommands(FRenderGraph& RenderGraph) override;
 
@@ -57,6 +60,7 @@ namespace Lumina
         entt::entity GetEntityAtPixel(uint32 X, uint32 Y) const override;
 
 
+        FDelegateHandle                     SwapchainResizedHandle;
         CWorld*                             World = nullptr;
         
         FSceneRenderSettings                RenderSettings;

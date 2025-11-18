@@ -11,6 +11,9 @@
 #include "VulkanSwapchain.h"
 #include <glfw/glfw3.h>
 
+#include "Core/Engine/Engine.h"
+#include "Renderer/RenderManager.h"
+
 namespace Lumina
 {
     FVulkanSwapchain::~FVulkanSwapchain()
@@ -56,9 +59,6 @@ namespace Lumina
     	{
 			VK_CHECK(glfwCreateWindowSurface(Instance, Window->GetWindow(), VK_ALLOC_CALLBACK, &Surface));
     	}
-    	
-		SwapchainImages.clear();
-        SwapchainImages.reserve(SWAPCHAIN_IMAGES);
 
     	VkPhysicalDevice PhysicalDevice = Context->GetDevice()->GetPhysicalDevice();
         vkb::SwapchainBuilder SwapchainBuilder(PhysicalDevice, Device, Surface);
@@ -98,25 +98,46 @@ namespace Lumina
 
     	FRHICommandListRef CommandList = Context->CreateCommandList(FCommandListInfo::Graphics());
     	CommandList->Open();
-    	
-        for (VkImage RawImage : RawImages)
-        {
+
+    	SwapchainImages.clear();
+    	SwapchainImages.reserve(SWAPCHAIN_IMAGES);
+
+	    for (int i = 0; i < RawImages.size(); ++i)
+	    {
+	    	VkImage RawImage = RawImages[i];
+	    	
         	FRHIImageDesc ImageDescription;
         	ImageDescription.Extent = Extent;
-        	ImageDescription.Format = EFormat::R8_UNORM;
-        	ImageDescription.NumMips = 1;
-        	ImageDescription.NumSamples = 1;
+        	ImageDescription.Format = EFormat::BGRA8_UNORM;
         	ImageDescription.InitialState = EResourceStates::Present;
         	ImageDescription.bKeepInitialState = true;
         	ImageDescription.DebugName = "Swapchain Image";
 
         	TRefCountPtr<FVulkanImage> Image = MakeRefCount<FVulkanImage>(Context->GetDevice(), ImageDescription, RawImage, true);
-        	
+
+        	FInlineString ObjectName = FInlineString("SwapchainImage: ").append(eastl::to_string(i).c_str());
+        	Context->SetObjectName(Image, ObjectName.c_str(), EAPIResourceType::Image);
 			SwapchainImages.push_back(Image);
         }
 
+
     	CommandList->Close();
     	Context->ExecuteCommandList(CommandList);
+
+    	if (bFromResize && (!PresentSemaphores.empty() || !AcquireSemaphores.empty()))
+    	{
+    		for (VkSemaphore Semaphore : PresentSemaphores)
+		    {
+			    vkDestroySemaphore(Device, Semaphore, VK_ALLOC_CALLBACK);
+		    }
+			for (VkSemaphore Semaphore : AcquireSemaphores)
+			{
+				vkDestroySemaphore(Device, Semaphore, VK_ALLOC_CALLBACK);
+			}
+
+    		PresentSemaphores.clear();
+    		AcquireSemaphores.clear();
+	    }
 
     	
     	SIZE_T NumPresentSemaphores = SwapchainImages.size();
@@ -141,7 +162,6 @@ namespace Lumina
 	    	VK_CHECK(vkCreateSemaphore(Device, &CreateInfo, VK_ALLOC_CALLBACK, &Semaphore));
 	    	AcquireSemaphores.push_back(Semaphore);
 	    }
-    	
     }
 
     void FVulkanSwapchain::RecreateSwapchain(const glm::uvec2& Extent)
@@ -159,8 +179,9 @@ namespace Lumina
     	CurrentPresentMode = NewMode;
     	bNeedsResize = true;
     }
+	
 
-    TRefCountPtr<FVulkanImage> FVulkanSwapchain::GetCurrentImage() const
+	TRefCountPtr<FVulkanImage> FVulkanSwapchain::GetCurrentImage() const
     {
 	    return SwapchainImages[CurrentImageIndex];
     }
@@ -168,7 +189,7 @@ namespace Lumina
     bool FVulkanSwapchain::AcquireNextImage()
     {
     	LUMINA_PROFILE_SCOPE();
-
+    	
     	VkSemaphore Semaphore = AcquireSemaphores[AcquireSemaphoreIndex];
     	VkResult Result = VK_RESULT_MAX_ENUM;
     	
@@ -216,6 +237,7 @@ namespace Lumina
     	if (!(Result == VK_SUCCESS || Result == VK_SUBOPTIMAL_KHR || Result == VK_ERROR_OUT_OF_DATE_KHR) || bNeedsResize)
     	{
     		RecreateSwapchain(Windowing::GetPrimaryWindowHandle()->GetExtent());
+    		GEngine->GetEngineSubsystem<FRenderManager>()->SwapchainResized(Windowing::GetPrimaryWindowHandle()->GetExtent());
     	}
 
 #ifndef _WIN32

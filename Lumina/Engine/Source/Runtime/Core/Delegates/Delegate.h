@@ -6,12 +6,22 @@
 
 namespace Lumina
 {
+    // Handle for tracking delegates
+    struct FDelegateHandle
+    {
+        uint64 ID = 0;
+        
+        bool IsValid() const { return ID != 0; }
+        void Reset() { ID = 0; }
+        
+        bool operator==(const FDelegateHandle& Other) const { return ID == Other.ID; }
+        bool operator!=(const FDelegateHandle& Other) const { return ID != Other.ID; }
+    };
 
     template<typename R, typename ... TArgs>
     class TBaseDelegate
     {
     public:
-
         using FFunc = TFunction<R(TArgs...)>;
 
         TBaseDelegate() = default;
@@ -65,9 +75,7 @@ namespace Lumina
 
         void Unbind() { Func = nullptr; }
 
-        
     private:
-
         FFunc Func;
     };
     
@@ -78,21 +86,50 @@ namespace Lumina
         using FBase = TBaseDelegate<R, Args...>;
 
         template<typename TFunc>
-        void AddStatic(TFunc&& func)
+        NODISCARD FDelegateHandle AddStatic(TFunc&& func)
         {
-            InvocationList.push_back(FBase::CreateStatic(eastl::forward<TFunc>(func)));
+            FDelegateHandle Handle = GenerateHandle();
+            InvocationList.push_back({Handle, FBase::CreateStatic(eastl::forward<TFunc>(func))});
+            return Handle;
         }
 
         template<typename TObject, typename TMemFunc>
-        void AddMember(TObject* object, TMemFunc method)
+        NODISCARD FDelegateHandle AddMember(TObject* object, TMemFunc method)
         {
-            InvocationList.push_back(FBase::CreateMember(object, method));
+            FDelegateHandle Handle = GenerateHandle();
+            InvocationList.push_back({Handle, FBase::CreateMember(object, method)});
+            return Handle;
         }
 
         template<typename TLambda>
-        void AddLambda(TLambda&& lambda)
+        NODISCARD FDelegateHandle AddLambda(TLambda&& lambda)
         {
-            InvocationList.push_back(FBase::CreateLambda(eastl::forward<TLambda>(lambda)));
+            FDelegateHandle Handle = GenerateHandle();
+            InvocationList.push_back({Handle, FBase::CreateLambda(eastl::forward<TLambda>(lambda))});
+            return Handle;
+        }
+
+        bool Remove(FDelegateHandle Handle)
+        {
+            if (!Handle.IsValid())
+            {
+                return false;
+            }
+
+            for (auto it = InvocationList.begin(); it != InvocationList.end(); ++it)
+            {
+                if (it->Handle == Handle)
+                {
+                    InvocationList.erase(it);
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        void RemoveAll()
+        {
+            Clear();
         }
         
         template<typename... CallArgs>
@@ -100,21 +137,21 @@ namespace Lumina
         {
             if constexpr (eastl::is_void_v<R>)
             {
-                for (auto& d : InvocationList)
+                for (auto& Entry : InvocationList)
                 {
-                    if (d.IsBound())
+                    if (Entry.Delegate.IsBound())
                     {
-                        d.Execute(eastl::forward<CallArgs>(args)...);
+                        Entry.Delegate.Execute(eastl::forward<CallArgs>(args)...);
                     }
                 }
             }
             else
             {
-                for (auto& d : InvocationList)
+                for (auto& Entry : InvocationList)
                 {
-                    if (d.IsBound())
+                    if (Entry.Delegate.IsBound())
                     {
-                        d.Execute(eastl::forward<CallArgs>(args)...);
+                        Entry.Delegate.Execute(eastl::forward<CallArgs>(args)...);
                     }
                 }
             }
@@ -133,9 +170,24 @@ namespace Lumina
             InvocationList.shrink_to_fit();
         }
 
+        size_t GetCount() const { return InvocationList.size(); }
+
     private:
+        struct FDelegateEntry
+        {
+            FDelegateHandle Handle;
+            FBase Delegate;
+        };
+
+        FDelegateHandle GenerateHandle()
+        {
+            static uint64 NextID = 1;
+            FDelegateHandle Handle;
+            Handle.ID = NextID++;
+            return Handle;
+        }
         
-        TVector<FBase> InvocationList;
+        TVector<FDelegateEntry> InvocationList;
     };
 }
 

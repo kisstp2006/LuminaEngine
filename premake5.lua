@@ -22,6 +22,7 @@ workspace "Lumina"
 		"GLM_FORCE_DEPTH_ZERO_TO_ONE",
 		"GLM_FORCE_LEFT_HANDED",
 		"IMGUI_DEFINE_MATH_OPERATORS",
+        "IMGUI_IMPL_VULKAN_USE_VOLK",
 	}
 
 	filter "action:vs"

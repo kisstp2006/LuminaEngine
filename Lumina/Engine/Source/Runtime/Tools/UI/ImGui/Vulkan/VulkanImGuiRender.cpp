@@ -8,7 +8,6 @@
 #include "Core/Engine/Engine.h"
 #include "Core/Profiler/Profile.h"
 #include "Core/Windows/Window.h"
-#include "EASTL/bonus/ring_buffer.h"
 #include "Paths/Paths.h"
 #include "Renderer/RenderManager.h"
 #include "Renderer/RHIStaticStates.h"
@@ -219,6 +218,7 @@ namespace Lumina
     {
 		
     	LUMINA_PROFILE_SCOPE();
+		
 		FRGPassDescriptor* Descriptor = RenderGraph.AllocDescriptor();
 		Descriptor->AddRawWrite(GEngine->GetEngineViewport()->GetRenderTarget());
 		for (FRHIImage* Image : ReferencedImages)
@@ -241,10 +241,12 @@ namespace Lumina
 				}
 			
 				CmdList.CommitBarriers();
-		
+
+				glm::uvec2 RenderArea = GEngine->GetEngineViewport()->GetRenderTarget()->GetExtent();
+				
 				FRenderPassDesc RenderPass; RenderPass
 				.AddColorAttachment(Attachment)
-				.SetRenderArea(GEngine->GetEngineViewport()->GetRenderTarget()->GetExtent());
+				.SetRenderArea(RenderArea);
 		
 				CmdList.BeginRenderPass(RenderPass);
 				{
@@ -430,11 +432,11 @@ namespace Lumina
     {
 		FScopeLock Lock(TextureMutex);
 
-		ImGui_ImplVulkan_RemoveTexture((VkDescriptorSet)Image.GetTexID());
 		for (auto it = Images.begin(); it != Images.end(); )
 		{
 			if (it->second->ImTexture.GetTexID() == Image.GetTexID())
 			{
+				ImGui_ImplVulkan_RemoveTexture((VkDescriptorSet)Image.GetTexID());
 				it = Images.erase(it);
 				break;
 			}

@@ -255,7 +255,8 @@ namespace Lumina
     
     void FEngine::SetEngineViewportSize(const glm::uvec2& InSize)
     {
-        EngineViewport->SetSize(InSize);
+        LOG_INFO("Changing Engine Viewport Size: X: {}, Y: {}", InSize.x, InSize.y);
+        EngineViewport = GRenderContext->CreateViewport(InSize);
     }
 
 }

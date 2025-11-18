@@ -38,6 +38,7 @@ project "Lumina"
         "Engine/ThirdParty/JoltPhysics/Jolt/**.inl",
         "Engine/ThirdParty/JoltPhysics/Jolt/**.gliffy",
 
+        "Engine/ThirdParty/volk/**.h",
         "Engine/ThirdParty/entt/**.hpp",
         "Engine/ThirdParty/concurrentqueue/concurrentqueue.h",
         "Engine/ThirdParty/rpmalloc/**.h",
@@ -77,7 +78,7 @@ project "Lumina"
     
     libdirs
     {
-        "%{VULKAN_SDK}/lib",
+        
     }
 
     links
@@ -87,7 +88,6 @@ project "Lumina"
         "EA",
         "Tracy",
         "XXHash",
-        "vulkan-1.lib",
     }
     
 
@@ -116,5 +116,7 @@ project "Lumina"
         "JPH_DEBUG_RENDERER",
         "JPH_FLOATING_POINT_EXCEPTIONS_ENABLED",
         "JPH_EXTERNAL_PROFILE",
-		"JPH_ENABLE_ASSERTS"
+		"JPH_ENABLE_ASSERTS",
+
+        "IMGUI_IMPL_VULKAN_USE_VOLK",
     }

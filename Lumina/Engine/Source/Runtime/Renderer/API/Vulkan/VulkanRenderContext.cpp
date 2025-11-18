@@ -1,6 +1,7 @@
 #include "VulkanRenderContext.h"
 #include <random>
-#include <vulkan/vulkan.hpp>
+#define VOLK_IMPLEMENTATION
+#include <volk/volk.h>
 #include "VulkanCommandList.h"
 #include "VulkanDevice.h"
 #include "VulkanMacros.h"
@@ -12,11 +13,11 @@
 #include "Core/Windows/Window.h"
 #include "Paths/Paths.h"
 #include "Platform/Filesystem/FileHelper.h"
-#include "Platform/Process/PlatformProcess.h"
 #include "Renderer/CommandList.h"
 #include "Renderer/RHIStaticStates.h"
 #include "Renderer/ShaderCompiler.h"
 #include "Renderer/RenderGraph/RenderGraphDescriptor.h"
+#define VK_NO_PROTOTYPES
 #include "src/VkBootstrap.h"
 #include "TaskSystem/TaskSystem.h"
 
@@ -473,6 +474,13 @@ namespace Lumina
         GVulkanAllocationCallbacks.pfnAllocation = VulkanAlloc;
         GVulkanAllocationCallbacks.pfnFree = VulkanFree;
         GVulkanAllocationCallbacks.pfnReallocation = VulkanRealloc;
+
+        if (volkInitialize() != VK_SUCCESS)
+        {
+            LOG_CRITICAL("Volk failed to initialize!");
+            return false;
+        }
+
         
         vkb::InstanceBuilder Builder;
         Builder
@@ -500,6 +508,8 @@ namespace Lumina
             return false;
         }
 
+        volkLoadInstance(InstBuilder.value());
+        
         VulkanInstance = InstBuilder.value();
 
         if (Description.bValidation)
@@ -509,6 +519,8 @@ namespace Lumina
         
         CreateDevice(InstBuilder.value());
 
+        volkLoadDevice(VulkanDevice->GetDevice());
+        
         uint32 APIVer = GetDevice()->GetPhysicalDeviceProperties().apiVersion;
         uint32 Major = VK_VERSION_MAJOR(APIVer);
         uint32 Minor = VK_VERSION_MINOR(APIVer);
@@ -610,6 +622,7 @@ namespace Lumina
         RenderGraph.AddPass<RG_Raster>(FRGEvent("Swapchain Copy"), Descriptor, [&](ICommandList& CmdList)
         {
             CmdList.CopyImage(GEngine->GetEngineViewport()->GetRenderTarget(), FTextureSlice(), Swapchain->GetCurrentImage(), FTextureSlice());
+
         });
 
         RenderGraph.Execute();

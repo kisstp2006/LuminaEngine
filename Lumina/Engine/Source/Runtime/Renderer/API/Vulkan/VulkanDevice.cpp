@@ -12,8 +12,8 @@ namespace Lumina
     FVulkanMemoryAllocator::FVulkanMemoryAllocator(FVulkanRenderContext* InCxt, VkInstance Instance, VkPhysicalDevice PhysicalDevice, VkDevice Device)
     {
         VmaVulkanFunctions Functions = {};
-        Functions.vkGetInstanceProcAddr = &vkGetInstanceProcAddr;
-        Functions.vkGetDeviceProcAddr = &vkGetDeviceProcAddr;
+        Functions.vkGetInstanceProcAddr = vkGetInstanceProcAddr;
+        Functions.vkGetDeviceProcAddr = vkGetDeviceProcAddr;
     
         VmaAllocatorCreateInfo Info = {};
         Info.vulkanApiVersion = VK_API_VERSION_1_3;

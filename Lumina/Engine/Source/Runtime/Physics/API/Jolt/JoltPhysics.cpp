@@ -1,6 +1,7 @@
 ﻿#include "JoltPhysics.h"
 
 #include "JoltPhysicsScene.h"
+#include "Core/Threading/Thread.h"
 #include "Jolt/RegisterTypes.h"
 #include "Jolt/Core/Factory.h"
 
@@ -23,12 +24,19 @@ namespace Lumina::Physics
         LOG_TRACE("Jolt Physics - {}", buffer);
     }
     
+    static bool JoltAssertionFailed(const char* expr, const char* msg, const char* file, uint32 line)
+    {
+        LOG_CRITICAL("JOLT ASSERT FAILED: Message {}, File: {} - {}", expr, msg, file, line);
+        return true; // return true to break into debugger (if attached)
+    }
+    
     void FJoltPhysicsContext::Initialize()
     {
         JPH::RegisterDefaultAllocator();
 
         JPH::Trace = JoltTraceCallback;
-
+        JPH::AssertFailed = JoltAssertionFailed;
+        
         JPH::Factory::sInstance = Memory::New<JPH::Factory>();
 
         JPH::RegisterTypes();
@@ -37,7 +45,7 @@ namespace Lumina::Physics
 
         JoltData->TemporariesAllocator = MakeUniquePtr<JPH::TempAllocatorImpl>(300 * 1024 * 1024);
 
-        JoltData->JobThreadPool = MakeUniquePtr<JPH::JobSystemThreadPool>(2048, 8, 6);
+        JoltData->JobThreadPool = MakeUniquePtr<JPH::JobSystemThreadPool>(2048, 8, Threading::GetNumThreads() - 2);
         
     }
 

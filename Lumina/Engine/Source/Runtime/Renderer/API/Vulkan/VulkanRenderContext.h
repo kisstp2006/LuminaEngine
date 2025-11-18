@@ -2,7 +2,8 @@
 
 #include <atomic>
 #include <Containers/Array.h>
-#include <vulkan/vulkan.h>
+#include <volk/volk.h>
+#define VK_NO_PROTOTYPES
 #include <tracy/TracyVulkan.hpp>
 #include "TrackedCommandBuffer.h"
 #include "VulkanMacros.h"

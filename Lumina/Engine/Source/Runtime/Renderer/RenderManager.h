@@ -2,6 +2,7 @@
 #include "Subsystems/Subsystem.h"
 #include "Lumina.h"
 #include "RHIFwd.h"
+#include "Core/Delegates/Delegate.h"
 
 
 namespace Lumina
@@ -17,11 +18,16 @@ namespace Lumina
     {
     public:
 
+        static TMulticastDelegate<void, glm::vec2> OnSwapchainResized;
+
+
         void Initialize() override;
         void Deinitialize() override;
 
         void FrameStart(const FUpdateContext& UpdateContext);
         void FrameEnd(const FUpdateContext& UpdateContext, FRenderGraph& RenderGraph);
+
+        void SwapchainResized(glm::vec2 NewSize);
 
 
         #if WITH_DEVELOPMENT_TOOLS

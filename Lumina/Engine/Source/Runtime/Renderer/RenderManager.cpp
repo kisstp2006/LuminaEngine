@@ -12,6 +12,8 @@
 
 namespace Lumina
 {
+    TMulticastDelegate<void, glm::vec2> FRenderManager::OnSwapchainResized;
+    
     void FRenderManager::Initialize()
     {
         GRenderContext = Memory::New<FVulkanRenderContext>();
@@ -64,5 +66,10 @@ namespace Lumina
         GRenderContext->FlushPendingDeletes();
         
         CurrentFrameIndex = (CurrentFrameIndex + 1) % FRAMES_IN_FLIGHT;
+    }
+
+    void FRenderManager::SwapchainResized(glm::vec2 NewSize)
+    {
+        OnSwapchainResized.Broadcast(NewSize);
     }
 }

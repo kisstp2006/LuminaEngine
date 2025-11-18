@@ -1,7 +1,5 @@
 ﻿#pragma once
 
-#include <vulkan/vulkan.h>
-
 #include "Format.h"
 #include "RenderTypes.h"
 #include "StateTracking.h"
@@ -261,7 +259,7 @@ namespace Lumina
 		{
 			FRHIResourceList& List = Get();
 			
-			FScopeLock Lock(List.Mutex);
+			FRecursiveScopeLock Lock(List.Mutex);
 			for (IRHIResource* Resource : List.ResourceList)
 			{
 				std::forward<TCallable>(Callable)(Resource);
@@ -272,7 +270,7 @@ namespace Lumina
 
 		static FRHIResourceList& Get();
 
-		FMutex Mutex;
+		FRecursiveMutex Mutex;
 		TFixedHashSet<IRHIResource*, 1> ResourceList;
 	};
 

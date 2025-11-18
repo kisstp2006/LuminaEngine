@@ -37,7 +37,7 @@ namespace Lumina
         LUMINA_API bool Update(bool bApplicationWantsExit);
         LUMINA_API virtual void OnUpdateStage(const FUpdateContext& Context) { }
 
-        LUMINA_API const FRHIViewportRef& GetEngineViewport() const { return EngineViewport; }
+        LUMINA_API FRHIViewport* GetEngineViewport() const { return EngineViewport; }
         
         LUMINA_API void SetEngineViewportSize(const glm::uvec2& InSize);
 

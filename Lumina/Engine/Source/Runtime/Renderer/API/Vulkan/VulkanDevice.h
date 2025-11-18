@@ -1,6 +1,7 @@
 ﻿#pragma once
 
-#include <vulkan/vulkan.h>
+#include <volk/volk.h>
+#define VK_NO_PROTOTYPES
 #include "vk_mem_alloc.h"
 #include "Containers/Array.h"
 #include "Core/Threading/Thread.h"

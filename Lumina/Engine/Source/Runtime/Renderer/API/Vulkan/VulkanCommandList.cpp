@@ -1583,7 +1583,7 @@ namespace Lumina
                     batch = &Batches.back();
                 }
                 
-                Assert(after.ImageLayout != VK_IMAGE_LAYOUT_UNDEFINED);
+                Assert(after.ImageLayout != VK_IMAGE_LAYOUT_UNDEFINED)
                 
                 FVulkanImage* texture = static_cast<FVulkanImage*>(barrier.Texture);
                 const FFormatInfo& formatInfo = RHI::Format::Info(texture->GetDescription().Format);

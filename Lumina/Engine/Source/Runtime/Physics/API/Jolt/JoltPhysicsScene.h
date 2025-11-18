@@ -146,7 +146,7 @@ namespace Lumina::Physics
 
         float FixedTimeStep = 1.0f / 60.0f;
         float Accumulator = 0.0f;
-        uint32 CollisionSteps = 1;
+        int CollisionSteps = 1;
     
     };
 }

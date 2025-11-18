@@ -103,7 +103,7 @@ namespace Lumina::Physics
         JoltSystem = MakeUniquePtr<JPH::PhysicsSystem>();
         JoltInterfaceLayer = MakeUniquePtr<FLayerInterfaceImpl>();
         
-        JoltSystem->Init(20240, 0, 65536, 20240, *JoltInterfaceLayer, GObjectVsBroadPhaseLayerFilter, GObjectVsObjectLayerFilter);
+        JoltSystem->Init(65536, 0, 131072, 262144, *JoltInterfaceLayer, GObjectVsBroadPhaseLayerFilter, GObjectVsObjectLayerFilter);
         JoltSystem->SetGravity(JPH::Vec3Arg(0.0f, -9.81f, 0.0f));
 
         JPH::PhysicsSettings JoltSettings;
@@ -160,7 +160,7 @@ namespace Lumina::Physics
             return;
         }
 
-        CollisionSteps = (uint32)(Accumulator / FixedTimeStep);
+        CollisionSteps = (int)(Accumulator / FixedTimeStep);
         Accumulator -= (float)CollisionSteps * FixedTimeStep;
 
         if (CollisionSteps > 0)

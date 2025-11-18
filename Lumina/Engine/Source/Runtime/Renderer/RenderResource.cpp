@@ -30,19 +30,19 @@ namespace Lumina
 
     void FRHIResourceList::Track(IRHIResource* Resource)
     {
-        FScopeLock Lock(Mutex);
+        FRecursiveScopeLock Lock(Mutex);
         ResourceList.emplace(Resource);
     }
 
     void FRHIResourceList::Untrack(IRHIResource* Resource)
     {
-        FScopeLock Lock(Mutex);
+        FRecursiveScopeLock Lock(Mutex);
         ResourceList.erase(Resource);
     }
 
     void FRHIResourceList::Clear()
     {
-        FScopeLock Lock(Mutex);
+        FRecursiveScopeLock Lock(Mutex);
         ResourceList.clear();
     }
 
@@ -74,12 +74,11 @@ namespace Lumina
 
     void IRHIResource::ReleaseAllRHIResources()
     {
+        FRecursiveScopeLock Lock(FRHIResourceList::Get().Mutex);
+
         TVector<IRHIResource*> ResourcesSnapshot;
 
-        {
-            FScopeLock Lock(FRHIResourceList::Get().Mutex);
-            ResourcesSnapshot.assign(FRHIResourceList::Get().ResourceList.begin(), FRHIResourceList::Get().ResourceList.end());
-        }
+        ResourcesSnapshot.assign(FRHIResourceList::Get().ResourceList.begin(), FRHIResourceList::Get().ResourceList.end());
 
         for (IRHIResource* Resource : ResourcesSnapshot)
         {
@@ -91,7 +90,7 @@ namespace Lumina
     
     uint32 IRHIResource::GetNumberRHIResources()
     {
-        FScopeLock Lock(FRHIResourceList::Get().Mutex);
+        FRecursiveScopeLock Lock(FRHIResourceList::Get().Mutex);
         return (uint32)FRHIResourceList::Get().ResourceList.size();
     }
     

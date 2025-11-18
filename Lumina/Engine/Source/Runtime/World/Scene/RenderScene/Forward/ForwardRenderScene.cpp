@@ -39,6 +39,8 @@ namespace Lumina
         SceneViewport = GRenderContext->CreateViewport(Windowing::GetPrimaryWindowHandle()->GetExtent());
         InitResources();
 
+        SwapchainResizedHandle = FRenderManager::OnSwapchainResized.AddMember(this, &FForwardRenderScene::SwapchainResized); 
+
         Memory::Memzero(&LightData, sizeof(FSceneLightData));
         
     }
@@ -48,6 +50,8 @@ namespace Lumina
         GRenderContext->WaitIdle();
         GRenderContext->ClearCommandListCache();
         GRenderContext->ClearBindingCaches();
+
+        FRenderManager::OnSwapchainResized.Remove(SwapchainResizedHandle);
         
         LOG_TRACE("Shutting down Forward Render Scene");
     }
@@ -98,6 +102,13 @@ namespace Lumina
         SceneGlobalData.DeltaTime                       = (float)World->GetWorldDeltaTime();
         SceneGlobalData.FarPlane                        = SceneViewport->GetViewVolume().GetFar();
         SceneGlobalData.NearPlane                       = SceneViewport->GetViewVolume().GetNear();
+    }
+
+    void FForwardRenderScene::SwapchainResized(glm::vec2 NewSize)
+    {
+        SceneViewport = GRenderContext->CreateViewport(NewSize);
+        InitResources();
+        BindingCache.ReleaseResources();
     }
 
     void FForwardRenderScene::CompileDrawCommands(FRenderGraph& RenderGraph)
@@ -545,7 +556,7 @@ namespace Lumina
                 CmdList.CommitBarriers();
                 
                 CmdList.DisableAutomaticBarriers();
-                CmdList.WriteBuffer(SceneDataBuffer, &SceneGlobalData, 0, sizeof(FSceneGlobalData));
+                CmdList.WriteBuffer(SceneDataBuffer, &SceneGlobalData, 0);
                 CmdList.WriteBuffer(InstanceDataBuffer, InstanceData.data(), 0, InstanceDataSize);
                 CmdList.WriteBuffer(IndirectDrawBuffer, IndirectDrawArguments.data(), 0, IndirectArgsSize);
                 CmdList.WriteBuffer(SimpleVertexBuffer, SimpleVertices.data(), 0, SimpleVertexSize);
