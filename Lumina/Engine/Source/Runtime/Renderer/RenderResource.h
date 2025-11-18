@@ -585,10 +585,10 @@ namespace Lumina
         static constexpr uint32 AllMipLevels = uint32(-1);
         static constexpr uint32 AllArraySlices = uint32(-1);
         
-        uint32 BaseMipLevel = 0;
-        uint32 NumMipLevels = 1;
-        uint32 BaseArraySlice = 0;
-        uint32 NumArraySlices = 1;
+		uint32 BaseMipLevel = 0;
+		uint32 NumMipLevels = 1;
+		uint32 BaseArraySlice = 0;
+		uint32 NumArraySlices = 1;
 
         FTextureSubresourceSet() = default;
 
@@ -649,18 +649,20 @@ namespace Lumina
 
 	struct FRenderPassDesc
     {
-        struct FAttachment
+        struct alignas(16) FAttachment
         {
-            FRHIImage*		Image = nullptr;
-        	FTextureSubresourceSet Subresources = FTextureSubresourceSet(0, 1, 0 ,1);
-        	ERenderLoadOp	LoadOp = ERenderLoadOp::Clear;
-        	ERenderStoreOp	StoreOp = ERenderStoreOp::Store;
-        	EFormat			Format = EFormat::UNKNOWN;
-        	glm::vec4		ClearColor = glm::vec4(0.0f);
-        	bool			bReadOnly = false;
+        	FTextureSubresourceSet	Subresources	= FTextureSubresourceSet(0, 1, 0 ,1);
+        	glm::vec4				ClearColor		= glm::vec4(0.0f);
+            FRHIImage*				Image			= nullptr;
+        	FRHIImage*				ResolveImage = nullptr;
+        	ERenderLoadOp			LoadOp			= ERenderLoadOp::Clear;
+        	ERenderStoreOp			StoreOp			= ERenderStoreOp::Store;
+        	EFormat					Format			= EFormat::UNKNOWN;
+        	bool					bReadOnly		= false;
 
         	constexpr FAttachment& SetFormat(EFormat f) { Format = f; return *this; }
         	constexpr FAttachment& SetImage(FRHIImage* t) { Image = t; return *this; }
+        	constexpr FAttachment& SetResolveImage(FRHIImage* Value) { ResolveImage = Value; return *this; }
         	constexpr FAttachment& SetLoadOp(ERenderLoadOp Op) { LoadOp = Op; return *this; }
         	constexpr FAttachment& SetStoreOp(ERenderStoreOp Op) { StoreOp = Op; return *this; }
         	constexpr FAttachment& SetDepthClearValue(float Value) { ClearColor.r = Value; return *this; }
@@ -676,8 +678,10 @@ namespace Lumina
         
         TFixedVector<FAttachment, 2>	ColorAttachments;
         FAttachment						DepthAttachment;
-		glm::uvec2					RenderArea;
+		glm::uvec2						RenderArea;
+		uint16							SampleCount		= 1;
 
+		FRenderPassDesc& SetSampleCount(uint16 Count) { SampleCount = Count; return *this; }
 		FRenderPassDesc& SetRenderArea(const glm::uvec2& Area) { RenderArea = Area; return *this; }
 		FRenderPassDesc& AddColorAttachment(const FAttachment& a) { ColorAttachments.push_back(a); return *this; }
 		FRenderPassDesc& AddColorAttachment(FRHIImage* texture) { ColorAttachments.push_back(FAttachment().SetImage(texture)); return *this; }
@@ -689,6 +693,11 @@ namespace Lumina
 
 		bool operator==(const FRenderPassDesc& Other) const
 		{
+			if (SampleCount != Other.SampleCount)
+			{
+				return false;
+			}
+			
 			if (RenderArea != Other.RenderArea)
 			{
 				return false;
@@ -708,6 +717,11 @@ namespace Lumina
 				{
 					return false;
 				}
+				if (A.ResolveImage != B.ResolveImage)
+				{
+					return false; 
+				}
+				
 				if (A.Subresources != B.Subresources)
 				{
 					return false;
@@ -774,7 +788,8 @@ namespace Lumina
             return (!ColorAttachments.empty()) || DepthAttachment.IsValid();
         }
     };
-	
+
+
 	enum class LUMINA_API ESamplerReductionType : uint8
 	{
 		Standard,
@@ -788,15 +803,15 @@ namespace Lumina
 		FColor BorderColor = 1.0f;
 		float MaxAnisotropy = 1.0f;
 		float MipBias = 0.0f;
-		FString DebugName;
 
 		bool MinFilter = true;
 		bool MagFilter = true;
 		bool MipFilter = true;
-		ESamplerAddressMode AddressU = ESamplerAddressMode::Clamp;
-		ESamplerAddressMode AddressV = ESamplerAddressMode::Clamp;
-		ESamplerAddressMode AddressW = ESamplerAddressMode::Clamp;
+		ESamplerAddressMode AddressU 		= ESamplerAddressMode::Clamp;
+		ESamplerAddressMode AddressV 		= ESamplerAddressMode::Clamp;
+		ESamplerAddressMode AddressW 		= ESamplerAddressMode::Clamp;
 		ESamplerReductionType ReductionType = ESamplerReductionType::Standard;
+		FString DebugName;
 
 		FSamplerDesc& SetBorderColor(const FColor& color) { BorderColor = color; return *this; }
 		FSamplerDesc& SetMaxAnisotropy(float value) { MaxAnisotropy = value; return *this; }
@@ -940,7 +955,7 @@ namespace Lumina
 	
 	//-------------------------------------------------------------------------------------------------------------------
 
-	enum class LUMINA_API ERasterFillMode : uint8_t
+	enum class LUMINA_API ERasterFillMode : uint8
 	{
 		Solid,
 		Wireframe,
@@ -1390,6 +1405,8 @@ namespace Lumina
 				&& Size == b.Size;
 		}
 	};
+
+	static_assert(64 % sizeof(FBindingLayoutItem) == 0, "FBindingLayoutItem should match a cache-line.");
 	
 	
 	struct LUMINA_API FBindingLayoutDesc
@@ -1418,8 +1435,6 @@ namespace Lumina
 		FBindlessLayoutDesc& SetFirstSlot(uint32 Value) { FirstSlot = Value; return *this; }
 		FBindlessLayoutDesc& SetMaxCapacity(uint32 Value) { MaxCapacity = Value; return *this; }
 		FBindlessLayoutDesc& AddBinding(const FBindingLayoutItem& value) { Bindings.push_back(value); return *this; }
-		
-
 	};
 
 	struct LUMINA_API FBindingTextureResource
@@ -1438,15 +1453,12 @@ namespace Lumina
 		ERHIBindingResourceType Type	: 8;
 		EImageDimension Dimension		: 8;
 		EFormat Format					: 8;
-		uint8 bUnused					: 8;
 
 		
-		uint32 bUnused2; // Padding
-
 		union 
 		{
 			FBindingTextureResource TextureResource;	// Valid for Texture_SRV, Texture_UAV
-			FBufferRange Range;							// Valid for Buffer_SRV, Buffer_UAV, ConstantBuffer
+			FBufferRange Range;							// Valid for Buffer_SRV, Buffer_UAV, Buffer_CBV
 			uint64 RawData[2];
 		};
 
@@ -1464,14 +1476,11 @@ namespace Lumina
 			Result.ResourceHandle = Buffer;
 			Result.Range = Range;
 			Result.Dimension = EImageDimension::Unknown;
-			Result.TextureResource.Sampler = nullptr;
 			Result.Format = Format;
 			Result.ArrayElement = 0;
 			Result.Slot = Slot;
 			Result.RawData[0] = 0;
 			Result.RawData[1] = 0;
-			Result.bUnused = 0;
-			Result.bUnused2 = 0;
 			
 			return Result;
 		}
@@ -1486,14 +1495,11 @@ namespace Lumina
 			Result.ResourceHandle = Buffer;
 			Result.Range = Range;
 			Result.Dimension = EImageDimension::Unknown;
-			Result.TextureResource.Sampler = nullptr;
 			Result.Format = Format;
 			Result.ArrayElement = 0;
 			Result.Slot = Slot;
 			Result.RawData[0] = 0;
 			Result.RawData[1] = 0;
-			Result.bUnused = 0;
-			Result.bUnused2 = 0;
 			
 			return Result;
 		}
@@ -1509,13 +1515,10 @@ namespace Lumina
 			Result.Range = Range;
 			Result.Dimension = EImageDimension::Unknown;
 			Result.Format = EFormat::UNKNOWN;
-			Result.TextureResource.Sampler = nullptr;
 			Result.ArrayElement = 0;
 			Result.Slot = Slot;
 			Result.RawData[0] = 0;
 			Result.RawData[1] = 0;
-			Result.bUnused = 0;
-			Result.bUnused2 = 0;
 			
 			return Result;
 		}
@@ -1525,16 +1528,14 @@ namespace Lumina
 		static FBindingSetItem TextureSRV(uint32 Slot, FRHIImage* Image, FRHISampler* Sampler = nullptr, EFormat Format = EFormat::UNKNOWN, FTextureSubresourceSet Subresources = AllSubresources, EImageDimension Dimension = EImageDimension::Unknown)
 		{
 			FBindingSetItem Result;
-			Result.Slot = Slot;
-			Result.ArrayElement = 0;
-			Result.Type = ERHIBindingResourceType::Texture_SRV;
-			Result.ResourceHandle = Image;
-			Result.Format = Format;
-			Result.Dimension = Dimension;
+			Result.Slot							= Slot;
+			Result.ArrayElement					= 0;
+			Result.Type							= ERHIBindingResourceType::Texture_SRV;
+			Result.ResourceHandle				= Image;
+			Result.Format						= Format;
+			Result.Dimension					= Dimension;
 			Result.TextureResource.Subresources = Subresources;
-			Result.TextureResource.Sampler = Sampler;
-			Result.bUnused = 0;
-			Result.bUnused2 = 0;
+			Result.TextureResource.Sampler		= Sampler;
 			
 			return Result;
 		}
@@ -1547,16 +1548,14 @@ namespace Lumina
 			EImageDimension Dimension = EImageDimension::Unknown)
 		{
 			FBindingSetItem Result;
-			Result.Slot = Slot;
-			Result.ArrayElement = 0;
-			Result.Type = ERHIBindingResourceType::Texture_UAV;
-			Result.ResourceHandle = Image;
-			Result.Format = Format;
-			Result.Dimension = Dimension;
+			Result.Slot							= Slot;
+			Result.ArrayElement					= 0;
+			Result.Type							= ERHIBindingResourceType::Texture_UAV;
+			Result.ResourceHandle				= Image;
+			Result.Format						= Format;
+			Result.Dimension					= Dimension;
 			Result.TextureResource.Subresources = Subresources;
-			Result.TextureResource.Sampler = nullptr;
-			Result.bUnused = 0;
-			Result.bUnused2 = 0;
+			Result.TextureResource.Sampler		= nullptr;
 			
 			return Result;
 		}
@@ -1564,16 +1563,15 @@ namespace Lumina
 		static FBindingSetItem PushConstants(uint32 Slot, uint32 ByteSize)
 		{
 			FBindingSetItem Result;
-			Result.Slot = Slot;
-			Result.ArrayElement = 0;
-			Result.Type = ERHIBindingResourceType::PushConstants;
-			Result.ResourceHandle = nullptr;
-			Result.Format = EFormat::UNKNOWN;
-			Result.Dimension = EImageDimension::Unknown;
-			Result.Range.ByteOffset = 0;
-			Result.Range.ByteSize = ByteSize;
-			Result.bUnused = 0;
-			Result.bUnused2 = 0;
+			Result.Slot					= Slot;
+			Result.ArrayElement			= 0;
+			Result.Type					= ERHIBindingResourceType::PushConstants;
+			Result.ResourceHandle		= nullptr;
+			Result.Format				= EFormat::UNKNOWN;
+			Result.Dimension			= EImageDimension::Unknown;
+			Result.Range.ByteOffset		= 0;
+			Result.Range.ByteSize		= ByteSize;
+			
 			return Result;
 		}
 
@@ -1582,13 +1580,14 @@ namespace Lumina
 			return ResourceHandle == b.ResourceHandle
 				&& Slot == b.Slot
 				&& Type == b.Type
+				&& Dimension == b.Dimension
+				&& Format == b.Format
 				&& RawData[0] == b.RawData[0]
 				&& RawData[1] == b.RawData[1];
 		}
 
 	};
 
-	// Verify the packing of BindingSetItem for good alignment.
 	static_assert(sizeof(FBindingSetItem) == 48, "sizeof(FBindingSetItem) is supposed to be 48 bytes");
 	
 	struct LUMINA_API FBindingSetDesc
@@ -1730,11 +1729,16 @@ namespace Lumina
 
 		FRHIBuffer* IndirectParams = nullptr;
 
+		// Move semantic overloads.
+		FORCEINLINE FGraphicsState& SetRenderPass(FRenderPassDesc&& value) { RenderPass = Move(value); return *this; }
+		FORCEINLINE FGraphicsState& SetViewportState(FViewportState&& value) { ViewportState = Move(value); return *this; }
+
+		
 		FORCEINLINE FGraphicsState& SetRenderPass(const FRenderPassDesc& value) { RenderPass = value; return *this; }
 		FORCEINLINE FGraphicsState& SetPipeline(FRHIGraphicsPipeline* value) { Pipeline = value; return *this; }
 		FORCEINLINE FGraphicsState& AddViewport(const FViewport& Viewport) { ViewportState.Viewports.push_back(Viewport); return *this; }
 		FORCEINLINE FGraphicsState& AddScissor(const FRect& Scissor) { ViewportState.Scissors.push_back(Scissor); return *this; }
-		FORCEINLINE FGraphicsState& SetViewportState(const FViewportState& value) { ViewportState = value; return *this; }
+		FORCEINLINE FGraphicsState& SetViewportState(const FViewportState& value) { ViewportState = Move(value); return *this; }
 		FORCEINLINE FGraphicsState& AddBindingSet(FRHIBindingSet* value) { Bindings.push_back(value); return *this; }
 		FORCEINLINE FGraphicsState& AddVertexBuffer(const FVertexBufferBinding& value) { VertexBuffers.push_back(value); return *this; }
 		FORCEINLINE FGraphicsState& SetVertexBuffer(const FVertexBufferBinding& value)
@@ -1833,9 +1837,11 @@ namespace eastl
 		{
 			size_t hash = 0;
 			Hash::HashCombine(hash, Item.ResourceHandle);
-			Hash::HashCombine(hash, Item.bUnused);
 			Hash::HashCombine(hash, Item.Slot);
 			Hash::HashCombine(hash, Item.Type);
+			Hash::HashCombine(hash, Item.Dimension);
+			Hash::HashCombine(hash, Item.RawData[0]);
+			Hash::HashCombine(hash, Item.RawData[1]);
 
 			return hash;
 		}

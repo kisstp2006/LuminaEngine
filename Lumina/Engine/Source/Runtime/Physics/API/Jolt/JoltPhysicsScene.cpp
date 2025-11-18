@@ -107,8 +107,6 @@ namespace Lumina::Physics
         JoltSystem->SetGravity(JPH::Vec3Arg(0.0f, -9.81f, 0.0f));
 
         JPH::PhysicsSettings JoltSettings;
-        JoltSettings.mNumPositionSteps = 2;
-        JoltSettings.mNumVelocitySteps = 10;
         JoltSystem->SetPhysicsSettings(JoltSettings);
     }
 
@@ -131,6 +129,11 @@ namespace Lumina::Physics
         
         View.each([&](entt::entity EntityID, FJoltBodyComponent& Body, STransformComponent& TransformComponent)
         {
+            if (!Body.Body->IsActive())
+            {
+                return;
+            }
+            
             auto Pos = Body.Body->GetPosition();
             auto Rot = Body.Body->GetRotation();
 
@@ -191,8 +194,8 @@ namespace Lumina::Physics
         Registry.on_construct<SRigidBodyComponent>().disconnect<&FJoltPhysicsScene::OnRigidBodyComponentConstructed>(this);
         Registry.on_destroy<SRigidBodyComponent>().disconnect<&FJoltPhysicsScene::OnRigidBodyComponentDestroyed>(this);
 
-        auto View = Registry.view<FJoltBodyComponent>();
-        View.each([&] (entt::entity EntityID, FJoltBodyComponent&)
+        auto View = Registry.view<SRigidBodyComponent, FJoltBodyComponent>();
+        View.each([&] (entt::entity EntityID, SRigidBodyComponent&, FJoltBodyComponent&)
         {
            OnRigidBodyComponentDestroyed(Registry, EntityID); 
         });
@@ -214,14 +217,14 @@ namespace Lumina::Physics
         if (Registry.all_of<SBoxColliderComponent>(EntityID))
         {
             auto& BC = Registry.get<SBoxColliderComponent>(EntityID);
-            JPH::BoxShapeSettings Settings(JPH::RVec3(BC.HalfExtent.x, BC.HalfExtent.y, BC.HalfExtent.z));
+            JPH::BoxShapeSettings Settings(JPH::RVec3(BC.HalfExtent.x * TransformComponent.GetScale().x, BC.HalfExtent.y * TransformComponent.GetScale().y, BC.HalfExtent.z * TransformComponent.GetScale().z));
             Settings.SetEmbedded();
             Shape = Settings.Create().Get();
         }
         else if (Registry.all_of<SSphereColliderComponent>(EntityID))
         {
             auto& SC = Registry.get<SSphereColliderComponent>(EntityID);
-            JPH::SphereShapeSettings Settings(SC.Radius);
+            JPH::SphereShapeSettings Settings(SC.Radius * TransformComponent.MaxScale());
             Settings.SetEmbedded();
             Shape = Settings.Create().Get();
         }
@@ -239,7 +242,7 @@ namespace Lumina::Physics
             JoltQuat,
             MotionType,
             Layer);
-            
+
         Settings.mRestitution = 0.5f;
         Settings.mFriction = 0.3f;
         Settings.mAngularDamping = RigidBodyComponent.AngularDamping;
@@ -254,14 +257,21 @@ namespace Lumina::Physics
 
     void FJoltPhysicsScene::OnRigidBodyComponentDestroyed(entt::registry& Registry, entt::entity EntityID)
     {
-        FJoltBodyComponent& JoltBodyComponent = Registry.get<FJoltBodyComponent>(EntityID);
-
-        JPH::BodyInterface& BodyInterface = JoltSystem->GetBodyInterface();
+        if (FJoltBodyComponent* JoltBodyComponent = Registry.try_get<FJoltBodyComponent>(EntityID))
+        {
+            JPH::BodyInterface& BodyInterface = JoltSystem->GetBodyInterface();
         
-        BodyInterface.RemoveBody(JoltBodyComponent.Body->GetID());
-        BodyInterface.DestroyBody(JoltBodyComponent.Body->GetID());
-        JoltBodyComponent.Body = nullptr;
+            BodyInterface.RemoveBody(JoltBodyComponent->Body->GetID());
+            BodyInterface.DestroyBody(JoltBodyComponent->Body->GetID());
+            Registry.remove<FJoltBodyComponent>(EntityID);
+        }
+    }
 
-        Registry.clear<FJoltBodyComponent>();
+    void FJoltPhysicsScene::OnColliderComponentAdded(entt::registry& Registry, entt::entity EntityID)
+    {
+    }
+
+    void FJoltPhysicsScene::OnColliderComponentRemoved(entt::registry& Registry, entt::entity EntityID)
+    {
     }
 }

@@ -1,0 +1,139 @@
+#version 450 core
+#pragma shader_stage(compute)
+
+#include "Includes/Common.glsl"
+
+layout (local_size_x = 256) in;
+
+layout(set = 0, binding = 0) restrict readonly buffer InstanceData
+{
+    FInstanceData Instances[];
+} uInstanceData;
+
+layout(set = 0, binding = 1) restrict writeonly buffer InstanceMappingData
+{
+    uint Mapping[];
+} uMappingData;
+
+layout(set = 0, binding = 2) restrict buffer IndirectDrawBuffer
+{
+    FDrawIndexedIndirectArguments Args[];
+} uIndirectDrawData;
+
+layout(set = 0, binding = 3) uniform CullBuffer
+{
+    FCullData Data;
+} uCullData;
+
+layout(set = 0, binding = 4) uniform sampler2D uDepthPyramid;
+
+bool IsInFrustum(uint Index)
+{
+    vec4 SphereBounds = uInstanceData.Instances[Index].SphereBounds;
+    vec3 Center = SphereBounds.xyz;
+    float Radius = SphereBounds.w;
+
+    vec4 p0 = uCullData.Data.Frustum.Planes[0];
+    vec4 p1 = uCullData.Data.Frustum.Planes[1];
+    vec4 p2 = uCullData.Data.Frustum.Planes[2];
+    vec4 p3 = uCullData.Data.Frustum.Planes[3];
+    vec4 p4 = uCullData.Data.Frustum.Planes[4];
+    vec4 p5 = uCullData.Data.Frustum.Planes[5];
+
+    float d0 = dot(p0.xyz, Center) + p0.w;
+    float d1 = dot(p1.xyz, Center) + p1.w;
+    float d2 = dot(p2.xyz, Center) + p2.w;
+    float d3 = dot(p3.xyz, Center) + p3.w;
+    float d4 = dot(p4.xyz, Center) + p4.w;
+    float d5 = dot(p5.xyz, Center) + p5.w;
+
+    float inside = step(-Radius, d0) *
+    step(-Radius, d1) *
+    step(-Radius, d2) *
+    step(-Radius, d3) *
+    step(-Radius, d4) *
+    step(-Radius, d5);
+
+    return inside > 0.5;
+}
+
+// 2D Polyhedral Bounds of a Clipped, Perspective-Projected 3D Sphere. Michael Mara, Morgan McGuire. 2013
+bool ProjectSphere(vec3 C, float r, float znear, float P00, float P11, out vec4 aabb)
+{
+    if (C.z < r + znear)
+    {
+        return false;
+    }
+
+    vec2 cx = -C.xz;
+    vec2 vx = vec2(sqrt(dot(cx, cx) - r * r), r);
+    vec2 minx = mat2(vx.x, vx.y, -vx.y, vx.x) * cx;
+    vec2 maxx = mat2(vx.x, -vx.y, vx.y, vx.x) * cx;
+
+    vec2 cy = -C.yz;
+    vec2 vy = vec2(sqrt(dot(cy, cy) - r * r), r);
+    vec2 miny = mat2(vy.x, vy.y, -vy.y, vy.x) * cy;
+    vec2 maxy = mat2(vy.x, -vy.y, vy.y, vy.x) * cy;
+
+    aabb = vec4(minx.x / minx.y * P00, miny.x / miny.y * P11, maxx.x / maxx.y * P00, maxy.x / maxy.y * P11);
+    aabb = aabb.xwzy * vec4(0.5f, -0.5f, 0.5f, -0.5f) + vec4(0.5f); // clip space -> uv space
+
+    return true;
+}
+
+
+void main()
+{
+    uint gID = gl_GlobalInvocationID.x;
+    uint NumInstances = uint(uCullData.Data.InstanceNum);
+    
+    float zNear = uCullData.Data.zNear;
+    float zFar = uCullData.Data.zFar;
+
+    if(gID < NumInstances)
+    {
+        bool bVisible = true;
+
+        if(uCullData.Data.bFrustumCull != 0)
+        {
+            bVisible = IsInFrustum(gID);
+        }
+
+        if(bVisible && uCullData.Data.bOcclusionCull != 0)
+        {
+            vec4 SphereBounds = uInstanceData.Instances[gID].SphereBounds;
+            vec3 Center = SphereBounds.xyz;
+            Center = (uCullData.Data.View * vec4(Center, 1.0f)).xyz;
+            float Radius = SphereBounds.w;
+            
+            Center.y *= -1.0;
+            
+            vec4 AABB;
+            if(ProjectSphere(Center, Radius, zNear, uCullData.Data.P00, uCullData.Data.P11, /*out*/AABB))
+            {
+                float Width = (AABB.z - AABB.x) * uCullData.Data.PyramidWidth;
+                float Height = (AABB.w - AABB.y) * uCullData.Data.PyramidHeight;
+                
+                float Level = floor(log2(max(Width, Height)));
+
+                vec2 UV = vec2(AABB.x, AABB.y);
+                vec2 UV2 = vec2(AABB.z, AABB.w);
+                
+                float Depth = textureLod(uDepthPyramid, (UV + UV2) * 0.5, Level).x;
+
+                float DepthSphere = zNear / (Center.z - Radius);
+                //DepthSphere += 0.15;
+                
+                bVisible = DepthSphere >= Depth;
+            }
+        }
+
+        if(bVisible)
+        {
+            uint BatchID = uInstanceData.Instances[gID].PackedID.y;
+            uint InstanceCount = atomicAdd(uIndirectDrawData.Args[BatchID].InstanceCount, 1);
+            uint InstanceIndex = uIndirectDrawData.Args[BatchID].FirstInstance + InstanceCount;
+            uMappingData.Mapping[InstanceIndex] = gID;
+        }
+    }
+}

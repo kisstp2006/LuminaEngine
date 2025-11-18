@@ -11,6 +11,7 @@ namespace Lumina
 {
     DECLARE_MULTICAST_DELEGATE(FOnGamePreview);
     
+    
     /**
      * Base class for display and manipulating scenes.
      */
@@ -92,6 +93,12 @@ namespace Lumina
             ImGuiTextFilter FilterName;
             TVector<FName> ComponentFilters;
         };
+
+        struct FComponentDestroyRequest
+        {
+            const CStruct* Type;
+            entt::entity EntityID;
+        };
         
     public:
         
@@ -136,7 +143,7 @@ namespace Lumina
         void DrawEntityActionButtons();
         void DrawComponentList();
         void DrawComponentHeader(TUniquePtr<FPropertyTable>& Table);
-        void RemoveComponent(TUniquePtr<FPropertyTable>& Table);
+        void RemoveComponent(entt::entity Entity, const CStruct* ComponentType);
         void DrawSystemProperties();
         void DrawEmptyState();
 
@@ -172,7 +179,8 @@ namespace Lumina
 
         FTreeListView                           SystemsListView;
         FTreeListViewContext                    SystemsContext;
-        
+
+        TQueue<FComponentDestroyRequest>        ComponentDestroyRequests;
         TQueue<Entity>                          EntityDestroyRequests;
         TVector<TUniquePtr<FPropertyTable>>     PropertyTables;
 

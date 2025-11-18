@@ -28,6 +28,7 @@ namespace Lumina
         FORCEINLINE glm::vec3 GetLocation() const    { return Transform.Location; }
         FORCEINLINE glm::quat GetRotation() const    { return Transform.Rotation; }
         FORCEINLINE glm::vec3 GetScale()    const    { return Transform.Scale; }
+        FORCEINLINE float MaxScale()    const    { return glm::max(Transform.Scale.x, glm::max(Transform.Scale.y, Transform.Scale.z)); }
         FORCEINLINE glm::mat4 GetMatrix()   const    { return CachedMatrix; }
         
         FORCEINLINE STransformComponent& SetLocation(const glm::vec3& InLocation) 

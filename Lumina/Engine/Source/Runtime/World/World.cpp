@@ -1,4 +1,6 @@
 ﻿#include "World.h"
+
+#include "Core/Delegates/CoreDelegates.h"
 #include "Core/Engine/Engine.h"
 #include "Core/Object/Class.h"
 #include "Core/Object/ObjectIterator.h"
@@ -253,6 +255,8 @@ namespace Lumina
         CameraManager = nullptr;
 
         PhysicsScene.reset();
+
+        FCoreDelegates::PostWorldUnload.Broadcast();
     }
 
     bool CWorld::RegisterSystem(CEntitySystem* NewSystem)

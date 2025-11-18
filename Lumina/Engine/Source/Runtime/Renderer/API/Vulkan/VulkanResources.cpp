@@ -343,6 +343,43 @@ namespace Lumina
         }
     }
 
+    static constexpr VkSampleCountFlagBits ToVkSampleCount(uint32 Count)
+    {
+        switch (Count)
+        {
+            case 1:     return VK_SAMPLE_COUNT_1_BIT;
+            case 2:     return VK_SAMPLE_COUNT_2_BIT;
+            case 4:     return VK_SAMPLE_COUNT_4_BIT;
+            case 8:     return VK_SAMPLE_COUNT_8_BIT;
+            case 16:    return VK_SAMPLE_COUNT_16_BIT;
+            case 32:    return VK_SAMPLE_COUNT_32_BIT;
+            case 64:    return VK_SAMPLE_COUNT_64_BIT;
+            default:    return VK_SAMPLE_COUNT_FLAG_BITS_MAX_ENUM;
+        }
+    }
+
+    static constexpr VkSamplerReductionMode ToVkReductionMode(ESamplerReductionType Type)
+    {
+        switch (Type)
+        {
+        case ESamplerReductionType::Standard:
+            return VK_SAMPLER_REDUCTION_MODE_WEIGHTED_AVERAGE;
+
+        case ESamplerReductionType::Comparison:
+            return VK_SAMPLER_REDUCTION_MODE_WEIGHTED_AVERAGE;
+
+        case ESamplerReductionType::Minimum:
+            return VK_SAMPLER_REDUCTION_MODE_MIN;
+
+        case ESamplerReductionType::Max:
+            return VK_SAMPLER_REDUCTION_MODE_MAX;
+
+        default:
+            return VK_SAMPLER_REDUCTION_MODE_WEIGHTED_AVERAGE;
+        }
+    }
+
+
     VkBorderColor PickSamplerBorderColor(const FSamplerDesc& d)
     {
         if (d.BorderColor.R == 0.f && d.BorderColor.G == 0.f && d.BorderColor.B == 0.f)
@@ -644,28 +681,30 @@ namespace Lumina
         : IDeviceChild(InDevice)
     {
         VkSamplerCreateInfo Info = {};
-        Info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+        Info.sType              = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+        Info.borderColor        = PickSamplerBorderColor(InDesc);
+        Info.magFilter          = InDesc.MagFilter ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
+        Info.minFilter          = InDesc.MinFilter ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
+        Info.mipmapMode         = InDesc.MipFilter ? VK_SAMPLER_MIPMAP_MODE_LINEAR : VK_SAMPLER_MIPMAP_MODE_NEAREST;
+        Info.maxAnisotropy      = InDesc.MaxAnisotropy;
+        Info.anisotropyEnable   = (InDesc.MaxAnisotropy > 1.0f) ? VK_TRUE : VK_FALSE;
+        Info.addressModeU       = ToVkSamplerAddressMode(InDesc.AddressU);
+        Info.addressModeV       = ToVkSamplerAddressMode(InDesc.AddressV);
+        Info.addressModeW       = ToVkSamplerAddressMode(InDesc.AddressW);
+        Info.mipLodBias         = InDesc.MipBias;
+        Info.compareEnable      = InDesc.ReductionType == ESamplerReductionType::Comparison;
+        Info.compareOp          = VK_COMPARE_OP_LESS;
+        Info.minLod             = 0.0f;
+        Info.maxLod             = VK_LOD_CLAMP_NONE;
 
-        Info.borderColor = PickSamplerBorderColor(InDesc);
-
-        Info.magFilter = InDesc.MagFilter ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
-        Info.minFilter = InDesc.MinFilter ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
-        Info.mipmapMode = InDesc.MipFilter ? VK_SAMPLER_MIPMAP_MODE_LINEAR : VK_SAMPLER_MIPMAP_MODE_LINEAR;
-
-        Info.maxAnisotropy = InDesc.MaxAnisotropy;
-        Info.anisotropyEnable = (InDesc.MaxAnisotropy > 1.0f) ? VK_TRUE : VK_FALSE;
-
-        Info.addressModeU = ToVkSamplerAddressMode(InDesc.AddressU);
-        Info.addressModeV = ToVkSamplerAddressMode(InDesc.AddressV);
-        Info.addressModeW = ToVkSamplerAddressMode(InDesc.AddressW);
+        VkSamplerReductionModeCreateInfoEXT CreateInfoReduction = {};
+        if (InDesc.ReductionType == ESamplerReductionType::Minimum || Desc.ReductionType == ESamplerReductionType::Max)
+        {
+            CreateInfoReduction.sType           = VK_STRUCTURE_TYPE_SAMPLER_REDUCTION_MODE_CREATE_INFO_EXT;
+            CreateInfoReduction.reductionMode   = ToVkReductionMode(InDesc.ReductionType);
+            Info.pNext                          = &CreateInfoReduction;
+        }
         
-        Info.mipLodBias = InDesc.MipBias;
-
-        Info.compareEnable = VK_FALSE;
-        Info.compareOp = VK_COMPARE_OP_NEVER;
-        Info.minLod = 0.0f;
-        Info.maxLod = 0.0f; // TEMP WAS VK_LOD_CLAMP_NONE
-
         VK_CHECK(vkCreateSampler(Device->GetDevice(), &Info, VK_ALLOC_CALLBACK, &Sampler));
         static_cast<FVulkanRenderContext*>(GRenderContext)->SetVulkanObjectName(InDesc.DebugName, VK_OBJECT_TYPE_SAMPLER, (uintptr_t)Sampler);
     }
@@ -738,19 +777,19 @@ namespace Lumina
             PartialAspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         }
     
-        VkImageCreateInfo ImageCreateInfo = {};
-        ImageCreateInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
-        ImageCreateInfo.flags = ImageFlags;
-        ImageCreateInfo.imageType = VK_IMAGE_TYPE_2D;
-        ImageCreateInfo.format = VulkanFormat;
-        ImageCreateInfo.extent = { (uint32)GetExtent().x, (uint32)GetExtent().y, 1 };
-        ImageCreateInfo.mipLevels = GetDescription().NumMips;
-        ImageCreateInfo.arrayLayers = GetDescription().ArraySize;
-        ImageCreateInfo.samples = VK_SAMPLE_COUNT_1_BIT;
-        ImageCreateInfo.tiling = VK_IMAGE_TILING_OPTIMAL;
-        ImageCreateInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        ImageCreateInfo.usage = UsageFlags;
-        ImageCreateInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        VkImageCreateInfo ImageCreateInfo   = {};
+        ImageCreateInfo.sType               = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+        ImageCreateInfo.flags               = ImageFlags;
+        ImageCreateInfo.imageType           = VK_IMAGE_TYPE_2D;
+        ImageCreateInfo.format              = VulkanFormat;
+        ImageCreateInfo.extent          = { (uint32)GetExtent().x, (uint32)GetExtent().y, 1 };
+        ImageCreateInfo.mipLevels           = GetDescription().NumMips;
+        ImageCreateInfo.arrayLayers         = GetDescription().ArraySize;
+        ImageCreateInfo.samples             = ToVkSampleCount(GetDescription().NumSamples);
+        ImageCreateInfo.tiling              = VK_IMAGE_TILING_OPTIMAL;
+        ImageCreateInfo.initialLayout       = VK_IMAGE_LAYOUT_UNDEFINED;
+        ImageCreateInfo.usage               = UsageFlags;
+        ImageCreateInfo.sharingMode         = VK_SHARING_MODE_EXCLUSIVE;
     
         Device->GetAllocator()->AllocateImage(&ImageCreateInfo, AllocationFlags, &Image, InDescription.DebugName.c_str());
         static_cast<FVulkanRenderContext*>(GRenderContext)->SetVulkanObjectName(InDescription.DebugName, VK_OBJECT_TYPE_IMAGE, (uintptr_t)Image);
@@ -1265,19 +1304,23 @@ namespace Lumina
         PoolCreateInfo.pPoolSizes = InLayout->PoolSizes.data();
         PoolCreateInfo.maxSets = 1;
 
-        VK_CHECK(vkCreateDescriptorPool(Device->GetDevice(), &PoolCreateInfo, VK_ALLOC_CALLBACK, &DescriptorPool));
-        static_cast<FVulkanRenderContext*>(GRenderContext)->SetVulkanObjectName(Desc.DebugName, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, (uintptr_t)DescriptorPool);
-
+        {
+            LUMINA_PROFILE_SECTION("vkCreateDescriptorPool");
+            VK_CHECK(vkCreateDescriptorPool(Device->GetDevice(), &PoolCreateInfo, VK_ALLOC_CALLBACK, &DescriptorPool));
+            static_cast<FVulkanRenderContext*>(GRenderContext)->SetVulkanObjectName(Desc.DebugName, VK_OBJECT_TYPE_DESCRIPTOR_SET_LAYOUT, (uintptr_t)DescriptorPool);
+        }
         
         VkDescriptorSetAllocateInfo AllocateInfo = {};
         AllocateInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
         AllocateInfo.descriptorPool = DescriptorPool;
         AllocateInfo.descriptorSetCount = 1;
         AllocateInfo.pSetLayouts = &InLayout->DescriptorSetLayout;
-        
-        VK_CHECK(vkAllocateDescriptorSets(Device->GetDevice(), &AllocateInfo, &DescriptorSet));
-        static_cast<FVulkanRenderContext*>(GRenderContext)->SetVulkanObjectName(Desc.DebugName, VK_OBJECT_TYPE_DESCRIPTOR_SET, (uintptr_t)DescriptorSet);
 
+        {
+            LUMINA_PROFILE_SECTION("vkAllocateDescriptorSets");
+            VK_CHECK(vkAllocateDescriptorSets(Device->GetDevice(), &AllocateInfo, &DescriptorSet));
+            static_cast<FVulkanRenderContext*>(GRenderContext)->SetVulkanObjectName(Desc.DebugName, VK_OBJECT_TYPE_DESCRIPTOR_SET, (uintptr_t)DescriptorSet);
+        }
 
         TFixedVector<VkDescriptorBufferInfo, 2> BufferInfos;
         TFixedVector<VkDescriptorImageInfo, 2> ImageInfos;
@@ -1289,7 +1332,7 @@ namespace Lumina
         for (SIZE_T BindingIndex = 0; BindingIndex < InDesc.Bindings.size(); ++BindingIndex)
         {
             const FBindingSetItem& Item = InDesc.Bindings[BindingIndex];
-            if (Item.Type == ERHIBindingResourceType::PushConstants || (Item.bUnused) || (Item.ResourceHandle == nullptr))
+            if (Item.Type == ERHIBindingResourceType::PushConstants || (Item.ResourceHandle == nullptr))
             {
                 continue;
             }
@@ -1297,7 +1340,6 @@ namespace Lumina
             
             Resources.push_back(Item.ResourceHandle);
             
-
             const VkDescriptorSetLayoutBinding VkBinding = Layout->Bindings[BindingIndex];
 
             VkWriteDescriptorSet Write = {};
@@ -1314,7 +1356,7 @@ namespace Lumina
                 {
                     FVulkanImage* Image = static_cast<FVulkanImage*>(Item.ResourceHandle);
                     
-                    const FTextureSubresourceSet Subresource = Item.TextureResource.Subresources.Resolve(Image->GetDescription(), true);
+                    const FTextureSubresourceSet Subresource = Item.TextureResource.Subresources.Resolve(Image->GetDescription(), false);
                     FVulkanImage::ESubresourceViewType ViewType = GetTextureViewType(Item.Format, Image->GetDescription().Format);
                     VkImageView View = Image->GetSubresourceView(Subresource, Item.Dimension, Item.Format, VK_IMAGE_USAGE_SAMPLED_BIT, ViewType).View;
                     
@@ -1650,10 +1692,6 @@ namespace Lumina
         RasterizationState.depthBiasClamp               = RasterState.DepthBiasClamp;
         RasterizationState.depthBiasSlopeFactor         = RasterState.SlopeScaledDepthBias;
         RasterizationState.lineWidth                    = Device->GetFeatures10().wideLines ? RasterState.LineWidth : 1.0f;
-        
-        VkPipelineMultisampleStateCreateInfo MultisampleState = {};
-        MultisampleState.sType                  = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-        MultisampleState.rasterizationSamples   = VK_SAMPLE_COUNT_1_BIT;
 
         const FDepthStencilState& DepthState = InDesc.RenderState.DepthStencilState;
         
@@ -1728,6 +1766,10 @@ namespace Lumina
 
             DepthAttachmentFormat = ConvertFormat(Format);
         }
+
+        VkPipelineMultisampleStateCreateInfo MultisampleState = {};
+        MultisampleState.sType                  = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+        MultisampleState.rasterizationSamples   = ToVkSampleCount(RenderPassDesc.SampleCount);
         
         VkPipelineRenderingCreateInfo RenderingCreateInfo   = {};
         RenderingCreateInfo.sType                           = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO;

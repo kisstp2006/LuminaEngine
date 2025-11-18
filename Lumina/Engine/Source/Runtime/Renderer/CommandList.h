@@ -140,6 +140,15 @@ namespace Lumina
          * @param DepthPitch Bytes between depth slices in the source data
          */
         virtual void WriteImage(FRHIImage* RESTRICT Dst, uint32 ArraySlice, uint32 MipLevel, const void* RESTRICT Data, uint32 RowPitch, uint32 DepthPitch) = 0;
+
+        /**
+         * 
+         * @param Src 
+         * @param SrcSubresources 
+         * @param Dst 
+         * @param DstSubresources 
+         */
+        virtual void ResolveImage(FRHIImage* RESTRICT Src, const FTextureSubresourceSet& SrcSubresources, FRHIImage* RESTRICT Dst, const FTextureSubresourceSet& DstSubresources) = 0;
         
         /**
          * Clears an image with a floating-point color value

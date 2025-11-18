@@ -8,8 +8,8 @@
 #include "Entity/EntityWorld.h"
 #include "Renderer/RenderGraph/RenderGraph.h"
 #include "Memory/SmartPtr.h"
-#include "World.generated.h"
 #include "Physics/PhysicsScene.h"
+#include "World.generated.h"
 
 
 namespace Lumina

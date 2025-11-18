@@ -33,70 +33,112 @@ namespace Lumina
         {
             Compile();
 
+            TFixedVector<FLambdaTask*, 4> AsyncComputeTasks;
             TFixedVector<ICommandList*, 30> AllCommandLists;
             AllCommandLists.reserve(Passes.size());
             
             uint32 TotalOffset = 0;
 
-            for (int i = 0; i < ParallelGroups.size(); ++i)
+            for (int GroupIndex = 0; GroupIndex < ParallelGroups.size(); ++GroupIndex)
             {
                 LUMINA_PROFILE_SECTION("Render Graph Parallel Group");
-                const FRGPassGroup& Group = ParallelGroups[i];
+                const FRGPassGroup& Group = ParallelGroups[GroupIndex];
 
                 uint32 GroupOffset = TotalOffset;
                 for (int j = 0; j < Group.Passes.size(); ++j)
                 {
                     AllCommandLists.push_back(nullptr);
                 }
-
-                if (Group.Passes.size() <= 2)
-                {
-                    for (int PassIndex = 0; PassIndex < Group.Passes.size(); ++PassIndex)
-                    {
-                        FRHICommandListRef CommandList = GRenderContext->CreateCommandList(FCommandListInfo::Graphics());
-                    
-                        CommandList->Open();
-                        FRGPassHandle Pass = Group.Passes[PassIndex];
-                        Pass->Execute(*CommandList);
-                        CommandList->Close();
-                    
-                        AllCommandLists[GroupOffset + PassIndex] = CommandList.GetReference();   
-                    }
-                }
-                else
-                {
-                    Task::ParallelFor(Group.Passes.size(), 1, [&](uint32 PassIndex)
-                    {
-                        FRHICommandListRef CommandList = GRenderContext->CreateCommandList(FCommandListInfo::Graphics());
-                    
-                        CommandList->Open();
-                        FRGPassHandle Pass = Group.Passes[PassIndex];
-                        Pass->Execute(*CommandList);
-                        CommandList->Close();
-                    
-                        AllCommandLists[GroupOffset + PassIndex] = CommandList.GetReference();
-
-                    });
-                }
-                TotalOffset += Group.Passes.size();
                 
+                Task::ParallelFor(Group.Passes.size(), 1, [GroupIndex, GroupOffset, &AsyncComputeTasks, &AllCommandLists, this](uint32 PassIndex)
+                {
+                    uint32 Index = GroupOffset + PassIndex;
+                    if (ParallelGroups[GroupIndex].Passes[PassIndex]->GetDescriptor()->HasAnyFlag(ERGExecutionFlags::Async))
+                    {
+                        FLambdaTask* Task = Task::AsyncTask(1, 1, [this, &AllCommandLists, GroupIndex, PassIndex, Index](uint32 Start, uint32 End, uint32 Thread)
+                        {
+                            FRHICommandListRef CommandList = GRenderContext->CreateCommandList(FCommandListInfo::Graphics());
+                            CommandList->Open();
+                            FRGPassHandle Pass = ParallelGroups[GroupIndex].Passes[PassIndex];
+                            Pass->Execute(*CommandList);
+                            CommandList->Close();
+                            AllCommandLists[Index] = CommandList.GetReference();
+                        });
+
+                        AsyncComputeTasks.push_back(Task);
+                    }
+                    else
+                    {
+                        FRHICommandListRef CommandList = GRenderContext->CreateCommandList(FCommandListInfo::Graphics());
+                
+                        CommandList->Open();
+                        FRGPassHandle Pass = ParallelGroups[GroupIndex].Passes[PassIndex];
+                        Pass->Execute(*CommandList);
+                        CommandList->Close();
+                
+                        AllCommandLists[Index] = CommandList.GetReference();
+                    }
+
+                });
+
+                
+                TotalOffset += Group.Passes.size();
             }
 
+            for (FLambdaTask* Task : AsyncComputeTasks)
+            {
+                GTaskSystem->WaitForTask(Task);
+            }
+            AsyncComputeTasks.clear();
+            
             GRenderContext->ExecuteCommandLists(AllCommandLists.data(), AllCommandLists.size(), ECommandQueue::Graphics);
-
         }
         else
         {
+            TFixedVector<FLambdaTask*, 4> AsyncTasks;
+            TFixedVector<ICommandList*, 1> AllCommandLists;
+        
             FRHICommandListRef CommandList = GRenderContext->CreateCommandList(FCommandListInfo::Graphics());
+            AllCommandLists.push_back(CommandList);
             CommandList->Open();
 
-            for (FRGPassHandle Pass : Passes)
+            for (int PassIndex = 0; PassIndex < Passes.size(); ++PassIndex)
             {
-                Pass->Execute(*CommandList);
+                FRGPassHandle Pass = Passes[PassIndex];
+                
+                // The user has promised us this pass can now run at any time without issues, so we dispatch it and keep going.
+                if (Pass->GetDescriptor()->HasAnyFlag(ERGExecutionFlags::Async))
+                {
+                    uint32 AsyncPassIndex = AllCommandLists.size();
+                    AllCommandLists.push_back(nullptr);
+                    
+                    FLambdaTask* Task = Task::AsyncTask(1, 1, [Pass, AsyncPassIndex, &AllCommandLists](uint32 Start, uint32 End, uint32 Thread)
+                    {
+                        FRHICommandListRef LocalCommandList = GRenderContext->CreateCommandList(FCommandListInfo::Graphics());
+                        
+                        AllCommandLists[AsyncPassIndex] = LocalCommandList;
+
+                        LocalCommandList->Open();
+                        Pass->Execute(*LocalCommandList);
+                        LocalCommandList->Close();
+                    });
+
+                    AsyncTasks.push_back(Task);
+                }
+                else // Run the pass serially.
+                {
+                    Pass->Execute(*CommandList);
+                }
+            }
+
+            CommandList->Close();
+
+            for (FLambdaTask* Task : AsyncTasks)
+            {
+                GTaskSystem->WaitForTask(Task);
             }
             
-            CommandList->Close();
-            GRenderContext->ExecuteCommandList(CommandList);   
+            GRenderContext->ExecuteCommandLists(AllCommandLists.data(), AllCommandLists.size(), ECommandQueue::Graphics);   
         }
     }
 

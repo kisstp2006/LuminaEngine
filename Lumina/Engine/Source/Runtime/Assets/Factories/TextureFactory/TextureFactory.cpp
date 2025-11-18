@@ -9,24 +9,13 @@
 #include "Paths/Paths.h"
 #include "Platform/Filesystem/FileHelper.h"
 #include "Renderer/RenderContext.h"
+#include "Renderer/RendererUtils.h"
 #include "Renderer/RenderManager.h"
 #include "Renderer/RenderTypes.h"
 #include "Tools/Import/ImportHelpers.h"
 
 namespace Lumina
 {
-    static uint8 CalculateMipCount(uint32 width, uint32 height)
-    {
-        uint32 levels = 1;
-        while (width > 1 || height > 1)
-        {
-            width = std::max(width >> 1, 1u);
-            height = std::max(height >> 1, 1u);
-            ++levels;
-        }
-        return static_cast<uint8>(levels);
-    }
-
     CObject* CTextureFactory::CreateNew(const FName& Name, CPackage* Package)
     {
         return NewObject<CTexture>(Package, Name);
@@ -46,7 +35,7 @@ namespace Lumina
         ImageDescription.Format                 = EFormat::RGBA8_UNORM;
         ImageDescription.Extent                 = Import::Textures::ImportTexture(NewTexture->Pixels, RawPath, false);
         ImageDescription.Flags                  .SetFlag(EImageCreateFlags::ShaderResource);
-        ImageDescription.NumMips                = CalculateMipCount(ImageDescription.Extent.x, ImageDescription.Extent.y);
+        ImageDescription.NumMips                = RenderUtils::CalculateMipCount(ImageDescription.Extent.x, ImageDescription.Extent.y);
         ImageDescription.InitialState           = EResourceStates::ShaderResource;
         ImageDescription.bKeepInitialState      = true;
         NewTexture->ImageDescription            = ImageDescription;

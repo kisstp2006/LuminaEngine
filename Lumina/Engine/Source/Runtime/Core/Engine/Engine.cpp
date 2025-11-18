@@ -2,6 +2,7 @@
 #include "Assets/AssetManager/AssetManager.h"
 #include "Assets/AssetRegistry/AssetRegistry.h"
 #include "Core/Application/Application.h"
+#include "Core/Console/ConsoleVariable.h"
 #include "Core/Delegates/CoreDelegates.h"
 #include "Core/Module/ModuleManager.h"
 #include "Core/Object/ObjectIterator.h"
@@ -34,6 +35,8 @@ namespace Lumina
         
         GEngine = this;
         Application = App;
+        
+        FConsoleRegistry::Get().LoadFromConfig();
         
         FTaskSystem::Initialize();
         Physics::Initialize();

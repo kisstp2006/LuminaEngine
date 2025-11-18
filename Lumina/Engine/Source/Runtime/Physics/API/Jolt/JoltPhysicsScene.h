@@ -1,5 +1,5 @@
 ﻿#pragma once
-#include "entt/src/entt/entity/registry.hpp"
+#include "entt/entt.hpp"
 #include "Memory/SmartPtr.h"
 #include "Physics/PhysicsScene.h"
 #include "Jolt/Jolt.h"
@@ -132,6 +132,8 @@ namespace Lumina::Physics
 
     	void OnRigidBodyComponentConstructed(entt::registry& Registry, entt::entity EntityID);
     	void OnRigidBodyComponentDestroyed(entt::registry& Registry, entt::entity EntityID);
+    	void OnColliderComponentAdded(entt::registry& Registry, entt::entity EntityID);
+    	void OnColliderComponentRemoved(entt::registry& Registry, entt::entity EntityID);
 
     
 

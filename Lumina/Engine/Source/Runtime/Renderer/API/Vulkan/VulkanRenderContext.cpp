@@ -401,7 +401,7 @@ namespace Lumina
 
         {
             LUMINA_PROFILE_SECTION("vkWaitSemaphores");
-
+            // Here we will wait for the command list to catch up.
             VkResult Result = vkWaitSemaphores(Device->GetDevice(), &WaitInfo, Timeout);
             VK_CHECK(Result);
             return (Result == VK_SUCCESS);
@@ -463,9 +463,11 @@ namespace Lumina
     {
     }
 
-    bool FVulkanRenderContext::Initialize()
+    bool FVulkanRenderContext::Initialize(const FRenderContextDesc& Desc)
     {
         LUMINA_PROFILE_SCOPE();
+
+        Description = Desc;
         
         AssertMsg(glfwVulkanSupported(), "Vulkan Is Not Supported!");
         GVulkanAllocationCallbacks.pfnAllocation = VulkanAlloc;
@@ -473,22 +475,24 @@ namespace Lumina
         GVulkanAllocationCallbacks.pfnReallocation = VulkanRealloc;
         
         vkb::InstanceBuilder Builder;
-        auto InstBuilder = Builder
+        Builder
         .set_app_name("Lumina Engine")
-        .set_allocation_callbacks(VK_ALLOC_CALLBACK)
-#if LE_DEBUG
-        //.add_validation_feature_enable(VK_VALIDATION_FEATURE_ENABLE_BEST_PRACTICES_EXT)
-        .add_validation_feature_enable(VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT)
-        //.add_validation_feature_enable(VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT)
-        //.add_validation_feature_enable(VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_RESERVE_BINDING_SLOT_EXT)
-        //.add_validation_feature_enable(VK_VALIDATION_FEATURE_ENABLE_DEBUG_PRINTF_EXT)
-        .enable_extension(VK_EXT_DEBUG_UTILS_EXTENSION_NAME)
-        .request_validation_layers()
-        .use_default_debug_messenger()
-        .set_debug_callback(VkDebugCallback)
-#endif
-        .require_api_version(1, 3, 0)
-        .build();
+        .set_allocation_callbacks(VK_ALLOC_CALLBACK);
+        if (Description.bValidation)
+        {
+            //Builder.add_validation_feature_enable(VK_VALIDATION_FEATURE_ENABLE_BEST_PRACTICES_EXT);
+            Builder.add_validation_feature_enable(VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT);
+            //Builder.add_validation_feature_enable(VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT);
+            //Builder.add_validation_feature_enable(VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_RESERVE_BINDING_SLOT_EXT);
+            //Builder.add_validation_feature_enable(VK_VALIDATION_FEATURE_ENABLE_DEBUG_PRINTF_EXT);
+            Builder.enable_extension(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+            Builder.request_validation_layers();
+            Builder.use_default_debug_messenger();
+            Builder.set_debug_callback(VkDebugCallback);
+        }
+        Builder.require_api_version(1, 3, 0);
+
+        vkb::Result InstBuilder = Builder.build();
 
         if (!InstBuilder.has_value())
         {
@@ -498,14 +502,19 @@ namespace Lumina
 
         VulkanInstance = InstBuilder.value();
 
-        
-#if LE_DEBUG
-        DebugUtils.DebugMessenger = InstBuilder->debug_messenger;
-#endif
+        if (Description.bValidation)
+        {
+            DebugUtils.DebugMessenger = InstBuilder->debug_messenger;
+        }
         
         CreateDevice(InstBuilder.value());
+
+        uint32 APIVer = GetDevice()->GetPhysicalDeviceProperties().apiVersion;
+        uint32 Major = VK_VERSION_MAJOR(APIVer);
+        uint32 Minor = VK_VERSION_MINOR(APIVer);
+        uint32 Patch = VK_VERSION_PATCH(APIVer);
         
-        LOG_TRACE("Vulkan Render Context - {}", GetDevice()->GetPhysicalDeviceProperties().deviceName);
+        LOG_TRACE("Vulkan Render Context - {} - API: {}.{}.{} - Validation: {}", GetDevice()->GetPhysicalDeviceProperties().deviceName, Major, Minor, Patch, Description.bValidation);
         
 
         DebugUtils.DebugUtilsObjectNameEXT      = (PFN_vkSetDebugUtilsObjectNameEXT)(vkGetInstanceProcAddr(VulkanInstance, "vkSetDebugUtilsObjectNameEXT"));
@@ -538,7 +547,6 @@ namespace Lumina
         
         ShaderLibrary.SafeRelease();
         PipelineCache.ReleasePipelines();
-        DescriptorCache.ReleaseResources();
         
         Memory::Delete(Swapchain);
         
@@ -556,10 +564,11 @@ namespace Lumina
         Memory::Delete(VulkanDevice);
         VulkanDevice = nullptr;
 
-#if LE_DEBUG
-        auto FuncPtr = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(VulkanInstance, "vkDestroyDebugUtilsMessengerEXT");
-        FuncPtr(VulkanInstance, DebugUtils.DebugMessenger, VK_ALLOC_CALLBACK);
-#endif
+        if (Description.bValidation)
+        {
+            auto FuncPtr = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(VulkanInstance, "vkDestroyDebugUtilsMessengerEXT");
+            FuncPtr(VulkanInstance, DebugUtils.DebugMessenger, VK_ALLOC_CALLBACK);
+        }
         
         vkDestroyInstance(VulkanInstance, VK_ALLOC_CALLBACK);
         VulkanInstance = VK_NULL_HANDLE;
@@ -685,6 +694,7 @@ namespace Lumina
         Features12.descriptorBindingPartiallyBound  = VK_TRUE;
         Features12.shaderOutputViewportIndex        = VK_TRUE; // Should not stay.
         Features12.shaderOutputLayer                = VK_TRUE; // Should not stay.
+        Features12.samplerFilterMinmax              = VK_TRUE;
 
         VkPhysicalDeviceVulkan13Features Features13 = {};
         Features13.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
@@ -705,6 +715,7 @@ namespace Lumina
             .value();
         
         physicalDevice.enable_extension_if_present(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+        physicalDevice.enable_extension_if_present(VK_EXT_SAMPLER_FILTER_MINMAX_EXTENSION_NAME);
 
         if (physicalDevice.enable_extension_if_present(VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME))
         {
@@ -1007,8 +1018,11 @@ namespace Lumina
     FRHIBindingLayoutRef FVulkanRenderContext::CreateBindingLayout(const FBindingLayoutDesc& Desc)
     {
         LUMINA_PROFILE_SCOPE();
-        
-        return DescriptorCache.GetOrCreateLayout(VulkanDevice, Desc);
+        auto Layout =  MakeRefCount<FVulkanBindingLayout>(VulkanDevice, Desc);
+
+        Layout->Bake();
+
+        return Layout;
     }
 
     FRHIBindingLayoutRef FVulkanRenderContext::CreateBindlessLayout(const FBindlessLayoutDesc& Desc)
@@ -1024,6 +1038,7 @@ namespace Lumina
 
     FRHIBindingSetRef FVulkanRenderContext::CreateBindingSet(const FBindingSetDesc& Desc, FRHIBindingLayout* InLayout)
     {
+        LUMINA_PROFILE_SCOPE();
         return MakeRefCount<FVulkanBindingSet>(this, Desc, (FVulkanBindingLayout*)InLayout);
     }
 
@@ -1230,7 +1245,12 @@ namespace Lumina
             ShaderLibrary->AddShader(Shader->GetShaderHeader().DebugName, Shader);
         }
     }
-    
+
+    void FVulkanRenderContext::ClearBindingCaches()
+    {
+        
+    }
+
     FRHIInputLayoutRef FVulkanRenderContext::CreateInputLayout(const FVertexAttributeDesc* AttributeDesc, uint32 Count)
     {
         uint64 Hash = 0;

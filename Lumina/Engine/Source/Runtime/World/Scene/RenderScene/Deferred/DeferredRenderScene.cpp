@@ -190,7 +190,7 @@ namespace Lumina
 
                 FCullData CullData;
                 CullData.Frustum = View.GetFrustum();
-                CullData.View = glm::vec4(View.GetViewPosition(), (uint32)InstanceData.size());
+                //CullData.View = glm::vec4(View.GetViewPosition(), (uint32)InstanceData.size());
                 
                 CmdList.SetPushConstants(&CullData, sizeof(FCullData));
 
@@ -1855,8 +1855,8 @@ namespace Lumina
                 SetDesc.AddItem(FBindingSetItem::TextureSRV(3, GBuffer.AlbedoSpec));
                 SetDesc.AddItem(FBindingSetItem::TextureSRV(4, SSAOBlur));
                 SetDesc.AddItem(FBindingSetItem::TextureSRV(5, CascadedShadowMap));
-                SetDesc.AddItem(FBindingSetItem::TextureSRV(6, PointLightShadowMap, TStaticRHISampler<true, AM_Border, AM_Border, AM_Border>::GetRHI()));
-                SetDesc.AddItem(FBindingSetItem::TextureSRV(7, ShadowAtlas.GetImage(), TStaticRHISampler<true, AM_Border, AM_Border, AM_Border>::GetRHI()));
+                SetDesc.AddItem(FBindingSetItem::TextureSRV(6, PointLightShadowMap, TStaticRHISampler<true, true, AM_Border, AM_Border, AM_Border>::GetRHI()));
+                SetDesc.AddItem(FBindingSetItem::TextureSRV(7, ShadowAtlas.GetImage(), TStaticRHISampler<true, true, AM_Border, AM_Border, AM_Border>::GetRHI()));
                 SetDesc.AddItem(FBindingSetItem::BufferSRV(8, ClusterBuffer));
 
                 TBitFlags<ERHIShaderType> Visibility;
@@ -1934,7 +1934,7 @@ namespace Lumina
                 FBindingSetDesc SetDesc;
                 SetDesc.AddItem(FBindingSetItem::TextureSRV(0, DepthAttachment));
                 SetDesc.AddItem(FBindingSetItem::TextureSRV(1, GBuffer.Normals));
-                SetDesc.AddItem(FBindingSetItem::TextureSRV(2, NoiseImage, TStaticRHISampler<true, AM_Repeat, AM_Repeat, AM_Repeat>::GetRHI()));
+                SetDesc.AddItem(FBindingSetItem::TextureSRV(2, NoiseImage, TStaticRHISampler<true, true, AM_Repeat, AM_Repeat, AM_Repeat>::GetRHI()));
 
                 TBitFlags<ERHIShaderType> Visibility;
                 Visibility.SetMultipleFlags(ERHIShaderType::Fragment);

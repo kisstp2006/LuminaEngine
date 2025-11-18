@@ -10,7 +10,6 @@
 #include "Core/Math/Color.h"
 #include "Core/Math/Hash/Hash.h"
 
-#define NO_TEXTURE (-1)
 #define FRAMES_IN_FLIGHT 2
 #define SWAPCHAIN_IMAGES 3
 
@@ -18,22 +17,7 @@ namespace Lumina
 {
     struct FVertex;
     struct FVertexAttribute;
-
-    struct FMaterialTexturesData final
-    {
-        int32 AlbedoID =        NO_TEXTURE;
-        int32 NormalID =        NO_TEXTURE;
-        int32 RoughnessID =     NO_TEXTURE;
-        int32 EmissiveID =      NO_TEXTURE;
-        int32 AOID =            NO_TEXTURE;
-        int32 Padding[3] =      {0, 0, 0};
-    };
     
-    struct FMeshModelData
-    {
-        glm::mat4               ModelMatrix;
-        FMaterialTexturesData   MaterialTextureData;
-    };
 
     enum class ERHIAccess : uint32
     {
@@ -127,28 +111,8 @@ namespace Lumina
     #define Q_Graphics ECommandQueue::Graphics
     #define Q_Compute ECommandQueue::Compute
     #define Q_Transfer ECommandQueue::Transfer
-
     
-    enum class ECommandBufferUsage : uint8
-    {
-        General,
-        Transient,
-    };
     
-    enum class EDescriptorBindingType : uint32
-    {
-        SAMPLER                       = 0,
-        COMBINED_IMAGE_SAMPLER        = 1,
-        SAMPLED_IMAGE                 = 2,
-        STORAGE_IMAGE                 = 3,
-        UNIFORM_TEXEL_BUFFER          = 4,
-        STORAGE_TEXEL_BUFFER          = 5,
-        UNIFORM_BUFFER                = 6,
-        STORAGE_BUFFER                = 7,
-        UNIFORM_BUFFER_DYNAMIC        = 8,
-        STORAGE_BUFFER_DYNAMIC        = 9,
-        INPUT_ATTACHMENT              = 10,
-    };
 
     enum class EBufferUsageFlags : uint32
     {
@@ -254,20 +218,6 @@ namespace Lumina
         NODISCARD int Height() const { return MaxY - MinY; }
     };
     
-    struct FDescriptorBinding
-    {
-        FName Name;
-        uint32 Size;
-        uint32 Count;
-        uint16 Set;
-        uint16 Binding;               // The binding index
-        EDescriptorBindingType Type;  // Type of descriptor (e.g., uniform buffer, texture)
-        uint32 ArrayCount;            // Number of descriptors in the array
-        uint64 Flags;                 // Additional flags for binding (e.g., PARTIALLY_BOUND)
-        uint32 StageFlags;            // Shader stage this binding applies to (VERTEX, FRAGMENT, etc.)
-    };
-
-    
 
     /** Describes the dimension of a texture. */
     enum class EImageDimension : uint8
@@ -323,13 +273,6 @@ namespace Lumina
 
         ColorAttachment = RenderTarget,
         DepthAttachment = DepthStencil,
-    };
-    
-    enum class EImageType : uint8
-    {
-        TYPE_1D,
-        TYPE_2D,
-        TYPE_3D,
     };
 
     enum class EImageSampleCount : uint8
@@ -452,239 +395,11 @@ namespace Lumina
         }
     }
     
-    template <typename T>
-    struct FVertexTypeTraits;
-    
-
-    struct FGraphicsPipelineSpec
-    {
-
-        static FGraphicsPipelineSpec Create() { return FGraphicsPipelineSpec(); }
-        
-        struct FVertexBinding
-        {
-            uint32 Stride = 0;
-            uint32 Binding = 0;
-            uint32 InputRate = 0;
-        };
-
-        struct FVertexAttribute
-        {
-            uint32          Location = 0;
-            uint32          Binding = 0;
-            EShaderDataType Format = EShaderDataType::INT;
-            uint32          Offset = 0;
-        };
-        
-        // General pipeline properties
-        FName                       Shader =                    FName();
-        float                       LineWidth =                 1.0f;
-        EPipelineType               PipelineType =              EPipelineType::Graphics;
-        EPipelineCullingMode        CullingMode =               EPipelineCullingMode::BACK;
-        EPipelineBlending           AlphaBlendSrcFactor =       EPipelineBlending::BLEND_FACTOR_ONE;
-        EPipelineBlending           AlphaBlendDstFactor =       EPipelineBlending::BLEND_FACTOR_ZERO;
-        EPipelineFrontFace          FaceOrientation =           EPipelineFrontFace::COUNTER_CLOCKWISE;
-        EPipelineTopology           PrimitiveTopology =         EPipelineTopology::TRIANGLES;
-        EPipelineFillMode           PolygonFillMode =           EPipelineFillMode::FILL;
-        TFixedVector<EFormat, 4>    RenderTargetFormats         { EFormat::SRGBA8_UNORM };
-
-        FVertexBinding                      VertexBinding;
-        TFixedVector<FVertexAttribute, 4>   VertexAttributes;
-        
-        uint8                       EnablePrimitiveRestart : 1 =          false;
-        uint8                       EnableAlphaBlending : 1 =             true;
-        uint8                       EnableDepthTest : 1 =                 true;
-        uint8                       EnableMultisampling : 1 =             false;
-        uint8                       UseConservativeRasterization : 1 =    false;
-        uint8                       SampleCount : 1 =                     1;
-        
-        bool                        bEmissive =                            false;
-        bool                        bTransparent =                         false;
-        
-        bool operator==(const FGraphicsPipelineSpec& other) const
-        {
-            bool result = true;
-            result &= Shader == other.Shader;
-            result &= LineWidth == other.LineWidth;
-            result &= PipelineType == other.PipelineType;
-            result &= CullingMode == other.CullingMode;
-            result &= FaceOrientation == other.FaceOrientation;
-            result &= PrimitiveTopology == other.PrimitiveTopology;
-            result &= PolygonFillMode == other.PolygonFillMode;
-            result &= EnableAlphaBlending == other.EnableAlphaBlending;
-            result &= EnableDepthTest == other.EnableDepthTest;
-            result &= SampleCount == other.SampleCount;
-            result &= bEmissive == other.bEmissive;
-            result &= bTransparent == other.bTransparent;
-    
-            return result;
-        }
-
-        size_t GetHash() const
-        {
-            size_t hash = 0;
-            Hash::HashCombine(hash, eastl::hash<FName>{}(Shader));
-            Hash::HashCombine(hash, std::hash<float>{}(LineWidth));
-            Hash::HashCombine(hash, std::hash<int>{}(static_cast<int>(PipelineType)));
-            Hash::HashCombine(hash, std::hash<int>{}(static_cast<int>(CullingMode)));
-            Hash::HashCombine(hash, std::hash<int>{}(static_cast<int>(FaceOrientation)));
-            Hash::HashCombine(hash, std::hash<int>{}(static_cast<int>(PrimitiveTopology)));
-            Hash::HashCombine(hash, std::hash<int>{}(static_cast<int>(PolygonFillMode)));
-            Hash::HashCombine(hash, std::hash<bool>{}(EnableAlphaBlending));
-            Hash::HashCombine(hash, std::hash<bool>{}(EnableDepthTest));
-            Hash::HashCombine(hash, std::hash<uint8_t>{}(SampleCount));
-            Hash::HashCombine(hash, std::hash<bool>{}(bEmissive));
-            Hash::HashCombine(hash, std::hash<bool>{}(bTransparent));
-            
-            return hash;
-        }
-
-        template <typename T>
-        FGraphicsPipelineSpec& SetVertexBinding()
-        {
-            VertexBinding.Binding = 0;
-            VertexBinding.Stride = FVertexTypeTraits<T>::Stride;
-            FVertexTypeTraits<T>::GetVertexAttributes(VertexAttributes);
-
-            return *this;
-        }
-        
-        FGraphicsPipelineSpec& SetShader(FName InShader)
-        {
-            Shader = InShader;
-            return *this;
-        }
-    
-        FGraphicsPipelineSpec& SetLineWidth(float width)
-        {
-            LineWidth = width;
-            return *this;
-        }
-    
-        FGraphicsPipelineSpec& SetPipelineType(EPipelineType pipelineType)
-        {
-            PipelineType = pipelineType;
-            return *this;
-        }
-    
-        FGraphicsPipelineSpec& SetCullingMode(EPipelineCullingMode mode)
-        {
-            CullingMode = mode;
-            return *this;
-        }
-    
-        FGraphicsPipelineSpec& SetAlphaBlendSrcFactor(EPipelineBlending factor)
-        {
-            AlphaBlendSrcFactor = factor;
-            return *this;
-        }
-    
-        FGraphicsPipelineSpec& SetAlphaBlendDstFactor(EPipelineBlending factor)
-        {
-            AlphaBlendDstFactor = factor;
-            return *this;
-        }
-    
-        FGraphicsPipelineSpec& SetFaceOrientation(EPipelineFrontFace face)
-        {
-            FaceOrientation = face;
-            return *this;
-        }
-    
-        FGraphicsPipelineSpec& SetPrimitiveTopology(EPipelineTopology topology)
-        {
-            PrimitiveTopology = topology;
-            return *this;
-        }
-    
-        FGraphicsPipelineSpec& SetPolygonFillMode(EPipelineFillMode mode)
-        {
-            PolygonFillMode = mode;
-            return *this;
-        }
-    
-        FGraphicsPipelineSpec& SetRenderTargetFormats(const TFixedVector<EFormat, 4>& formats)
-        {
-            RenderTargetFormats = formats;
-            return *this;
-        }
-    
-        FGraphicsPipelineSpec& SetEnablePrimitiveRestart(bool enable)
-        {
-            EnablePrimitiveRestart = enable;
-            return *this;
-        }
-    
-        FGraphicsPipelineSpec& SetEnableAlphaBlending(bool enable)
-        {
-            EnableAlphaBlending = enable;
-            return *this;
-        }
-    
-        FGraphicsPipelineSpec& SetEnableDepthTest(bool enable)
-        {
-            EnableDepthTest = enable;
-            return *this;
-        }
-    
-        FGraphicsPipelineSpec& SetEnableMultisampling(bool enable)
-        {
-            EnableMultisampling = enable;
-            return *this;
-        }
-    
-        FGraphicsPipelineSpec& SetUseConservativeRasterization(bool enable)
-        {
-            UseConservativeRasterization = enable;
-            return *this;
-        }
-    
-        FGraphicsPipelineSpec& SetSampleCount(uint8 count)
-        {
-            SampleCount = count;
-            return *this;
-        }
-        
-        FGraphicsPipelineSpec& SetIsEmissive(bool emissive)
-        {
-            bEmissive = emissive;
-            return *this;
-        }
-    
-        FGraphicsPipelineSpec& SetIsTransparent(bool transparent)
-        {
-            bTransparent = transparent;
-            return *this;
-        }
-    
-        // Getters
-        FName GetShader() const { return Shader; }
-        float GetLineWidth() const { return LineWidth; }
-        EPipelineType GetPipelineType() const { return PipelineType; }
-        EPipelineCullingMode GetCullingMode() const { return CullingMode; }
-        EPipelineBlending GetAlphaBlendSrcFactor() const { return AlphaBlendSrcFactor; }
-        EPipelineBlending GetAlphaBlendDstFactor() const { return AlphaBlendDstFactor; }
-        EPipelineFrontFace GetFaceOrientation() const { return FaceOrientation; }
-        EPipelineTopology GetPrimitiveTopology() const { return PrimitiveTopology; }
-        EPipelineFillMode GetPolygonFillMode() const { return PolygonFillMode; }
-        const TFixedVector<EFormat, 4>& GetRenderTargetFormats() const { return RenderTargetFormats; }
-        bool GetEnablePrimitiveRestart() const { return EnablePrimitiveRestart; }
-        bool GetEnableAlphaBlending() const { return EnableAlphaBlending; }
-        bool GetEnableDepthTest() const { return EnableDepthTest; }
-        bool GetEnableMultisampling() const { return EnableMultisampling; }
-        bool GetUseConservativeRasterization() const { return UseConservativeRasterization; }
-        uint8 GetSampleCount() const { return SampleCount; }
-        
-        // Material-specific getters
-        bool IsEmissive() const { return bEmissive; }
-        bool IsTransparent() const { return bTransparent; }
-    };
-
     struct FVertexBufferBinding
     {
         FRHIBuffer* Buffer = nullptr;
         uint32 Slot = 0;
-        uint64 Offset = 0;
+        uint32 Offset = 0;
 
         bool operator ==(const FVertexBufferBinding& b) const
         {
@@ -696,7 +411,7 @@ namespace Lumina
 
         FVertexBufferBinding& SetBuffer(FRHIBuffer* value) { Buffer = value; return *this; }
         FVertexBufferBinding& SetSlot(uint32 value) { Slot = value; return *this; }
-        FVertexBufferBinding& SetOffset(uint64 value) { Offset = value; return *this; }
+        FVertexBufferBinding& SetOffset(uint32 value) { Offset = value; return *this; }
     };
 
     static_assert(std::is_trivially_copyable_v<FVertexBufferBinding>);
@@ -724,76 +439,8 @@ namespace Lumina
 
     struct FViewportState
     {
-        TFixedVector<FViewport, 16>   Viewports;
-        TFixedVector<FRect, 16>       Scissors;
+        TFixedVector<FViewport, 1>   Viewports;
+        TFixedVector<FRect, 1>       Scissors;
     };
-
-
     
-    template <>
-    struct FVertexTypeTraits<FVertex>
-    {
-        static constexpr uint32 Stride = sizeof(FVertex);
-        static constexpr uint32 Binding = 0;
-
-        static void GetVertexAttributes(TVector<FGraphicsPipelineSpec::FVertexAttribute>& OutAttributes)
-        {
-            FGraphicsPipelineSpec::FVertexAttribute Attribute;
-            Attribute.Location = 0;
-            Attribute.Binding = Binding;
-            Attribute.Format = EShaderDataType::FLOAT3;
-            Attribute.Offset = offsetof(FVertex, Position);
-            
-            OutAttributes.push_back(Attribute);
-
-            Attribute.Location = 1;
-            Attribute.Binding = Binding;
-            Attribute.Format = EShaderDataType::FLOAT4;
-            Attribute.Offset = offsetof(FVertex, Color);
-            
-            OutAttributes.push_back(Attribute);
-
-            Attribute.Location = 2;
-            Attribute.Binding = Binding;
-            Attribute.Format = EShaderDataType::FLOAT3;
-            Attribute.Offset = offsetof(FVertex, Normal);
-            
-            OutAttributes.push_back(Attribute);
-
-            Attribute.Location = 3;
-            Attribute.Binding = Binding;
-            Attribute.Format = EShaderDataType::FLOAT2;
-            Attribute.Offset = offsetof(FVertex, UV);
-            
-            OutAttributes.push_back(Attribute);
-            
-        }
-    };
-
-    template <>
-    struct FVertexTypeTraits<FSimpleElementVertex>
-    {
-        static constexpr uint32 Stride = sizeof(FSimpleElementVertex);
-        static constexpr uint32 Binding = 0;
-
-        static void GetVertexAttributes(TVector<FGraphicsPipelineSpec::FVertexAttribute>& OutAttributes)
-        {
-            FGraphicsPipelineSpec::FVertexAttribute Attribute;
-            Attribute.Location = 0;
-            Attribute.Binding = Binding;
-            Attribute.Format = EShaderDataType::FLOAT3;
-            Attribute.Offset = offsetof(FSimpleElementVertex, Position);
-            
-            OutAttributes.push_back(Attribute);
-
-            Attribute.Location = 1;
-            Attribute.Binding = Binding;
-            Attribute.Format = EShaderDataType::FLOAT3;
-            Attribute.Offset = offsetof(FSimpleElementVertex, Color);
-            
-            
-            OutAttributes.push_back(Attribute);
-            
-        }
-    };
 }

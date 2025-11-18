@@ -1,4 +1,5 @@
 ﻿#pragma once
+#include "Renderer/BindingCache.h"
 #include "Renderer/TypedBuffer.h"
 #include "World/Scene/RenderScene/MeshDrawCommand.h"
 #include "World/Scene/RenderScene/RenderScene.h"
@@ -25,6 +26,7 @@ namespace Lumina
         void ResetPass(FRenderGraph& RenderGraph);
         void CullPass(FRenderGraph& RenderGraph, const FViewVolume& View);
         void DepthPrePass(FRenderGraph& RenderGraph, const FViewVolume& View);
+        void DepthPyramidPass(FRenderGraph& RenderGraph);
         void ClusterBuildPass(FRenderGraph& RenderGraph, const FViewVolume& View);
         void LightCullPass(FRenderGraph& RenderGraph, const FViewVolume& View);
         void ClearShadowPass(FRenderGraph& RenderGraph);
@@ -60,6 +62,11 @@ namespace Lumina
         FSceneRenderSettings                RenderSettings;
         FSceneLightData                     LightData;
 
+        /** Packed array of all light shadows in the scene */
+        TArray<TVector<FLightShadow>, (uint32)ELightType::Num>    PackedShadows;
+
+        FBindingCache                       BindingCache;
+
         FRHIViewportRef                     SceneViewport;
         
         FRHIInputLayoutRef                  VertexLayoutInput;
@@ -86,8 +93,8 @@ namespace Lumina
         FRHIBindingSetRef                   BindingSet;
         FRHIBindingLayoutRef                BindingLayout;
 
-        FRHIBindingSetRef                   FrustumCullSet;
-        FRHIBindingLayoutRef                FrustumCullLayout;
+        FRHIBindingSetRef                   MeshCullSet;
+        FRHIBindingLayoutRef                MeshCullLayout;
 
         FRHIBindingSetRef                   ClusterBuildSet;
         FRHIBindingLayoutRef                ClusterBuildLayout;
@@ -98,7 +105,8 @@ namespace Lumina
         FRHITypedVertexBuffer<FSimpleElementVertex> SimpleVertexBuffer;
         TRenderVector<FSimpleElementVertex>         SimpleVertices;
         FRHIBindingLayoutRef                        SimplePassLayout;
-        
+
+        FRHIBufferRef                               CullDataBuffer;
         FRHIBufferRef                               ClusterBuffer;
         FRHIBufferRef                               SceneDataBuffer;
         FRHIBufferRef                               InstanceDataBuffer;
@@ -111,6 +119,7 @@ namespace Lumina
         FRHIImageRef                        HDRRenderTarget;
         FRHIImageRef                        CascadedShadowMap;
         FRHIImageRef                        DepthAttachment;
+        FRHIImageRef                        DepthPyramid;
         FRHIImageRef                        PickerImage;
         
         ERenderSceneDebugFlags              DebugVisualizationMode;

@@ -18,13 +18,18 @@ namespace Lumina
 
 namespace Lumina
 {
+
+    struct FRenderContextDesc
+    {
+        bool bValidation = false;
+    };
     
     class IRenderContext
     {
     public:
         virtual ~IRenderContext() = default;
 
-        virtual bool Initialize() = 0;
+        virtual bool Initialize(const FRenderContextDesc& Desc) = 0;
         virtual void Deinitialize() = 0;
 
         virtual void WaitIdle() = 0;
@@ -89,6 +94,7 @@ namespace Lumina
         
         //-------------------------------------------------------------------------------------
 
+        virtual void ClearBindingCaches() = 0;
         NODISCARD virtual FRHIDescriptorTableRef CreateDescriptorTable(FRHIBindingLayout* InLayout) = 0;
         virtual void ResizeDescriptorTable(FRHIDescriptorTable* Table, uint32 NewSize, bool bKeepContents) = 0;
         virtual bool WriteDescriptorTable(FRHIDescriptorTable* Table, const FBindingSetItem& Binding) = 0;

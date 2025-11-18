@@ -65,7 +65,7 @@ namespace Lumina
                 return nullptr;
             }
             
-            auto* Task = Memory::New<FLambdaTask>(Priority, Num, std::max(1u, MinRange), Move(Function));
+            FLambdaTask* Task = Memory::New<FLambdaTask>(Priority, Num, std::max(1u, MinRange), Move(Function));
             ScheduleTask(Task);
             return Task;
         }
@@ -116,7 +116,7 @@ namespace Lumina
             
             Task.m_Priority = (enki::TaskPriority)Priority;
             ScheduleTask(&Task);
-            WaitForTask(&Task);
+            WaitForTask(&Task, Priority);
         }
         
         LUMINA_API void ScheduleTask(ITaskSet* pTask)

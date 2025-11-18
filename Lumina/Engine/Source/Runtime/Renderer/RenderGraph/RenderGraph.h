@@ -38,7 +38,15 @@ namespace Lumina
         void Compile();
 
         void AllocateTransientResources();
+
+
         
+        template<typename T, typename... TArgs>
+        T* Alloc(TArgs&&... Args)
+        {
+            return GraphAllocator.TAlloc<T>(Forward<TArgs>(Args)...);
+        }
+
         template<typename TResource, typename TDescription>
         TResource* AllocResource(TDescription&& Desc)
         {
@@ -63,18 +71,7 @@ namespace Lumina
 
         FRGBuffer* CreateBuffer(const FRHIBufferDesc& Desc);
         FRGImage* CreateImage(const FRHIImageDesc& Desc);
-
-    private:
-
-        struct FResourceOp
-        {
-            enum
-            {
-                Alloc,
-                Dealloc,
-            };
-        };
-        
+    
 
     private:
 

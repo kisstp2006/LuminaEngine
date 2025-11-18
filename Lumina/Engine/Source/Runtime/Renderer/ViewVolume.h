@@ -19,7 +19,7 @@ namespace Lumina
     {
     public:
 
-        FViewVolume(float fov = 90.0f, float aspect = 16.0f / 9.0f, float InNear = 0.01f, float InFar = 1000.0f);
+        FViewVolume(float fov = 90.0f, float aspect = 16.0f / 9.0f, float InNear = 0.01f, float InFar = 100000.0f);
 
         FViewVolume& SetNear(float InNear);
         FViewVolume& SetFar(float InFar);

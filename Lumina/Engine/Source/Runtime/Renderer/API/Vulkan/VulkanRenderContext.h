@@ -5,7 +5,6 @@
 #include <vulkan/vulkan.h>
 #include <tracy/TracyVulkan.hpp>
 #include "TrackedCommandBuffer.h"
-#include "VulkanDescriptorCache.h"
 #include "VulkanMacros.h"
 #include "VulkanPipelineCache.h"
 #include "VulkanResources.h"
@@ -117,6 +116,8 @@ namespace Lumina
         void BulkEnqueue(ICommandList* const* RetiredCommandLists, uint32 Num, ECommandQueue QueueType);
         void Cleanup();
     };
+
+
     
     class FVulkanRenderContext : public IRenderContext
     {
@@ -126,7 +127,7 @@ namespace Lumina
         
         FVulkanRenderContext();
         
-        bool Initialize() override;
+        bool Initialize(const FRenderContextDesc& Desc) override;
         void Deinitialize() override;
         
         void SetVSyncEnabled(bool bEnable) override;
@@ -198,6 +199,7 @@ namespace Lumina
         
         //-------------------------------------------------------------------------------------
 
+        void ClearBindingCaches() override;
         NODISCARD FRHIDescriptorTableRef CreateDescriptorTable(FRHIBindingLayout* InLayout) override;
         void ResizeDescriptorTable(FRHIDescriptorTable* Table, uint32 NewSize, bool bKeepContents) override;
         bool WriteDescriptorTable(FRHIDescriptorTable* Table, const FBindingSetItem& Binding) override;
@@ -221,6 +223,7 @@ namespace Lumina
     
     private:
 
+        FRenderContextDesc                                  Description;
         uint8                                               CurrentFrameIndex;
         TBitFlags<EVulkanExtensions>                        EnabledExtensions;
 
@@ -230,7 +233,6 @@ namespace Lumina
         THashMap<uint64, FRHISamplerRef>                    SamplerMap;
 
         FCommandListManager                                 CommandListManager;
-        FVulkanDescriptorCache                              DescriptorCache;
         FVulkanPipelineCache                                PipelineCache;
         FQueueArray                                         Queues;
         

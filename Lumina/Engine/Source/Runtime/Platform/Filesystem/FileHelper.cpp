@@ -1,5 +1,6 @@
 #include "FileHelper.h"
 
+#define _ITERATOR_DEBUG_LEVEL 0
 #include <fstream>
 
 #include "Containers/Array.h"
@@ -11,7 +12,6 @@ namespace Lumina::FileHelper
     bool SaveArrayToFile(const TVector<uint8>& Array, FStringView Path, uint32 WriteFlags)
     {
         std::filesystem::path FilePath = Path.data();
-
         
         std::ofstream outFile(FilePath, std::ios::binary | std::ios::trunc);
         if (!outFile)

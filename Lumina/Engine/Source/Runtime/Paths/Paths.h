@@ -100,6 +100,7 @@ namespace Lumina::Paths
 
 
     LUMINA_API void AddPackageExtension(FString& FileName);
+
     
     // -------------------------------------------------------------------
 

@@ -67,6 +67,15 @@ namespace Lumina
         Depth               = 9,
         ShadowAtlas		    = 10,
     };
+
+    enum class ELightType : uint8
+    {
+        Directional,
+        Point,
+        Spot,
+
+        Num,
+    };
     
     struct FCameraData
     {
@@ -176,7 +185,8 @@ namespace Lumina
         glm::vec2   AtlasUVScale;
         
         int32       ShadowMapIndex;
-        uint32      Padding0[3];
+        int32       LightIndex;
+        int32       Padding[2];
     };
     
     VERIFY_SSBO_ALIGNMENT(FLightShadow)
@@ -282,11 +292,22 @@ namespace Lumina
     
     struct FCullData
     {
-        FFrustum    Frustum;
-        glm::vec4   View;
+        FFrustum Frustum;
+        glm::mat4 ViewMatrix;   // View matrix (not view-projection!)
+
+        float P00;              // projection[0][0]
+        float P11;              // projection[1][1]
+        float zNear;
+        float zFar;
+
+        uint32 bFrustumCull;
+        uint32 bOcclusionCull;
+        uint32 InstanceNum;
+        uint32 Padding0;
+
+        float PyramidWidth;
+        float PyramidHeight;
     };
-    
-    VERIFY_SSBO_ALIGNMENT(FCullData)
     
 
     struct FSceneGlobalData
@@ -318,5 +339,7 @@ namespace Lumina
         uint8 bHasEnvironment:1 = false;
         uint8 bDrawAABB:1 = false;
         uint8 bSSAO:1 = false;
+        uint8 bFrustumCull:1 = true;
+        uint8 bOcclusionCull:1 = true;
     };
 }

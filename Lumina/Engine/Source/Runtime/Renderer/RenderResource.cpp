@@ -164,7 +164,7 @@ namespace Lumina
             ret.NumMipLevels = std::max<uint32>(0u, LastMipLevelPlusOne - BaseMipLevel);
         }
 
-        switch (Desc.Dimension)
+        switch (Desc.Dimension)  // NOLINT(clang-diagnostic-switch-enum)
         {
         case EImageDimension::Unknown:
         case EImageDimension::Texture2DArray:

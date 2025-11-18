@@ -170,6 +170,15 @@ namespace Lumina
 
     void FWorldEditorTool::Update(const FUpdateContext& UpdateContext)
     {
+
+        while (!ComponentDestroyRequests.empty())
+        {
+            FComponentDestroyRequest Request = ComponentDestroyRequests.back();
+            ComponentDestroyRequests.pop();
+            
+            RemoveComponent(Request.EntityID, Request.Type);
+        }
+        
         while (!EntityDestroyRequests.empty())
         {
             Entity Entity = EntityDestroyRequests.back();
@@ -186,9 +195,7 @@ namespace Lumina
             }
             
             World->DestroyEntity(Entity);
-            
             OutlinerListView.MarkTreeDirty();
-
         }
 
         if (SelectedEntity.IsValid())
@@ -196,7 +203,7 @@ namespace Lumina
             
             SelectedEntity.EmplaceOrReplace<FNeedsTransformUpdate>();
 
-            if (bViewportFocused)
+            if (bViewportHovered)
             {
                 if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl) && ImGui::IsKeyPressed(ImGuiKey_C))
                 {
@@ -211,7 +218,7 @@ namespace Lumina
             }
         }
 
-        if (CopiedEntity && bViewportFocused)
+        if (CopiedEntity && bViewportHovered)
         {
             if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl) && ImGui::IsKeyPressed(ImGuiKey_V))
             {
@@ -220,7 +227,7 @@ namespace Lumina
             }
         }
 
-        if (SelectedEntity && bViewportFocused)
+        if (SelectedEntity && bViewportHovered)
         {
             if (ImGui::IsKeyPressed(ImGuiKey_Delete))
             {
@@ -433,6 +440,19 @@ namespace Lumina
             {
                 SceneRenderer->GetSceneRenderSettings().bUseInstancing = bUseInstancing;
             }
+
+            bool bUseFrustumCull = (bool)SceneRenderer->GetSceneRenderSettings().bFrustumCull;
+            if (ImGui::Checkbox("Frustum Culling", &bUseFrustumCull))
+            {
+                SceneRenderer->GetSceneRenderSettings().bFrustumCull = bUseFrustumCull;
+            }
+
+            bool bUseOcclusionCull = (bool)SceneRenderer->GetSceneRenderSettings().bOcclusionCull;
+            if (ImGui::Checkbox("Occlusion Culling", &bUseOcclusionCull))
+            {
+                SceneRenderer->GetSceneRenderSettings().bOcclusionCull = bUseOcclusionCull;
+            }
+
 
             ImGui::SliderFloat("Cascade Split Lambda", &SceneRenderer->GetSceneRenderSettings().CascadeSplitLambda, 0.0f, 1.0f);
             
@@ -1482,7 +1502,7 @@ namespace Lumina
             
                 if (ImGui::Button(LE_ICON_TRASH_CAN, ImVec2(ImGui::GetContentRegionAvail().x, 30.0f)))
                 {
-                    RemoveComponent(Table);
+                    ComponentDestroyRequests.push(FComponentDestroyRequest{.Type = Table->GetType(), .EntityID = SelectedEntity.GetHandle()});
                 }
             
                 ImGui::PopStyleVar();
@@ -1505,20 +1525,25 @@ namespace Lumina
         ImGui::PopID();
     }
 
-    void FWorldEditorTool::RemoveComponent(TUniquePtr<FPropertyTable>& Table)
+    void FWorldEditorTool::RemoveComponent(entt::entity Entity, const CStruct* ComponentType)
     {
         bool bWasRemoved = false;
-    
-        for (const auto& [ID, Set] : World->GetEntityRegistry().storage())
+
+        if (ComponentType == nullptr)
         {
-            if (Set.contains(SelectedEntity.GetHandle()))
+            return;
+        }
+        
+        for (const auto [ID, Set] : World->GetEntityRegistry().storage())
+        {
+            if (Set.contains(Entity))
             {
                 using namespace entt::literals;
 
                 auto ReturnValue = entt::resolve(Set.type()).invoke("staticstruct"_hs, {});
                 void** Type = ReturnValue.try_cast<void*>();
 
-                if (Type != nullptr && Table->GetType() == *(CStruct**)Type)
+                if (Type != nullptr && ComponentType == *(CStruct**)Type)
                 {
                     Set.remove(SelectedEntity.GetHandle());
                     bWasRemoved = true;
@@ -1533,8 +1558,7 @@ namespace Lumina
         }
         else
         {
-            ImGuiX::Notifications::NotifyError("Failed to remove component: %s", 
-                                              Table->GetType()->GetName().c_str());
+            ImGuiX::Notifications::NotifyError("Failed to remove component: %s", ComponentType->GetName().c_str());
         }
     }
 

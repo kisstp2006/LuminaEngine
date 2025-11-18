@@ -512,8 +512,8 @@ namespace Lumina
         
         
         TFixedVector<FRHIBufferRef, 2>              DynamicBuffers;
-        TFixedVector<uint32, 4>                     BindingsRequiringTransitions;
         TFixedVector<FRHIResourceRef, 4>            Resources;
+        TFixedVector<uint16, 4>                     BindingsRequiringTransitions;
 
         
         TRefCountPtr<FVulkanBindingLayout>          Layout;

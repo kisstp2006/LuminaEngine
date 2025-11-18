@@ -89,7 +89,8 @@ struct FLightShadow
     vec2 AtlasUVOffset;
     vec2 AtlasUVScale;
     int ShadowMapIndex; // -1 means no shadow.
-    uint Pad[3];
+    int LightIndex;
+    uint Pad[2];
 };
 
 struct FLight
@@ -121,10 +122,28 @@ struct FCluster
 };
 
 
-struct FCullData
+struct FFrustum
 {
     vec4 Planes[6];
-    vec4 View;
+};
+
+struct FCullData
+{
+    FFrustum Frustum;
+    mat4 View;
+
+    float P00;              // projection[0][0]
+    float P11;              // projection[1][1]
+    float zNear;
+    float zFar;
+
+    uint bFrustumCull;
+    uint bOcclusionCull;
+    uint InstanceNum;
+    uint Padding0;
+    
+    float PyramidWidth;
+    float PyramidHeight;
 };
 
 vec4 UnpackColor(uint ColorMask)
