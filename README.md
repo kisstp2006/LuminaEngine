@@ -186,6 +186,7 @@ Lumina/
 ### Rendering
 - **Vulkan** - Graphics API
 - **VMA** - Vulkan Memory Allocator
+- **Volk** - Vulkan Loader
 - **VkBootstrap** - Vulkan initialization
 - **SPIRV-Reflect** - Shader reflection
 - **GLM** - Math library
