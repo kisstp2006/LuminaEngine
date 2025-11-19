@@ -9,6 +9,8 @@
 #include "Module/API.h"
 #include "Platform/GenericPlatform.h"
 
+struct ImGuiWindow;
+
 namespace Lumina
 {
     struct FARFilter;
@@ -53,6 +55,9 @@ namespace Lumina::ImGuiX
     LUMINA_API ImTextureRef ToImTextureRef(const FString& Path);
 
     LUMINA_API FString FormatSize(size_t bytes);
+
+    LUMINA_API void RenderWindowOuterBorders(ImGuiWindow* Window);
+    LUMINA_API bool UpdateWindowManualResize(ImGuiWindow* Window, ImVec2& NewSize, ImVec2& NewPosition);
     
     template<typename T>
     bool ObjectSelector(FARFilter& Filter, T*& OutSelected)

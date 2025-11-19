@@ -854,6 +854,7 @@ namespace Lumina
 		FORCEINLINE uint32 GetSizeY() const { return Description.Extent.y; }
 		FORCEINLINE EFormat GetFormat() const { return Description.Format; }
 		FORCEINLINE TBitFlags<EImageCreateFlags> GetFlags() const { return Description.Flags; }
+		FORCEINLINE uint8 GetNumMips() const { return Description.NumMips; }
 
 		virtual void* GetRHIView(EFormat Format, FTextureSubresourceSet Subresources, EImageDimension Dimension, bool bReadyOnlyDSV = false) = 0;
 		

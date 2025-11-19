@@ -390,7 +390,7 @@ namespace Lumina
 	}
 
 
-	ImTextureID FVulkanImGuiRender::GetOrCreateImTexture(FRHIImageRef Image)
+	ImTextureID FVulkanImGuiRender::GetOrCreateImTexture(FRHIImage* Image, const FTextureSubresourceSet& Subresources)
     {
     	if(Image == nullptr)
     	{
@@ -399,13 +399,13 @@ namespace Lumina
 
 		FScopeLock Lock(TextureMutex);
 		ReferencedImages.push_back(Image);
-	    VkImage VulkanImage = Image->GetAPI<VkImage>();
 		
-		const FTextureSubresourceSet Subresource = AllSubresources;
 		FVulkanImage::ESubresourceViewType ViewType = GetTextureViewType(EFormat::UNKNOWN, Image->GetDescription().Format);
-		VkImageView View = Image.As<FVulkanImage>()->GetSubresourceView(Subresource, Image->GetDescription().Dimension, Image->GetDescription().Format, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, ViewType).View;
+		VkImageView View = static_cast<FVulkanImage*>(Image)->GetSubresourceView(Subresources, Image->GetDescription().Dimension, Image->GetDescription().Format, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, ViewType).View;
+
+		uintptr_t HashPtr = (uintptr_t)View;
 		
-    	auto It = Images.find((uintptr_t)VulkanImage);
+    	auto It = Images.find(HashPtr);
 		
     	if (It != Images.end())
     	{
@@ -422,7 +422,7 @@ namespace Lumina
 		NewEntry->ImTexture._TexID	= (ImTextureID)ImGui_ImplVulkan_AddTexture(VulkanSampler, View, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 		NewEntry->LastUseFrame		= GEngine->GetUpdateContext().GetFrame();
     	
-    	Images.insert_or_assign((uintptr_t)VulkanImage, NewEntry);
+    	Images.insert_or_assign(HashPtr, NewEntry);
 
 		NewEntry->LastUseFrame = GEngine->GetUpdateContext().GetFrame();
     	return NewEntry->ImTexture.GetTexID();
@@ -431,7 +431,7 @@ namespace Lumina
     void FVulkanImGuiRender::DestroyImTexture(ImTextureRef Image)
     {
 		FScopeLock Lock(TextureMutex);
-
+		
 		for (auto it = Images.begin(); it != Images.end(); )
 		{
 			if (it->second->ImTexture.GetTexID() == Image.GetTexID())

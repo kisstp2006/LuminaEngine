@@ -129,7 +129,7 @@ namespace Lumina
 
             for (SIZE_T i = 0; i < Material->Textures.size(); ++i)
             {
-                FRHIImageRef Image = Material->Textures[i]->RHIImage;
+                FRHIImageRef Image = Material->Textures[i]->GetRHIRef();
                 
                 SetDesc.AddItem(FBindingSetItem::TextureSRV((uint32)i, Image));
             }

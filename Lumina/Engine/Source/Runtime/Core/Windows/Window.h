@@ -33,17 +33,19 @@ namespace Lumina
 		void ProcessMessages();
 
 		GLFWwindow* GetWindow() const { return Window; }
-		bool IsMinimized() const;
 
-		const glm::uvec2& GetExtent() const { return Specs.Extent; }
-		uint32 GetWidth() const { return Specs.Extent.x; }
-		uint32 GetHeight() const { return Specs.Extent.y; }
+		LUMINA_API const glm::uvec2& GetExtent() const { return Specs.Extent; }
+		LUMINA_API uint32 GetWidth() const { return Specs.Extent.x; }
+		LUMINA_API uint32 GetHeight() const { return Specs.Extent.y; }
 
-		void GetWindowPos(int& X, int& Y);
-		void SetWindowPos(int X, int Y);
+		LUMINA_API void GetWindowPosition(int& X, int& Y);
+		LUMINA_API void SetWindowPosition(int X, int Y);
+		
+		LUMINA_API void SetWindowSize(int X, int Y);
 
 		LUMINA_API bool ShouldClose() const;
-		LUMINA_API bool IsMaximized() const;
+		LUMINA_API bool IsWindowMinimized() const;
+		LUMINA_API bool IsWindowMaximized() const;
 		LUMINA_API void Minimize();
 		LUMINA_API void Restore();
 		LUMINA_API void Maximize();

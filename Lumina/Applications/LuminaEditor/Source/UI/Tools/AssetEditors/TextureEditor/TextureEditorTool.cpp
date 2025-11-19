@@ -17,19 +17,18 @@ namespace Lumina
 
     void FTextureEditorTool::OnInitialize()
     {
-        // === Texture Preview Window ===
         CreateToolWindow(TexturePreviewName, [this](const FUpdateContext& Cxt, bool bFocused)
         {
             CTexture* Texture = Cast<CTexture>(Asset.Get());
-            if (!Texture)
+            if (!Texture || Texture->TextureResource == nullptr)
             {
                 return;
             }
 
             FRenderManager* RenderManager = Cxt.GetSubsystem<FRenderManager>();
-            ImTextureID TextureID = RenderManager->GetImGuiRenderer()->GetOrCreateImTexture(Texture->RHIImage);
+            ImTextureID TextureID = RenderManager->GetImGuiRenderer()->GetOrCreateImTexture(Texture->TextureResource->RHIImage, FTextureSubresourceSet(CurrentMipLevel, 1, 0, 1));
 
-            const FRHIImageDesc& ImageDesc = Texture->ImageDescription;
+            const FRHIImageDesc& ImageDesc = Texture->TextureResource->ImageDescription;
             ImVec2 WindowSize = ImGui::GetContentRegionAvail();
             ImVec2 WindowPos = ImGui::GetCursorScreenPos();
 
@@ -169,128 +168,250 @@ namespace Lumina
             {
                 return;
             }
-
-            const FRHIImageDesc& ImageDesc = Texture->ImageDescription;
-    
-            // === Header Section ===
+        
+            const FRHIImageDesc& ImageDesc = Texture->TextureResource->ImageDescription;
+        
+            // === Header ===
             ImGuiX::Font::PushFont(ImGuiX::Font::EFont::Large);
             ImGui::TextColored(ImVec4(0.4f, 0.8f, 1.0f, 1.0f), "%s", Texture->GetName().c_str());
             ImGuiX::Font::PopFont();
             
             ImGui::Spacing();
-    
-            // === Texture Information ===
+        
+            // === Basic Information ===
             ImGuiX::Font::PushFont(ImGuiX::Font::EFont::Large);
             ImGui::SeparatorText("Texture Information");
             ImGuiX::Font::PopFont();
             
             ImGui::Spacing();
-    
-        if (ImGui::BeginTable("##TextureInfo", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp))
-        {
-            ImGui::TableSetupColumn("Property", ImGuiTableColumnFlags_WidthFixed, 150.0f);
-            ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
-            ImGui::TableHeadersRow();
-
-            auto PropertyRow = [](const char* label, const FString& value, const ImVec4* color = nullptr)
+        
+            if (ImGui::BeginTable("##TextureInfo", 2, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp))
             {
-                ImGui::TableNextRow();
-                ImGui::TableSetColumnIndex(0);
-                ImGui::TextUnformatted(label);
-                ImGui::TableSetColumnIndex(1);
-                if (color)
+                ImGui::TableSetupColumn("Property", ImGuiTableColumnFlags_WidthFixed, 150.0f);
+                ImGui::TableSetupColumn("Value", ImGuiTableColumnFlags_WidthStretch);
+                ImGui::TableHeadersRow();
+            
+                auto PropertyRow = [](const char* label, const FString& value, const ImVec4* color = nullptr)
                 {
-                    ImGui::PushStyleColor(ImGuiCol_Text, *color);
+                    ImGui::TableNextRow();
+                    ImGui::TableSetColumnIndex(0);
+                    ImGui::TextUnformatted(label);
+                    ImGui::TableSetColumnIndex(1);
+                    if (color)
+                    {
+                        ImGui::PushStyleColor(ImGuiCol_Text, *color);
+                    }
+                    ImGui::TextUnformatted(value.c_str());
+                    if (color)
+                    {
+                        ImGui::PopStyleColor();
+                    }
+                };
+            
+                // Type
+                FString dimensionStr;
+                switch (ImageDesc.Dimension)
+                {
+                    case EImageDimension::Texture2D: dimensionStr = "2D Texture"; break;
+                    case EImageDimension::Texture3D: dimensionStr = "3D Volume"; break;
+                    case EImageDimension::TextureCube: dimensionStr = "Cubemap"; break;
+                    default: dimensionStr = "Unknown"; break;
                 }
-                ImGui::TextUnformatted(value.c_str());
-                if (color)
+                
+                ImVec4 dimensionColor(0.5f, 0.9f, 0.5f, 1.0f);
+                PropertyRow("Type", dimensionStr, &dimensionColor);
+                PropertyRow("Resolution", eastl::to_string(ImageDesc.Extent.x) + " x " + eastl::to_string(ImageDesc.Extent.y));
+                
+                if (ImageDesc.Depth > 1)
                 {
-                    ImGui::PopStyleColor();
+                    PropertyRow("Depth", eastl::to_string(ImageDesc.Depth));
                 }
-            };
-
-            // Dimensions
-            FString dimensionStr;
-            switch (ImageDesc.Dimension)
-            {
-                case EImageDimension::Texture2D: dimensionStr = "2D Texture"; break;
-                case EImageDimension::Texture3D: dimensionStr = "3D Volume"; break;
-                case EImageDimension::TextureCube: dimensionStr = "Cubemap"; break;
-                default: dimensionStr = "Unknown"; break;
-            }
-            
-            ImVec4 dimensionColor(0.5f, 0.9f, 0.5f, 1.0f);
-            PropertyRow("Type", dimensionStr, &dimensionColor);
-            PropertyRow("Resolution", eastl::to_string(ImageDesc.Extent.x) + " x " + eastl::to_string(ImageDesc.Extent.y));
-            
-            if (ImageDesc.Depth > 1)
-            {
-                PropertyRow("Depth", eastl::to_string(ImageDesc.Depth));
-            }
-            
-            if (ImageDesc.ArraySize > 1)
-            {
-                ImVec4 arrayColor(0.9f, 0.7f, 0.4f, 1.0f);
-                PropertyRow("Array Size", eastl::to_string(ImageDesc.ArraySize), &arrayColor);
-            }
-
-            // Format information
-            const FFormatInfo& FormatInfo = RHI::Format::Info(ImageDesc.Format);
-            PropertyRow("Pixel Format", FString(FormatInfo.Name));
-            PropertyRow("Mip Levels", eastl::to_string(ImageDesc.NumMips));
-            
-            if (ImageDesc.NumSamples > 1)
-            {
-                ImVec4 msaaColor(0.9f, 0.5f, 0.9f, 1.0f);
-                PropertyRow("MSAA Samples", eastl::to_string(ImageDesc.NumSamples) + "x", &msaaColor);
-            }
-
-            // Row pitch and depth pitch calculations
-            size_t bytesPerPixel = FormatInfo.BytesPerBlock;
-            size_t bytesPerRow = ImageDesc.Extent.x * bytesPerPixel;
-            
-            PropertyRow("Bytes per Row", eastl::to_string(bytesPerRow) + " bytes");
-
-            // Memory calculation
-            size_t pixelCount = Texture->Pixels.size();
-            size_t memorySizeKB = pixelCount / 1024;
-            size_t memorySizeMB = memorySizeKB / 1024;
-            
-            FString memoryStr;
-            ImVec4 memoryColor(0.7f, 1.0f, 0.7f, 1.0f);
-            
-            if (memorySizeMB > 0)
-            {
-                memoryStr = eastl::to_string(memorySizeMB) + " MB";
-                if (memorySizeMB > 10)
+                
+                if (ImageDesc.ArraySize > 1)
                 {
-                    memoryColor = ImVec4(1.0f, 0.7f, 0.3f, 1.0f);
+                    ImVec4 arrayColor(0.9f, 0.7f, 0.4f, 1.0f);
+                    PropertyRow("Array Size", eastl::to_string(ImageDesc.ArraySize), &arrayColor);
                 }
-                if (memorySizeMB > 50)
+            
+                // Format
+                const FFormatInfo& FormatInfo = RHI::Format::Info(ImageDesc.Format);
+                PropertyRow("Pixel Format", FString(FormatInfo.Name));
+                
+                // Memory
+                size_t MemorySizeBytes = Texture->TextureResource->CalcTotalSizeBytes();
+                size_t MemorySizeKB = MemorySizeBytes / 1024;
+                size_t MemorySizeMB = MemorySizeKB / 1024;
+                
+                FString memoryStr;
+                ImVec4 memoryColor(0.7f, 1.0f, 0.7f, 1.0f);
+                
+                if (MemorySizeMB > 0)
                 {
-                    memoryColor = ImVec4(1.0f, 0.4f, 0.4f, 1.0f);
+                    memoryStr = eastl::to_string(MemorySizeMB) + " MB";
+                    if (MemorySizeMB > 10)  memoryColor = ImVec4(1.0f, 0.7f, 0.3f, 1.0f);
+                    if (MemorySizeMB > 50)  memoryColor = ImVec4(1.0f, 0.4f, 0.4f, 1.0f);
+                }
+                else
+                {
+                    memoryStr = eastl::to_string(MemorySizeKB) + " KB";
+                }
+                
+                PropertyRow("Memory Size", memoryStr, &memoryColor);
+            
+                ImGui::EndTable();
+            }
+        
+            ImGui::Spacing();
+            ImGui::Spacing();
+        
+            // === Mipmap Chain ===
+            ImGuiX::Font::PushFont(ImGuiX::Font::EFont::Large);
+            ImGui::SeparatorText("Mipmap Chain");
+            ImGuiX::Font::PopFont();
+            
+            ImGui::Spacing();
+        
+            if (ImageDesc.NumMips > 1)
+            {
+                // Summary stats
+                uint64 totalMipMemory = 0;
+                uint64 baseMipMemory = 0;
+                
+                if (Texture->TextureResource->Mips.size() > 0)
+                {
+                    baseMipMemory = Texture->TextureResource->Mips[0].Pixels.size();
+                    for (const auto& Mip : Texture->TextureResource->Mips)
+                    {
+                        totalMipMemory += Mip.Pixels.size();
+                    }
+                }
+                
+                float mipOverhead = baseMipMemory > 0 ? ((float)(totalMipMemory - baseMipMemory) / (float)baseMipMemory * 100.0f) : 0.0f;
+                
+                ImGui::Text("Total Mip Levels: ");
+                ImGui::SameLine();
+                ImGui::TextColored(ImVec4(0.5f, 0.9f, 1.0f, 1.0f), "%u", ImageDesc.NumMips);
+                
+                ImGui::Text("Memory Overhead: ");
+                ImGui::SameLine();
+                ImGui::TextColored(ImVec4(0.9f, 0.7f, 0.4f, 1.0f), "%.1f%%", mipOverhead);
+                ImGui::SameLine();
+                ImGui::TextDisabled("(~33%% is typical)");
+        
+                ImGui::Spacing();
+        
+                // Mip level table
+                if (ImGui::BeginTable("##MipLevels", 5, 
+                    ImGuiTableFlags_Borders | 
+                    ImGuiTableFlags_RowBg | 
+                    ImGuiTableFlags_ScrollY |
+                    ImGuiTableFlags_SizingFixedFit,
+                    ImVec2(0.0f, eastl::min(300.0f, ImGui::GetContentRegionAvail().y * 0.5f))))
+                {
+                    ImGui::TableSetupScrollFreeze(0, 1);
+                    ImGui::TableSetupColumn("Level", ImGuiTableColumnFlags_WidthFixed, 50.0f);
+                    ImGui::TableSetupColumn("Resolution", ImGuiTableColumnFlags_WidthFixed, 100.0f);
+                    ImGui::TableSetupColumn("Texels", ImGuiTableColumnFlags_WidthFixed, 90.0f);
+                    ImGui::TableSetupColumn("Size", ImGuiTableColumnFlags_WidthFixed, 80.0f);
+                    ImGui::TableSetupColumn("% of Total", ImGuiTableColumnFlags_WidthFixed, 80.0f);
+                    ImGui::TableHeadersRow();
+        
+                    for (uint32 i = 0; i < ImageDesc.NumMips; ++i)
+                    {
+                        ImGui::TableNextRow();
+                        
+                        uint32 mipWidth = eastl::max<uint32>(1u, ImageDesc.Extent.x >> i);
+                        uint32 mipHeight = eastl::max<uint32>(1u, ImageDesc.Extent.y >> i);
+                        uint32 mipTexels = mipWidth * mipHeight;
+                        
+                        // Calculate expected memory size
+                        uint32 bytesPerBlock = RHI::Format::BytesPerBlock(ImageDesc.Format);
+                        uint64 expectedSize = (uint64)mipWidth * mipHeight * bytesPerBlock;
+                        
+                        // Get actual size if available
+                        uint64 actualSize = expectedSize;
+                        if (i < Texture->TextureResource->Mips.size())
+                        {
+                            actualSize = Texture->TextureResource->Mips[i].Pixels.size();
+                        }
+                        
+                        float percentOfTotal = totalMipMemory > 0 ? ((float)actualSize / (float)totalMipMemory * 100.0f) : 0.0f;
+        
+                        // Level number
+                        ImGui::TableSetColumnIndex(0);
+                        if (i == 0)
+                        {
+                            ImGui::TextColored(ImVec4(0.5f, 0.9f, 1.0f, 1.0f), "%u", i);
+                        }
+                        else
+                        {
+                            ImGui::Text("%u", i);
+                        }
+        
+                        // Resolution
+                        ImGui::TableSetColumnIndex(1);
+                        ImGui::Text("%ux%u", mipWidth, mipHeight);
+        
+                        // Texel count
+                        ImGui::TableSetColumnIndex(2);
+                        if (mipTexels >= 1000000)
+                        {
+                            ImGui::Text("%.2fM", mipTexels / 1000000.0f);
+                        }
+                        else if (mipTexels >= 1000)
+                        {
+                            ImGui::Text("%.1fK", mipTexels / 1000.0f);
+                        }
+                        else
+                        {
+                            ImGui::Text("%u", mipTexels);
+                        }
+        
+                        // Size
+                        ImGui::TableSetColumnIndex(3);
+                        if (actualSize >= 1024 * 1024)
+                        {
+                            ImGui::Text("%.2f MB", actualSize / (1024.0f * 1024.0f));
+                        }
+                        else if (actualSize >= 1024)
+                        {
+                            ImGui::Text("%.1f KB", actualSize / 1024.0f);
+                        }
+                        else
+                        {
+                            ImGui::Text("%llu B", actualSize);
+                        }
+        
+                        // Percentage
+                        ImGui::TableSetColumnIndex(4);
+                        if (i == 0)
+                        {
+                            ImGui::TextColored(ImVec4(0.9f, 0.7f, 0.4f, 1.0f), "%.1f%%", percentOfTotal);
+                        }
+                        else
+                        {
+                            ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "%.1f%%", percentOfTotal);
+                        }
+                    }
+        
+                    ImGui::EndTable();
                 }
             }
             else
             {
-                memoryStr = eastl::to_string(memorySizeKB) + " KB";
+                ImGui::TextDisabled("No mipmaps generated (single mip level only)");
             }
-            
-            PropertyRow("Memory Size", memoryStr, &memoryColor);
-            PropertyRow("Pixel Count", eastl::to_string(pixelCount));
-
-            ImGui::EndTable();
-        }
-    
+        
             ImGui::Spacing();
             ImGui::Spacing();
-    
+        
+            // === Image Capabilities ===
             ImGuiX::Font::PushFont(ImGuiX::Font::EFont::Large);
             ImGui::SeparatorText("Image Capabilities");
             ImGuiX::Font::PopFont();
             
             ImGui::Spacing();
-    
+        
             struct FlagInfo
             {
                 EImageCreateFlags Flag;
@@ -298,7 +419,7 @@ namespace Lumina
                 const char* Description;
                 ImVec4 Color;
             };
-    
+        
             FlagInfo flags[] = 
             {
                 { EImageCreateFlags::ShaderResource, "Shader Resource", "Can be sampled in shaders", ImVec4(0.5f, 0.8f, 1.0f, 1.0f) },
@@ -310,7 +431,7 @@ namespace Lumina
                 { EImageCreateFlags::CubeCompatible, "Cube Compatible", "Cubemap compatible", ImVec4(0.7f, 0.5f, 1.0f, 1.0f) },
                 { EImageCreateFlags::Aliasable, "Aliasable", "Memory can be aliased", ImVec4(0.8f, 0.8f, 0.8f, 1.0f) }
             };
-    
+        
             bool anyFlagSet = false;
             for (const auto& flagInfo : flags)
             {
@@ -327,24 +448,24 @@ namespace Lumina
                     ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "- %s", flagInfo.Description);
                 }
             }
-    
+        
             if (!anyFlagSet)
             {
                 ImGui::TextDisabled("No special flags set");
             }
-    
+        
             ImGui::Spacing();
             ImGui::Spacing();
-    
+        
             // === Statistics ===
             ImGuiX::Font::PushFont(ImGuiX::Font::EFont::Large);
             ImGui::SeparatorText("Statistics");
             ImGuiX::Font::PopFont();
             
             ImGui::Spacing();
-    
+        
             float aspectRatio = (float)ImageDesc.Extent.x / (float)ImageDesc.Extent.y;
-            uint32 totalTexels = ImageDesc.Extent.x * ImageDesc.Extent.y * ImageDesc.Depth * ImageDesc.ArraySize;
+            uint32 baseTexels = ImageDesc.Extent.x * ImageDesc.Extent.y * ImageDesc.Depth * ImageDesc.ArraySize;
             
             if (ImGui::BeginTable("##Stats", 2, ImGuiTableFlags_BordersInnerV | ImGuiTableFlags_SizingStretchProp))
             {
@@ -361,46 +482,46 @@ namespace Lumina
                 };
                 
                 char aspectStr[32];
-                snprintf(aspectStr, sizeof(aspectStr), "%.3f (%.2f:1)", aspectRatio, aspectRatio);
+                snprintf(aspectStr, sizeof(aspectStr), "%.3f:1", aspectRatio);
                 StatRow("Aspect Ratio:", aspectStr);
                 
-                StatRow("Total Texels:", eastl::to_string(totalTexels));
+                StatRow("Base Mip Texels:", eastl::to_string(baseTexels));
                 
                 if (ImageDesc.NumMips > 1)
                 {
-                    uint32 mipChainSize = 0;
-                    for (int i = 0; i < ImageDesc.NumMips; ++i)
+                    uint64 mipChainTexels = 0;
+                    for (uint32 i = 0; i < ImageDesc.NumMips; ++i)
                     {
                         uint32 mipWidth = eastl::max<uint32>(1u, ImageDesc.Extent.x >> i);
                         uint32 mipHeight = eastl::max<uint32>(1u, ImageDesc.Extent.y >> i);
-                        mipChainSize += mipWidth * mipHeight;
+                        mipChainTexels += mipWidth * mipHeight;
                     }
-                    StatRow("Mip Chain Texels:", eastl::to_string(mipChainSize));
+                    StatRow("Total Mip Texels:", eastl::to_string(mipChainTexels));
+                    
+                    float texelIncrease = ((float)mipChainTexels / (float)baseTexels - 1.0f) * 100.0f;
+                    char texelIncStr[32];
+                    snprintf(texelIncStr, sizeof(texelIncStr), "+%.1f%%", texelIncrease);
+                    StatRow("Texel Increase:", texelIncStr);
                 }
-    
+        
                 ImGui::EndTable();
             }
-    
+        
             ImGui::Spacing();
             ImGui::Spacing();
-    
+        
             // === Quick Actions ===
             ImGuiX::Font::PushFont(ImGuiX::Font::EFont::Large);
             ImGui::SeparatorText("Actions");
             ImGuiX::Font::PopFont();
             
             ImGui::Spacing();
-    
+        
             if (ImGui::Button("Export to File...", ImVec2(-1, 0)))
             {
                 // TODO: Implement export
             }
-    
-            if (ImGui::Button("Generate Mipmaps", ImVec2(-1, 0)))
-            {
-                // TODO: Implement mipmap generation
-            }
-    
+        
             if (ImGui::Button("Analyze Color Distribution", ImVec2(-1, 0)))
             {
                 // TODO: Implement analysis
@@ -440,8 +561,8 @@ namespace Lumina
         FRHICommandListRef CommandList = GRenderContext->CreateCommandList(FCommandListInfo::Graphics());
         CommandList->Open();
     
-        FRHIStagingImageRef StagingImage = GRenderContext->CreateStagingImage(Texture->ImageDescription, ERHIAccess::HostRead);
-        CommandList->CopyImage(Texture->RHIImage, FTextureSlice(), StagingImage, FTextureSlice());
+        FRHIStagingImageRef StagingImage = GRenderContext->CreateStagingImage(Texture->TextureResource->ImageDescription, ERHIAccess::HostRead);
+        CommandList->CopyImage(Texture->TextureResource->RHIImage, FTextureSlice(), StagingImage, FTextureSlice());
     
         CommandList->Close();
         GRenderContext->ExecuteCommandList(CommandList);
@@ -453,8 +574,8 @@ namespace Lumina
             return;
         }
     
-        const uint32 SourceWidth  = Texture->RHIImage->GetDescription().Extent.x;
-        const uint32 SourceHeight = Texture->RHIImage->GetDescription().Extent.y;
+        const uint32 SourceWidth  = Texture->TextureResource->RHIImage->GetDescription().Extent.x;
+        const uint32 SourceHeight = Texture->TextureResource->RHIImage->GetDescription().Extent.y;
         
         CPackage* AssetPackage = Asset->GetPackage();
     

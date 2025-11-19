@@ -112,7 +112,7 @@ namespace Lumina
         bEngineReadyToClose = true;
         bCloseRequested = bApplicationWantsExit;
         
-        if (!Windowing::GetPrimaryWindowHandle()->IsMinimized())
+        if (!Windowing::GetPrimaryWindowHandle()->IsWindowMinimized())
         {
             // Frame Start
             //-------------------------------------------------------------------
@@ -255,7 +255,6 @@ namespace Lumina
     
     void FEngine::SetEngineViewportSize(const glm::uvec2& InSize)
     {
-        LOG_INFO("Changing Engine Viewport Size: X: {}, Y: {}", InSize.x, InSize.y);
         EngineViewport = GRenderContext->CreateViewport(InSize);
     }
 

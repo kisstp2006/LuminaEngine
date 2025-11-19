@@ -145,8 +145,8 @@ namespace Lumina
         CurrentCommandBuffer->AddReferencedResource(Src);
         CurrentCommandBuffer->AddReferencedResource(Dst);
 
-        auto ResolvedDstSlice = DstSlice.Resolve(Dst->DescRef);
-        auto ResolvedSrcSlice = SrcSlice.Resolve(Src->DescRef);
+        FTextureSlice ResolvedDstSlice = DstSlice.Resolve(Dst->DescRef);
+        FTextureSlice ResolvedSrcSlice = SrcSlice.Resolve(Src->DescRef);
 
         if (PendingState.IsInState(EPendingCommandState::AutomaticBarriers))
         {

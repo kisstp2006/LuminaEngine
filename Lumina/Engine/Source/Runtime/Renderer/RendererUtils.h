@@ -5,7 +5,7 @@
 
 namespace Lumina::RenderUtils
 {
-    static uint32 CalculateMipCount(uint32 Width, uint32 Height)
+    inline uint32 CalculateMipCount(uint32 Width, uint32 Height)
     {
         uint32 Levels = 1;
         while (Width > 1 || Height > 1)
@@ -16,5 +16,14 @@ namespace Lumina::RenderUtils
         }
         return Levels;
     }
-    
+
+    inline uint32 GetMipDim(uint32 BaseWidth, uint32 Level)
+    {
+        return std::max(1u, BaseWidth >> Level);
+    }
+
+    inline uint32 GetGroupCount(uint32 ThreadCount, uint32 LocalSize)
+    {
+        return (ThreadCount + LocalSize - 1) / LocalSize;
+    };
 }

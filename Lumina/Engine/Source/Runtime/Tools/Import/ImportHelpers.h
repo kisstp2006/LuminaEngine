@@ -4,10 +4,11 @@
 #include "Containers/Array.h"
 #include "Containers/Name.h"
 #include "Containers/String.h"
-#include "Core/Math/Math.h"
+#include "Core/Templates/Optional.h"
 #include "Memory/SmartPtr.h"
 #include "Module/API.h"
 #include "Platform/Platform.h"
+#include "Renderer/Format.h"
 #include "Renderer/RHIFwd.h"
 
 namespace Lumina
@@ -21,8 +22,15 @@ namespace Lumina::Import
 {
     namespace Textures
     {
+        struct FTextureImportResult
+        {
+            TVector<uint8> Pixels;
+            glm::uvec2 Dimensions;
+            EFormat Format;
+        };
+        
         /** Gets an image's raw pixel data */
-        LUMINA_API glm::uvec2 ImportTexture(TVector<uint8>& OutPixels, const FString& RawFilePath, bool bFlipVertical = true);
+        LUMINA_API TOptional<FTextureImportResult> ImportTexture(const FString& RawFilePath, bool bFlipVertical = true);
     
         /** Creates a raw RHI Image */
         NODISCARD LUMINA_API FRHIImageRef CreateTextureFromImport(IRenderContext* RenderContext, const FString& RawFilePath, bool bFlipVerticalOnLoad = true);

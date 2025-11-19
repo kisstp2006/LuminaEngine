@@ -1,11 +1,15 @@
-#include "pch.h"
 
+
+
+#include "pch.h"
 #include "Window.h"
+
+#include "stb_image.h"
 #include "Core/Application/Application.h"
 #include "Events/ApplicationEvent.h"
+#include "Paths/Paths.h"
 #include "Platform/Platform.h"
 #include "Renderer/RHIIncl.h"
-
 
 
 namespace
@@ -89,13 +93,13 @@ namespace Lumina
 			glfwInitAllocator(&CustomAllocator);
 			glfwInit();
 			glfwSetErrorCallback(GLFWErrorCallback);
-			glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
-			glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-			glfwWindowHint(GLFW_DECORATED, GLFW_FALSE);
-			//glfwWindowHint(GLFW_MAXIMIZED, GLFW_TRUE);
-
 			
+			glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+			glfwWindowHint(GLFW_TITLEBAR, false);
+
 			Window = glfwCreateWindow(800, 400, Specs.Title.c_str(), nullptr, nullptr);
+			glfwSetWindowAttrib(Window, GLFW_RESIZABLE, GLFW_TRUE);
+			
 			if (GLFWmonitor* currentMonitor = GetCurrentMonitor(Window))
 			{
 				int monitorX, monitorY, monitorWidth, monitorHeight;
@@ -112,9 +116,16 @@ namespace Lumina
 				
 
 				LOG_TRACE("Initializing Window: {0} (Width: {1}p Height: {2}p)", Specs.Title, Specs.Extent.x, Specs.Extent.y);
-
-				glfwSetWindowSize(Window, Specs.Extent.x, Specs.Extent.y);
 			}
+
+			glfwSetWindowSize(Window, Specs.Extent.x, Specs.Extent.y);
+
+			GLFWimage Icon;
+			int Channels;
+			FString IconPathStr = Paths::GetEngineResourceDirectory() + "/Textures/Lumina.png";
+			Icon.pixels = stbi_load(IconPathStr.c_str(), &Icon.width, &Icon.height, &Channels, 4);
+			glfwSetWindowIcon(Window, 1, &Icon);
+			stbi_image_free(Icon.pixels);
 			
 			glfwSetWindowUserPointer(Window, this);
 			glfwSetWindowSizeCallback(Window, WindowResizeCallback);
@@ -136,22 +147,24 @@ namespace Lumina
 		glfwPollEvents();
 	}
 
-	bool FWindow::IsMinimized() const
+	bool FWindow::IsWindowMaximized() const
 	{
-		int w, h;
-		glfwGetWindowSize(Window, &w, &h);
-
-		return (w == 0 || h == 0);
+		return glfwGetWindowAttrib(Window, GLFW_MAXIMIZED);
 	}
 
-	void FWindow::GetWindowPos(int& X, int& Y)
+	void FWindow::GetWindowPosition(int& X, int& Y)
 	{
 		glfwGetWindowPos(Window, &X, &Y);
 	}
 
-	void FWindow::SetWindowPos(int X, int Y)
+	void FWindow::SetWindowPosition(int X, int Y)
 	{
 		glfwSetWindowPos(Window, X, Y);
+	}
+
+	void FWindow::SetWindowSize(int X, int Y)
+	{
+		glfwSetWindowSize(Window, X, Y);
 	}
 
 	bool FWindow::ShouldClose() const
@@ -159,10 +172,11 @@ namespace Lumina
 		return glfwWindowShouldClose(Window);
 	}
 
-	bool FWindow::IsMaximized() const
+	bool FWindow::IsWindowMinimized() const
 	{
-		return glfwGetWindowAttrib(Window, GLFW_MAXIMIZED);
+		return glfwGetWindowAttrib(Window, GLFW_ICONIFIED);
 	}
+
 
 	void FWindow::Minimize()
 	{

@@ -32,6 +32,7 @@
 #include "Core/Object/Package/Package.h"
 #include "Core/Profiler/Profile.h"
 #include "Core/Reflection/PropertyCustomization/PropertyCustomization.h"
+#include "Core/Windows/Window.h"
 #include "EASTL/sort.h"
 #include "Platform/Process/PlatformProcess.h"
 #include "Properties/Customizations/CoreTypeCustomization.h"
@@ -96,7 +97,7 @@ namespace Lumina
         CWorld* NewWorld = NewObject<CWorld>();
         WorldEditorTool = CreateTool<FWorldEditorTool>(this, NewWorld);
         
-        WorldEditorTool->GetOnPreviewStartRequestedDelegate().AddLambda([this]
+        (void)WorldEditorTool->GetOnPreviewStartRequestedDelegate().AddLambda([this]
         {
             if (CWorld* PreviewWorld = CWorld::DuplicateWorldForPIE(WorldEditorTool->GetWorld()))
             {
@@ -106,7 +107,7 @@ namespace Lumina
             }
         });
 
-        WorldEditorTool->GetOnPreviewStopRequestedDelegate().AddLambda([this]
+        (void)WorldEditorTool->GetOnPreviewStopRequestedDelegate().AddLambda([this]
         {
             ToolsPendingDestroy.push(GamePreviewTool);
         });
@@ -160,6 +161,7 @@ namespace Lumina
         ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
         ImGui::Begin("EditorDockSpaceWindow", nullptr, WindowFlags);
+        
         ImGui::PopStyleVar(3);
         {
             // Create initial layout

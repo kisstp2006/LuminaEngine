@@ -11,8 +11,7 @@ namespace Lumina
     void CTexture::Serialize(FArchive& Ar)
     {
         Super::Serialize(Ar);
-        Ar << ImageDescription;
-        Ar << Pixels;
+        Ar << *TextureResource.get();
     }
 
     void CTexture::Serialize(IStructuredArchive::FSlot Slot)
@@ -20,23 +19,29 @@ namespace Lumina
         CObject::Serialize(Slot);
     }
 
+    void CTexture::PreLoad()
+    {
+        if (TextureResource == nullptr)
+        {
+            TextureResource = MakeUniquePtr<FTextureResource>();
+        }
+    }
+
     void CTexture::PostLoad()
     {
-        if (ImageDescription.Extent.x == 0 || ImageDescription.Extent.x == 0)
-        {
-            LOG_ERROR("Image {} has an invalid size!: X: {} Y: {}, Image may be corrupt!", ImageDescription.DebugName, ImageDescription.Extent.x, ImageDescription.Extent.y);
-            return;
-        }
-        
-        RHIImage = GRenderContext->CreateImage(ImageDescription);
+        TextureResource->RHIImage = GRenderContext->CreateImage(TextureResource->ImageDescription);
 
-        const uint32 Width = ImageDescription.Extent.x;
-        const uint32 RowPitch = Width * RHI::Format::BytesPerBlock(ImageDescription.Format);
-
-        FRHICommandListRef TransferCommandList = GRenderContext->CreateCommandList(FCommandListInfo::Transfer());
+        FRHICommandListRef TransferCommandList = GRenderContext->CreateCommandList(FCommandListInfo::Compute());
         TransferCommandList->Open();
-        TransferCommandList->WriteImage(RHIImage, 0, 0, Pixels.data(), RowPitch, 1);
+        
+        for (uint8 i = 0; i < TextureResource->Mips.size(); ++i)
+        {
+            FTextureResource::FMip& Mip = TextureResource->Mips[i];
+            const uint32 RowPitch = Mip.RowPitch;
+            TransferCommandList->WriteImage(TextureResource->RHIImage, 0, i, Mip.Pixels.data(), RowPitch, 1);
+        }
+
         TransferCommandList->Close();
-        GRenderContext->ExecuteCommandList(TransferCommandList, ECommandQueue::Transfer);
+        GRenderContext->ExecuteCommandList(TransferCommandList, ECommandQueue::Compute);   
     }
 }

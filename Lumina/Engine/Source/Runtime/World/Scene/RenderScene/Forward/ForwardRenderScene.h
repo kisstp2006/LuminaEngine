@@ -46,7 +46,7 @@ namespace Lumina
 
         void InitBuffers();
         void InitImages();
-        void InitResources();
+        void InitFrameResources();
 
         static FViewportState MakeViewportStateFromImage(const FRHIImage* Image);
 

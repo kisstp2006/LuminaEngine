@@ -4,6 +4,8 @@
 #include "Memory/RefCounted.h"
 #include "Renderer/RenderResource.h"
 #include "Texture.generated.h"
+#include "Memory/SmartPtr.h"
+#include "Renderer/TextureData.h"
 
 namespace Lumina
 {
@@ -18,15 +20,16 @@ namespace Lumina
         
         void Serialize(FArchive& Ar) override;
         void Serialize(IStructuredArchive::FSlot Slot) override;
+        void PreLoad() override;
         void PostLoad() override;
-
-        FORCEINLINE FRHIImageRef GetRHIRef() const { return RHIImage; }
-
         bool IsAsset() const override { return true; }
+
+
+        FORCEINLINE FRHIImage* GetRHIRef() const { return TextureResource.get() ? TextureResource->RHIImage : nullptr; }
+        FTextureResource* GetTextureResource() const { return TextureResource.get(); }
+        uint8 GetNumMips() const { return TextureResource.get() ? TextureResource->Mips.size() : 0u; }
         
-        FRHIImageDesc   ImageDescription;
-        TVector<uint8>  Pixels;
-        FRHIImageRef    RHIImage;
- 
+        
+        TUniquePtr<FTextureResource> TextureResource;
     };
 }

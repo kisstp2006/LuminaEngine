@@ -28,30 +28,30 @@ namespace Lumina
         
         template<typename TFunc>
         requires(eastl::is_invocable_r_v<R, TFunc, TArgs...>)
-        static TBaseDelegate CreateStatic(TFunc&& func)
+        static TBaseDelegate CreateStatic(TFunc&& Func)
         {
             TBaseDelegate Delegate;
-            Delegate.Func = eastl::forward<TFunc>(func);
+            Delegate.Func = eastl::forward<TFunc>(Func);
             return Delegate;
         }
 
         template<typename TObject, typename TMemFunc>
-        static TBaseDelegate CreateMember(TObject* object, TMemFunc method)
+        static TBaseDelegate CreateMember(TObject* Object, TMemFunc Method)
         {
             TBaseDelegate Delegate;
-            Delegate.Func = [object, method](TArgs... args) -> R
+            Delegate.Func = [Object, Method](TArgs... args) -> R
             {
-                return (object->*method)(eastl::forward<TArgs>(args)...);
+                return (Object->*Method)(eastl::forward<TArgs>(args)...);
             };
             return Delegate;
         }
 
         template<typename TLambda>
         requires(eastl::is_invocable_r_v<R, TLambda, TArgs...>)
-        static TBaseDelegate CreateLambda(TLambda&& lambda)
+        static TBaseDelegate CreateLambda(TLambda&& Lambda)
         {
             TBaseDelegate Delegate;
-            Delegate.Func = eastl::forward<TLambda>(lambda);
+            Delegate.Func = eastl::forward<TLambda>(Lambda);
             return Delegate;
         }
 
@@ -86,26 +86,26 @@ namespace Lumina
         using FBase = TBaseDelegate<R, Args...>;
 
         template<typename TFunc>
-        NODISCARD FDelegateHandle AddStatic(TFunc&& func)
+        NODISCARD FDelegateHandle AddStatic(TFunc&& Func)
         {
             FDelegateHandle Handle = GenerateHandle();
-            InvocationList.push_back({Handle, FBase::CreateStatic(eastl::forward<TFunc>(func))});
+            InvocationList.push_back({Handle, FBase::CreateStatic(eastl::forward<TFunc>(Func))});
             return Handle;
         }
 
         template<typename TObject, typename TMemFunc>
-        NODISCARD FDelegateHandle AddMember(TObject* object, TMemFunc method)
+        NODISCARD FDelegateHandle AddMember(TObject* Object, TMemFunc Method)
         {
             FDelegateHandle Handle = GenerateHandle();
-            InvocationList.push_back({Handle, FBase::CreateMember(object, method)});
+            InvocationList.push_back({Handle, FBase::CreateMember(Object, Method)});
             return Handle;
         }
 
         template<typename TLambda>
-        NODISCARD FDelegateHandle AddLambda(TLambda&& lambda)
+        NODISCARD FDelegateHandle AddLambda(TLambda&& Lambda)
         {
             FDelegateHandle Handle = GenerateHandle();
-            InvocationList.push_back({Handle, FBase::CreateLambda(eastl::forward<TLambda>(lambda))});
+            InvocationList.push_back({Handle, FBase::CreateLambda(eastl::forward<TLambda>(Lambda))});
             return Handle;
         }
 
@@ -179,7 +179,7 @@ namespace Lumina
             FBase Delegate;
         };
 
-        FDelegateHandle GenerateHandle()
+        static FDelegateHandle GenerateHandle()
         {
             static uint64 NextID = 1;
             FDelegateHandle Handle;

@@ -40,7 +40,7 @@ namespace Lumina
 
         /** An ImTextureID in this context is castable to a VkDescriptorSet. */
         LUMINA_API ImTextureID GetOrCreateImTexture(const FString& Path) override;
-        LUMINA_API ImTextureID GetOrCreateImTexture(FRHIImageRef Image) override;
+        LUMINA_API ImTextureID GetOrCreateImTexture(FRHIImage* Image, const FTextureSubresourceSet& Subresources = AllSubresources) override;
         void DestroyImTexture(ImTextureRef Image) override;
         
     private:

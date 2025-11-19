@@ -337,7 +337,7 @@ namespace Lumina
 
     void FMaterialCompiler::TextureSample(const FString& ID, CTexture* Texture, CMaterialInput* Input)
     {
-        if (Texture == nullptr || Texture->RHIImage == nullptr)
+        if (Texture == nullptr || Texture->TextureResource == nullptr || !Texture->TextureResource->RHIImage.IsValid())
         {
             return;
         }

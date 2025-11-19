@@ -54,7 +54,6 @@ namespace Lumina
     	SwapchainExtent = Extent;
     	VkDevice Device = Context->GetDevice()->GetDevice();
     	
-
     	if (bFromResize == false)
     	{
 			VK_CHECK(glfwCreateWindowSurface(Instance, Window->GetWindow(), VK_ALLOC_CALLBACK, &Surface));
@@ -67,6 +66,8 @@ namespace Lumina
     	SurfaceFormat				= {};
         SurfaceFormat.format		= VK_FORMAT_B8G8R8A8_UNORM;
     	SurfaceFormat.colorSpace	= VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+
+    	LOG_TRACE("Creating Vulkan Swapchain - Format {} - Width: {} - Height: {}", "VK_FORMAT_B8G8R8A8_UNORM", Extent.x, Extent.y);
 
         auto vkbSwapchain = SwapchainBuilder
             .set_desired_format(SurfaceFormat)

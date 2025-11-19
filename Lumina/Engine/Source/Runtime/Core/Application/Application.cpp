@@ -86,7 +86,7 @@ namespace Lumina
 
     void FApplication::WindowResized(FWindow* Window, const glm::uvec2& Extent)
     {
-        if (!Window->IsMinimized())
+        if (!Window->IsWindowMinimized())
         {
             GEngine->SetEngineViewportSize(Extent);
 

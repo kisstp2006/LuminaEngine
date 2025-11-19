@@ -289,7 +289,14 @@ namespace Lumina
 
         for (uint32 i = 0; i < NumCommandLists; ++i)
         {
-            auto* VulkanCommandList = static_cast<FVulkanCommandList*>(CommandLists[i]);
+            FVulkanCommandList* VulkanCommandList = static_cast<FVulkanCommandList*>(CommandLists[i]);
+            ECommandQueue CommandListType = VulkanCommandList->GetCommandListInfo().CommandQueue;
+            if (CommandListType != Type)
+            {
+                LOG_CRITICAL("Attempted to submit a command buffer to queue type {} but was a {} command buffer!", (uint32)Type, (uint32)CommandListType);
+                continue;
+            }
+            
             auto& TrackedBuffer = VulkanCommandList->CurrentCommandBuffer;
 
             Assert(TrackedBuffer->Queue == this)
@@ -622,7 +629,6 @@ namespace Lumina
         RenderGraph.AddPass<RG_Raster>(FRGEvent("Swapchain Copy"), Descriptor, [&](ICommandList& CmdList)
         {
             CmdList.CopyImage(GEngine->GetEngineViewport()->GetRenderTarget(), FTextureSlice(), Swapchain->GetCurrentImage(), FTextureSlice());
-
         });
 
         RenderGraph.Execute();
@@ -684,15 +690,16 @@ namespace Lumina
     
     void FVulkanRenderContext::CreateDevice(vkb::Instance Instance)
     {
-        VkPhysicalDeviceFeatures DeviceFeatures = {};
-        DeviceFeatures.fragmentStoresAndAtomics = VK_TRUE;
-        DeviceFeatures.samplerAnisotropy        = VK_TRUE;
-        DeviceFeatures.sampleRateShading        = VK_TRUE;
-        DeviceFeatures.fillModeNonSolid         = VK_TRUE;
-        DeviceFeatures.wideLines                = VK_TRUE; // @TODO Don't keep this.
-        DeviceFeatures.imageCubeArray           = VK_TRUE;
-        DeviceFeatures.multiViewport            = VK_TRUE;
-        DeviceFeatures.multiDrawIndirect        = VK_TRUE;
+        VkPhysicalDeviceFeatures DeviceFeatures             = {};
+        DeviceFeatures.fragmentStoresAndAtomics             = VK_TRUE;
+        DeviceFeatures.samplerAnisotropy                    = VK_TRUE;
+        DeviceFeatures.sampleRateShading                    = VK_TRUE;
+        DeviceFeatures.fillModeNonSolid                     = VK_TRUE;
+        DeviceFeatures.wideLines                            = VK_TRUE; // @TODO Don't keep this.
+        DeviceFeatures.imageCubeArray                       = VK_TRUE;
+        DeviceFeatures.multiViewport                        = VK_TRUE;
+        DeviceFeatures.multiDrawIndirect                    = VK_TRUE;
+        DeviceFeatures.shaderStorageImageWriteWithoutFormat = VK_TRUE;
 
         VkPhysicalDeviceVulkan11Features Features11 = {};
         Features11.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_FEATURES;

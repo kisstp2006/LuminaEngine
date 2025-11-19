@@ -37,7 +37,9 @@ namespace Lumina
         
         DebugVisualizationMode = ERenderSceneDebugFlags::None;
         SceneViewport = GRenderContext->CreateViewport(Windowing::GetPrimaryWindowHandle()->GetExtent());
-        InitResources();
+
+        InitBuffers();
+        InitFrameResources();
 
         SwapchainResizedHandle = FRenderManager::OnSwapchainResized.AddMember(this, &FForwardRenderScene::SwapchainResized); 
 
@@ -107,7 +109,8 @@ namespace Lumina
     void FForwardRenderScene::SwapchainResized(glm::vec2 NewSize)
     {
         SceneViewport = GRenderContext->CreateViewport(NewSize);
-        InitResources();
+        
+        InitFrameResources();
         BindingCache.ReleaseResources();
     }
 
@@ -533,7 +536,7 @@ namespace Lumina
             Descriptor->AddRawWrite(SimpleVertexBuffer);
             Descriptor->AddRawWrite(LightDataBuffer);
             
-            RenderGraph.AddPass<RG_Raster>(FRGEvent("Write Scene Buffers"), Descriptor, [&](ICommandList& CmdList)
+            RenderGraph.AddPass<RG_Raster>(FRGEvent("Write Scene Buffers"), Descriptor, [this](ICommandList& CmdList)
             {
                 LUMINA_PROFILE_SECTION_COLORED("Write Scene Buffers", tracy::Color::OrangeRed3);
         
@@ -556,7 +559,7 @@ namespace Lumina
                 CmdList.CommitBarriers();
                 
                 CmdList.DisableAutomaticBarriers();
-                CmdList.WriteBuffer(SceneDataBuffer, &SceneGlobalData, 0);
+                CmdList.WriteBuffer(SceneDataBuffer, &SceneGlobalData);
                 CmdList.WriteBuffer(InstanceDataBuffer, InstanceData.data(), 0, InstanceDataSize);
                 CmdList.WriteBuffer(IndirectDrawBuffer, IndirectDrawArguments.data(), 0, IndirectArgsSize);
                 CmdList.WriteBuffer(SimpleVertexBuffer, SimpleVertices.data(), 0, SimpleVertexSize);
@@ -1561,9 +1564,8 @@ namespace Lumina
         
     }
 
-    void FForwardRenderScene::InitResources()
+    void FForwardRenderScene::InitFrameResources()
     {
-        InitBuffers();
         InitImages();
         
         {
