@@ -31,6 +31,12 @@ namespace Lumina
     {
     public:
 
+        enum class EProjectManagerTab
+        {
+            OpenProject = 0,
+            NewProject = 1
+        };
+
         using FUITransactionManager = TTransactionManager<FDeleteAssetTransaction>;
         
         FEditorUI() = default;
@@ -84,7 +90,7 @@ namespace Lumina
         void DrawProjectMenu();
         void DrawToolsMenu();
         void DrawHelpMenu();
-        void OpenProjectDialog();
+        void OpenProjectManagerDialog(EProjectManagerTab DefaultTab);
         void NewProjectDialog();
         void ConfigSettingsDialog();
         
@@ -128,6 +134,10 @@ namespace Lumina
         float                                           SmoothedFrameTime = 16.67f;
         static constexpr float                          FPSSmoothingFactor = 0.01f;
         static constexpr float                          ObjectSmoothingFactor = 0.05f;
+
+        EProjectManagerTab CurrentProjectManagerTab = EProjectManagerTab::OpenProject;
+        bool bIsProjectManagerOpen = false;
+
     };
 
     template <typename T, typename ... Args>

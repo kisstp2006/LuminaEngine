@@ -549,7 +549,7 @@ namespace Lumina
 
         if (GEditorEngine->GetProjectName().empty())
         {
-            OpenProjectDialog();
+            OpenProjectManagerDialog(EProjectManagerTab::OpenProject);
         }
         
         ModalManager.DrawDialogue();
@@ -2279,15 +2279,14 @@ namespace Lumina
         {
             return;
         }
-
-        //if (ImGui::MenuItem(LE_ICON_FOLDER_OPEN " Open Project...", "Ctrl+O"))
-        //{
-        //    OpenProjectDialog();
-        //}
     
         if (ImGui::MenuItem(LE_ICON_FOLDER_PLUS " New Project...", "Ctrl+N"))
         {
-            NewProjectDialog();
+            OpenProjectManagerDialog(EProjectManagerTab::NewProject);
+        }
+        if (ImGui::MenuItem(LE_ICON_FOLDER_OPEN " Open Project...", "Ctrl+"))
+        {
+            OpenProjectManagerDialog(EProjectManagerTab::OpenProject);
         }
     
         ImGui::Separator();
@@ -2456,230 +2455,262 @@ namespace Lumina
         ImGui::EndMenu();
     }
 
-    void FEditorUI::OpenProjectDialog()
+    void FEditorUI::OpenProjectManagerDialog(EProjectManagerTab DefaultTab)
     {
-        ModalManager.CreateDialogue("Open Project", ImVec2(1000, 650), [this] () -> bool
+        
+        bIsProjectManagerOpen = true;
+        bool bNeedsTabSet = true;
+
+        ModalManager.CreateDialogue("Project Manager", ImVec2(1000, 650), [this, DefaultTab, &bNeedsTabSet] () -> bool
         {
             bool bShouldClose = false;
 
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.9f, 0.9f, 1.0f));
-            ImGui::TextWrapped(LE_ICON_FOLDER_OPEN " Select a project to open or browse for an existing project");
-            ImGui::PopStyleColor();
+            ImGuiTabItemFlags openTabFlags = (DefaultTab == EProjectManagerTab::OpenProject && bNeedsTabSet)
+                ? ImGuiTabItemFlags_SetSelected : ImGuiTabItemFlags_None;
 
-            ImGui::Spacing();
-            ImGui::Separator();
-            ImGui::Spacing();
-
-            ImGui::BeginChild("ProjectContent", ImVec2(0, -50), false);
+            ImGuiTabItemFlags newTabFlags = (DefaultTab == EProjectManagerTab::NewProject && bNeedsTabSet)
+                ? ImGuiTabItemFlags_SetSelected : ImGuiTabItemFlags_None;
+            
+            if (ImGui::BeginTabBar("ProjectManager"))
             {
-                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.4f, 0.7f, 1.0f, 1.0f));
-                ImGui::Text(LE_ICON_FOLDER_OPEN " Example Projects");
-                ImGui::PopStyleColor();
-                ImGui::Spacing();
-
-                ImGui::BeginChild("ProjectCards", ImVec2(0, 0), false);
+               
+                if (ImGui::BeginTabItem("Open Project",nullptr, openTabFlags))
                 {
-                    const float CardWidth = 280.0f;
-                    const float CardHeight = 200.0f;
-                    const float Padding = 16.0f;
+                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.9f, 0.9f, 1.0f));
+                    ImGui::TextWrapped(LE_ICON_FOLDER_OPEN " Select a project to open or browse for an existing project");
+                    ImGui::PopStyleColor();
 
-                    float availWidth = ImGui::GetContentRegionAvail().x;
-                    int CardsPerRow = Math::Max(1, (int)((availWidth + Padding) / (CardWidth + Padding)));
+                    ImGui::Spacing();
+                    ImGui::Separator();
+                    ImGui::Spacing();
+
+                    ImGui::BeginChild("ProjectContent", ImVec2(0, -50), false);
+                    {
+                        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.4f, 0.7f, 1.0f, 1.0f));
+                        ImGui::Text(LE_ICON_FOLDER_OPEN " Example Projects");
+                        ImGui::PopStyleColor();
+                        ImGui::Spacing();
+
+                        ImGui::BeginChild("ProjectCards", ImVec2(0, 0), false);
+                        {
+                            const float CardWidth = 280.0f;
+                            const float CardHeight = 200.0f;
+                            const float Padding = 16.0f;
+
+                            float availWidth = ImGui::GetContentRegionAvail().x;
+                            int CardsPerRow = Math::Max(1, (int)((availWidth + Padding) / (CardWidth + Padding)));
+
+                            ImGui::BeginGroup();
+                            {
+                                ImVec2 CursorPos = ImGui::GetCursorScreenPos();
+                                ImDrawList* drawList = ImGui::GetWindowDrawList();
+
+                                ImVec4 cardBgColor = ImVec4(0.15f, 0.15f, 0.16f, 1.0f);
+                                ImVec4 cardBgHoverColor = ImVec4(0.18f, 0.18f, 0.19f, 1.0f);
+                                ImVec4 accentColor = ImVec4(0.3f, 0.6f, 1.0f, 1.0f);
+
+                                ImGui::PushStyleColor(ImGuiCol_Button, cardBgColor);
+                                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, cardBgHoverColor);
+                                ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.2f, 0.2f, 0.21f, 1.0f));
+                                ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
+                                ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(18, 18));
+
+                                if (ImGui::Button("##SandboxCard", ImVec2(CardWidth, CardHeight)))
+                                {
+                                    FString SandboxProjectDirectory = Paths::GetEngineDirectory() + "/Sandbox/Sandbox.lproject";
+                                    GEditorEngine->LoadProject(SandboxProjectDirectory);
+                                    OnProjectLoaded();
+                                    bShouldClose = true;
+                                }
+
+                                ImGui::PopStyleVar(2);
+                                ImGui::PopStyleColor(3);
+
+                                drawList->AddRectFilled(
+                                    CursorPos,
+                                    ImVec2(CursorPos.x + CardWidth, CursorPos.y + 4),
+                                    ImGui::GetColorU32(accentColor)
+                                );
+
+                                ImGui::SetCursorScreenPos(ImVec2(CursorPos.x + 16, CursorPos.y + 20));
+                                ImGui::Dummy(ImVec2(0, 0));
+
+                                ImGui::BeginGroup();
+                                {
+                                    ImVec2 iconPos = ImGui::GetCursorScreenPos();
+                                    drawList->AddCircleFilled(
+                                        ImVec2(iconPos.x + 20, iconPos.y + 20),
+                                        20.0f,
+                                        ImGui::GetColorU32(ImVec4(0.3f, 0.6f, 1.0f, 0.2f))
+                                    );
+
+                                    ImGui::PushStyleColor(ImGuiCol_Text, accentColor);
+                                    ImGui::SetCursorScreenPos(ImVec2(iconPos.x + 10, iconPos.y + 10));
+                                    ImGui::Text(LE_ICON_FOLDER_OPEN);
+                                    ImGui::PopStyleColor();
+
+                                    ImGui::SetCursorScreenPos(ImVec2(CursorPos.x + 16, iconPos.y + 50));
+
+                                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+                                    ImGui::Text("Sandbox Project");
+                                    ImGui::PopStyleColor();
+
+                                    ImGui::Spacing();
+
+                                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.7f, 0.7f, 0.7f, 1.0f));
+                                    ImGui::BeginChild("##SandboxDesc", ImVec2(CardWidth - 32, 60), false, ImGuiWindowFlags_NoScrollbar);
+                                    ImGui::TextWrapped("A basic sandbox environment for testing and experimentation. Perfect for learning the engine basics.");
+                                    ImGui::EndChild();
+                                    ImGui::PopStyleColor();
+
+                                    ImGui::SetCursorScreenPos(ImVec2(CursorPos.x + 16, CursorPos.y + CardHeight - 30));
+
+                                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.5f, 0.8f, 0.5f, 1.0f));
+                                    ImGui::Text("Example Project");
+                                    ImGui::PopStyleColor();
+
+                                    ImGui::EndGroup();
+                                }
+                            }
+                            ImGui::EndGroup();
+
+
+                            ImGui::EndChild();
+                        }
+
+                        ImGui::EndChild();
+                    }
+
+                    ImGui::Separator();
+                    ImGui::Spacing();
 
                     ImGui::BeginGroup();
                     {
-                        ImVec2 CursorPos = ImGui::GetCursorScreenPos();
-                        ImDrawList* drawList = ImGui::GetWindowDrawList();
+                        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.6f, 1.0f, 1.0f));
+                        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.4f, 0.7f, 1.0f, 1.0f));
+                        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.2f, 0.5f, 0.9f, 1.0f));
 
-                        ImVec4 cardBgColor = ImVec4(0.15f, 0.15f, 0.16f, 1.0f);
-                        ImVec4 cardBgHoverColor = ImVec4(0.18f, 0.18f, 0.19f, 1.0f);
-                        ImVec4 accentColor = ImVec4(0.3f, 0.6f, 1.0f, 1.0f);
-
-                        ImGui::PushStyleColor(ImGuiCol_Button, cardBgColor);
-                        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, cardBgHoverColor);
-                        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.2f, 0.2f, 0.21f, 1.0f));
-                        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
-                        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(18, 18));
-
-                        if (ImGui::Button("##SandboxCard", ImVec2(CardWidth, CardHeight)))
+                        if (ImGui::Button(LE_ICON_FOLDER_OPEN " Browse for Project...", ImVec2(200, 32)))
                         {
-                            FString SandboxProjectDirectory = Paths::GetEngineDirectory() + "/Sandbox/Sandbox.lproject";
-                            GEditorEngine->LoadProject(SandboxProjectDirectory);
-                            OnProjectLoaded();
+                            FFixedString Project;
+                            if (Platform::OpenFileDialogue(
+                                Project,
+                                "Open Project",
+                                "Lumina Project (*.lproject)\0*.lproject\0All Files (*.*)\0*.*\0",
+                                nullptr
+                            ))
+                            {
+                                GEditorEngine->LoadProject(Project);
+                                OnProjectLoaded();
+                                bShouldClose = true;
+                            }
+                        }
+
+                        ImGui::PopStyleColor(3);
+
+                        ImGui::SameLine(ImGui::GetContentRegionAvail().x - 120);
+
+                        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
+                        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.3f, 0.3f, 1.0f));
+                        ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.15f, 0.15f, 0.15f, 1.0f));
+
+                        if (ImGui::Button("Cancel", ImVec2(120, 32)))
+                        {
                             bShouldClose = true;
                         }
 
-                        ImGui::PopStyleVar(2);
                         ImGui::PopStyleColor(3);
 
-                        drawList->AddRectFilled(
-                            CursorPos,
-                            ImVec2(CursorPos.x + CardWidth, CursorPos.y + 4),
-                            ImGui::GetColorU32(accentColor)
-                        );
+                        ImGui::EndGroup();
+                    }
+                    ImGui::EndTabItem();
+                }
+                if (DefaultTab == EProjectManagerTab::NewProject) {
+                    ImGui::SetNextItemOpen(true);
+                }
+                if (ImGui::BeginTabItem("New Project", nullptr, newTabFlags))
+                {
+                    ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), LE_ICON_FOLDER_PLUS " Create a new Lumina project");
+                    ImGui::Separator();
+                    ImGui::Spacing();
 
-                        ImGui::SetCursorScreenPos(ImVec2(CursorPos.x + 16, CursorPos.y + 20));
-                        ImGui::Dummy(ImVec2(0, 0));
+                    static char NewProjectName[256] = "MyProject";
+                    static char NewProjectPath[512] = "";
 
-                        ImGui::BeginGroup();
+                    ImGui::Text("Project Name:");
+                    ImGui::SetNextItemWidth(-1);
+                    ImGui::InputText("##ProjectName", NewProjectName, sizeof(NewProjectName));
+
+                    ImGui::Spacing();
+
+                    ImGui::Text("Project Location:");
+                    ImGui::SetNextItemWidth(-120);
+                    ImGui::InputText("##ProjectPath", NewProjectPath, sizeof(NewProjectPath));
+                    ImGui::SameLine();
+                    if (ImGui::Button("Browse...", ImVec2(110, 0)))
+                    {
+                        FFixedString File;
+                        if (Platform::OpenFileDialogue(File, "Browse..."))
                         {
-                            ImVec2 iconPos = ImGui::GetCursorScreenPos();
-                            drawList->AddCircleFilled(
-                                ImVec2(iconPos.x + 20, iconPos.y + 20),
-                                20.0f,
-                                ImGui::GetColorU32(ImVec4(0.3f, 0.6f, 1.0f, 0.2f))
-                            );
-
-                            ImGui::PushStyleColor(ImGuiCol_Text, accentColor);
-                            ImGui::SetCursorScreenPos(ImVec2(iconPos.x + 10, iconPos.y + 10));
-                            ImGui::Text(LE_ICON_FOLDER_OPEN);
-                            ImGui::PopStyleColor();
-
-                            ImGui::SetCursorScreenPos(ImVec2(CursorPos.x + 16, iconPos.y + 50));
-
-                            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
-                            ImGui::Text("Sandbox Project");
-                            ImGui::PopStyleColor();
-
-                            ImGui::Spacing();
-
-                            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.7f, 0.7f, 0.7f, 1.0f));
-                            ImGui::BeginChild("##SandboxDesc", ImVec2(CardWidth - 32, 60), false, ImGuiWindowFlags_NoScrollbar);
-                            ImGui::TextWrapped("A basic sandbox environment for testing and experimentation. Perfect for learning the engine basics.");
-                            ImGui::EndChild();
-                            ImGui::PopStyleColor();
-
-                            ImGui::SetCursorScreenPos(ImVec2(CursorPos.x + 16, CursorPos.y + CardHeight - 30));
-
-                            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.5f, 0.8f, 0.5f, 1.0f));
-                            ImGui::Text("Example Project");
-                            ImGui::PopStyleColor();
-
-                            ImGui::EndGroup();
+                            strncpy_s(NewProjectPath, sizeof(NewProjectPath), File.c_str(), _TRUNCATE);
                         }
                     }
-                    ImGui::EndGroup();
 
+                    ImGui::Spacing();
+                    ImGui::Separator();
+                    ImGui::Spacing();
 
-                    ImGui::EndChild();
-                }
-
-                ImGui::EndChild();
-            }
-
-            ImGui::Separator();
-            ImGui::Spacing();
-
-            ImGui::BeginGroup();
-            {
-                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.3f, 0.6f, 1.0f, 1.0f));
-                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.4f, 0.7f, 1.0f, 1.0f));
-                ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.2f, 0.5f, 0.9f, 1.0f));
-
-                if (ImGui::Button(LE_ICON_FOLDER_OPEN " Browse for Project...", ImVec2(200, 32)))
-                {
-                    FFixedString Project;
-                    if (Platform::OpenFileDialogue(
-                        Project,
-                        "Open Project",
-                        "Lumina Project (*.lproject)\0*.lproject\0All Files (*.*)\0*.*\0",
-                        nullptr
-                    ))
+                    ImGui::Text("Project Template:");
+                    ImGui::BeginChild("Templates", ImVec2(0, -50), true);
                     {
-                        GEditorEngine->LoadProject(Project);
-                        OnProjectLoaded();
+                        if (ImGui::Selectable(LE_ICON_CUBE " Blank Project"))
+                        {
+
+                        }
+                    }
+                    ImGui::EndChild();
+
+                    ImGui::Separator();
+                    ImGui::Spacing();
+
+                    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.25f, 0.55f, 0.3f, 1.0f));  
+                    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.30f, 0.65f, 0.36f, 1.0f)); 
+                    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.20f, 0.48f, 0.26f, 1.0f));
+
+                    if (ImGui::Button(LE_ICON_CHECK " Create Project", ImVec2(200, 32)))
+                    {
+                        GEditorEngine->CreateProject(NewProjectName, NewProjectPath);
+                        ImGui::PopStyleColor();
+
+                        ImGuiX::Notifications::NotifySuccess("Successfully created project, please close the engine and relaunch");
+                        return true;
+                    }
+                    ImGui::PopStyleColor(3);
+
+                    ImGui::SameLine(ImGui::GetContentRegionAvail().x - 120);
+
+                    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
+                    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.3f, 0.3f, 1.0f));
+                    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.15f, 0.15f, 0.15f, 1.0f));
+
+                    if (ImGui::Button("Cancel", ImVec2(120, 32)))
+                    {
                         bShouldClose = true;
                     }
+
+                    ImGui::PopStyleColor(3);
+
+                    ImGui::EndTabItem();
                 }
-
-                ImGui::PopStyleColor(3);
-
-                ImGui::SameLine(ImGui::GetContentRegionAvail().x - 120);
-
-                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
-                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.3f, 0.3f, 0.3f, 1.0f));
-                ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.15f, 0.15f, 0.15f, 1.0f));
-
-                if (ImGui::Button("Cancel", ImVec2(120, 32)))
-                {
-                    bShouldClose = true;
-                }
-
-                ImGui::PopStyleColor(3);
-
-                ImGui::EndGroup();
+                ImGui::EndTabBar();
             }
-
+            if (bShouldClose)
+            {
+                bIsProjectManagerOpen = false; // lezáráskor reset
+            }
+            bNeedsTabSet = false;
             return bShouldClose;
         }, true, false);
-    }
-
-    void FEditorUI::NewProjectDialog()
-    {
-        ModalManager.CreateDialogue("New Project", ImVec2(900, 600), [this] () -> bool
-        {
-            ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), LE_ICON_FOLDER_PLUS " Create a new Lumina project");
-            ImGui::Separator();
-            ImGui::Spacing();
-            
-            static char NewProjectName[256] = "MyProject";
-            static char NewProjectPath[512] = "";
-            
-            ImGui::Text("Project Name:");
-            ImGui::SetNextItemWidth(-1);
-            ImGui::InputText("##ProjectName", NewProjectName, sizeof(NewProjectName));
-        
-            ImGui::Spacing();
-        
-            ImGui::Text("Project Location:");
-            ImGui::SetNextItemWidth(-120);
-            ImGui::InputText("##ProjectPath", NewProjectPath, sizeof(NewProjectPath));
-            ImGui::SameLine();
-            if (ImGui::Button("Browse...", ImVec2(110, 0)))
-            {
-                FFixedString File;
-                if (Platform::OpenFileDialogue(File,"Browse..."))
-                {
-                    strncpy_s(NewProjectPath, sizeof(NewProjectPath), File.c_str(), _TRUNCATE);
-                }
-            }
-            
-            ImGui::Spacing();
-            ImGui::Separator();
-            ImGui::Spacing();
-            
-            ImGui::Text("Project Template:");
-            ImGui::BeginChild("Templates", ImVec2(0, -40), true);
-            {
-                if (ImGui::Selectable(LE_ICON_CUBE " Blank Project"))
-                {
-                    
-                }
-            }
-            ImGui::EndChild();
-            
-            ImGui::Spacing();
-            
-            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.25f, 0.55f, 0.3f, 1.0f));
-            if (ImGui::Button(LE_ICON_CHECK " Create Project", ImVec2(140, 0)))
-            {
-                GEditorEngine->CreateProject(NewProjectName, NewProjectPath);
-                ImGui::PopStyleColor();
-                
-                ImGuiX::Notifications::NotifySuccess("Successfully created project, please close the engine and relaunch");
-                return true;
-            }
-            ImGui::PopStyleColor();
-            
-            ImGui::SameLine();
-            
-            if (ImGui::Button("Cancel", ImVec2(120, 0)))
-            {
-                return true;
-            }
-            
-            return false;
-        });
     }
 
     void FEditorUI::ConfigSettingsDialog()

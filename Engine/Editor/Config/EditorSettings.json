@@ -3,7 +3,9 @@
         "RecentProjects": [
             "Sandbox",
             "MyProject",
-            "TopDownRPG"
+            "TopDownRPG",
+            "MyLuminaProject",
+            "LuminaTests"
         ],
         "StartupProject": "NULL",
         "WorldEditorTool": {
