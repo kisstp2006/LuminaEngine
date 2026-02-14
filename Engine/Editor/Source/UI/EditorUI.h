@@ -136,7 +136,6 @@ namespace Lumina
         static constexpr float                          ObjectSmoothingFactor = 0.05f;
 
         EProjectManagerTab CurrentProjectManagerTab = EProjectManagerTab::OpenProject;
-        bool bIsProjectManagerOpen = false;
 
     };
 
