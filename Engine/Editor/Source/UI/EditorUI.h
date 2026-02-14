@@ -91,7 +91,6 @@ namespace Lumina
         void DrawToolsMenu();
         void DrawHelpMenu();
         void OpenProjectManagerDialog(EProjectManagerTab DefaultTab);
-        void NewProjectDialog();
         void ConfigSettingsDialog();
         
         void OnProjectLoaded();
