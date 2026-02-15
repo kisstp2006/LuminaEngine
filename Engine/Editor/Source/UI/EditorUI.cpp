@@ -2457,8 +2457,6 @@ namespace Lumina
 
     void FEditorUI::OpenProjectManagerDialog(EProjectManagerTab DefaultTab)
     {
-        
-        
         bool bNeedsTabSet = true;
 
         ModalManager.CreateDialogue("Project Manager", ImVec2(1000, 650), [this, DefaultTab, &bNeedsTabSet] () -> bool
@@ -2500,79 +2498,9 @@ namespace Lumina
                             float availWidth = ImGui::GetContentRegionAvail().x;
                             int CardsPerRow = Math::Max(1, (int)((availWidth + Padding) / (CardWidth + Padding)));
 
-                            ImGui::BeginGroup();
-                            {
-                                ImVec2 CursorPos = ImGui::GetCursorScreenPos();
-                                ImDrawList* drawList = ImGui::GetWindowDrawList();
-
-                                ImVec4 cardBgColor = ImVec4(0.15f, 0.15f, 0.16f, 1.0f);
-                                ImVec4 cardBgHoverColor = ImVec4(0.18f, 0.18f, 0.19f, 1.0f);
-                                ImVec4 accentColor = ImVec4(0.3f, 0.6f, 1.0f, 1.0f);
-
-                                ImGui::PushStyleColor(ImGuiCol_Button, cardBgColor);
-                                ImGui::PushStyleColor(ImGuiCol_ButtonHovered, cardBgHoverColor);
-                                ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.2f, 0.2f, 0.21f, 1.0f));
-                                ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
-                                ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(18, 18));
-
-                                if (ImGui::Button("##SandboxCard", ImVec2(CardWidth, CardHeight)))
-                                {
-                                    FString SandboxProjectDirectory = Paths::GetEngineDirectory() + "/Sandbox/Sandbox.lproject";
-                                    GEditorEngine->LoadProject(SandboxProjectDirectory);
-                                    OnProjectLoaded();
-                                    bShouldClose = true;
-                                }
-
-                                ImGui::PopStyleVar(2);
-                                ImGui::PopStyleColor(3);
-
-                                drawList->AddRectFilled(
-                                    CursorPos,
-                                    ImVec2(CursorPos.x + CardWidth, CursorPos.y + 4),
-                                    ImGui::GetColorU32(accentColor)
-                                );
-
-                                ImGui::SetCursorScreenPos(ImVec2(CursorPos.x + 16, CursorPos.y + 20));
-                                ImGui::Dummy(ImVec2(0, 0));
-
-                                ImGui::BeginGroup();
-                                {
-                                    ImVec2 iconPos = ImGui::GetCursorScreenPos();
-                                    drawList->AddCircleFilled(
-                                        ImVec2(iconPos.x + 20, iconPos.y + 20),
-                                        20.0f,
-                                        ImGui::GetColorU32(ImVec4(0.3f, 0.6f, 1.0f, 0.2f))
-                                    );
-
-                                    ImGui::PushStyleColor(ImGuiCol_Text, accentColor);
-                                    ImGui::SetCursorScreenPos(ImVec2(iconPos.x + 10, iconPos.y + 10));
-                                    ImGui::Text(LE_ICON_FOLDER_OPEN);
-                                    ImGui::PopStyleColor();
-
-                                    ImGui::SetCursorScreenPos(ImVec2(CursorPos.x + 16, iconPos.y + 50));
-
-                                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
-                                    ImGui::Text("Sandbox Project");
-                                    ImGui::PopStyleColor();
-
-                                    ImGui::Spacing();
-
-                                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.7f, 0.7f, 0.7f, 1.0f));
-                                    ImGui::BeginChild("##SandboxDesc", ImVec2(CardWidth - 32, 60), false, ImGuiWindowFlags_NoScrollbar);
-                                    ImGui::TextWrapped("A basic sandbox environment for testing and experimentation. Perfect for learning the engine basics.");
-                                    ImGui::EndChild();
-                                    ImGui::PopStyleColor();
-
-                                    ImGui::SetCursorScreenPos(ImVec2(CursorPos.x + 16, CursorPos.y + CardHeight - 30));
-
-                                    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.5f, 0.8f, 0.5f, 1.0f));
-                                    ImGui::Text("Example Project");
-                                    ImGui::PopStyleColor();
-
-                                    ImGui::EndGroup();
-                                }
-                            }
-                            ImGui::EndGroup();
+                            bShouldClose = FEditorUI::DrawCard("Example Project","A basic sandbox environment for testing and experimentation. Perfect for learning the engine basics.", Paths::GetEngineDirectory() + "/Sandbox/Sandbox.lproject", CardWidth, CardHeight);
+                            bShouldClose = FEditorUI::DrawCard("Example Project2","Another example project with different settings.", Paths::GetEngineDirectory() + "/Sandbox/Sandbox.lproject", CardWidth, CardHeight);
+                            bShouldClose = FEditorUI::DrawCard("Example Project3","A third example project to showcase various features.", Paths::GetEngineDirectory() + "/Sandbox/Sandbox.lproject", CardWidth, CardHeight);
 
 
                             ImGui::EndChild();
@@ -2707,6 +2635,93 @@ namespace Lumina
             bNeedsTabSet = false;
             return bShouldClose;
         }, true, false);
+    }
+
+    bool FEditorUI::DrawCard(FString CardTitle,FString CardDescription, FString ProjectDir, float CardWidth, float CardHeight)
+    {
+        ImGui::BeginGroup();
+        {
+            ImGui::PushID(CardTitle.c_str());
+            ImVec2 CursorPos = ImGui::GetCursorScreenPos();
+            ImDrawList* drawList = ImGui::GetWindowDrawList();
+
+            ImVec4 cardBgColor = ImVec4(0.15f, 0.15f, 0.16f, 1.0f);
+            ImVec4 cardBgHoverColor = ImVec4(0.18f, 0.18f, 0.19f, 1.0f);
+            ImVec4 accentColor = ImVec4(0.3f, 0.6f, 1.0f, 1.0f);
+
+            ImGui::PushStyleColor(ImGuiCol_Button, cardBgColor);
+            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, cardBgHoverColor);
+            ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.2f, 0.2f, 0.21f, 1.0f));
+            ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
+            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(18, 18));
+
+            if (ImGui::Button("##SandboxCard", ImVec2(CardWidth, CardHeight)))
+            {
+                FString ProjectDirectory = Paths::GetEngineDirectory() + "/Sandbox/Sandbox.lproject";
+                GEditorEngine->LoadProject(ProjectDirectory);
+                OnProjectLoaded();
+                return true;
+            }
+
+            ImGui::PopStyleVar(2);
+            ImGui::PopStyleColor(3);
+
+            drawList->AddRectFilled(
+                CursorPos,
+                ImVec2(CursorPos.x + CardWidth, CursorPos.y + 4),
+                ImGui::GetColorU32(accentColor)
+            );
+
+            ImGui::SetCursorScreenPos(ImVec2(CursorPos.x + 16, CursorPos.y + 20));
+            ImGui::Dummy(ImVec2(0, 0));
+
+            ImGui::BeginGroup();
+            {
+                ImVec2 iconPos = ImGui::GetCursorScreenPos();
+                drawList->AddCircleFilled(
+                    ImVec2(iconPos.x + 20, iconPos.y + 20),
+                    20.0f,
+                    ImGui::GetColorU32(ImVec4(0.3f, 0.6f, 1.0f, 0.2f))
+                );
+
+                ImGui::PushStyleColor(ImGuiCol_Text, accentColor);
+                ImGui::SetCursorScreenPos(ImVec2(iconPos.x + 10, iconPos.y + 10));
+                ImGui::Text(LE_ICON_FOLDER_OPEN);
+                ImGui::PopStyleColor();
+
+                ImGui::SetCursorScreenPos(ImVec2(CursorPos.x + 16, iconPos.y + 50));
+
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+                ImGui::Text(CardTitle.c_str());
+                ImGui::PopStyleColor();
+
+                ImGui::Spacing();
+
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.7f, 0.7f, 0.7f, 1.0f));
+                ImGui::BeginChild("##SandboxDesc", ImVec2(CardWidth - 32, 60), false, ImGuiWindowFlags_NoScrollbar);
+                if (!CardDescription.empty())
+                {
+                    ImGui::TextWrapped(CardDescription.c_str());
+                }
+                ImGui::EndChild();
+                ImGui::PopStyleColor();
+
+                ImGui::SetCursorScreenPos(ImVec2(CursorPos.x + 16, CursorPos.y + CardHeight - 30));
+
+                ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.5f, 0.8f, 0.5f, 1.0f));
+                ImGui::Text(CardTitle.c_str());
+                ImGui::PopStyleColor();
+
+
+                ImGui::EndGroup();
+
+
+				ImGui::SameLine();
+            }
+        }
+        ImGui::EndGroup();
+        ImGui::PopID();
+		return false;
     }
 
     void FEditorUI::ConfigSettingsDialog()

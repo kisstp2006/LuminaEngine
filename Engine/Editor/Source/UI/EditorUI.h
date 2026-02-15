@@ -91,6 +91,7 @@ namespace Lumina
         void DrawToolsMenu();
         void DrawHelpMenu();
         void OpenProjectManagerDialog(EProjectManagerTab DefaultTab);
+        bool DrawCard(FString CardTitle="", FString CardDescription = "", FString ProjectDir = "", float CardWidth = 280.0f, float CardHeight = 200.0f);
         void ConfigSettingsDialog();
         
         void OnProjectLoaded();
